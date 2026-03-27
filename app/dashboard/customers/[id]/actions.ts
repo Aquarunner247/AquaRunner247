@@ -1,0 +1,231 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { BodyOfWaterType, EquipmentKind } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+
+async function requireAdmin() {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) redirect("/login");
+  if (appUser.role !== "ADMIN") redirect("/dashboard");
+  return appUser;
+}
+
+export async function updateCustomer(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+  if (!customerId || !name) return;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!customer) return;
+
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      name,
+      notes: notes || null,
+    },
+  });
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customer.id}`);
+}
+
+export async function updateProperty(formData: FormData) {
+  const appUser = await requireAdmin();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!propertyId || !name) return;
+
+  const managerName = String(formData.get("managerName") ?? "").trim();
+  const managerBusinessPhone = String(formData.get("managerBusinessPhone") ?? "").trim();
+  const managerMobilePhone = String(formData.get("managerMobilePhone") ?? "").trim();
+  const managerEmail = String(formData.get("managerEmail") ?? "").trim();
+  const addressLine1 = String(formData.get("addressLine1") ?? "").trim();
+  const addressLine2 = String(formData.get("addressLine2") ?? "").trim();
+  const city = String(formData.get("city") ?? "").trim();
+  const region = String(formData.get("region") ?? "").trim();
+  const postalCode = String(formData.get("postalCode") ?? "").trim();
+
+  const property = await prisma.property.findFirst({
+    where: { id: propertyId, organizationId: appUser.organizationId },
+    select: { id: true, customerId: true },
+  });
+  if (!property) return;
+
+  await prisma.property.update({
+    where: { id: property.id },
+    data: {
+      name,
+      managerName: managerName || null,
+      managerBusinessPhone: managerBusinessPhone || null,
+      managerMobilePhone: managerMobilePhone || null,
+      managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
+      managerEmail: managerEmail || null,
+      addressLine1: addressLine1 || null,
+      addressLine2: addressLine2 || null,
+      city: city || null,
+      region: region || null,
+      postalCode: postalCode || null,
+    },
+  });
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${property.customerId}`);
+}
+
+export async function updateBodyOfWater(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const typeRaw = String(formData.get("type") ?? "").trim();
+  const volumeRaw = String(formData.get("volumeGallons") ?? "").trim();
+  if (!bodyId || !customerId || !name) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: {
+      id: bodyId,
+      property: { organizationId: appUser.organizationId, customerId },
+    },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  const type = (Object.values(BodyOfWaterType) as string[]).includes(typeRaw)
+    ? (typeRaw as BodyOfWaterType)
+    : BodyOfWaterType.POOL;
+  const volume = volumeRaw ? Number(volumeRaw) : null;
+
+  await prisma.bodyOfWater.update({
+    where: { id: body.id },
+    data: {
+      name,
+      type,
+      volumeGallons: Number.isFinite(volume) ? volume : null,
+    },
+  });
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function deleteBodyOfWater(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  if (!bodyId || !customerId) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: {
+      id: bodyId,
+      property: { organizationId: appUser.organizationId, customerId },
+    },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  await prisma.bodyOfWater.delete({ where: { id: body.id } });
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function createEquipment(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const kindRaw = String(formData.get("kind") ?? "").trim();
+  const make = String(formData.get("make") ?? "").trim();
+  const model = String(formData.get("model") ?? "").trim();
+  const serialNumber = String(formData.get("serialNumber") ?? "").trim();
+  if (!customerId || !bodyId) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: {
+      id: bodyId,
+      property: { organizationId: appUser.organizationId, customerId },
+    },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  const kind = (Object.values(EquipmentKind) as string[]).includes(kindRaw)
+    ? (kindRaw as EquipmentKind)
+    : EquipmentKind.OTHER;
+
+  await prisma.equipment.create({
+    data: {
+      bodyOfWaterId: bodyId,
+      kind,
+      make: make || null,
+      model: model || null,
+      serialNumber: serialNumber || null,
+    },
+  });
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function deleteEquipment(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const equipmentId = String(formData.get("equipmentId") ?? "").trim();
+  if (!customerId || !equipmentId) return;
+
+  const equipment = await prisma.equipment.findFirst({
+    where: {
+      id: equipmentId,
+      bodyOfWater: {
+        property: { organizationId: appUser.organizationId, customerId },
+      },
+    },
+    select: { id: true },
+  });
+  if (!equipment) return;
+
+  await prisma.equipment.delete({ where: { id: equipment.id } });
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function deleteCustomer(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  if (!customerId) return;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!customer) return;
+
+  await prisma.$transaction(async (tx) => {
+    const props = await tx.property.findMany({
+      where: { customerId: customer.id, organizationId: appUser.organizationId },
+      select: { id: true },
+    });
+    const propertyIds = props.map((p) => p.id);
+    if (propertyIds.length) {
+      await tx.property.deleteMany({
+        where: {
+          id: { in: propertyIds },
+          organizationId: appUser.organizationId,
+        },
+      });
+    }
+    await tx.customer.delete({ where: { id: customer.id } });
+  });
+
+  revalidatePath("/dashboard/customers");
+  redirect("/dashboard/customers");
+}

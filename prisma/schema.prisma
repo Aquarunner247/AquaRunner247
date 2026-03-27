@@ -1,0 +1,385 @@
+// AquaRunner 24/7 Pro — PostgreSQL (Supabase-ready)
+// Service days: 1–7 weekdays per body of water (ISO 8601: 1=Mon … 7=Sun), validated in app: 1–7 rows, unique.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  OFFICE
+  TECHNICIAN
+}
+
+enum BodyOfWaterType {
+  POOL
+  SPA
+  FOUNTAIN
+  WATER_FEATURE
+  OTHER
+}
+
+enum EquipmentKind {
+  PUMP
+  FILTER
+  HEATER
+  CHLORINATOR
+  AUTOMATION
+  FLOW_METER
+  OTHER
+}
+
+enum ScheduleFrequency {
+  WEEKLY
+  BIWEEKLY
+  CUSTOM
+}
+
+enum VisitStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  customers Customer[]
+  properties Property[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Supabase Auth user id (`auth.users.id`) — set after user is created in Supabase
+  authUserId String? @unique @db.Uuid
+
+  email     String   @unique
+  name      String?
+  role      UserRole @default(TECHNICIAN)
+  phone     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedVisits ServiceVisit[] @relation("VisitTechnician")
+
+  @@index([organizationId])
+}
+
+model Customer {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name       String
+  billingRef String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  properties Property[]
+
+  @@index([organizationId])
+}
+
+model Property {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId     String?
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  name                  String
+  managerName           String?
+  managerBusinessPhone  String?
+  managerMobilePhone    String?
+  managerPhone          String?
+  managerEmail          String?
+  managementCompanyName String?
+  addressLine1          String?
+  addressLine2          String?
+  city                  String?
+  region                String?
+  postalCode            String?
+  country               String? @default("US")
+  latitude              Decimal? @db.Decimal(10, 7)
+  longitude             Decimal? @db.Decimal(10, 7)
+  geofenceMeters        Int?
+  notes                 String?
+
+  publicSlug String @unique @default(cuid())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bodiesOfWater  BodyOfWater[]
+  qrTokens       PropertyQrToken[]
+  visits         ServiceVisit[]
+  recurringStops RecurringStop[]
+
+  @@index([organizationId])
+  @@index([customerId])
+}
+
+model PropertyQrToken {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  token     String    @unique
+  label     String?
+  expiresAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([propertyId])
+}
+
+model BodyOfWater {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  name         String
+  type         BodyOfWaterType @default(POOL)
+  volumeGallons Decimal?        @db.Decimal(12, 2)
+  notes        String?
+
+  /// SNHD log footer: minimum required recirculation flow (GPM)
+  minimumRequiredFlowGpm Decimal? @db.Decimal(10, 2)
+  /// SNHD log footer: maximum filter flow (GPM)
+  maximumFilterFlowGpm   Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  equipment       Equipment[]
+  serviceWeekdays BodyOfWaterServiceWeekday[]
+  visits          ServiceVisit[]
+  recurringStops  RecurringStop[]
+
+  @@index([propertyId])
+}
+
+/// Which weekdays this body is serviced (1=Mon … 7=Sun). Enforce 1–7 distinct rows in application layer.
+model BodyOfWaterServiceWeekday {
+  id            String      @id @default(cuid())
+  bodyOfWaterId String
+  bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+
+  /// ISO 8601 weekday: 1 = Monday through 7 = Sunday
+  weekday   Int
+  createdAt DateTime @default(now())
+
+  @@unique([bodyOfWaterId, weekday])
+  @@index([bodyOfWaterId])
+}
+
+model Equipment {
+  id            String      @id @default(cuid())
+  bodyOfWaterId String
+  bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+
+  kind         EquipmentKind @default(OTHER)
+  make         String?
+  model        String?
+  serialNumber String?
+  installedOn  DateTime?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  serviceEvents EquipmentServiceEvent[]
+
+  @@index([bodyOfWaterId])
+}
+
+model EquipmentServiceEvent {
+  id          String    @id @default(cuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  performedAt       DateTime @default(now())
+  summary           String
+  details           String?
+  performedByUserId String?
+
+  @@index([equipmentId])
+}
+
+model RecurringRoute {
+  id             String @id @default(cuid())
+  organizationId String
+
+  name      String
+  frequency ScheduleFrequency @default(WEEKLY)
+  dayOfWeek Int?
+  active    Boolean           @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stops RecurringStop[]
+
+  @@index([organizationId])
+}
+
+model RecurringStop {
+  id      String         @id @default(cuid())
+  routeId String
+  route   RecurringRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  bodyOfWaterId String?
+  bodyOfWater   BodyOfWater? @relation(fields: [bodyOfWaterId], references: [id], onDelete: SetNull)
+
+  sortOrder        Int @default(0)
+  etaOffsetMinutes Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([routeId])
+  @@index([propertyId])
+}
+
+model ServiceVisit {
+  id             String @id @default(cuid())
+  organizationId String
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  bodyOfWaterId String
+  bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+
+  technicianId String?
+  technician   User?   @relation("VisitTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+
+  scheduledStart DateTime
+  scheduledEnd   DateTime?
+
+  status          VisitStatus @default(SCHEDULED)
+  serviceComplete Boolean     @default(false)
+  techNotes       String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reading         VisitWaterReading?
+  doses           VisitChemicalDose[]
+  photos          VisitPhoto[]
+  issues          VisitIssueFlag[]
+  recommendation ChemistryRecommendation?
+
+  @@index([organizationId, scheduledStart])
+  @@index([technicianId, scheduledStart])
+  @@index([propertyId, scheduledStart])
+  @@index([bodyOfWaterId, scheduledStart])
+}
+
+model VisitWaterReading {
+  id      String       @id @default(cuid())
+  visitId String       @unique
+  visit   ServiceVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  ph               Decimal? @db.Decimal(4, 2)
+  freeChlorinePpm  Decimal? @db.Decimal(6, 2)
+  totalChlorinePpm Decimal? @db.Decimal(6, 2)
+  alkalinityPpm    Decimal? @db.Decimal(8, 2)
+  cyanuricAcidPpm  Decimal? @db.Decimal(8, 2)
+  /// Optional — not required for your SNHD workflow
+  temperatureF     Decimal? @db.Decimal(5, 2)
+
+  filterPressurePsi  Decimal? @db.Decimal(6, 2)
+  vacGaugeReading    Decimal? @db.Decimal(6, 2)
+  pumpPressurePsi    Decimal? @db.Decimal(6, 2)
+  filterGaugeReading Decimal? @db.Decimal(6, 2)
+  flowMeterGpm       Decimal? @db.Decimal(8, 2)
+
+  /// SNHD: time of backwash (if performed this visit)
+  backwashAt DateTime?
+
+  capturedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model VisitChemicalDose {
+  id      String       @id @default(cuid())
+  visitId String
+  visit   ServiceVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  productName String
+  quantity    Decimal @db.Decimal(12, 4)
+  unit        String
+
+  createdAt DateTime @default(now())
+
+  @@index([visitId])
+}
+
+model VisitPhoto {
+  id      String       @id @default(cuid())
+  visitId String
+  visit   ServiceVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  storagePath    String
+  contentType    String?
+  takenAt        DateTime?
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  accuracyMeters Decimal? @db.Decimal(8, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([visitId])
+}
+
+model VisitIssueFlag {
+  id      String       @id @default(cuid())
+  visitId String
+  visit   ServiceVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  code        String
+  description String?
+  severity    IssueSeverity @default(MEDIUM)
+
+  createdAt DateTime @default(now())
+
+  @@index([visitId])
+}
+
+model ChemistryRecommendation {
+  id      String       @id @default(cuid())
+  visitId String       @unique
+  visit   ServiceVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  payload   Json
+  createdAt DateTime @default(now())
+}
