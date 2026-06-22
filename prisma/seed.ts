@@ -1,5 +1,5 @@
 import { PrismaClient, UserRole, BodyOfWaterType, VisitStatus } from "@prisma/client";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const prisma = new PrismaClient();
 
@@ -14,7 +14,7 @@ const AUTH_SPECS: SeedAuthSpec[] = [
 ];
 
 async function resolveAuthUserId(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: SupabaseClient,
   email: string,
   password: string,
 ): Promise<string> {
