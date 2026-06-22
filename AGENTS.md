@@ -55,11 +55,8 @@ The update script only refreshes dependencies; it does NOT start services. On a 
 
 ### Gotchas
 
-- `npm run lint` currently fails before linting any files: `package.json` pins
-  `@eslint/eslintrc@^0.1.0` (resolves to `0.1.3`, which predates the `FlatCompat` export that
-  `eslint.config.mjs` imports) alongside `eslint@^10` and `eslint-config-next@0.2.4`. These
-  declared versions are mutually incompatible; this is a repo dependency-versioning issue, not
-  an environment one. `next build` still type-checks the project.
+- `npm run lint` and `npm run build` both pass. (`next dev --turbopack` does NOT run full type
+  checking, so always run `npm run build` to catch type errors before relying on the app.)
 - `prisma generate` runs as a `postinstall` hook and reads `.env` via `prisma.config.ts`, so it
   fails if `DATABASE_URL` is unset. Keep `.env` present before `npm install`.
 - Photo upload only stores a metadata row (no real binary upload yet), so the "Complete service
