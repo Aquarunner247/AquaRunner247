@@ -8,7 +8,14 @@ export async function getCurrentAppUser() {
   } = await supabase.auth.getUser();
 
   if (!user) return null;
-  const appUser = await getAppUserForAuthUser(user);
-  if (!appUser) return null;
-  return appUser;
+  try {
+    const appUser = await getAppUserForAuthUser(user);
+    if (!appUser) return null;
+    return appUser;
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[AquaRunner] getCurrentAppUser DB error:", e);
+    }
+    return null;
+  }
 }

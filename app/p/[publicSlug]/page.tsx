@@ -1,73 +1,79 @@
-import type { Decimal } from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/prisma";
+import { ReadingChart } from "@/app/components/reading-chart";
+import { BackwashCalendar } from "@/app/components/backwash-calendar";
 
 type PageProps = {
   params: Promise<{ publicSlug: string }>;
-  searchParams?: Promise<{ month?: string }>;
+  searchParams?: Promise<{ month?: string; year?: string; section?: string }>;
 };
 
-function fmt(v: Decimal | null | undefined): string {
-  if (v == null) return "—";
-  return v.toString();
+function daysInMonth(year: number, monthIndex: number) {
+  return new Date(year, monthIndex + 1, 0).getDate();
 }
 
-function toISODate(d: Date) {
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+function monthTitle(year: number, monthIndex: number) {
+  return new Date(year, monthIndex, 1).toLocaleString(undefined, { month: "long", year: "numeric" });
 }
 
-function monthTitle(d: Date) {
-  return d.toLocaleString(undefined, { month: "long", year: "numeric" });
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+const SECTIONS = ["chemistry", "equipment", "backwash"] as const;
+type Section = (typeof SECTIONS)[number];
+
+function fmt(n: number | null, digits = 1) {
+  return n == null ? "–" : n.toFixed(digits);
 }
 
-function parseMonthParam(monthRaw: string | undefined): Date {
-  if (!monthRaw) return new Date();
-  const m = monthRaw.match(/^(\d{4})-(\d{2})$/);
-  if (!m) return new Date();
-  const year = Number(m[1]);
-  const monthIndex = Number(m[2]) - 1;
-  if (!Number.isInteger(year) || !Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
-    return new Date();
-  }
-  return new Date(year, monthIndex, 1);
-}
-
-function toChemicalsText(doses: Array<{ productName: string; quantity: Decimal; unit: string }>): string {
-  if (!doses.length) return "—";
-  return doses.map((dose) => `${dose.productName} ${dose.quantity.toString()} ${dose.unit}`).join("; ");
-}
-
-export default async function PublicPropertyLogPage({ params, searchParams }: PageProps) {
+export default async function PublicBodyOfWaterLogPage({ params, searchParams }: PageProps) {
   const { publicSlug } = await params;
   const sp = (await searchParams) ?? {};
 
-  const monthAnchor = parseMonthParam(sp.month);
-  const monthStart = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth(), 1, 0, 0, 0, 0);
-  const monthEnd = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 0, 23, 59, 59, 999);
+  const now = new Date();
+  const year = Number.isFinite(Number(sp.year)) && sp.year ? Number(sp.year) : now.getFullYear();
+  const monthIndex =
+    Number.isFinite(Number(sp.month)) && sp.month && Number(sp.month) >= 1 && Number(sp.month) <= 12
+      ? Number(sp.month) - 1
+      : now.getMonth();
+  const section: Section = SECTIONS.includes(sp.section as Section) ? (sp.section as Section) : "chemistry";
 
-  const property = await prisma.property.findUnique({
+  const monthStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+  const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+  const totalDays = daysInMonth(year, monthIndex);
+
+  const body = await prisma.bodyOfWater.findUnique({
     where: { publicSlug },
     select: {
       id: true,
       name: true,
-      managerName: true,
-      managerBusinessPhone: true,
-      managerMobilePhone: true,
-      managerPhone: true,
-      addressLine1: true,
-      city: true,
-      region: true,
+      type: true,
+      volumeGallons: true,
+      minimumRequiredFlowGpm: true,
+      maximumFilterFlowGpm: true,
+      property: {
+        select: {
+          name: true,
+          addressLine1: true,
+          city: true,
+          region: true,
+          managerName: true,
+          managerBusinessPhone: true,
+          managementCompany: { select: { name: true } },
+          organization: { select: { name: true } },
+        },
+      },
     },
   });
 
-  if (!property) {
+  if (!body) {
     return (
-      <main className="mx-auto min-h-screen max-w-5xl px-4 py-8">
-        <header className="border-b border-slate-200 pb-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-cyan-800">Public maintenance log</p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-900">Aquatic venue log</h1>
-        </header>
-        <section className="mt-8 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500">
-          No property found for this QR reference.
+      <main className="mx-auto min-h-screen max-w-3xl px-4 py-10">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#0A5FA4]">Public maintenance log</p>
+        <h1 className="mt-1 text-2xl font-semibold text-[#12234A]">Aquatic venue log</h1>
+        <section className="mt-8 rounded-lg border border-dashed border-[#C9E3EC] bg-white p-8 text-center text-[#4A6572]">
+          No body of water found for this QR reference.
         </section>
       </main>
     );
@@ -75,115 +81,292 @@ export default async function PublicPropertyLogPage({ params, searchParams }: Pa
 
   const visits = await prisma.serviceVisit.findMany({
     where: {
-      propertyId: property.id,
+      bodyOfWaterId: body.id,
       status: "COMPLETED",
-      completedAt: { gte: monthStart, lte: monthEnd },
       serviceComplete: true,
+      completedAt: { gte: monthStart, lte: monthEnd },
     },
     orderBy: { completedAt: "asc" },
-    include: {
-      bodyOfWater: { select: { name: true } },
-      technician: { select: { name: true } },
-      reading: true,
-      doses: true,
-      photos: { select: { id: true } },
-      issues: true,
-    },
+    include: { reading: true },
   });
 
+  const byDay = new Map<number, (typeof visits)[number]>();
+  for (const v of visits) {
+    if (!v.completedAt) continue;
+    byDay.set(v.completedAt.getDate(), v);
+  }
+
+  const num = (d: unknown) => (d == null ? null : Number(d));
+
+  // Build one consolidated row per day — feeds both the table and the charts
+  const rows = Array.from({ length: totalDays }, (_, i) => {
+    const day = i + 1;
+    const v = byDay.get(day);
+    const r = v?.reading;
+    const backwashAt = r?.backwashAt ?? null;
+    return {
+      day,
+      visited: Boolean(v),
+      freeChlorinePpm: num(r?.freeChlorinePpm),
+      ph: num(r?.ph),
+      alkalinityPpm: num(r?.alkalinityPpm),
+      cyanuricAcidPpm: num(r?.cyanuricAcidPpm),
+      temperatureF: num(r?.temperatureF),
+      pumpPressurePsi: num(r?.pumpPressurePsi),
+      vacGaugeReading: num(r?.vacGaugeReading),
+      filterPressurePsi: num(r?.filterPressurePsi),
+      flowMeterGpm: num(r?.flowMeterGpm),
+      backwashed: Boolean(backwashAt),
+      backwashTime: backwashAt
+        ? backwashAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+        : null,
+    };
+  });
+
+  const seriesFor = (pick: (row: (typeof rows)[number]) => number | null) =>
+    rows.map((row) => ({ day: row.day, value: pick(row) }));
+
+  const minFlow = body.minimumRequiredFlowGpm != null ? Number(body.minimumRequiredFlowGpm) : undefined;
+  const maxFilterFlow = body.maximumFilterFlowGpm != null ? Number(body.maximumFilterFlowGpm) : undefined;
+  const volumeGallons = body.volumeGallons != null ? Number(body.volumeGallons) : undefined;
+
+  const tempTarget =
+    body.type === "SPA"
+      ? { min: 100, max: 104, domainMin: 90, domainMax: 110 }
+      : { min: 78, max: 84, domainMin: 65, domainMax: 95 };
+  const chlorineMin = body.type === "SPA" ? 3 : 2;
+
+  const prevDate = new Date(year, monthIndex - 1, 1);
+  const nextDate = new Date(year, monthIndex + 1, 1);
+  const linkFor = (d: Date) => `?month=${d.getMonth() + 1}&year=${d.getFullYear()}&section=${section}`;
+  const sectionLinkFor = (s: Section) => `?month=${monthIndex + 1}&year=${year}&section=${s}`;
+
+  const sectionTabClass = (target: Section) =>
+    target === section
+      ? "rounded-md bg-[#0A5FA4] px-4 py-1.5 text-sm font-semibold text-white"
+      : "rounded-md px-4 py-1.5 text-sm font-medium text-[#12234A] hover:bg-white";
+
   return (
-    <main className="mx-auto min-h-screen max-w-7xl px-4 py-8">
-      <header className="border-b border-slate-200 pb-6">
-        <p className="text-xs font-semibold uppercase tracking-wider text-cyan-800">Public maintenance log</p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">{property.name}</h1>
-        {property.managerName ? (
-          <p className="mt-2 text-sm text-slate-600">
-            Manager: <span className="font-medium text-slate-800">{property.managerName}</span>
-            {property.managerBusinessPhone ? <span className="ml-2 text-slate-500">(Biz: {property.managerBusinessPhone})</span> : null}
-            {property.managerMobilePhone ? <span className="ml-2 text-slate-500">(Mobile: {property.managerMobilePhone})</span> : null}
-            {!property.managerBusinessPhone && !property.managerMobilePhone && property.managerPhone ? (
-              <span className="ml-2 text-slate-500">({property.managerPhone})</span>
-            ) : null}
-          </p>
-        ) : null}
-        {property.addressLine1 ? (
-          <p className="mt-1 text-sm text-slate-600">
-            {property.addressLine1}
-            {property.city ? `, ${property.city}` : ""}
-            {property.region ? `, ${property.region}` : ""}
-          </p>
-        ) : null}
-        <p className="mt-3 text-sm text-slate-500">
-          {monthTitle(monthAnchor)} records. Includes an additional chemicals-added column.
+    <main className="mx-auto min-h-screen max-w-6xl px-4 py-8 md:px-6">
+      <header className="border-b border-[#C9E3EC] pb-6">
+        <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wider text-[#0A5FA4]">
+          Public maintenance log — inspector view
         </p>
+        <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-extrabold uppercase tracking-tight text-[#12234A]">
+          {body.name}
+        </h1>
+        <p className="mt-1 text-sm text-[#4A6572]">
+          {body.property.name}
+          {body.property.addressLine1 ? ` — ${body.property.addressLine1}` : ""}
+          {body.property.city ? `, ${body.property.city}` : ""}
+          {body.property.region ? `, ${body.property.region}` : ""}
+        </p>
+
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-[#C9E3EC] bg-white p-4 text-sm sm:grid-cols-3">
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Facility</dt>
+            <dd className="text-[#12234A]">{body.property.name}</dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Operator / service company</dt>
+            <dd className="text-[#12234A]">
+              {body.property.managementCompany?.name || body.property.organization.name}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Service company phone</dt>
+            <dd className="text-[#12234A]">{body.property.managerBusinessPhone || "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Water volume (gal)</dt>
+            <dd className="font-[family-name:var(--font-mono)] text-[#12234A]">
+              {volumeGallons != null ? volumeGallons.toLocaleString() : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Min required flow (GPM)</dt>
+            <dd className="font-[family-name:var(--font-mono)] text-[#12234A]">{minFlow ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Max filter flow (GPM)</dt>
+            <dd className="font-[family-name:var(--font-mono)] text-[#12234A]">{maxFilterFlow ?? "—"}</dd>
+          </div>
+        </dl>
       </header>
 
-      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-left text-xs text-slate-700">
-            <thead>
-              <tr className="bg-slate-100 text-[11px] uppercase tracking-wide text-slate-600">
-                <th className="border border-slate-300 px-2 py-2">Date</th>
-                <th className="border border-slate-300 px-2 py-2">Body of Water</th>
-                <th className="border border-slate-300 px-2 py-2">Disinfectant Residual (FC)</th>
-                <th className="border border-slate-300 px-2 py-2">pH</th>
-                <th className="border border-slate-300 px-2 py-2">Total Alkalinity</th>
-                <th className="border border-slate-300 px-2 py-2">Cyanuric Acid</th>
-                <th className="border border-slate-300 px-2 py-2">Pump PSI</th>
-                <th className="border border-slate-300 px-2 py-2">Vac (inHg)</th>
-                <th className="border border-slate-300 px-2 py-2">Flow (GPM)</th>
-                <th className="border border-slate-300 px-2 py-2">Filter PSI</th>
-                <th className="border border-slate-300 px-2 py-2">Time of Backwash</th>
-                <th className="border border-slate-300 px-2 py-2">Chemicals Added</th>
-                <th className="border border-slate-300 px-2 py-2">Remarks</th>
-                <th className="border border-slate-300 px-2 py-2">Photo</th>
+      <form className="mt-5 flex flex-wrap items-center gap-3" method="GET">
+        <input type="hidden" name="section" value={section} />
+        <a
+          href={linkFor(prevDate)}
+          className="rounded-md border border-[#C9E3EC] bg-white px-3 py-1.5 text-sm font-medium text-[#12234A] hover:bg-[#EAF6FA]"
+        >
+          ← Prev
+        </a>
+        <select name="month" defaultValue={monthIndex + 1} className="rounded-md border border-[#C9E3EC] bg-white px-3 py-1.5 text-sm text-[#12234A]">
+          {MONTH_NAMES.map((m, i) => (
+            <option key={m} value={i + 1}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <select name="year" defaultValue={year} className="rounded-md border border-[#C9E3EC] bg-white px-3 py-1.5 text-sm text-[#12234A]">
+          {Array.from({ length: 6 }, (_, i) => now.getFullYear() - 4 + i).map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="rounded-md bg-[#0A5FA4] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#084A82]">
+          View
+        </button>
+        <a
+          href={linkFor(nextDate)}
+          className="rounded-md border border-[#C9E3EC] bg-white px-3 py-1.5 text-sm font-medium text-[#12234A] hover:bg-[#EAF6FA]"
+        >
+          Next →
+        </a>
+        <span className="font-[family-name:var(--font-mono)] ml-auto text-sm text-[#4A6572]">
+          {monthTitle(year, monthIndex)} · {visits.length} completed visit{visits.length === 1 ? "" : "s"}
+        </span>
+      </form>
+
+      {/* Data table — mirrors the SNHD paper log layout */}
+      <section className="mt-6 overflow-x-auto rounded-lg border border-[#C9E3EC] bg-white">
+        <table className="w-full min-w-[880px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-[#C9E3EC] bg-[#EAF6FA] text-left">
+              <th className="px-2 py-2 font-medium text-[#4A6572]">Day</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">Cl (ppm)</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">pH</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">Alk (ppm)</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">CYA (ppm)</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">Temp (°F)</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">Pump (psi)</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">Vac (inHg)</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">Filter (psi)</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">Flow (gpm)</th>
+              <th className="px-2 py-2 font-medium text-[#4A6572]">Backwash</th>
+            </tr>
+          </thead>
+          <tbody className="font-[family-name:var(--font-mono)]">
+            {rows.map((row) => (
+              <tr key={row.day} className={`border-b border-[#EFEBE2] last:border-0 ${row.visited ? "" : "text-[#C7C2B6]"}`}>
+                <td className="px-2 py-1.5 font-sans font-medium text-[#12234A]">{row.day}</td>
+                <td className="px-2 py-1.5">{fmt(row.freeChlorinePpm)}</td>
+                <td className="px-2 py-1.5">{fmt(row.ph)}</td>
+                <td className="px-2 py-1.5">{fmt(row.alkalinityPpm, 0)}</td>
+                <td className="px-2 py-1.5">{fmt(row.cyanuricAcidPpm, 0)}</td>
+                <td className="px-2 py-1.5">{fmt(row.temperatureF, 0)}</td>
+                <td className="px-2 py-1.5">{fmt(row.pumpPressurePsi)}</td>
+                <td className="px-2 py-1.5">{fmt(row.vacGaugeReading)}</td>
+                <td className="px-2 py-1.5">{fmt(row.filterPressurePsi)}</td>
+                <td className="px-2 py-1.5">{fmt(row.flowMeterGpm)}</td>
+                <td className="px-2 py-1.5">
+                  {!row.visited ? "–" : row.backwashed ? `Yes (${row.backwashTime})` : "No"}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {visits.length === 0 ? (
-                <tr>
-                  <td colSpan={14} className="border border-slate-300 px-3 py-6 text-center text-sm text-slate-500">
-                    No completed service records found for this month.
-                  </td>
-                </tr>
-              ) : (
-                visits.map((visit) => (
-                  <tr key={visit.id} className="odd:bg-white even:bg-slate-50">
-                    <td className="border border-slate-300 px-2 py-2 align-top">
-                      {visit.completedAt ? toISODate(visit.completedAt) : "—"}
-                    </td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">
-                      <div className="font-medium text-slate-900">{visit.bodyOfWater?.name ?? "—"}</div>
-                      {visit.technician?.name ? <div className="text-slate-500">Tech: {visit.technician.name}</div> : null}
-                    </td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">{fmt(visit.reading?.freeChlorinePpm)}</td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">{fmt(visit.reading?.ph)}</td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">{fmt(visit.reading?.alkalinityPpm)}</td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">{fmt(visit.reading?.cyanuricAcidPpm)}</td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">{fmt(visit.reading?.pumpPressurePsi)}</td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">{fmt(visit.reading?.vacGaugeReading)}</td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">{fmt(visit.reading?.flowMeterGpm)}</td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">{fmt(visit.reading?.filterPressurePsi)}</td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">
-                      {visit.reading?.backwashAt
-                        ? visit.reading.backwashAt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-                        : "—"}
-                    </td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">{toChemicalsText(visit.doses)}</td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">
-                      <div>{visit.techNotes ?? "—"}</div>
-                      {visit.issues.length ? <div className="mt-1 text-slate-500">{visit.issues.map((i) => i.code).join(", ")}</div> : null}
-                    </td>
-                    <td className="border border-slate-300 px-2 py-2 align-top">
-                      {visit.photos.length > 0 ? "On file" : "Missing"}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </section>
+
+      {/* Chart section tabs */}
+      <div className="mt-8 inline-flex gap-1 rounded-lg bg-[#EAF6FA] p-1">
+        <a href={sectionLinkFor("chemistry")} className={sectionTabClass("chemistry")}>
+          Chemistry
+        </a>
+        <a href={sectionLinkFor("equipment")} className={sectionTabClass("equipment")}>
+          Equipment
+        </a>
+        <a href={sectionLinkFor("backwash")} className={sectionTabClass("backwash")}>
+          Backwash
+        </a>
+      </div>
+
+      {section === "chemistry" ? (
+        <section className="mt-4 grid gap-4 md:grid-cols-2">
+          <ReadingChart
+            label="Free chlorine"
+            unit="ppm"
+            daysInMonth={totalDays}
+            points={seriesFor((r) => r.freeChlorinePpm)}
+            targetMin={chlorineMin}
+            targetMax={10}
+            domainMin={0}
+            domainMax={10}
+          />
+          <ReadingChart
+            label="pH"
+            unit=""
+            daysInMonth={totalDays}
+            points={seriesFor((r) => r.ph)}
+            targetMin={7.2}
+            targetMax={7.8}
+            hazardMin={6.5}
+            hazardMax={8.0}
+            domainMin={6.0}
+            domainMax={8.5}
+          />
+          <ReadingChart label="Total alkalinity" unit="ppm" daysInMonth={totalDays} points={seriesFor((r) => r.alkalinityPpm)} targetMin={60} targetMax={180} domainMin={0} domainMax={240} />
+          <ReadingChart
+            label="Cyanuric acid"
+            unit="ppm"
+            daysInMonth={totalDays}
+            points={seriesFor((r) => r.cyanuricAcidPpm)}
+            targetMin={30}
+            targetMax={50}
+            hazardMax={100}
+            domainMin={0}
+            domainMax={120}
+          />
+          <ReadingChart
+            label="Water temperature"
+            unit="°F"
+            daysInMonth={totalDays}
+            points={seriesFor((r) => r.temperatureF)}
+            targetMin={tempTarget.min}
+            targetMax={tempTarget.max}
+            domainMin={tempTarget.domainMin}
+            domainMax={tempTarget.domainMax}
+          />
+        </section>
+      ) : null}
+
+      {section === "equipment" ? (
+        <section className="mt-4 grid gap-4 md:grid-cols-2">
+          <ReadingChart label="Pump pressure" unit="psi" daysInMonth={totalDays} points={seriesFor((r) => r.pumpPressurePsi)} />
+          <ReadingChart label="Pump vacuum gauge" unit="inHg" daysInMonth={totalDays} points={seriesFor((r) => r.vacGaugeReading)} />
+          <ReadingChart
+            label="Filter pressure"
+            unit="psi"
+            daysInMonth={totalDays}
+            points={seriesFor((r) => r.filterPressurePsi)}
+            targetMax={maxFilterFlow}
+            targetMin={maxFilterFlow != null ? 0 : undefined}
+            targetLabel="Max required"
+          />
+          <ReadingChart
+            label="Flow rate"
+            unit="gpm"
+            daysInMonth={totalDays}
+            points={seriesFor((r) => r.flowMeterGpm)}
+            targetMin={minFlow}
+            targetMax={minFlow != null ? minFlow * 1.5 : undefined}
+            targetLabel="Min required"
+          />
+        </section>
+      ) : null}
+
+      {section === "backwash" ? (
+        <section className="mt-4 grid gap-4">
+          <BackwashCalendar days={rows.map((r) => ({ day: r.day, visited: r.visited, backwashed: r.backwashed, time: r.backwashTime }))} />
+        </section>
+      ) : null}
+
+      <p className="mt-6 text-xs text-[#7FA0AC]">
+        Target ranges shown are typical guidance for commercial pools and this property&rsquo;s configured
+        equipment requirements. Refer to SNHD code for the authoritative standard.
+      </p>
     </main>
   );
 }

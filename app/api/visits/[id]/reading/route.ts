@@ -5,14 +5,16 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 type ReadingPayload = {
   ph?: number | null;
   freeChlorinePpm?: number | null;
-  totalChlorinePpm?: number | null;
   alkalinityPpm?: number | null;
   cyanuricAcidPpm?: number | null;
+  temperatureF?: number | null;
   filterPressurePsi?: number | null;
   vacGaugeReading?: number | null;
   pumpPressurePsi?: number | null;
   filterGaugeReading?: number | null;
   flowMeterGpm?: number | null;
+  backwashPerformed?: boolean;
+  backwashAt?: string | null;
 };
 
 function numOrNull(value: unknown): number | null | undefined {
@@ -43,17 +45,29 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 
   const raw = (await request.json()) as ReadingPayload;
+
+  // backwashAt: if the technician says no backwash happened, clear it. If yes, use provided
+  // time (or "now" if no time was given).
+  let backwashAt: Date | null | undefined = undefined;
+  if (raw.backwashPerformed === false) {
+    backwashAt = null;
+  } else if (raw.backwashPerformed === true) {
+    backwashAt = raw.backwashAt ? new Date(raw.backwashAt) : new Date();
+    if (Number.isNaN(backwashAt.getTime())) backwashAt = new Date();
+  }
+
   const data = {
     ph: numOrNull(raw.ph),
     freeChlorinePpm: numOrNull(raw.freeChlorinePpm),
-    totalChlorinePpm: numOrNull(raw.totalChlorinePpm),
     alkalinityPpm: numOrNull(raw.alkalinityPpm),
     cyanuricAcidPpm: numOrNull(raw.cyanuricAcidPpm),
+    temperatureF: numOrNull(raw.temperatureF),
     filterPressurePsi: numOrNull(raw.filterPressurePsi),
     vacGaugeReading: numOrNull(raw.vacGaugeReading),
     pumpPressurePsi: numOrNull(raw.pumpPressurePsi),
     filterGaugeReading: numOrNull(raw.filterGaugeReading),
     flowMeterGpm: numOrNull(raw.flowMeterGpm),
+    backwashAt,
   };
 
   const cleaned = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));

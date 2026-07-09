@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { validateServiceWeekdays } from "@/lib/service-weekdays";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -7,13 +8,43 @@ type RouteContext = { params: Promise<{ id: string }> };
 /**
  * GET: list ISO weekdays (1=Mon … 7=Sun) configured for this body of water.
  * PUT: replace schedule — must be 1–7 distinct weekdays.
- * TODO: require Supabase session + org scoping (RLS) before production.
  */
+type AppUser = Awaited<ReturnType<typeof getCurrentAppUser>>;
+type OrgAdminError = { status: number; message: string };
+type RequireOrgAdminResult =
+  | { appUser: NonNullable<AppUser>; error: null }
+  | { appUser: null; error: OrgAdminError };
+
+async function requireOrgAdmin(): Promise<RequireOrgAdminResult> {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) {
+    return { appUser: null, error: { status: 401, message: "Unauthorized" } };
+  }
+  if (appUser.role !== "ADMIN" && appUser.role !== "OFFICE") {
+    return { appUser: null, error: { status: 403, message: "Forbidden" } };
+  }
+  return { appUser, error: null };
+}
+
+async function requireBodyInOrg(bodyOfWaterId: string, organizationId: string) {
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyOfWaterId, property: { organizationId } },
+    select: { id: true },
+  });
+  return body?.id ?? null;
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   const { id } = await context.params;
 
+  const auth = await requireOrgAdmin();
+  if (auth.error) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
+
+  const bodyId = await requireBodyInOrg(id, auth.appUser.organizationId);
+  if (!bodyId) return NextResponse.json({ error: "Body of water not found" }, { status: 404 });
+
   const rows = await prisma.bodyOfWaterServiceWeekday.findMany({
-    where: { bodyOfWaterId: id },
+    where: { bodyOfWaterId: bodyId },
     orderBy: { weekday: "asc" },
     select: { weekday: true },
   });
@@ -24,6 +55,13 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PUT(request: Request, context: RouteContext) {
   const { id } = await context.params;
+
+  const auth = await requireOrgAdmin();
+  if (auth.error) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
+
+  const bodyId = await requireBodyInOrg(id, auth.appUser.organizationId);
+  if (!bodyId) return NextResponse.json({ error: "Body of water not found" }, { status: 404 });
+
   let body: unknown;
   try {
     body = await request.json();
@@ -47,7 +85,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   const exists = await prisma.bodyOfWater.findUnique({
-    where: { id },
+    where: { id: bodyId },
     select: { id: true },
   });
   if (!exists) {
@@ -55,11 +93,11 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   await prisma.$transaction([
-    prisma.bodyOfWaterServiceWeekday.deleteMany({ where: { bodyOfWaterId: id } }),
+    prisma.bodyOfWaterServiceWeekday.deleteMany({ where: { bodyOfWaterId: bodyId } }),
     prisma.bodyOfWaterServiceWeekday.createMany({
-      data: validation.weekdays.map((weekday) => ({ bodyOfWaterId: id, weekday })),
+      data: validation.weekdays.map((weekday) => ({ bodyOfWaterId: bodyId, weekday })),
     }),
   ]);
 
-  return NextResponse.json({ bodyOfWaterId: id, weekdays: validation.weekdays });
+  return NextResponse.json({ bodyOfWaterId: bodyId, weekdays: validation.weekdays });
 }

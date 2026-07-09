@@ -1,5 +1,5 @@
 import { PrismaClient, UserRole, BodyOfWaterType, VisitStatus } from "@prisma/client";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const prisma = new PrismaClient();
 
@@ -14,7 +14,7 @@ const AUTH_SPECS: SeedAuthSpec[] = [
 ];
 
 async function resolveAuthUserId(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: SupabaseClient,
   email: string,
   password: string,
 ): Promise<string> {
@@ -75,7 +75,6 @@ async function main() {
       city: "Las Vegas",
       region: "NV",
       country: "US",
-      publicSlug: DEMO_PUBLIC_SLUG,
       managerName: "Site Manager",
       managerBusinessPhone: "702-555-1000",
       managerMobilePhone: "702-555-1001",
@@ -83,7 +82,6 @@ async function main() {
       managerEmail: "manager@example.com",
     },
     update: {
-      publicSlug: DEMO_PUBLIC_SLUG,
       name: "Demo Commercial Pool Site",
       managerName: "Site Manager",
       managerBusinessPhone: "702-555-1000",
@@ -103,11 +101,13 @@ async function main() {
       volumeGallons: 85000,
       minimumRequiredFlowGpm: 200,
       maximumFilterFlowGpm: 400,
+      publicSlug: DEMO_PUBLIC_SLUG,
     },
     update: {
       name: "Main Pool",
       minimumRequiredFlowGpm: 200,
       maximumFilterFlowGpm: 400,
+      publicSlug: DEMO_PUBLIC_SLUG,
     },
   });
 

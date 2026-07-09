@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { BodyOfWaterType } from "@prisma/client";
+import { BodyOfWaterType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { resolveManagementCompanyId } from "@/lib/management-companies";
+import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -20,6 +22,8 @@ export async function createCustomer(formData: FormData) {
   const managerBusinessPhone = String(formData.get("managerBusinessPhone") ?? "").trim();
   const managerMobilePhone = String(formData.get("managerMobilePhone") ?? "").trim();
   const managerEmail = String(formData.get("managerEmail") ?? "").trim();
+  const managementCompanyId = String(formData.get("managementCompanyId") ?? "").trim();
+  const newManagementCompanyName = String(formData.get("newManagementCompanyName") ?? "").trim();
   const addressLine1 = String(formData.get("addressLine1") ?? "").trim();
   const addressLine2 = String(formData.get("addressLine2") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
@@ -41,6 +45,12 @@ export async function createCustomer(formData: FormData) {
     select: { id: true },
   });
 
+  const resolvedManagementCompanyId = await resolveManagementCompanyId(
+    appUser.organizationId,
+    managementCompanyId,
+    newManagementCompanyName,
+  );
+
   const property = await prisma.property.create({
     data: {
       organizationId: appUser.organizationId,
@@ -51,6 +61,7 @@ export async function createCustomer(formData: FormData) {
       managerMobilePhone: managerMobilePhone || null,
       managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
       managerEmail: managerEmail || null,
+      managementCompanyId: resolvedManagementCompanyId,
       addressLine1: addressLine1 || null,
       addressLine2: addressLine2 || null,
       city: city || null,
@@ -60,6 +71,20 @@ export async function createCustomer(formData: FormData) {
     },
     select: { id: true },
   });
+
+  // Best-effort geocode so this property shows up on the route map; failures are silent.
+  try {
+    const fullAddress = buildFullAddress({ addressLine1, addressLine2, city, region, postalCode, country: "US" });
+    const geo = await geocodeAddress(fullAddress);
+    if (geo) {
+      await prisma.property.update({
+        where: { id: property.id },
+        data: { latitude: geo.latitude, longitude: geo.longitude },
+      });
+    }
+  } catch {
+    // Non-critical — admin can geocode manually later from the Routes page.
+  }
 
   if (initialBodyName) {
     const initialBodyType =
@@ -112,6 +137,7 @@ export async function createBodyOfWater(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const typeRaw = String(formData.get("type") ?? "POOL").trim();
   const volumeRaw = String(formData.get("volumeGallons") ?? "").trim();
+  const occupancyRaw = String(formData.get("maximumOccupancy") ?? "").trim();
   if (!propertyId || !name) return;
 
   const property = await prisma.property.findFirst({
@@ -122,6 +148,7 @@ export async function createBodyOfWater(formData: FormData) {
 
   const type = (Object.values(BodyOfWaterType) as string[]).includes(typeRaw) ? (typeRaw as BodyOfWaterType) : BodyOfWaterType.POOL;
   const volume = volumeRaw ? Number(volumeRaw) : null;
+  const occupancy = occupancyRaw ? Number(occupancyRaw) : null;
 
   await prisma.bodyOfWater.create({
     data: {
@@ -129,6 +156,7 @@ export async function createBodyOfWater(formData: FormData) {
       name,
       type,
       volumeGallons: Number.isFinite(volume) ? volume : null,
+      maximumOccupancy: Number.isFinite(occupancy) ? occupancy : null,
     },
   });
 

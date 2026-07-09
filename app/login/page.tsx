@@ -10,7 +10,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-cyan-700">AquaRunner 24/7 Pro</p>
+        <p className="text-sm font-medium uppercase tracking-wide text-[#0A5FA4]">AquaRunner 24/7 Pro</p>
         <h1 className="mt-2 text-2xl font-semibold text-slate-900">Sign in</h1>
         <p className="mt-2 text-sm text-slate-600">
           Use the accounts created by <code className="rounded bg-slate-100 px-1">npm run db:seed</code> (see{" "}

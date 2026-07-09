@@ -3,9 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 
 type DosePayload = {
-  productName?: string;
+  chemicalProductId?: string;
   quantity?: number;
-  unit?: string;
 };
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -29,19 +28,27 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const body = (await request.json()) as DosePayload;
-  const productName = body.productName?.trim() ?? "";
-  const unit = body.unit?.trim() ?? "";
+  const chemicalProductId = body.chemicalProductId?.trim() ?? "";
   const quantity = Number(body.quantity);
-  if (!productName || !unit || !Number.isFinite(quantity) || quantity <= 0) {
+  if (!chemicalProductId || !Number.isFinite(quantity) || quantity <= 0) {
     return NextResponse.json({ error: "INVALID_DOSE" }, { status: 400 });
   }
+
+  const product = await prisma.chemicalProduct.findFirst({
+    where: { id: chemicalProductId, organizationId: visit.organizationId },
+    select: { id: true, name: true, unit: true, costPerUnit: true, chargePerUnit: true },
+  });
+  if (!product) return NextResponse.json({ error: "INVALID_PRODUCT" }, { status: 400 });
 
   const dose = await prisma.visitChemicalDose.create({
     data: {
       visitId: id,
-      productName,
+      chemicalProductId: product.id,
+      productName: product.name,
+      unit: product.unit,
       quantity,
-      unit,
+      unitCost: product.costPerUnit,
+      unitCharge: product.chargePerUnit,
     },
   });
 

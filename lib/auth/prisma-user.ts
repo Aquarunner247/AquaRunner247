@@ -1,6 +1,6 @@
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
-import type { User as AppUser } from "@prisma/client";
+import type { User as AppUser } from "@/generated/prisma/client";
 
 export async function getAppUserForAuthUser(supabaseUser: SupabaseUser): Promise<AppUser | null> {
   if (supabaseUser.id) {

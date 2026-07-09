@@ -2,12 +2,12 @@
 // Service days: 1–7 weekdays per body of water (ISO 8601: 1=Mon … 7=Sun), validated in app: 1–7 rows, unique.
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -31,6 +31,9 @@ enum EquipmentKind {
   CHLORINATOR
   AUTOMATION
   FLOW_METER
+  MAIN_DRAIN_COVER
+  SKIMMER_COVER
+  VALVE
   OTHER
 }
 
@@ -62,6 +65,27 @@ model Organization {
   users     User[]
   customers Customer[]
   properties Property[]
+  managementCompanies ManagementCompany[]
+  chemicalProducts ChemicalProduct[]
+  checklistItems ChecklistItemDefinition[]
+}
+
+model ManagementCompany {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name  String
+  phone String?
+  email String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  properties Property[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 model User {
@@ -81,6 +105,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   assignedVisits ServiceVisit[] @relation("VisitTechnician")
+  assignedRoutes RecurringRoute[] @relation("RouteTechnician")
 
   @@index([organizationId])
 }
@@ -114,7 +139,8 @@ model Property {
   managerMobilePhone    String?
   managerPhone          String?
   managerEmail          String?
-  managementCompanyName String?
+  managementCompanyId String?
+  managementCompany   ManagementCompany? @relation(fields: [managementCompanyId], references: [id], onDelete: SetNull)
   addressLine1          String?
   addressLine2          String?
   city                  String?
@@ -126,32 +152,16 @@ model Property {
   geofenceMeters        Int?
   notes                 String?
 
-  publicSlug String @unique @default(cuid())
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   bodiesOfWater  BodyOfWater[]
-  qrTokens       PropertyQrToken[]
   visits         ServiceVisit[]
   recurringStops RecurringStop[]
 
   @@index([organizationId])
   @@index([customerId])
-}
-
-model PropertyQrToken {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  token     String    @unique
-  label     String?
-  expiresAt DateTime?
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([propertyId])
+  @@index([managementCompanyId])
 }
 
 model BodyOfWater {
@@ -162,12 +172,17 @@ model BodyOfWater {
   name         String
   type         BodyOfWaterType @default(POOL)
   volumeGallons Decimal?        @db.Decimal(12, 2)
+  /// SNHD-posted maximum bather load for this body of water
+  maximumOccupancy Int?
   notes        String?
 
   /// SNHD log footer: minimum required recirculation flow (GPM)
   minimumRequiredFlowGpm Decimal? @db.Decimal(10, 2)
   /// SNHD log footer: maximum filter flow (GPM)
   maximumFilterFlowGpm   Decimal? @db.Decimal(10, 2)
+
+  /// Public, unguessable slug used for this body of water's QR code / inspector log page
+  publicSlug String @unique @default(cuid())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -203,6 +218,12 @@ model Equipment {
   make         String?
   model        String?
   serialNumber String?
+  /// For main drain covers, skimmer covers, and valves
+  numberOfPorts Int?
+  /// Pipe sizing, e.g. "2 in"
+  pipeSize      String?
+  /// Date this item was last changed, serviced, or fixed
+  lastServicedAt DateTime?
   installedOn  DateTime?
   notes        String?
 
@@ -232,6 +253,9 @@ model RecurringRoute {
   organizationId String
 
   name      String
+  /// Default assigned technician for generated visits (1 route per tech per day).
+  technicianId String?
+  technician   User?   @relation("RouteTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
   frequency ScheduleFrequency @default(WEEKLY)
   dayOfWeek Int?
   active    Boolean           @default(true)
@@ -242,6 +266,7 @@ model RecurringRoute {
   stops RecurringStop[]
 
   @@index([organizationId])
+  @@index([technicianId])
 }
 
 model RecurringStop {
@@ -261,6 +286,8 @@ model RecurringStop {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  visits ServiceVisit[]
+
   @@index([routeId])
   @@index([propertyId])
 }
@@ -277,6 +304,13 @@ model ServiceVisit {
 
   technicianId String?
   technician   User?   @relation("VisitTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+
+  /// When set, this visit was created from a weekly route stop (for idempotent generation).
+  recurringStopId String?
+  recurringStop   RecurringStop? @relation(fields: [recurringStopId], references: [id], onDelete: SetNull)
+
+  /// Route stop order for the day (tech can reorder). Lower runs first.
+  routeSequence Int @default(0)
 
   scheduledStart DateTime
   scheduledEnd   DateTime?
@@ -296,11 +330,13 @@ model ServiceVisit {
   photos          VisitPhoto[]
   issues          VisitIssueFlag[]
   recommendation ChemistryRecommendation?
+  checklistCompletions VisitChecklistCompletion[]
 
   @@index([organizationId, scheduledStart])
   @@index([technicianId, scheduledStart])
   @@index([propertyId, scheduledStart])
   @@index([bodyOfWaterId, scheduledStart])
+  @@index([recurringStopId, scheduledStart])
 }
 
 model VisitWaterReading {
@@ -330,18 +366,46 @@ model VisitWaterReading {
   updatedAt  DateTime @updatedAt
 }
 
+model ChemicalProduct {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name          String
+  unit          String
+  costPerUnit   Decimal @db.Decimal(10, 4)
+  chargePerUnit Decimal @db.Decimal(10, 4)
+  active        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doses VisitChemicalDose[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
 model VisitChemicalDose {
   id      String       @id @default(cuid())
   visitId String
   visit   ServiceVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
 
+  chemicalProductId String?
+  chemicalProduct   ChemicalProduct? @relation(fields: [chemicalProductId], references: [id], onDelete: SetNull)
+
   productName String
   quantity    Decimal @db.Decimal(12, 4)
   unit        String
+  /// Cost/charge per unit, snapshotted at the time this dose was logged so
+  /// historical billing stays accurate even if catalog prices change later.
+  unitCost    Decimal? @db.Decimal(10, 4)
+  unitCharge  Decimal? @db.Decimal(10, 4)
 
   createdAt DateTime @default(now())
 
   @@index([visitId])
+  @@index([chemicalProductId])
 }
 
 model VisitPhoto {
@@ -370,9 +434,13 @@ model VisitIssueFlag {
   description String?
   severity    IssueSeverity @default(MEDIUM)
 
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+
   createdAt DateTime @default(now())
 
   @@index([visitId])
+  @@index([resolved])
 }
 
 model ChemistryRecommendation {
@@ -382,4 +450,40 @@ model ChemistryRecommendation {
 
   payload   Json
   createdAt DateTime @default(now())
+}
+
+model ChecklistItemDefinition {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  label     String
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  completions VisitChecklistCompletion[]
+
+  @@index([organizationId])
+}
+
+model VisitChecklistCompletion {
+  id      String       @id @default(cuid())
+  visitId String
+  visit   ServiceVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  checklistItemId String?
+  checklistItem   ChecklistItemDefinition? @relation(fields: [checklistItemId], references: [id], onDelete: SetNull)
+
+  /// Snapshot of the item's label at completion time, so history stays intact
+  /// even if the checklist item definition is later deleted.
+  label String @default("")
+
+  completed Boolean @default(false)
+
+  @@unique([visitId, checklistItemId])
+  @@index([visitId])
+  @@index([checklistItemId])
 }

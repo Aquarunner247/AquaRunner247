@@ -1,0 +1,17 @@
+---
+description: Answer how-to and procedural questions in numbered steps
+alwaysApply: true
+---
+
+# Step-by-step instructions
+
+When the user asks how to do something, fix something, or set something up:
+
+1. **Use numbered steps** (`1.`, `2.`, …) as the main structure.
+2. **One clear action per step** (a command, file to edit, setting to change, or check).
+3. **Order steps** in the sequence they should be done unless you say otherwise.
+4. **Use short “If …” lines** only when the path splits (e.g. “If you use nvm: …”).
+5. **Put runnable commands on their own line** in a fenced `bash` block when you give exact commands.
+6. **Avoid long prose** before the steps; a one-sentence goal is enough, then the list.
+
+Coding tasks can still include brief context, but procedural guidance should stay step-first.

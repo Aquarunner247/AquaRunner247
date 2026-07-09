@@ -1,46 +1,165 @@
 import Link from "next/link";
+import Image from "next/image";
+
+type Gauge = {
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  zoneMin: number;
+  zoneMax: number;
+  reading: number;
+};
+
+const gauges: Gauge[] = [
+  { label: "Free chlorine", unit: "ppm", min: 0, max: 10, zoneMin: 2, zoneMax: 4, reading: 3.2 },
+  { label: "pH", unit: "", min: 6.8, max: 8.2, zoneMin: 7.2, zoneMax: 7.8, reading: 7.4 },
+  { label: "Total alkalinity", unit: "ppm", min: 0, max: 240, zoneMin: 60, zoneMax: 180, reading: 110 },
+];
+
+function pct(value: number, min: number, max: number) {
+  return ((value - min) / (max - min)) * 100;
+}
+
+function GaugeReadout({ gauge }: { gauge: Gauge }) {
+  const zoneLeft = pct(gauge.zoneMin, gauge.min, gauge.max);
+  const zoneWidth = pct(gauge.zoneMax, gauge.min, gauge.max) - zoneLeft;
+  const markerLeft = pct(gauge.reading, gauge.min, gauge.max);
+
+  return (
+    <div className="flex-1 min-w-[180px]">
+      <div className="flex items-baseline justify-between">
+        <span className="text-xs font-medium uppercase tracking-wider text-[#A9D3E0]">{gauge.label}</span>
+        <span className="font-[family-name:var(--font-mono)] text-sm text-[#EAF6FA]">
+          {gauge.reading}
+          {gauge.unit ? <span className="text-[#A9D3E0]"> {gauge.unit}</span> : null}
+        </span>
+      </div>
+      <div className="relative mt-2 h-2 rounded-full bg-white/10">
+        <div
+          className="absolute inset-y-0 rounded-full bg-[#0A5FA4]/50"
+          style={{ left: `${zoneLeft}%`, width: `${zoneWidth}%` }}
+        />
+        <div
+          className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-[#12234A] bg-[#FF6B5B]"
+          style={{ left: `${markerLeft}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+const audiences = [
+  {
+    role: "Office",
+    copy: "Schedule routes, review visits, and export records for inspection.",
+  },
+  {
+    role: "Technician",
+    copy: "Log chemistry readings, chemical doses, and equipment checks from your phone.",
+  },
+  {
+    role: "Client",
+    copy: "Scan the property's QR code to see the latest service visit, anytime.",
+  },
+];
+
+// ... (gauges, GaugeReadout, audiences stay as before)
 
 export default function Home() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-8 px-6 py-16">
-      <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-cyan-700">AquaRunner 24/7 Pro</p>
-        <h1 className="mt-2 text-3xl font-semibold text-slate-900">Commercial pool maintenance</h1>
-        <p className="mt-3 text-slate-600">
-          Scheduling, technician visit logs, chemistry readings, and public QR logbooks. Configure{" "}
-          <strong>1–7 service days per week</strong> per body of water (Monday=1 … Sunday=7).
-        </p>
-      </div>
-      <ul className="list-inside list-disc text-slate-600">
-        <li>
-          Copy <code className="rounded bg-slate-200 px-1">.env.example</code> to{" "}
-          <code className="rounded bg-slate-200 px-1">.env</code> — set{" "}
-          <code className="rounded bg-slate-200 px-1">DATABASE_URL</code>,{" "}
-          <code className="rounded bg-slate-200 px-1">NEXT_PUBLIC_SUPABASE_*</code>, and (for seeding logins){" "}
-          <code className="rounded bg-slate-200 px-1">SUPABASE_SERVICE_ROLE_KEY</code> +{" "}
-          <code className="rounded bg-slate-200 px-1">SEED_DEV_PASSWORD</code>
-        </li>
-        <li>
-          In Supabase → Authentication → URL configuration: Site URL{" "}
-          <code className="rounded bg-slate-200 px-1">http://localhost:3000</code>, redirect{" "}
-          <code className="rounded bg-slate-200 px-1">http://localhost:3000/auth/callback</code>
-        </li>
-        <li>
-          <code className="rounded bg-slate-200 px-1">npx prisma migrate dev</code> then{" "}
-          <code className="rounded bg-slate-200 px-1">npm run db:seed</code>
-        </li>
-      </ul>
-      <p className="flex flex-wrap gap-4 text-sm">
-        <Link className="font-medium text-cyan-700 underline" href="/login">
-          Sign in
-        </Link>
-        <Link className="font-medium text-cyan-700 underline" href="/dashboard">
-          Dashboard
-        </Link>
-        <Link className="text-slate-500 underline" href="/p/demo-public-slug">
-          Public log (demo slug)
-        </Link>
-      </p>
+    <main>
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        <Image
+          src="/images/hero-water.jpg"
+          alt="Clear blue pool water"
+          fill
+          priority
+          className="object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(11,27,61,0.80) 0%, rgba(18,35,74,0.72) 45%, rgba(10,95,164,0.55) 100%)",
+          }}
+        />
+
+        <div className="relative z-10 mx-auto max-w-5xl px-6 py-16 md:py-20">
+          <p className="font-[family-name:var(--font-mono)] text-xs font-medium uppercase tracking-[0.2em] text-[#FF6B5B]">
+            AquaRunner 24/7 Pro
+          </p>
+          <h1 className="mt-3 font-[family-name:var(--font-display)] text-5xl font-extrabold uppercase leading-[0.95] tracking-tight text-white md:text-6xl">
+            Every reading,
+            <br />
+            on record.
+          </h1>
+          <p className="mt-5 max-w-xl text-lg text-[#A9D3E0]">
+            Technicians log chemistry, doses, and equipment checks in the field. Clients see a
+            live QR logbook for every property, anytime.
+          </p>
+
+          <div className="mt-10 flex flex-col gap-6 rounded-lg border border-white/10 bg-white/[0.06] p-6 backdrop-blur-sm sm:flex-row sm:gap-10">
+            <p className="font-[family-name:var(--font-mono)] shrink-0 text-xs uppercase tracking-wider text-[#A9D3E0] sm:w-28">
+              Sample reading
+            </p>
+            <div className="flex flex-1 flex-col gap-5 sm:flex-row">
+              {gauges.map((gauge) => (
+                <GaugeReadout key={gauge.label} gauge={gauge} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Wave divider into the page body */}
+        <svg
+          className="relative z-10 -mb-1 block w-full"
+          viewBox="0 0 1200 80"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M0,40 C150,80 350,0 600,30 C850,60 1050,10 1200,35 L1200,80 L0,80 Z"
+            fill="#EAF6FA"
+          />
+        </svg>
+      </section>
+
+      {/* Who it's for */}
+      <section className="mx-auto max-w-5xl px-6 py-14">
+        <div className="grid gap-6 sm:grid-cols-3">
+          {audiences.map((a) => (
+            <div key={a.role} className="rounded-lg border border-[#C9E3EC] bg-white p-6">
+              <p className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#0A5FA4]">
+                {a.role}
+              </p>
+              <p className="mt-2 text-[#16324A]">{a.copy}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 flex flex-wrap items-center gap-4 border-t border-[#C9E3EC] pt-8">
+          <Link
+            href="/login"
+            className="rounded-md bg-[#0A5FA4] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#084A82]"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/dashboard"
+            className="rounded-md border border-[#0A5FA4] px-5 py-2.5 text-sm font-semibold text-[#0A5FA4] transition hover:bg-[#0A5FA4]/5"
+          >
+            View dashboard
+          </Link>
+          <Link
+            href="/p/demo-public-slug"
+            className="text-sm font-medium text-[#4A6572] underline decoration-[#A9D3E0] underline-offset-4 hover:text-[#16324A]"
+          >
+            View public log demo →
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

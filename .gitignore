@@ -40,3 +40,6 @@ yarn-error.log*
 # prisma
 prisma/*.db
 prisma/*.db-journal
+
+# Prisma 7 client output (rebuilt by postinstall / prisma generate)
+/generated/prisma

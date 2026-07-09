@@ -7,7 +7,135 @@
   --background: #f8fafc;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    color: var(--foreground);
+    background: var(--background);
+  }
+
+  ::selection {
+    @apply bg-teal-200/80 text-teal-950;
+  }
+}
+
+@layer components {
+  .app-page {
+    @apply mx-auto min-h-screen max-w-3xl px-5 py-10 md:px-8 md:py-12;
+  }
+
+  .app-page-lg {
+    @apply mx-auto min-h-screen max-w-4xl px-5 py-10 md:px-8 md:py-12;
+  }
+
+  .app-page-wide {
+    @apply mx-auto min-h-screen max-w-5xl px-5 py-10 md:px-8 md:py-12;
+  }
+
+  .app-page-wider {
+    @apply mx-auto min-h-screen max-w-6xl px-5 py-10 md:px-8 md:py-12;
+  }
+
+  .app-page-full {
+    @apply mx-auto min-h-screen max-w-7xl px-4 py-8 md:px-8 md:py-10;
+  }
+
+  .app-page-centered {
+    @apply mx-auto flex min-h-[calc(100vh-4rem)] max-w-lg flex-col justify-center px-5 py-12 md:px-8;
+  }
+
+  .app-page-centered-wide {
+    @apply mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col justify-center px-5 py-12 md:px-8;
+  }
+
+  .app-page-centered-md {
+    @apply mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center px-5 py-12 md:px-8;
+  }
+
+  .app-card {
+    @apply rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-soft backdrop-blur-sm md:p-5;
+  }
+
+  .app-card-muted {
+    @apply rounded-2xl border border-teal-100/80 bg-gradient-to-br from-teal-50/90 via-white to-sky-50/40 p-4 shadow-soft md:p-5;
+  }
+
+  .app-card-inset {
+    @apply rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 md:p-4;
+  }
+
+  .app-page-head {
+    @apply border-b border-slate-200/90 pb-5 md:pb-6;
+  }
+
+  .app-kicker {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-teal-700;
+  }
+
+  .app-h1 {
+    @apply font-display text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl;
+  }
+
+  .app-subhead {
+    @apply mt-1 text-sm leading-relaxed text-slate-600 md:text-base;
+  }
+
+  .app-field {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner shadow-slate-100/80 transition placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 disabled:bg-slate-50 disabled:text-slate-500;
+  }
+
+  .app-field-search {
+    @apply w-full rounded-xl border border-teal-200/80 bg-gradient-to-r from-teal-50/60 to-sky-50/40 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-400/30;
+  }
+
+  .app-btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .app-btn-primary-sm {
+    @apply inline-flex items-center justify-center rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm shadow-teal-900/10 transition hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:ring-offset-1 disabled:opacity-50;
+  }
+
+  .app-btn-accent-sm {
+    @apply inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:opacity-50;
+  }
+
+  .app-btn-secondary-sm {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50/60 hover:text-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-400/30;
+  }
+
+  .app-btn-ghost-sm {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50/50 disabled:opacity-40;
+  }
+
+  .app-btn-danger-sm {
+    @apply inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-800 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-300/50;
+  }
+
+  .app-btn-danger-solid-sm {
+    @apply inline-flex items-center justify-center rounded-lg bg-rose-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-50;
+  }
+
+  .app-link {
+    @apply text-sm font-medium text-teal-700 underline decoration-teal-600/35 underline-offset-[5px] transition hover:text-teal-900 hover:decoration-teal-800/50;
+  }
+
+  .app-code {
+    @apply rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.8em] text-slate-800;
+  }
+
+  .app-badge {
+    @apply inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800;
+  }
+
+  .app-badge-success {
+    @apply inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900;
+  }
+
+  .app-badge-warn {
+    @apply text-xs font-semibold text-amber-800;
+  }
 }
