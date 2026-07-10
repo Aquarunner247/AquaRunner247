@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ReadingChart } from "@/app/components/reading-chart";
 import { BackwashCalendar } from "@/app/components/backwash-calendar";
 import { getMonthlyReadingRows } from "@/lib/reading-rows";
-import { SERVICE_COMPANY_NAME, SERVICE_COMPANY_PHONE } from "@/lib/service-company";
+import { DEFAULT_BUSINESS_NAME, DEFAULT_BUSINESS_PHONE } from "@/lib/service-company";
 
 type PageProps = {
   params: Promise<{ publicSlug: string }>;
@@ -53,6 +53,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
           city: true,
           region: true,
           customer: { select: { name: true } },
+          organization: { select: { businessName: true, businessPhone: true } },
         },
       },
     },
@@ -118,11 +119,11 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Operator / service company</dt>
-            <dd className="text-[#12234A]">{SERVICE_COMPANY_NAME}</dd>
+            <dd className="text-[#12234A]">{body.property.organization.businessName || DEFAULT_BUSINESS_NAME}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Service company phone</dt>
-            <dd className="text-[#12234A]">{SERVICE_COMPANY_PHONE}</dd>
+            <dd className="text-[#12234A]">{body.property.organization.businessPhone || DEFAULT_BUSINESS_PHONE || "—"}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Water volume (gal)</dt>
