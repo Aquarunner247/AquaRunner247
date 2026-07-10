@@ -72,6 +72,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             id: true,
             status: true,
             scheduledStart: true,
+            startedAt: true,
             property: {
               select: {
                 id: true,
@@ -95,6 +96,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     bodyName: v.bodyOfWater.name,
     address: [v.property.addressLine1, v.property.city, v.property.region].filter(Boolean).join(", "),
     scheduledStart: v.scheduledStart.toISOString(),
+    startedAt: v.startedAt ? v.startedAt.toISOString() : null,
     latitude: v.property.latitude != null ? Number(v.property.latitude) : null,
     longitude: v.property.longitude != null ? Number(v.property.longitude) : null,
   }));
@@ -345,7 +347,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   {todayVisits.length} stop{todayVisits.length === 1 ? "" : "s"} today. Drag to reorder.
                 </p>
                 <div className="mt-3">
-                  <RouteDayView visits={routeStops} readOnly={isPastDay} />
+                  <RouteDayView visits={routeStops} readOnly={isPastDay} isToday={isToday} />
                 </div>
               </div>
             ) : null}
@@ -558,7 +560,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </p>
                 {todayVisits.length ? (
                   <div className="mt-3">
-                    <RouteDayView visits={routeStops} readOnly={isPastDay} />
+                    <RouteDayView visits={routeStops} readOnly={isPastDay} isToday={isToday} />
                   </div>
                 ) : null}
               </div>

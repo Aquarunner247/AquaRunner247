@@ -12,6 +12,7 @@ export type RouteStop = {
   bodyName: string;
   address: string;
   scheduledStart: string;
+  startedAt: string | null;
   latitude: number | null;
   longitude: number | null;
 };
@@ -19,11 +20,14 @@ export type RouteStop = {
 type Props = {
   visits: RouteStop[];
   readOnly?: boolean;
+  isToday?: boolean;
 };
 
-function haversineMiles(a: { latitude: number | null; longitude: number | null }, b: { latitude: number | null; longitude: number | null }) {
+const ARRIVAL_RADIUS_METERS = 150;
+
+function haversineMeters(a: { latitude: number | null; longitude: number | null }, b: { latitude: number | null; longitude: number | null }) {
   if (a.latitude == null || a.longitude == null || b.latitude == null || b.longitude == null) return Infinity;
-  const R = 3958.8;
+  const R = 6371000;
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(b.latitude - a.latitude);
   const dLon = toRad(b.longitude - a.longitude);
@@ -31,17 +35,72 @@ function haversineMiles(a: { latitude: number | null; longitude: number | null }
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-export function RouteDayView({ visits: initialVisits, readOnly = false }: Props) {
+function haversineMiles(a: { latitude: number | null; longitude: number | null }, b: { latitude: number | null; longitude: number | null }) {
+  return haversineMeters(a, b) / 1609.34;
+}
+
+export function RouteDayView({ visits: initialVisits, readOnly = false, isToday = false }: Props) {
   const [visits, setVisits] = useState<RouteStop[]>(initialVisits);
   const [saving, setSaving] = useState(false);
+  const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported">("idle");
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
   const dragIndex = useRef<number | null>(null);
+  const visitsRef = useRef<RouteStop[]>(initialVisits);
+  const notifiedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setVisits(initialVisits);
   }, [initialVisits]);
+
+  useEffect(() => {
+    visitsRef.current = visits;
+  }, [visits]);
+
+  async function stampArrival(visitId: string) {
+    notifiedRef.current.add(visitId);
+    try {
+      const res = await fetch(`/api/visits/${visitId}/arrival`, { method: "PATCH" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setVisits((prev) =>
+        prev.map((v) => (v.id === visitId ? { ...v, startedAt: data.visit.startedAt ?? v.startedAt, status: data.visit.status ?? v.status } : v)),
+      );
+    } catch {
+      notifiedRef.current.delete(visitId);
+    }
+  }
+
+  // Watch device location while this is today's route and the tab stays open; auto-stamp
+  // arrival time on any stop the tech gets within ARRIVAL_RADIUS_METERS of.
+  useEffect(() => {
+    if (readOnly || !isToday) return;
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setLocationState("unsupported");
+      return;
+    }
+
+    setLocationState("watching");
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        for (const v of visitsRef.current) {
+          if (v.startedAt || v.status === "CANCELLED" || notifiedRef.current.has(v.id)) continue;
+          if (v.latitude == null || v.longitude == null) continue;
+          if (haversineMeters(here, v) <= ARRIVAL_RADIUS_METERS) {
+            void stampArrival(v.id);
+          }
+        }
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) setLocationState("denied");
+      },
+      { enableHighAccuracy: true, maximumAge: 30_000, timeout: 20_000 },
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [readOnly, isToday]);
 
   // Initialize the map once
   useEffect(() => {
@@ -169,6 +228,15 @@ export function RouteDayView({ visits: initialVisits, readOnly = false }: Props)
           Some stops don&rsquo;t have map coordinates yet — an admin can geocode addresses from the Routes page.
         </p>
       ) : null}
+      {locationState === "denied" ? (
+        <p className="mb-2 text-xs text-[#B5793D]">
+          Location access is off, so arrival times won&rsquo;t log automatically — enable location for this site in your browser
+          settings to turn it back on.
+        </p>
+      ) : null}
+      {locationState === "watching" ? (
+        <p className="mb-2 text-xs text-[#7FA0AC]">Location on — arrival time logs automatically when you reach a stop.</p>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           {!readOnly ? (
@@ -209,6 +277,11 @@ export function RouteDayView({ visits: initialVisits, readOnly = false }: Props)
                       {v.propertyName} — {v.bodyName}
                     </Link>
                     <p className="truncate text-xs text-[#4A6572]">{v.address || "No address on file"}</p>
+                    {v.startedAt ? (
+                      <p className="text-xs font-medium text-[#0A5FA4]">
+                        Arrived {new Date(v.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    ) : null}
                   </div>
                   {!readOnly ? (
                     <button
