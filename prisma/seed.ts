@@ -1,7 +1,7 @@
-import { PrismaClient, UserRole, BodyOfWaterType, VisitStatus } from "@prisma/client";
+import type { UserRole } from "@/generated/prisma/client";
+import { BodyOfWaterType, VisitStatus } from "@/generated/prisma/client";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 const DEMO_PUBLIC_SLUG = "demo-public-slug";
 
