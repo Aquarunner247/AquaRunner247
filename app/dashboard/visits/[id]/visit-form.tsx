@@ -23,19 +23,6 @@ type Reading = {
   filterGaugeReading: string;
 };
 
-const defaultReading: Reading = {
-  ph: "",
-  freeChlorinePpm: "",
-  alkalinityPpm: "",
-  cyanuricAcidPpm: "",
-  temperatureF: "",
-  pumpPressurePsi: "",
-  vacGaugeReading: "",
-  flowMeterGpm: "",
-  filterPressurePsi: "",
-  filterGaugeReading: "",
-};
-
 type FieldConfig = {
   key: keyof Reading;
   label: string;

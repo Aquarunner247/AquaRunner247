@@ -69,9 +69,9 @@ export default async function RoutesPage() {
                 <form action={deleteRoute}>
                   <input type="hidden" name="routeId" value={route.id} />
                   <ConfirmSubmitButton
-                    label="Delete route"
+                    label="🗑"
                     confirmMessage="Delete this route and all its stops?"
-                    className="rounded bg-rose-700 px-2 py-1 text-xs font-medium text-white"
+                    className="rounded px-2 py-1 text-base hover:bg-slate-200"
                   />
                 </form>
               </div>
@@ -88,9 +88,11 @@ export default async function RoutesPage() {
                     </span>
                     <form action={removeRouteStop}>
                       <input type="hidden" name="stopId" value={stop.id} />
-                      <button type="submit" className="rounded bg-rose-700 px-2 py-1 text-xs font-medium text-white">
-                        Remove
-                      </button>
+                      <ConfirmSubmitButton
+                        label="🗑"
+                        confirmMessage="Remove this stop from the route?"
+                        className="rounded px-2 py-1 text-base hover:bg-slate-200"
+                      />
                     </form>
                   </li>
                 ))}

@@ -143,7 +143,6 @@ export async function geocodeAllProperties() {
     },
   });
 
-  let geocoded = 0;
   for (const property of properties) {
     const fullAddress = buildFullAddress(property);
     if (!fullAddress) continue;
@@ -154,7 +153,6 @@ export async function geocodeAllProperties() {
         where: { id: property.id },
         data: { latitude: result.latitude, longitude: result.longitude },
       });
-      geocoded += 1;
     }
     // Respect Nominatim's ~1 request/second usage policy
     await new Promise((resolve) => setTimeout(resolve, 1100));

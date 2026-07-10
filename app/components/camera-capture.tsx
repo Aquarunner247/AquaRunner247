@@ -96,7 +96,6 @@ export function CameraCapture({ onCapture, disabled }: Props) {
         </div>
       ) : (
         <>
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video ref={videoRef} playsInline muted className="w-full rounded" />
           <div className="mt-2 flex items-center justify-center gap-3">
             <button

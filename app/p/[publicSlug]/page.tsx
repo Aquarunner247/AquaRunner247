@@ -1,15 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { ReadingChart } from "@/app/components/reading-chart";
 import { BackwashCalendar } from "@/app/components/backwash-calendar";
+import { getMonthlyReadingRows } from "@/lib/reading-rows";
 
 type PageProps = {
   params: Promise<{ publicSlug: string }>;
   searchParams?: Promise<{ month?: string; year?: string; section?: string }>;
 };
-
-function daysInMonth(year: number, monthIndex: number) {
-  return new Date(year, monthIndex + 1, 0).getDate();
-}
 
 function monthTitle(year: number, monthIndex: number) {
   return new Date(year, monthIndex, 1).toLocaleString(undefined, { month: "long", year: "numeric" });
@@ -39,10 +36,6 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
       : now.getMonth();
   const section: Section = SECTIONS.includes(sp.section as Section) ? (sp.section as Section) : "chemistry";
 
-  const monthStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
-  const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
-  const totalDays = daysInMonth(year, monthIndex);
-
   const body = await prisma.bodyOfWater.findUnique({
     where: { publicSlug },
     select: {
@@ -62,6 +55,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
           managerBusinessPhone: true,
           managementCompany: { select: { name: true } },
           organization: { select: { name: true } },
+          customer: { select: { name: true } },
         },
       },
     },
@@ -79,49 +73,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
     );
   }
 
-  const visits = await prisma.serviceVisit.findMany({
-    where: {
-      bodyOfWaterId: body.id,
-      status: "COMPLETED",
-      serviceComplete: true,
-      completedAt: { gte: monthStart, lte: monthEnd },
-    },
-    orderBy: { completedAt: "asc" },
-    include: { reading: true },
-  });
-
-  const byDay = new Map<number, (typeof visits)[number]>();
-  for (const v of visits) {
-    if (!v.completedAt) continue;
-    byDay.set(v.completedAt.getDate(), v);
-  }
-
-  const num = (d: unknown) => (d == null ? null : Number(d));
-
-  // Build one consolidated row per day — feeds both the table and the charts
-  const rows = Array.from({ length: totalDays }, (_, i) => {
-    const day = i + 1;
-    const v = byDay.get(day);
-    const r = v?.reading;
-    const backwashAt = r?.backwashAt ?? null;
-    return {
-      day,
-      visited: Boolean(v),
-      freeChlorinePpm: num(r?.freeChlorinePpm),
-      ph: num(r?.ph),
-      alkalinityPpm: num(r?.alkalinityPpm),
-      cyanuricAcidPpm: num(r?.cyanuricAcidPpm),
-      temperatureF: num(r?.temperatureF),
-      pumpPressurePsi: num(r?.pumpPressurePsi),
-      vacGaugeReading: num(r?.vacGaugeReading),
-      filterPressurePsi: num(r?.filterPressurePsi),
-      flowMeterGpm: num(r?.flowMeterGpm),
-      backwashed: Boolean(backwashAt),
-      backwashTime: backwashAt
-        ? backwashAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-        : null,
-    };
-  });
+  const { rows, totalDays, visitCount } = await getMonthlyReadingRows(body.id, year, monthIndex);
 
   const seriesFor = (pick: (row: (typeof rows)[number]) => number | null) =>
     rows.map((row) => ({ day: row.day, value: pick(row) }));
@@ -153,10 +105,10 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
           Public maintenance log — inspector view
         </p>
         <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-extrabold uppercase tracking-tight text-[#12234A]">
-          {body.name}
+          {body.property.customer?.name ?? body.property.name}
         </h1>
         <p className="mt-1 text-sm text-[#4A6572]">
-          {body.property.name}
+          {body.property.name} · {body.name}
           {body.property.addressLine1 ? ` — ${body.property.addressLine1}` : ""}
           {body.property.city ? `, ${body.property.city}` : ""}
           {body.property.region ? `, ${body.property.region}` : ""}
@@ -225,8 +177,14 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
         >
           Next →
         </a>
+        <a
+          href={`/api/qr/${encodeURIComponent(publicSlug)}/export?month=${monthIndex + 1}&year=${year}`}
+          className="rounded-md border border-[#0A5FA4] px-3 py-1.5 text-sm font-semibold text-[#0A5FA4] hover:bg-[#0A5FA4]/5"
+        >
+          Download CSV
+        </a>
         <span className="font-[family-name:var(--font-mono)] ml-auto text-sm text-[#4A6572]">
-          {monthTitle(year, monthIndex)} · {visits.length} completed visit{visits.length === 1 ? "" : "s"}
+          {monthTitle(year, monthIndex)} · {visitCount} completed visit{visitCount === 1 ? "" : "s"}
         </span>
       </form>
 

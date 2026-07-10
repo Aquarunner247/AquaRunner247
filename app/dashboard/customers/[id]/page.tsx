@@ -1,20 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BodyOfWaterType, EquipmentKind } from "@/generated/prisma/client";
+import { BodyOfWaterType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { generateQrDataUrl, publicBodyOfWaterUrl } from "@/lib/qr";
 import { createBodyOfWater } from "../actions";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
-import {
-  createEquipment,
-  deleteBodyOfWater,
-  deleteCustomer,
-  deleteEquipment,
-  updateBodyOfWater,
-  updateCustomer,
-  updateProperty,
-} from "./actions";
+import { deleteCustomer, updateCustomer, updateProperty } from "./actions";
 
 type PageProps = {
   params: Promise<{ id: string }>;

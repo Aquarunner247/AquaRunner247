@@ -23,7 +23,35 @@ export default async function TechniciansPage() {
         <p className="mt-1 text-sm text-slate-500">Add team members and manage their access.</p>
       </header>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+        <p className="font-medium text-slate-900">Roles</p>
+        <dl className="mt-2 space-y-2">
+          <div>
+            <dt className="font-semibold text-slate-800">Admin</dt>
+            <dd className="text-slate-600">
+              Full control — manage customers, properties, routes, chemicals, checklist templates, and team
+              member roles. Sees the office-wide dashboard, alerts, and reports. Can also be assigned stops on a
+              route like a technician.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-slate-800">Office</dt>
+            <dd className="text-slate-600">
+              Can review and update any service visit — chemistry, doses, checklist, photos, issues — and the
+              day&rsquo;s schedule, but can&rsquo;t manage customers, routes, chemicals, or team members.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-slate-800">Technician</dt>
+            <dd className="text-slate-600">
+              Sees and completes only the visits assigned to them for the day: chemistry readings, chemical
+              doses, equipment checks, photos, and issue reports.
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <ul className="space-y-2">
           {users.map((u) => (
             <li
