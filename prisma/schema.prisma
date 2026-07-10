@@ -69,11 +69,29 @@ enum IssueSeverity {
   HIGH
 }
 
+enum OrganizationPlanStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  COMPED
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Business identity shown to this org's own customers/inspectors (public QR log, CSV export).
+  businessName  String?
+  businessPhone String?
+
+  planStatus           OrganizationPlanStatus @default(TRIALING)
+  trialEndsAt           DateTime?
+  stripeCustomerId      String?   @unique
+  stripeSubscriptionId  String?   @unique
+  currentPeriodEnd      DateTime?
 
   users     User[]
   customers Customer[]
@@ -81,6 +99,8 @@ model Organization {
   managementCompanies ManagementCompany[]
   chemicalProducts ChemicalProduct[]
   checklistItems ChecklistItemDefinition[]
+  recurringRoutes RecurringRoute[]
+  serviceVisits   ServiceVisit[]
 }
 
 model ManagementCompany {
@@ -114,6 +134,8 @@ model User {
   role      UserRole @default(TECHNICIAN)
   phone     String?
   active    Boolean  @default(true)
+  /// Platform-level oversight access across ALL organizations — separate from the per-org `role`. Never settable via any UI; set manually by the platform owner.
+  isPlatformAdmin Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -352,8 +374,9 @@ model EquipmentServiceEvent {
 }
 
 model RecurringRoute {
-  id             String @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   name      String
   /// Default assigned technician for generated visits (1 route per tech per day).
@@ -396,8 +419,9 @@ model RecurringStop {
 }
 
 model ServiceVisit {
-  id             String @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)

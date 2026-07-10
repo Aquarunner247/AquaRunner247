@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getMonthlyReadingRows, type MonthlyReadingRow } from "@/lib/reading-rows";
-import { SERVICE_COMPANY_NAME, SERVICE_COMPANY_PHONE } from "@/lib/service-company";
+import { DEFAULT_BUSINESS_NAME, DEFAULT_BUSINESS_PHONE } from "@/lib/service-company";
 
 type RouteCtx = {
   params: Promise<{ slug: string }>;
@@ -67,7 +67,12 @@ export async function GET(req: Request, ctx: RouteCtx) {
       volumeGallons: true,
       minimumRequiredFlowGpm: true,
       maximumFilterFlowGpm: true,
-      property: { select: { name: true } },
+      property: {
+        select: {
+          name: true,
+          organization: { select: { businessName: true, businessPhone: true } },
+        },
+      },
     },
   });
   if (!body) {
@@ -81,8 +86,8 @@ export async function GET(req: Request, ctx: RouteCtx) {
   const infoLines = [
     ["Facility", body.property.name],
     ["Body of Water", body.name],
-    ["Operator / Service Company", SERVICE_COMPANY_NAME],
-    ["Service Company Phone", SERVICE_COMPANY_PHONE],
+    ["Operator / Service Company", body.property.organization.businessName || DEFAULT_BUSINESS_NAME],
+    ["Service Company Phone", body.property.organization.businessPhone || DEFAULT_BUSINESS_PHONE],
     ["Water Volume (gal)", body.volumeGallons != null ? String(body.volumeGallons) : ""],
     ["Min Required Flow (GPM)", body.minimumRequiredFlowGpm != null ? String(body.minimumRequiredFlowGpm) : ""],
     ["Max Filter Flow (GPM)", body.maximumFilterFlowGpm != null ? String(body.maximumFilterFlowGpm) : ""],

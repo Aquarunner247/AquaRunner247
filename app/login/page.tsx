@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { LoginForm } from "./login-form";
@@ -22,6 +23,12 @@ export default async function LoginPage({ searchParams }: PageProps) {
         ) : null}
       </div>
       <LoginForm />
+      <p className="mt-6 text-center text-sm text-slate-500">
+        New here?{" "}
+        <Link href="/signup" className="font-medium text-[#0A5FA4] underline">
+          Create an account
+        </Link>
+      </p>
     </main>
   );
 }
