@@ -81,6 +81,15 @@ export function SideNav({ isLoggedIn, isAdmin }: SideNavProps) {
         </nav>
 
         <div className="border-t border-white/10 px-3 py-3">
+          {isLoggedIn ? (
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-[#A9D3E0] hover:bg-white/5 hover:text-white"
+            >
+              <span aria-hidden>⟳</span> Sync
+            </button>
+          ) : null}
           {!isLoggedIn ? (
             <Link href="/login" className={navClass(isActive(pathname, "/login"))}>
               Login
