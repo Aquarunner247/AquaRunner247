@@ -227,6 +227,24 @@ model Equipment {
   installedOn  DateTime?
   notes        String?
 
+  /// Pump: motor horsepower
+  horsepower Decimal? @db.Decimal(6, 2)
+  /// Pump: e.g. "115V", "230V", "115/230V"
+  voltage String?
+
+  /// Heater: BTU rating
+  btu Int?
+  /// Heater: ASME-certified pressure vessel
+  asmeCertified Boolean?
+
+  /// Main drain cover: VGB Act compliance year
+  vgbaYear Int?
+  /// Main drain cover: manufactured sump (vs. field-built)
+  manufacturedSump Boolean?
+
+  /// Skimmer cover: equalizer line abandoned
+  equalizerAbandoned Boolean?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
