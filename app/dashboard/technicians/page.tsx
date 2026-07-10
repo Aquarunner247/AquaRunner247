@@ -5,10 +5,16 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { createTechnician, deleteTechnician, updateUserRole } from "./actions";
 
-export default async function TechniciansPage() {
+type PageProps = {
+  searchParams?: Promise<{ error?: string }>;
+};
+
+export default async function TechniciansPage({ searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN") redirect("/dashboard");
+
+  const params = (await searchParams) ?? {};
 
   const users = await prisma.user.findMany({
     where: { organizationId: appUser.organizationId },
@@ -99,6 +105,9 @@ export default async function TechniciansPage() {
 
         <form action={createTechnician} className="mt-4 rounded border border-slate-200 bg-slate-50 p-3">
           <p className="text-sm font-medium text-slate-900">Add technician</p>
+          {params.error === "email-in-use" ? (
+            <p className="mt-1 text-sm text-red-600">That email already belongs to a different company&rsquo;s account.</p>
+          ) : null}
           <div className="mt-2 grid gap-2 md:grid-cols-2">
             <input name="name" required placeholder="Full name" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
             <input name="email" type="email" required placeholder="Email" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />

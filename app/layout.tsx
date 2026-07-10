@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Big_Shoulders, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { SideNav } from "./components/side-nav";
+import { ServiceWorkerRegister } from "./components/service-worker-register";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 
@@ -23,6 +24,15 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "AquaRunner 24/7 Pro",
   description: "Commercial pool maintenance — scheduling, service logs, and SNHD-friendly records.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#12234A",
 };
 
 export default async function RootLayout({
@@ -39,6 +49,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body className="min-h-screen bg-[#EAF6FA] font-[family-name:var(--font-body)] antialiased md:flex">
+        <ServiceWorkerRegister />
         <SideNav isLoggedIn={Boolean(user)} isAdmin={appUser?.role === "ADMIN"} />
         <div className="min-w-0 flex-1">{children}</div>
       </body>

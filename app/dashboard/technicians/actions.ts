@@ -27,27 +27,31 @@ export async function createTechnician(formData: FormData) {
 
   const role = (Object.values(UserRole) as string[]).includes(roleRaw) ? (roleRaw as UserRole) : UserRole.TECHNICIAN;
 
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing && existing.organizationId !== appUser.organizationId) {
+    redirect("/dashboard/technicians?error=email-in-use");
+  }
+
   const authUserId = await createOrFindAuthUser(email, password);
 
-  await prisma.user.upsert({
-    where: { email },
-    create: {
-      organizationId: appUser.organizationId,
-      authUserId,
-      email,
-      name,
-      phone: phone || null,
-      role,
-      active: true,
-    },
-    update: {
-      authUserId,
-      name,
-      phone: phone || null,
-      role,
-      active: true,
-    },
-  });
+  if (existing) {
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: { authUserId, name, phone: phone || null, role, active: true },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        organizationId: appUser.organizationId,
+        authUserId,
+        email,
+        name,
+        phone: phone || null,
+        role,
+        active: true,
+      },
+    });
+  }
 
   revalidatePath("/dashboard/technicians");
 }
