@@ -1,17 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BodyOfWaterType, EquipmentKind } from "@/generated/prisma/client";
+import { BodyOfWaterType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { generateQrDataUrl, publicBodyOfWaterUrl } from "@/lib/qr";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { BodyQrCode } from "@/app/components/body-qr-code";
-import {
-  updateBodyOfWater,
-  deleteBodyOfWater,
-  createEquipment,
-  deleteEquipment,
-} from "../../actions";
+import { EquipmentForm } from "./equipment-form";
+import { updateBodyOfWater, deleteBodyOfWater, deleteEquipment } from "../../actions";
 
 type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
@@ -119,6 +115,13 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
                   {eq.make ? ` • ${eq.make}` : ""}
                   {eq.model ? ` ${eq.model}` : ""}
                   {eq.serialNumber ? ` • SN ${eq.serialNumber}` : ""}
+                  {eq.horsepower ? ` • ${eq.horsepower} HP` : ""}
+                  {eq.voltage ? ` • ${eq.voltage}` : ""}
+                  {eq.btu ? ` • ${eq.btu} BTU` : ""}
+                  {eq.asmeCertified ? ` • ASME certified` : ""}
+                  {eq.vgbaYear ? ` • VGBA ${eq.vgbaYear}` : ""}
+                  {eq.manufacturedSump ? ` • Manufactured sump` : ""}
+                  {eq.equalizerAbandoned ? ` • Equalizer abandoned` : ""}
                   {eq.pipeSize ? ` • Pipe ${eq.pipeSize}` : ""}
                   {eq.numberOfPorts ? ` • ${eq.numberOfPorts} port${eq.numberOfPorts === 1 ? "" : "s"}` : ""}
                   {eq.lastServicedAt ? ` • Last serviced ${new Date(eq.lastServicedAt).toLocaleDateString()}` : ""}
@@ -127,9 +130,9 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
                   <input type="hidden" name="customerId" value={customerId} />
                   <input type="hidden" name="equipmentId" value={eq.id} />
                   <ConfirmSubmitButton
-                    label="Delete"
+                    label="🗑"
                     confirmMessage="Delete this equipment item?"
-                    className="rounded bg-rose-700 px-2 py-1 text-xs font-medium text-white"
+                    className="rounded px-2 py-1 text-base hover:bg-slate-200"
                   />
                 </form>
               </li>
@@ -139,43 +142,7 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
           <p className="mt-2 text-sm text-slate-500">No equipment yet.</p>
         )}
 
-        <form action={createEquipment} className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
-          <input type="hidden" name="customerId" value={customerId} />
-          <input type="hidden" name="bodyId" value={body.id} />
-          <div className="grid gap-2 md:grid-cols-4">
-            <select name="kind" className="rounded border border-slate-300 px-2 py-1.5 text-sm">
-              {Object.values(EquipmentKind).map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-            <input name="make" placeholder="Make" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
-            <input name="model" placeholder="Model" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
-            <input name="serialNumber" placeholder="Serial #" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
-          </div>
-          <div className="mt-2 grid gap-2 md:grid-cols-4">
-            <input name="pipeSize" placeholder="Pipe size (e.g. 2 in)" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
-            <input
-              name="numberOfPorts"
-              type="number"
-              step="1"
-              placeholder="# of ports"
-              className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-            />
-            <div className="md:col-span-2">
-              <label className="block text-xs text-slate-500">Last changed / fixed</label>
-              <input
-                name="lastServicedAt"
-                type="date"
-                className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-              />
-            </div>
-          </div>
-          <button className="mt-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
-            Add equipment
-          </button>
-        </form>
+        <EquipmentForm customerId={customerId} bodyId={body.id} />
       </section>
 
       <section className="mt-6 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">

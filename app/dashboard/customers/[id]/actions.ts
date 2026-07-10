@@ -196,6 +196,15 @@ export async function createEquipment(formData: FormData) {
   const pipeSize = String(formData.get("pipeSize") ?? "").trim();
   const portsRaw = String(formData.get("numberOfPorts") ?? "").trim();
   const lastServicedRaw = String(formData.get("lastServicedAt") ?? "").trim();
+  const horsepowerRaw = String(formData.get("horsepower") ?? "").trim();
+  const voltage = String(formData.get("voltage") ?? "").trim();
+  const btuRaw = String(formData.get("btu") ?? "").trim();
+  const asmeCertified = formData.get("asmeCertified") === "on";
+  const vgbaYearRaw = String(formData.get("vgbaYear") ?? "").trim();
+  const manufacturedSump = formData.get("manufacturedSump") === "on";
+  const equalizerAbandoned = formData.get("equalizerAbandoned") === "on";
+  const minFlowRaw = String(formData.get("minFlowGpm") ?? "").trim();
+  const maxFlowRaw = String(formData.get("maxFlowGpm") ?? "").trim();
   if (!customerId || !bodyId) return;
 
   const body = await prisma.bodyOfWater.findFirst({
@@ -212,6 +221,9 @@ export async function createEquipment(formData: FormData) {
     : EquipmentKind.OTHER;
   const numberOfPorts = portsRaw ? Number(portsRaw) : null;
   const lastServicedAt = lastServicedRaw ? new Date(lastServicedRaw) : null;
+  const horsepower = horsepowerRaw ? Number(horsepowerRaw) : null;
+  const btu = btuRaw ? Number(btuRaw) : null;
+  const vgbaYear = vgbaYearRaw ? Number(vgbaYearRaw) : null;
 
   await prisma.equipment.create({
     data: {
@@ -223,8 +235,30 @@ export async function createEquipment(formData: FormData) {
       pipeSize: pipeSize || null,
       numberOfPorts: Number.isFinite(numberOfPorts) ? numberOfPorts : null,
       lastServicedAt: lastServicedAt && !Number.isNaN(lastServicedAt.getTime()) ? lastServicedAt : null,
+      horsepower: kind === EquipmentKind.PUMP && Number.isFinite(horsepower) ? horsepower : null,
+      voltage: kind === EquipmentKind.PUMP ? voltage || null : null,
+      btu: kind === EquipmentKind.HEATER && Number.isFinite(btu) ? btu : null,
+      asmeCertified: kind === EquipmentKind.HEATER ? asmeCertified : null,
+      vgbaYear: kind === EquipmentKind.MAIN_DRAIN_COVER && Number.isFinite(vgbaYear) ? vgbaYear : null,
+      manufacturedSump: kind === EquipmentKind.MAIN_DRAIN_COVER ? manufacturedSump : null,
+      equalizerAbandoned: kind === EquipmentKind.SKIMMER_COVER ? equalizerAbandoned : null,
     },
   });
+
+  // The min/max filter flow shown on the public QR log and CSV export live on the body of
+  // water itself (SNHD posts them per body, not per piece of equipment) — a Filter's entered
+  // values write through to those fields rather than being stored again on the Equipment row.
+  if (kind === EquipmentKind.FILTER && (minFlowRaw || maxFlowRaw)) {
+    const minFlow = minFlowRaw ? Number(minFlowRaw) : null;
+    const maxFlow = maxFlowRaw ? Number(maxFlowRaw) : null;
+    await prisma.bodyOfWater.update({
+      where: { id: bodyId },
+      data: {
+        minimumRequiredFlowGpm: minFlow != null && Number.isFinite(minFlow) ? minFlow : undefined,
+        maximumFilterFlowGpm: maxFlow != null && Number.isFinite(maxFlow) ? maxFlow : undefined,
+      },
+    });
+  }
 
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);
