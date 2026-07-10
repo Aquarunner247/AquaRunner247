@@ -60,7 +60,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const todayVisits =
-    appUser?.role === "TECHNICIAN"
+    appUser
       ? await prisma.serviceVisit.findMany({
           where: {
             technicianId: appUser.id,
@@ -315,6 +315,41 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         ) : appUser.role === "ADMIN" && stats ? (
           <>
+            {/* Your own stops today, if you're also assigned as a technician on a route/visit */}
+            {todayVisits.length > 0 ? (
+              <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-[#0A5FA4]">
+                      Your stops today
+                    </p>
+                    <p className="mt-1 font-[family-name:var(--font-display)] text-base font-bold text-[#12234A]">
+                      {startOfDay.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Link className="rounded border border-[#C9E3EC] bg-white px-2 py-1 text-[#12234A]" href={`/dashboard?date=${toYmd(prevDate)}`}>
+                      Previous day
+                    </Link>
+                    {!isToday ? (
+                      <Link className="rounded border border-[#C9E3EC] bg-white px-2 py-1 text-[#12234A]" href="/dashboard">
+                        Today
+                      </Link>
+                    ) : null}
+                    <Link className="rounded border border-[#C9E3EC] bg-white px-2 py-1 text-[#12234A]" href={`/dashboard?date=${toYmd(nextDate)}`}>
+                      Next day
+                    </Link>
+                  </div>
+                </div>
+                <p className="mt-3 text-sm text-[#4A6572]">
+                  {todayVisits.length} stop{todayVisits.length === 1 ? "" : "s"} today. Drag to reorder.
+                </p>
+                <div className="mt-3">
+                  <RouteDayView visits={routeStops} readOnly={isPastDay} />
+                </div>
+              </div>
+            ) : null}
+
             {/* Quick stats */}
             <div className="grid gap-4 sm:grid-cols-4">
               <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

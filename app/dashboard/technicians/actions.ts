@@ -52,6 +52,29 @@ export async function createTechnician(formData: FormData) {
   revalidatePath("/dashboard/technicians");
 }
 
+export async function updateUserRole(formData: FormData) {
+  const appUser = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const roleRaw = String(formData.get("role") ?? "").trim();
+  if (!userId || !(Object.values(UserRole) as string[]).includes(roleRaw)) return;
+  const role = roleRaw as UserRole;
+
+  const target = await prisma.user.findFirst({
+    where: { id: userId, organizationId: appUser.organizationId },
+  });
+  if (!target) return;
+
+  if (target.role === "ADMIN" && role !== "ADMIN") {
+    const otherAdmins = await prisma.user.count({
+      where: { organizationId: appUser.organizationId, role: "ADMIN", id: { not: userId } },
+    });
+    if (otherAdmins === 0) return;
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { role } });
+  revalidatePath("/dashboard/technicians");
+}
+
 export async function deleteTechnician(formData: FormData) {
   const appUser = await requireAdmin();
   const userId = String(formData.get("userId") ?? "").trim();

@@ -3,7 +3,7 @@ import { UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
-import { createTechnician, deleteTechnician } from "./actions";
+import { createTechnician, deleteTechnician, updateUserRole } from "./actions";
 
 export default async function TechniciansPage() {
   const appUser = await getCurrentAppUser();
@@ -33,18 +33,37 @@ export default async function TechniciansPage() {
               <span>
                 <span className="font-medium text-slate-900">{u.name ?? u.email}</span>
                 <span className="ml-2 text-slate-500">
-                  {u.email} · {u.role}
+                  {u.email}
                   {u.phone ? ` · ${u.phone}` : ""}
                 </span>
               </span>
-              <form action={deleteTechnician}>
-                <input type="hidden" name="userId" value={u.id} />
-                <ConfirmSubmitButton
-                  label="🗑"
-                  confirmMessage={`Permanently delete ${u.name ?? u.email}? This also removes their login — they will no longer be able to sign in.`}
-                  className="rounded px-2 py-1 text-base hover:bg-slate-200"
-                />
-              </form>
+              <div className="flex items-center gap-2">
+                <form action={updateUserRole} className="flex items-center gap-1">
+                  <input type="hidden" name="userId" value={u.id} />
+                  <select
+                    name="role"
+                    defaultValue={u.role}
+                    className="rounded border border-slate-300 px-1.5 py-1 text-xs"
+                  >
+                    {Object.values(UserRole).map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100" type="submit">
+                    Save
+                  </button>
+                </form>
+                <form action={deleteTechnician}>
+                  <input type="hidden" name="userId" value={u.id} />
+                  <ConfirmSubmitButton
+                    label="🗑"
+                    confirmMessage={`Permanently delete ${u.name ?? u.email}? This also removes their login — they will no longer be able to sign in.`}
+                    className="rounded px-2 py-1 text-base hover:bg-slate-200"
+                  />
+                </form>
+              </div>
             </li>
           ))}
           {users.length === 0 ? <p className="text-sm text-slate-500">No team members yet.</p> : null}
