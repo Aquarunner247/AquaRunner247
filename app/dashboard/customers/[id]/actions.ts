@@ -185,11 +185,12 @@ export async function deleteBodyOfWater(formData: FormData) {
   redirect(`/dashboard/customers/${customerId}?tab=bodies`);
 }
 
-export async function createEquipment(formData: FormData) {
-  const appUser = await requireAdmin();
-  const customerId = String(formData.get("customerId") ?? "").trim();
-  const bodyId = String(formData.get("bodyId") ?? "").trim();
+function parseEquipmentFields(formData: FormData) {
   const kindRaw = String(formData.get("kind") ?? "").trim();
+  const kind = (Object.values(EquipmentKind) as string[]).includes(kindRaw)
+    ? (kindRaw as EquipmentKind)
+    : EquipmentKind.OTHER;
+
   const make = String(formData.get("make") ?? "").trim();
   const model = String(formData.get("model") ?? "").trim();
   const serialNumber = String(formData.get("serialNumber") ?? "").trim();
@@ -205,29 +206,18 @@ export async function createEquipment(formData: FormData) {
   const equalizerAbandoned = formData.get("equalizerAbandoned") === "on";
   const minFlowRaw = String(formData.get("minFlowGpm") ?? "").trim();
   const maxFlowRaw = String(formData.get("maxFlowGpm") ?? "").trim();
-  if (!customerId || !bodyId) return;
 
-  const body = await prisma.bodyOfWater.findFirst({
-    where: {
-      id: bodyId,
-      property: { organizationId: appUser.organizationId, customerId },
-    },
-    select: { id: true },
-  });
-  if (!body) return;
-
-  const kind = (Object.values(EquipmentKind) as string[]).includes(kindRaw)
-    ? (kindRaw as EquipmentKind)
-    : EquipmentKind.OTHER;
   const numberOfPorts = portsRaw ? Number(portsRaw) : null;
   const lastServicedAt = lastServicedRaw ? new Date(lastServicedRaw) : null;
   const horsepower = horsepowerRaw ? Number(horsepowerRaw) : null;
   const btu = btuRaw ? Number(btuRaw) : null;
   const vgbaYear = vgbaYearRaw ? Number(vgbaYearRaw) : null;
+  const minFlow = minFlowRaw ? Number(minFlowRaw) : null;
+  const maxFlow = maxFlowRaw ? Number(maxFlowRaw) : null;
 
-  await prisma.equipment.create({
+  return {
+    kind,
     data: {
-      bodyOfWaterId: bodyId,
       kind,
       make: make || null,
       model: model || null,
@@ -243,22 +233,84 @@ export async function createEquipment(formData: FormData) {
       manufacturedSump: kind === EquipmentKind.MAIN_DRAIN_COVER ? manufacturedSump : null,
       equalizerAbandoned: kind === EquipmentKind.SKIMMER_COVER ? equalizerAbandoned : null,
     },
+    minFlowRaw,
+    maxFlowRaw,
+    minFlow,
+    maxFlow,
+  };
+}
+
+// The min/max filter flow shown on the public QR log and CSV export live on the body of
+// water itself (SNHD posts them per body, not per piece of equipment) — a Filter's entered
+// values write through to those fields rather than being stored again on the Equipment row.
+async function writeThroughFilterFlow(
+  bodyId: string,
+  kind: EquipmentKind,
+  minFlowRaw: string,
+  maxFlowRaw: string,
+  minFlow: number | null,
+  maxFlow: number | null,
+) {
+  if (kind !== EquipmentKind.FILTER || (!minFlowRaw && !maxFlowRaw)) return;
+  await prisma.bodyOfWater.update({
+    where: { id: bodyId },
+    data: {
+      minimumRequiredFlowGpm: minFlow != null && Number.isFinite(minFlow) ? minFlow : undefined,
+      maximumFilterFlowGpm: maxFlow != null && Number.isFinite(maxFlow) ? maxFlow : undefined,
+    },
+  });
+}
+
+export async function createEquipment(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  if (!customerId || !bodyId) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: {
+      id: bodyId,
+      property: { organizationId: appUser.organizationId, customerId },
+    },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  const { kind, data, minFlowRaw, maxFlowRaw, minFlow, maxFlow } = parseEquipmentFields(formData);
+
+  await prisma.equipment.create({
+    data: { ...data, bodyOfWaterId: bodyId },
   });
 
-  // The min/max filter flow shown on the public QR log and CSV export live on the body of
-  // water itself (SNHD posts them per body, not per piece of equipment) — a Filter's entered
-  // values write through to those fields rather than being stored again on the Equipment row.
-  if (kind === EquipmentKind.FILTER && (minFlowRaw || maxFlowRaw)) {
-    const minFlow = minFlowRaw ? Number(minFlowRaw) : null;
-    const maxFlow = maxFlowRaw ? Number(maxFlowRaw) : null;
-    await prisma.bodyOfWater.update({
-      where: { id: bodyId },
-      data: {
-        minimumRequiredFlowGpm: minFlow != null && Number.isFinite(minFlow) ? minFlow : undefined,
-        maximumFilterFlowGpm: maxFlow != null && Number.isFinite(maxFlow) ? maxFlow : undefined,
-      },
-    });
-  }
+  await writeThroughFilterFlow(bodyId, kind, minFlowRaw, maxFlowRaw, minFlow, maxFlow);
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function updateEquipment(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const equipmentId = String(formData.get("equipmentId") ?? "").trim();
+  if (!customerId || !equipmentId) return;
+
+  const equipment = await prisma.equipment.findFirst({
+    where: {
+      id: equipmentId,
+      bodyOfWater: { property: { organizationId: appUser.organizationId, customerId } },
+    },
+    select: { id: true, bodyOfWaterId: true },
+  });
+  if (!equipment) return;
+
+  const { kind, data, minFlowRaw, maxFlowRaw, minFlow, maxFlow } = parseEquipmentFields(formData);
+
+  await prisma.equipment.update({
+    where: { id: equipment.id },
+    data,
+  });
+
+  await writeThroughFilterFlow(equipment.bodyOfWaterId, kind, minFlowRaw, maxFlowRaw, minFlow, maxFlow);
 
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);

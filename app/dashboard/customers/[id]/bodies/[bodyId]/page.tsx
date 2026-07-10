@@ -7,7 +7,8 @@ import { generateQrDataUrl, publicBodyOfWaterUrl } from "@/lib/qr";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { BodyQrCode } from "@/app/components/body-qr-code";
 import { EquipmentForm } from "./equipment-form";
-import { updateBodyOfWater, deleteBodyOfWater, deleteEquipment } from "../../actions";
+import { EquipmentItem } from "./equipment-item";
+import { updateBodyOfWater, deleteBodyOfWater } from "../../actions";
 
 type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
@@ -106,36 +107,13 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
         {body.equipment.length ? (
           <ul className="mt-2 space-y-1 text-sm text-slate-700">
             {body.equipment.map((eq) => (
-              <li
+              <EquipmentItem
                 key={eq.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5"
-              >
-                <span>
-                  {eq.kind}
-                  {eq.make ? ` • ${eq.make}` : ""}
-                  {eq.model ? ` ${eq.model}` : ""}
-                  {eq.serialNumber ? ` • SN ${eq.serialNumber}` : ""}
-                  {eq.horsepower ? ` • ${eq.horsepower} HP` : ""}
-                  {eq.voltage ? ` • ${eq.voltage}` : ""}
-                  {eq.btu ? ` • ${eq.btu} BTU` : ""}
-                  {eq.asmeCertified ? ` • ASME certified` : ""}
-                  {eq.vgbaYear ? ` • VGBA ${eq.vgbaYear}` : ""}
-                  {eq.manufacturedSump ? ` • Manufactured sump` : ""}
-                  {eq.equalizerAbandoned ? ` • Equalizer abandoned` : ""}
-                  {eq.pipeSize ? ` • Pipe ${eq.pipeSize}` : ""}
-                  {eq.numberOfPorts ? ` • ${eq.numberOfPorts} port${eq.numberOfPorts === 1 ? "" : "s"}` : ""}
-                  {eq.lastServicedAt ? ` • Last serviced ${new Date(eq.lastServicedAt).toLocaleDateString()}` : ""}
-                </span>
-                <form action={deleteEquipment}>
-                  <input type="hidden" name="customerId" value={customerId} />
-                  <input type="hidden" name="equipmentId" value={eq.id} />
-                  <ConfirmSubmitButton
-                    label="🗑"
-                    confirmMessage="Delete this equipment item?"
-                    className="rounded px-2 py-1 text-base hover:bg-slate-200"
-                  />
-                </form>
-              </li>
+                customerId={customerId}
+                equipment={{ ...eq, horsepower: eq.horsepower?.toString() ?? null }}
+                minFlowGpm={body.minimumRequiredFlowGpm?.toString() ?? null}
+                maxFlowGpm={body.maximumFilterFlowGpm?.toString() ?? null}
+              />
             ))}
           </ul>
         ) : (
