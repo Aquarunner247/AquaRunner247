@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getMonthlyReadingRows, type MonthlyReadingRow } from "@/lib/reading-rows";
+import { SERVICE_COMPANY_NAME, SERVICE_COMPANY_PHONE } from "@/lib/service-company";
 
 type RouteCtx = {
   params: Promise<{ slug: string }>;
@@ -60,7 +61,14 @@ export async function GET(req: Request, ctx: RouteCtx) {
 
   const body = await prisma.bodyOfWater.findUnique({
     where: { publicSlug: slug },
-    select: { id: true, name: true, property: { select: { name: true } } },
+    select: {
+      id: true,
+      name: true,
+      volumeGallons: true,
+      minimumRequiredFlowGpm: true,
+      maximumFilterFlowGpm: true,
+      property: { select: { name: true } },
+    },
   });
   if (!body) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -69,7 +77,19 @@ export async function GET(req: Request, ctx: RouteCtx) {
   const { rows } = await getMonthlyReadingRows(body.id, year, monthIndex);
 
   const monthLabel = new Date(year, monthIndex, 1).toLocaleString(undefined, { month: "long", year: "numeric" });
-  const csv = [CSV_HEADER.join(","), ...rows.map(csvRow)].join("\n");
+
+  const infoLines = [
+    ["Facility", body.property.name],
+    ["Body of Water", body.name],
+    ["Operator / Service Company", SERVICE_COMPANY_NAME],
+    ["Service Company Phone", SERVICE_COMPANY_PHONE],
+    ["Water Volume (gal)", body.volumeGallons != null ? String(body.volumeGallons) : ""],
+    ["Min Required Flow (GPM)", body.minimumRequiredFlowGpm != null ? String(body.minimumRequiredFlowGpm) : ""],
+    ["Max Filter Flow (GPM)", body.maximumFilterFlowGpm != null ? String(body.maximumFilterFlowGpm) : ""],
+    ["Month", monthLabel],
+  ].map((cells) => cells.map(csvCell).join(","));
+
+  const csv = [...infoLines, "", CSV_HEADER.join(","), ...rows.map(csvRow)].join("\n");
   const fileSafeName = `${body.property.name}-${body.name}-${monthLabel}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   return new NextResponse(csv, {

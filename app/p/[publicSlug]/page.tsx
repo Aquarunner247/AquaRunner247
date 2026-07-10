@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ReadingChart } from "@/app/components/reading-chart";
 import { BackwashCalendar } from "@/app/components/backwash-calendar";
 import { getMonthlyReadingRows } from "@/lib/reading-rows";
+import { SERVICE_COMPANY_NAME, SERVICE_COMPANY_PHONE } from "@/lib/service-company";
 
 type PageProps = {
   params: Promise<{ publicSlug: string }>;
@@ -51,10 +52,6 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
           addressLine1: true,
           city: true,
           region: true,
-          managerName: true,
-          managerBusinessPhone: true,
-          managementCompany: { select: { name: true } },
-          organization: { select: { name: true } },
           customer: { select: { name: true } },
         },
       },
@@ -121,13 +118,11 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Operator / service company</dt>
-            <dd className="text-[#12234A]">
-              {body.property.managementCompany?.name || body.property.organization.name}
-            </dd>
+            <dd className="text-[#12234A]">{SERVICE_COMPANY_NAME}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Service company phone</dt>
-            <dd className="text-[#12234A]">{body.property.managerBusinessPhone || "—"}</dd>
+            <dd className="text-[#12234A]">{SERVICE_COMPANY_PHONE}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Water volume (gal)</dt>
