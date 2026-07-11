@@ -8,18 +8,26 @@ import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { BodyQrCode } from "@/app/components/body-qr-code";
 import { EquipmentForm } from "./equipment-form";
 import { EquipmentItem } from "./equipment-item";
-import { updateBodyOfWater, deleteBodyOfWater } from "../../actions";
+import { updateBodyOfWater, deleteBodyOfWater, importVenueReadings } from "../../actions";
 
 type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
+  searchParams?: Promise<{ imported?: string; importError?: string }>;
 };
 
-export default async function BodyOfWaterDetailPage({ params }: PageProps) {
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+export default async function BodyOfWaterDetailPage({ params, searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN") redirect("/dashboard");
 
   const { id: customerId, bodyId } = await params;
+  const sp = (await searchParams) ?? {};
+  const now = new Date();
 
   const body = await prisma.bodyOfWater.findFirst({
     where: {
@@ -126,6 +134,51 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
         )}
 
         <EquipmentForm customerId={customerId} bodyId={body.id} isSpa={body.type === "SPA"} />
+      </section>
+
+      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Import historical readings</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Upload a spreadsheet shaped like the downloadable QR-log CSV (one row per day, same columns) to backfill
+          readings from before this app was in use. Existing days in the same month are updated, not duplicated.
+        </p>
+
+        {sp.imported ? (
+          <p className="mt-2 text-sm font-medium text-emerald-700">Imported {sp.imported} day(s) of readings.</p>
+        ) : null}
+        {sp.importError ? <p className="mt-2 text-sm text-red-600">{sp.importError}</p> : null}
+
+        <form action={importVenueReadings} className="mt-3 flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-slate-50 p-2">
+          <input type="hidden" name="bodyId" value={body.id} />
+          <input type="hidden" name="customerId" value={customerId} />
+          <label className="flex flex-col gap-1 text-xs text-slate-500">
+            Month
+            <select name="month" defaultValue={now.getMonth() + 1} className="rounded border border-slate-300 px-2 py-1.5 text-sm">
+              {MONTH_NAMES.map((m, i) => (
+                <option key={m} value={i + 1}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-500">
+            Year
+            <select name="year" defaultValue={now.getFullYear()} className="rounded border border-slate-300 px-2 py-1.5 text-sm">
+              {Array.from({ length: 10 }, (_, i) => now.getFullYear() - 8 + i).map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-500">
+            File (.csv)
+            <input type="file" name="file" accept=".csv,text/csv" required className="text-sm" />
+          </label>
+          <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+            Import
+          </button>
+        </form>
       </section>
 
       <section className="mt-6 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">

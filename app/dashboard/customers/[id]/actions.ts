@@ -10,6 +10,7 @@ import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/
 import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/customer-documents";
 import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
 import { sendCustomerAlertEmail } from "@/lib/email";
+import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -306,6 +307,129 @@ export async function deleteBodyOfWater(formData: FormData) {
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);
   redirect(`/dashboard/customers/${customerId}?tab=bodies`);
+}
+
+/**
+ * Imports historical readings from a spreadsheet shaped like the downloadable QR-log CSV
+ * (one row per day of a month). For each day with any data, creates or updates a COMPLETED
+ * service visit + water reading dated to that day — so pre-existing customer records can be
+ * backfilled without re-entering everything by hand.
+ */
+export async function importVenueReadings(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const year = Number(formData.get("year"));
+  const month = Number(formData.get("month"));
+  const file = formData.get("file");
+
+  const fail = (error: string) => redirect(`/dashboard/customers/${customerId}/bodies/${bodyId}?importError=${encodeURIComponent(error)}`);
+
+  if (!bodyId || !customerId) return;
+  if (!(file instanceof File) || file.size === 0) fail("No file selected.");
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) fail("Pick the month and year this file covers.");
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    select: { id: true, propertyId: true },
+  });
+  if (!body) return;
+
+  const text = await (file as File).text();
+  const { rows, error } = parseReadingsCsv(text);
+  if (error) fail(error);
+  if (rows.length === 0) fail("No day rows with data were found in this file.");
+
+  const monthIndex = month - 1;
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+  let importedCount = 0;
+  for (const row of rows) {
+    if (row.day < 1 || row.day > daysInMonth) continue;
+
+    const hasData =
+      row.freeChlorinePpm != null ||
+      row.ph != null ||
+      row.alkalinityPpm != null ||
+      row.cyanuricAcidPpm != null ||
+      row.temperatureF != null ||
+      row.pumpPressurePsi != null ||
+      row.vacGaugeReading != null ||
+      row.filterPressurePsi != null ||
+      row.flowMeterGpm != null ||
+      row.backwashed;
+    if (!hasData) continue;
+
+    const dayStart = new Date(year, monthIndex, row.day, 0, 0, 0, 0);
+    const dayEnd = new Date(year, monthIndex, row.day, 23, 59, 59, 999);
+    const noon = new Date(year, monthIndex, row.day, 12, 0, 0, 0);
+
+    let visit = await prisma.serviceVisit.findFirst({
+      where: { bodyOfWaterId: body.id, completedAt: { gte: dayStart, lte: dayEnd } },
+      select: { id: true },
+    });
+    if (!visit) {
+      visit = await prisma.serviceVisit.create({
+        data: {
+          organizationId: appUser.organizationId,
+          propertyId: body.propertyId,
+          bodyOfWaterId: body.id,
+          scheduledStart: noon,
+          status: "COMPLETED",
+          serviceComplete: true,
+          completedAt: noon,
+        },
+        select: { id: true },
+      });
+    }
+
+    let backwashAt: Date | null = null;
+    if (row.backwashed) {
+      const parsedTime = row.backwashTime ? parseTimeOfDay(row.backwashTime) : null;
+      backwashAt = parsedTime
+        ? new Date(year, monthIndex, row.day, parsedTime.hours, parsedTime.minutes, 0, 0)
+        : noon;
+    }
+
+    await prisma.visitWaterReading.upsert({
+      where: { visitId: visit.id },
+      create: {
+        visitId: visit.id,
+        ph: row.ph,
+        freeChlorinePpm: row.freeChlorinePpm,
+        alkalinityPpm: row.alkalinityPpm,
+        cyanuricAcidPpm: row.cyanuricAcidPpm,
+        temperatureF: row.temperatureF,
+        pumpPressurePsi: row.pumpPressurePsi,
+        vacGaugeReading: row.vacGaugeReading,
+        filterPressurePsi: row.filterPressurePsi,
+        flowMeterGpm: row.flowMeterGpm,
+        backwashAt,
+        capturedAt: noon,
+      },
+      update: {
+        ph: row.ph,
+        freeChlorinePpm: row.freeChlorinePpm,
+        alkalinityPpm: row.alkalinityPpm,
+        cyanuricAcidPpm: row.cyanuricAcidPpm,
+        temperatureF: row.temperatureF,
+        pumpPressurePsi: row.pumpPressurePsi,
+        vacGaugeReading: row.vacGaugeReading,
+        filterPressurePsi: row.filterPressurePsi,
+        flowMeterGpm: row.flowMeterGpm,
+        backwashAt,
+        capturedAt: noon,
+      },
+    });
+
+    importedCount += 1;
+  }
+
+  if (importedCount === 0) fail("No day rows with any readings were found in this file.");
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
+  redirect(`/dashboard/customers/${customerId}/bodies/${bodyId}?imported=${importedCount}`);
 }
 
 function parseEquipmentFields(formData: FormData) {
