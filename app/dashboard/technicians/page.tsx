@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -54,6 +55,18 @@ export default async function TechniciansPage({ searchParams }: PageProps) {
               doses, equipment checks, photos, and issue reports.
             </dd>
           </div>
+          <div>
+            <dt className="font-semibold text-slate-800">Customer</dt>
+            <dd className="text-slate-600">
+              Not a team-member role — customers get their own separate portal login (no access here) to see
+              scheduled service days, reports, photos, and documents. Add or remove a customer&rsquo;s portal
+              login from their page under{" "}
+              <Link href="/dashboard/customers" className="underline">
+                Customers
+              </Link>
+              .
+            </dd>
+          </div>
         </dl>
       </section>
 
@@ -75,6 +88,7 @@ export default async function TechniciansPage({ searchParams }: PageProps) {
                 <form action={updateUserRole} className="flex items-center gap-1">
                   <input type="hidden" name="userId" value={u.id} />
                   <select
+                    key={u.role}
                     name="role"
                     defaultValue={u.role}
                     className="rounded border border-slate-300 px-1.5 py-1 text-xs"
