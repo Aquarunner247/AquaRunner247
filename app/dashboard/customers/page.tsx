@@ -25,7 +25,7 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
 
   const customers = await prisma.customer.findMany({
     where: { organizationId: appUser.organizationId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { name: "asc" },
     select: {
       id: true,
       name: true,
@@ -41,6 +41,22 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
       },
     },
   });
+
+  // DB collation can't be relied on for correct case-insensitive alphabetical order, so
+  // re-sort in JS and group by first letter for the section headers below.
+  customers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
+  const customerGroups: { letter: string; customers: typeof customers }[] = [];
+  for (const customer of customers) {
+    const firstChar = customer.name.trim().charAt(0).toUpperCase();
+    const letter = /[A-Z]/.test(firstChar) ? firstChar : "#";
+    const currentGroup = customerGroups[customerGroups.length - 1];
+    if (currentGroup && currentGroup.letter === letter) {
+      currentGroup.customers.push(customer);
+    } else {
+      customerGroups.push({ letter, customers: [customer] });
+    }
+  }
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
@@ -173,28 +189,37 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
         {customers.length === 0 ? (
           <p className="p-4 text-sm text-slate-500">No customers yet.</p>
         ) : (
-          customers.map((customer) => {
-            const property = customer.properties[0];
-            const bodyCount = customer.properties.reduce((sum, p) => sum + p.bodiesOfWater.length, 0);
-            return (
-              <Link
-                key={customer.id}
-                href={`/dashboard/customers/${customer.id}`}
-                className="flex items-center justify-between gap-3 p-4 hover:bg-slate-50"
-              >
-                <div>
-                  <p className="text-sm font-medium text-slate-900">{customer.name}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {property?.managementCompany ? `${property.managementCompany.name} · ` : ""}
-                    {[property?.city, property?.region].filter(Boolean).join(", ") || "No address on file"}
-                  </p>
-                </div>
-                <p className="shrink-0 text-xs text-slate-400">
-                  {bodyCount} bod{bodyCount === 1 ? "y" : "ies"} of water
-                </p>
-              </Link>
-            );
-          })
+          customerGroups.map((group) => (
+            <div key={group.letter} className="flex">
+              <div className="flex w-10 shrink-0 justify-center border-r border-slate-200 bg-slate-50 pt-4">
+                <span className="text-xs font-semibold uppercase text-slate-400">{group.letter}</span>
+              </div>
+              <div className="min-w-0 flex-1 divide-y divide-slate-200">
+                {group.customers.map((customer) => {
+                  const property = customer.properties[0];
+                  const venueCount = customer.properties.reduce((sum, p) => sum + p.bodiesOfWater.length, 0);
+                  return (
+                    <Link
+                      key={customer.id}
+                      href={`/dashboard/customers/${customer.id}`}
+                      className="flex items-center justify-between gap-3 p-4 hover:bg-slate-50"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{customer.name}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {property?.managementCompany ? `${property.managementCompany.name} · ` : ""}
+                          {[property?.city, property?.region].filter(Boolean).join(", ") || "No address on file"}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-xs text-slate-400">
+                        {venueCount} aquatic venue{venueCount === 1 ? "" : "s"}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))
         )}
       </section>
     </main>
