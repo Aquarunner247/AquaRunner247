@@ -110,6 +110,7 @@ export async function createCustomer(formData: FormData) {
   }
 
   revalidatePath("/dashboard/customers");
+  redirect("/dashboard/customers");
 }
 
 export async function createProperty(formData: FormData) {
