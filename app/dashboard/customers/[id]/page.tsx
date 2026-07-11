@@ -128,7 +128,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         <div>
           <p className="text-sm font-medium text-[#12234A]">Admin / Customer</p>
           <h1 className="text-2xl font-semibold text-slate-900">{customer.name}</h1>
-          <p className="mt-1 text-sm text-slate-600">Edit customer and property details. Add bodies of water here.</p>
+          <p className="mt-1 text-sm text-slate-600">Edit customer and property details. Add aquatic venues here.</p>
         </div>
         <Link href="/dashboard/customers" className="text-sm text-[#0A5FA4] underline">
           Back to customers
@@ -140,7 +140,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           Overview
         </Link>
         <Link href={`/dashboard/customers/${customer.id}?tab=bodies`} className={tabLinkClass("bodies")}>
-          Bodies
+          Aquatic Venues
         </Link>
         <Link href={`/dashboard/customers/${customer.id}?tab=history`} className={tabLinkClass("history")}>
           Service History
@@ -534,12 +534,12 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               <form action={createBodyOfWater} className="mt-4 rounded border border-slate-200 bg-slate-50 p-3">
                 <input type="hidden" name="propertyId" value={property.id} />
                 <input type="hidden" name="returnPath" value={`/dashboard/customers/${customer.id}?tab=bodies`} />
-                <p className="text-sm font-medium text-slate-900">Add body of water</p>
+                <p className="text-sm font-medium text-slate-900">Add aquatic venue</p>
                 <div className="mt-2 grid gap-2 md:grid-cols-4">
                   <input
                     name="name"
                     required
-                    placeholder="Body name"
+                    placeholder="Venue name"
                     className="rounded border border-slate-300 px-2 py-1.5 text-sm"
                   />
                   <select name="type" className="rounded border border-slate-300 px-2 py-1.5 text-sm">
@@ -565,7 +565,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   />
                 </div>
                 <button className="mt-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
-                  Add body
+                  Add venue
                 </button>
               </form>
             </div>

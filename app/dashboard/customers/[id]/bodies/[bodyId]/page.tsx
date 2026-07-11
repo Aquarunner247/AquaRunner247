@@ -61,7 +61,7 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
       </section>
 
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Body details</h2>
+        <h2 className="text-base font-semibold text-slate-900">Details</h2>
         <form action={updateBodyOfWater} className="mt-3 space-y-2">
           <input type="hidden" name="bodyId" value={body.id} />
           <input type="hidden" name="customerId" value={customerId} />
@@ -97,7 +97,7 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
             />
           </div>
           <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
-            Save body
+            Save
           </button>
         </form>
       </section>
@@ -133,8 +133,8 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
           <input type="hidden" name="bodyId" value={body.id} />
           <input type="hidden" name="customerId" value={customerId} />
           <ConfirmSubmitButton
-            label="Delete body of water"
-            confirmMessage="Delete this body of water and all its equipment/history?"
+            label="Delete aquatic venue"
+            confirmMessage="Delete this aquatic venue and all its equipment/history?"
             className="rounded bg-rose-700 px-3 py-1.5 text-sm font-medium text-white"
           />
         </form>

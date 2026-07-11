@@ -164,6 +164,7 @@ export async function updateBodyOfWater(formData: FormData) {
 
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);
+  redirect(`/dashboard/customers/${customerId}?tab=bodies`);
 }
 
 export async function deleteBodyOfWater(formData: FormData) {

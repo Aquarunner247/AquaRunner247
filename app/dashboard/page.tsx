@@ -363,7 +363,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 <p className="mt-1 text-2xl font-semibold text-slate-900">{stats.managementCompanies}</p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bodies of water</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Aquatic venues</p>
                 <p className="mt-1 text-2xl font-semibold text-slate-900">{stats.bodiesOfWater}</p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -571,7 +571,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   Service standards
                 </p>
                 <ul className="mt-2 list-inside list-disc text-sm text-[#16324A]">
-                  <li>At least 1 photo per body of water before completion.</li>
+                  <li>At least 1 photo per aquatic venue before completion.</li>
                   <li>Hybrid save flow: autosave + manual Save/Sync action.</li>
                   <li>Public QR log mirrors aquatic maintenance records.</li>
                 </ul>

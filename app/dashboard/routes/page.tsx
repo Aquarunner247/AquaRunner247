@@ -102,7 +102,7 @@ export default async function RoutesPage() {
               <form action={addRouteStop} className="mt-2 flex flex-wrap items-center gap-2 rounded border border-slate-200 bg-white p-2">
                 <input type="hidden" name="routeId" value={route.id} />
                 <select name="bodyOfWaterId" required className="rounded border border-slate-300 px-2 py-1.5 text-sm">
-                  <option value="">Select body of water…</option>
+                  <option value="">Select aquatic venue…</option>
                   {allBodiesOfWater.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.property.name} — {b.name}

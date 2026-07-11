@@ -48,7 +48,7 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
         <div>
           <p className="text-sm font-medium text-[#12234A]">Admin</p>
           <h1 className="text-2xl font-semibold text-slate-900">Customers</h1>
-          <p className="mt-1 text-sm text-slate-600">Click a customer to manage their property, bodies of water, and history.</p>
+          <p className="mt-1 text-sm text-slate-600">Click a customer to manage their property, aquatic venues, and history.</p>
         </div>
         <div className="flex items-center gap-3">
           {!showAddForm ? (
@@ -138,11 +138,11 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
               rows={3}
             />
             <div className="mt-3 border-t border-slate-200 pt-3">
-              <p className="text-sm font-semibold text-slate-900">Initial body of water</p>
+              <p className="text-sm font-semibold text-slate-900">Initial aquatic venue</p>
               <input
                 name="initialBodyName"
                 required
-                placeholder="Body of water name (e.g. Main Pool)"
+                placeholder="Aquatic venue name (e.g. Main Pool)"
                 className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
               />
               <div className="mt-2 grid grid-cols-2 gap-2">

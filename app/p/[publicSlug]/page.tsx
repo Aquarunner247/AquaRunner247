@@ -64,7 +64,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
         <p className="text-xs font-semibold uppercase tracking-wider text-[#0A5FA4]">Public maintenance log</p>
         <h1 className="mt-1 text-2xl font-semibold text-[#12234A]">Aquatic venue log</h1>
         <section className="mt-8 rounded-lg border border-dashed border-[#C9E3EC] bg-white p-8 text-center text-[#4A6572]">
-          No body of water found for this QR reference.
+          No aquatic venue found for this QR reference.
         </section>
       </main>
     );
