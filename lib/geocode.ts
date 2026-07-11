@@ -34,6 +34,21 @@ export async function geocodeAddress(addressLine: string): Promise<GeocodeResult
   return { latitude, longitude };
 }
 
+/**
+ * Reads coordinates stamped by the AddressFields autocomplete component's hidden
+ * latitude/longitude inputs, if the admin picked a suggestion. Lets callers skip their own
+ * geocode lookup when exact coordinates are already known.
+ */
+export function readAutocompleteCoords(formData: FormData): GeocodeResult | null {
+  const latRaw = String(formData.get("latitude") ?? "").trim();
+  const lngRaw = String(formData.get("longitude") ?? "").trim();
+  if (!latRaw || !lngRaw) return null;
+  const latitude = Number(latRaw);
+  const longitude = Number(lngRaw);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  return { latitude, longitude };
+}
+
 export function buildFullAddress(parts: {
   addressLine1?: string | null;
   addressLine2?: string | null;

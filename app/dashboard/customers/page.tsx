@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { BodyOfWaterType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { AddressFields } from "@/app/components/address-fields";
 import { createCustomer } from "./actions";
 
 type PageProps = {
@@ -117,6 +118,25 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
               placeholder="Manager email"
               className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
             />
+            <div className="mt-3 border-t border-slate-200 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+              <input
+                name="maintenanceName"
+                placeholder="Maintenance name"
+                className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              />
+              <input
+                name="maintenanceCellPhone"
+                placeholder="Maintenance cell phone"
+                className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              />
+              <input
+                name="maintenanceEmail"
+                type="email"
+                placeholder="Maintenance email"
+                className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              />
+            </div>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <select name="managementCompanyId" defaultValue="" className="rounded border border-slate-300 px-2 py-1.5 text-sm">
                 <option value="">No management company</option>
@@ -132,20 +152,8 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
                 className="rounded border border-slate-300 px-2 py-1.5 text-sm"
               />
             </div>
-            <input
-              name="addressLine1"
-              placeholder="Address line 1"
-              className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            />
-            <input
-              name="addressLine2"
-              placeholder="Address line 2"
-              className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            />
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              <input name="city" placeholder="City" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
-              <input name="region" placeholder="State" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
-              <input name="postalCode" placeholder="ZIP" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+            <div className="mt-2">
+              <AddressFields />
             </div>
             <textarea
               name="notes"

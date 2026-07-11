@@ -6,7 +6,7 @@ import { BodyOfWaterType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
-import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
+import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/geocode";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -22,6 +22,9 @@ export async function createCustomer(formData: FormData) {
   const managerBusinessPhone = String(formData.get("managerBusinessPhone") ?? "").trim();
   const managerMobilePhone = String(formData.get("managerMobilePhone") ?? "").trim();
   const managerEmail = String(formData.get("managerEmail") ?? "").trim();
+  const maintenanceName = String(formData.get("maintenanceName") ?? "").trim();
+  const maintenanceCellPhone = String(formData.get("maintenanceCellPhone") ?? "").trim();
+  const maintenanceEmail = String(formData.get("maintenanceEmail") ?? "").trim();
   const managementCompanyId = String(formData.get("managementCompanyId") ?? "").trim();
   const newManagementCompanyName = String(formData.get("newManagementCompanyName") ?? "").trim();
   const addressLine1 = String(formData.get("addressLine1") ?? "").trim();
@@ -61,6 +64,9 @@ export async function createCustomer(formData: FormData) {
       managerMobilePhone: managerMobilePhone || null,
       managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
       managerEmail: managerEmail || null,
+      maintenanceName: maintenanceName || null,
+      maintenanceCellPhone: maintenanceCellPhone || null,
+      maintenanceEmail: maintenanceEmail || null,
       managementCompanyId: resolvedManagementCompanyId,
       addressLine1: addressLine1 || null,
       addressLine2: addressLine2 || null,
@@ -72,10 +78,11 @@ export async function createCustomer(formData: FormData) {
     select: { id: true },
   });
 
-  // Best-effort geocode so this property shows up on the route map; failures are silent.
+  // If the admin picked an address-autocomplete suggestion, its coordinates are already exact —
+  // skip the geocode lookup. Otherwise fall back to a best-effort geocode; failures are silent.
+  const autocompleteCoords = readAutocompleteCoords(formData);
   try {
-    const fullAddress = buildFullAddress({ addressLine1, addressLine2, city, region, postalCode, country: "US" });
-    const geo = await geocodeAddress(fullAddress);
+    const geo = autocompleteCoords ?? (await geocodeAddress(buildFullAddress({ addressLine1, addressLine2, city, region, postalCode, country: "US" })));
     if (geo) {
       await prisma.property.update({
         where: { id: property.id },

@@ -208,6 +208,10 @@ model Property {
   managerMobilePhone    String?
   managerPhone          String?
   managerEmail          String?
+  /// On-site maintenance contact — separate from the property manager above.
+  maintenanceName       String?
+  maintenanceCellPhone  String?
+  maintenanceEmail      String?
   managementCompanyId String?
   managementCompany   ManagementCompany? @relation(fields: [managementCompanyId], references: [id], onDelete: SetNull)
   addressLine1          String?

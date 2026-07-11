@@ -6,7 +6,7 @@ import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose } from "@
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
-import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
+import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/geocode";
 import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/customer-documents";
 import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
 import { sendCustomerAlertEmail } from "@/lib/email";
@@ -44,6 +44,113 @@ export async function updateCustomer(formData: FormData) {
   redirect(`/dashboard/customers/${customer.id}?tab=overview`);
 }
 
+/**
+ * Customer info and their primary property live in one merged form in the UI, so this saves
+ * both in a single action. (A customer's additional properties, if any, still have their own
+ * separate edit form/action further down the page.)
+ */
+export async function updateCustomerAndPrimaryProperty(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!customerId || !propertyId || !name) return;
+
+  const notes = String(formData.get("notes") ?? "").trim();
+  const managerName = String(formData.get("managerName") ?? "").trim();
+  const managerBusinessPhone = String(formData.get("managerBusinessPhone") ?? "").trim();
+  const managerMobilePhone = String(formData.get("managerMobilePhone") ?? "").trim();
+  const managerEmail = String(formData.get("managerEmail") ?? "").trim();
+  const maintenanceName = String(formData.get("maintenanceName") ?? "").trim();
+  const maintenanceCellPhone = String(formData.get("maintenanceCellPhone") ?? "").trim();
+  const maintenanceEmail = String(formData.get("maintenanceEmail") ?? "").trim();
+  const managementCompanyIdInput = String(formData.get("managementCompanyId") ?? "").trim();
+  const newManagementCompanyName = String(formData.get("newManagementCompanyName") ?? "").trim();
+  const addressLine1 = String(formData.get("addressLine1") ?? "").trim();
+  const addressLine2 = String(formData.get("addressLine2") ?? "").trim();
+  const city = String(formData.get("city") ?? "").trim();
+  const region = String(formData.get("region") ?? "").trim();
+  const postalCode = String(formData.get("postalCode") ?? "").trim();
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!customer) return;
+
+  const property = await prisma.property.findFirst({
+    where: { id: propertyId, organizationId: appUser.organizationId, customerId: customer.id },
+    select: { id: true, addressLine1: true, addressLine2: true, city: true, region: true, postalCode: true },
+  });
+  if (!property) return;
+
+  const addressChanged =
+    (property.addressLine1 ?? "") !== addressLine1 ||
+    (property.addressLine2 ?? "") !== addressLine2 ||
+    (property.city ?? "") !== city ||
+    (property.region ?? "") !== region ||
+    (property.postalCode ?? "") !== postalCode;
+
+  const managementCompanyId = await resolveManagementCompanyId(
+    appUser.organizationId,
+    managementCompanyIdInput,
+    newManagementCompanyName,
+  );
+
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: { name, notes: notes || null },
+  });
+
+  await prisma.property.update({
+    where: { id: property.id },
+    data: {
+      name,
+      managerName: managerName || null,
+      managerBusinessPhone: managerBusinessPhone || null,
+      managerMobilePhone: managerMobilePhone || null,
+      managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
+      managerEmail: managerEmail || null,
+      maintenanceName: maintenanceName || null,
+      maintenanceCellPhone: maintenanceCellPhone || null,
+      maintenanceEmail: maintenanceEmail || null,
+      managementCompanyId,
+      addressLine1: addressLine1 || null,
+      addressLine2: addressLine2 || null,
+      city: city || null,
+      region: region || null,
+      postalCode: postalCode || null,
+    },
+  });
+
+  // If the admin picked an address-autocomplete suggestion, its coordinates are already exact —
+  // skip the geocode lookup. Otherwise, only re-geocode if the address actually changed.
+  const autocompleteCoords = readAutocompleteCoords(formData);
+  if (autocompleteCoords) {
+    await prisma.property.update({
+      where: { id: property.id },
+      data: { latitude: autocompleteCoords.latitude, longitude: autocompleteCoords.longitude },
+    });
+  } else if (addressChanged) {
+    try {
+      const fullAddress = buildFullAddress({ addressLine1, addressLine2, city, region, postalCode, country: "US" });
+      const geo = await geocodeAddress(fullAddress);
+      if (geo) {
+        await prisma.property.update({
+          where: { id: property.id },
+          data: { latitude: geo.latitude, longitude: geo.longitude },
+        });
+      }
+    } catch {
+      // Non-critical — admin can re-geocode manually from the Routes page.
+    }
+  }
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customer.id}`);
+  redirect(`/dashboard/customers/${customer.id}?tab=overview`);
+}
+
 export async function updateProperty(formData: FormData) {
   const appUser = await requireAdmin();
   const propertyId = String(formData.get("propertyId") ?? "").trim();
@@ -54,6 +161,9 @@ export async function updateProperty(formData: FormData) {
   const managerBusinessPhone = String(formData.get("managerBusinessPhone") ?? "").trim();
   const managerMobilePhone = String(formData.get("managerMobilePhone") ?? "").trim();
   const managerEmail = String(formData.get("managerEmail") ?? "").trim();
+  const maintenanceName = String(formData.get("maintenanceName") ?? "").trim();
+  const maintenanceCellPhone = String(formData.get("maintenanceCellPhone") ?? "").trim();
+  const maintenanceEmail = String(formData.get("maintenanceEmail") ?? "").trim();
   const managementCompanyIdInput = String(formData.get("managementCompanyId") ?? "").trim();
   const newManagementCompanyName = String(formData.get("newManagementCompanyName") ?? "").trim();
   const addressLine1 = String(formData.get("addressLine1") ?? "").trim();
@@ -98,6 +208,9 @@ export async function updateProperty(formData: FormData) {
       managerMobilePhone: managerMobilePhone || null,
       managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
       managerEmail: managerEmail || null,
+      maintenanceName: maintenanceName || null,
+      maintenanceCellPhone: maintenanceCellPhone || null,
+      maintenanceEmail: maintenanceEmail || null,
       managementCompanyId,
       addressLine1: addressLine1 || null,
       addressLine2: addressLine2 || null,
@@ -107,7 +220,13 @@ export async function updateProperty(formData: FormData) {
     },
   });
 
-  if (addressChanged) {
+  const autocompleteCoords = readAutocompleteCoords(formData);
+  if (autocompleteCoords) {
+    await prisma.property.update({
+      where: { id: property.id },
+      data: { latitude: autocompleteCoords.latitude, longitude: autocompleteCoords.longitude },
+    });
+  } else if (addressChanged) {
     try {
       const fullAddress = buildFullAddress({ addressLine1, addressLine2, city, region, postalCode, country: "US" });
       const geo = await geocodeAddress(fullAddress);

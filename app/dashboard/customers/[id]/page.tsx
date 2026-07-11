@@ -6,9 +6,10 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { generateQrDataUrl, publicBodyOfWaterUrl } from "@/lib/qr";
 import { createBodyOfWater } from "../actions";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
+import { AddressFields } from "@/app/components/address-fields";
 import {
   deleteCustomer,
-  updateCustomer,
+  updateCustomerAndPrimaryProperty,
   updateProperty,
   uploadCustomerDocument,
   deleteCustomerDocument,
@@ -39,8 +40,10 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   const customer = await prisma.customer.findFirst({
     where: { id, organizationId: appUser.organizationId },
     include: {
+      // Ascending so properties[0] is deterministically the primary property (the one created
+      // alongside the customer) — it's merged into the Customer info section above.
       properties: {
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "asc" },
         include: {
           managementCompany: { select: { id: true, name: true } },
           bodiesOfWater: { orderBy: { createdAt: "desc" }, include: { equipment: { orderBy: { createdAt: "desc" } } } },
@@ -50,6 +53,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   });
 
   if (!customer) notFound();
+
+  const primaryProperty = customer.properties[0];
+  const extraProperties = customer.properties.slice(1);
 
   const documents = await prisma.customerDocument.findMany({
     where: { customerId: customer.id },
@@ -166,15 +172,46 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               <div className="mt-3 space-y-1 text-sm text-slate-700">
                 <p className="text-base font-medium text-slate-900">{customer.name}</p>
                 {customer.notes ? <p className="whitespace-pre-wrap text-slate-600">{customer.notes}</p> : null}
+
+                {primaryProperty ? (
+                  <div className="mt-3 space-y-1 border-t border-slate-200 pt-3">
+                    {primaryProperty.managementCompany ? <p>PMC: {primaryProperty.managementCompany.name}</p> : null}
+                    {primaryProperty.managerName ? <p>Manager: {primaryProperty.managerName}</p> : null}
+                    {primaryProperty.managerBusinessPhone ? <p>Manager business phone: {primaryProperty.managerBusinessPhone}</p> : null}
+                    {primaryProperty.managerMobilePhone ? <p>Manager mobile phone: {primaryProperty.managerMobilePhone}</p> : null}
+                    {primaryProperty.managerEmail ? <p>Manager email: {primaryProperty.managerEmail}</p> : null}
+
+                    {primaryProperty.maintenanceName || primaryProperty.maintenanceCellPhone || primaryProperty.maintenanceEmail ? (
+                      <div className="mt-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+                        {primaryProperty.maintenanceName ? <p>{primaryProperty.maintenanceName}</p> : null}
+                        {primaryProperty.maintenanceCellPhone ? <p>Cell: {primaryProperty.maintenanceCellPhone}</p> : null}
+                        {primaryProperty.maintenanceEmail ? <p>Email: {primaryProperty.maintenanceEmail}</p> : null}
+                      </div>
+                    ) : null}
+
+                    {primaryProperty.addressLine1 || primaryProperty.city || primaryProperty.region || primaryProperty.postalCode ? (
+                      <p className="mt-2 text-slate-600">
+                        {primaryProperty.addressLine1 ?? ""}
+                        {primaryProperty.addressLine2 ? `, ${primaryProperty.addressLine2}` : ""}
+                        {primaryProperty.city ? `, ${primaryProperty.city}` : ""}
+                        {primaryProperty.region ? `, ${primaryProperty.region}` : ""}
+                        {primaryProperty.postalCode ? ` ${primaryProperty.postalCode}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <>
-                <form action={updateCustomer} className="mt-3 space-y-2">
+                <form action={updateCustomerAndPrimaryProperty} className="mt-3 space-y-2">
                   <input type="hidden" name="customerId" value={customer.id} />
+                  {primaryProperty ? <input type="hidden" name="propertyId" value={primaryProperty.id} /> : null}
                   <input
                     name="name"
                     required
                     defaultValue={customer.name}
+                    placeholder="Customer name"
                     className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                   />
                   <textarea
@@ -184,9 +221,99 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                     rows={3}
                   />
-                  <div className="flex items-center gap-2">
+
+                  {primaryProperty ? (
+                    <>
+                      <div className="border-t border-slate-200 pt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Manager</p>
+                        <input
+                          name="managerName"
+                          defaultValue={primaryProperty.managerName ?? ""}
+                          placeholder="Manager name"
+                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                        />
+                        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                          <input
+                            name="managerBusinessPhone"
+                            defaultValue={primaryProperty.managerBusinessPhone ?? ""}
+                            placeholder="Manager business phone"
+                            className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                          />
+                          <input
+                            name="managerMobilePhone"
+                            defaultValue={primaryProperty.managerMobilePhone ?? ""}
+                            placeholder="Manager mobile phone"
+                            className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                          />
+                        </div>
+                        <input
+                          name="managerEmail"
+                          defaultValue={primaryProperty.managerEmail ?? ""}
+                          placeholder="Manager email"
+                          type="email"
+                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                        />
+                      </div>
+
+                      <div className="border-t border-slate-200 pt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+                        <input
+                          name="maintenanceName"
+                          defaultValue={primaryProperty.maintenanceName ?? ""}
+                          placeholder="Maintenance name"
+                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                        />
+                        <input
+                          name="maintenanceCellPhone"
+                          defaultValue={primaryProperty.maintenanceCellPhone ?? ""}
+                          placeholder="Maintenance cell phone"
+                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                        />
+                        <input
+                          name="maintenanceEmail"
+                          defaultValue={primaryProperty.maintenanceEmail ?? ""}
+                          placeholder="Maintenance email"
+                          type="email"
+                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                        />
+                      </div>
+
+                      <div className="border-t border-slate-200 pt-3">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                          <select
+                            name="managementCompanyId"
+                            defaultValue={primaryProperty.managementCompany?.id ?? ""}
+                            className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                          >
+                            <option value="">No management company</option>
+                            {managementCompanies.map((mc) => (
+                              <option key={mc.id} value={mc.id}>
+                                {mc.name}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            name="newManagementCompanyName"
+                            placeholder="Or type a new company name"
+                            className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                          />
+                        </div>
+                        <div className="mt-2">
+                          <AddressFields
+                            initialAddressLine1={primaryProperty.addressLine1}
+                            initialAddressLine2={primaryProperty.addressLine2}
+                            initialCity={primaryProperty.city}
+                            initialRegion={primaryProperty.region}
+                            initialPostalCode={primaryProperty.postalCode}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+
+                  <div className="flex items-center gap-2 pt-1">
                     <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
-                      Save customer
+                      Save
                     </button>
                     <Link
                       href={`/dashboard/customers/${customer.id}?tab=overview`}
@@ -363,143 +490,152 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             )}
           </section>
 
-          <section className="mt-6 space-y-3">
-            {customer.properties.map((property) => (
-              <div key={property.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold text-slate-900">Property</h3>
-                  {!isEditingProperty(property.id) ? (
-                    <Link
-                      href={`/dashboard/customers/${customer.id}?tab=overview&edit=property:${property.id}`}
-                      className="rounded bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
-                    >
-                      Edit
-                    </Link>
-                  ) : null}
-                </div>
-
-                {!isEditingProperty(property.id) ? (
-                  <div className="mt-3 space-y-1 text-sm text-slate-700">
-                    <p className="text-base font-medium text-slate-900">{property.name}</p>
-                    {property.managementCompany ? <p>PMC: {property.managementCompany.name}</p> : null}
-                    {property.managerName ? <p>Manager: {property.managerName}</p> : null}
-                    {property.managerBusinessPhone ? <p>Business phone: {property.managerBusinessPhone}</p> : null}
-                    {property.managerMobilePhone ? <p>Mobile phone: {property.managerMobilePhone}</p> : null}
-                    {property.managerEmail ? <p>Email: {property.managerEmail}</p> : null}
-                    {property.addressLine1 || property.city || property.region || property.postalCode ? (
-                      <p className="text-slate-600">
-                        {property.addressLine1 ?? ""}
-                        {property.addressLine2 ? `, ${property.addressLine2}` : ""}
-                        {property.city ? `, ${property.city}` : ""}
-                        {property.region ? `, ${property.region}` : ""}
-                        {property.postalCode ? ` ${property.postalCode}` : ""}
-                      </p>
+          {extraProperties.length > 0 ? (
+            <section className="mt-6 space-y-3">
+              {extraProperties.map((property) => (
+                <div key={property.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-slate-900">Additional property</h3>
+                    {!isEditingProperty(property.id) ? (
+                      <Link
+                        href={`/dashboard/customers/${customer.id}?tab=overview&edit=property:${property.id}`}
+                        className="rounded bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                      >
+                        Edit
+                      </Link>
                     ) : null}
                   </div>
-                ) : (
-                <form action={updateProperty} className="mt-3 space-y-2">
-                  <input type="hidden" name="propertyId" value={property.id} />
-                  <input
-                    name="name"
-                    required
-                    defaultValue={property.name}
-                    placeholder="Property name"
-                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    name="managerName"
-                    defaultValue={property.managerName ?? ""}
-                    placeholder="Manager name"
-                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                  />
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+
+                  {!isEditingProperty(property.id) ? (
+                    <div className="mt-3 space-y-1 text-sm text-slate-700">
+                      <p className="text-base font-medium text-slate-900">{property.name}</p>
+                      {property.managementCompany ? <p>PMC: {property.managementCompany.name}</p> : null}
+                      {property.managerName ? <p>Manager: {property.managerName}</p> : null}
+                      {property.managerBusinessPhone ? <p>Business phone: {property.managerBusinessPhone}</p> : null}
+                      {property.managerMobilePhone ? <p>Mobile phone: {property.managerMobilePhone}</p> : null}
+                      {property.managerEmail ? <p>Email: {property.managerEmail}</p> : null}
+
+                      {property.maintenanceName || property.maintenanceCellPhone || property.maintenanceEmail ? (
+                        <div className="mt-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+                          {property.maintenanceName ? <p>{property.maintenanceName}</p> : null}
+                          {property.maintenanceCellPhone ? <p>Cell: {property.maintenanceCellPhone}</p> : null}
+                          {property.maintenanceEmail ? <p>Email: {property.maintenanceEmail}</p> : null}
+                        </div>
+                      ) : null}
+
+                      {property.addressLine1 || property.city || property.region || property.postalCode ? (
+                        <p className="mt-2 text-slate-600">
+                          {property.addressLine1 ?? ""}
+                          {property.addressLine2 ? `, ${property.addressLine2}` : ""}
+                          {property.city ? `, ${property.city}` : ""}
+                          {property.region ? `, ${property.region}` : ""}
+                          {property.postalCode ? ` ${property.postalCode}` : ""}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                  <form action={updateProperty} className="mt-3 space-y-2">
+                    <input type="hidden" name="propertyId" value={property.id} />
                     <input
-                      name="managerBusinessPhone"
-                      defaultValue={property.managerBusinessPhone ?? ""}
-                      placeholder="Manager business phone"
-                      className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      name="name"
+                      required
+                      defaultValue={property.name}
+                      placeholder="Property name"
+                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                     />
                     <input
-                      name="managerMobilePhone"
-                      defaultValue={property.managerMobilePhone ?? ""}
-                      placeholder="Manager mobile phone"
-                      className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      name="managerName"
+                      defaultValue={property.managerName ?? ""}
+                      placeholder="Manager name"
+                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                     />
-                  </div>
-                  <input
-                    name="managerEmail"
-                    defaultValue={property.managerEmail ?? ""}
-                    placeholder="Manager email"
-                    type="email"
-                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                  />
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    <select
-                      name="managementCompanyId"
-                      defaultValue={property.managementCompany?.id ?? ""}
-                      className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-                    >
-                      <option value="">No management company</option>
-                      {managementCompanies.map((mc) => (
-                        <option key={mc.id} value={mc.id}>
-                          {mc.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <input
+                        name="managerBusinessPhone"
+                        defaultValue={property.managerBusinessPhone ?? ""}
+                        placeholder="Manager business phone"
+                        className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      />
+                      <input
+                        name="managerMobilePhone"
+                        defaultValue={property.managerMobilePhone ?? ""}
+                        placeholder="Manager mobile phone"
+                        className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
                     <input
-                      name="newManagementCompanyName"
-                      placeholder="Or type a new company name"
-                      className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      name="managerEmail"
+                      defaultValue={property.managerEmail ?? ""}
+                      placeholder="Manager email"
+                      type="email"
+                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                     />
-                  </div>
-                  <input
-                    name="addressLine1"
-                    defaultValue={property.addressLine1 ?? ""}
-                    placeholder="Address line 1"
-                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    name="addressLine2"
-                    defaultValue={property.addressLine2 ?? ""}
-                    placeholder="Address line 2"
-                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                  />
-                  <div className="grid grid-cols-3 gap-2">
-                    <input
-                      name="city"
-                      defaultValue={property.city ?? ""}
-                      placeholder="City"
-                      className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                    <div className="border-t border-slate-200 pt-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+                      <input
+                        name="maintenanceName"
+                        defaultValue={property.maintenanceName ?? ""}
+                        placeholder="Maintenance name"
+                        className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      />
+                      <input
+                        name="maintenanceCellPhone"
+                        defaultValue={property.maintenanceCellPhone ?? ""}
+                        placeholder="Maintenance cell phone"
+                        className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      />
+                      <input
+                        name="maintenanceEmail"
+                        defaultValue={property.maintenanceEmail ?? ""}
+                        placeholder="Maintenance email"
+                        type="email"
+                        className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <select
+                        name="managementCompanyId"
+                        defaultValue={property.managementCompany?.id ?? ""}
+                        className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      >
+                        <option value="">No management company</option>
+                        {managementCompanies.map((mc) => (
+                          <option key={mc.id} value={mc.id}>
+                            {mc.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        name="newManagementCompanyName"
+                        placeholder="Or type a new company name"
+                        className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                    <AddressFields
+                      initialAddressLine1={property.addressLine1}
+                      initialAddressLine2={property.addressLine2}
+                      initialCity={property.city}
+                      initialRegion={property.region}
+                      initialPostalCode={property.postalCode}
                     />
-                    <input
-                      name="region"
-                      defaultValue={property.region ?? ""}
-                      placeholder="State"
-                      className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-                    />
-                    <input
-                      name="postalCode"
-                      defaultValue={property.postalCode ?? ""}
-                      placeholder="ZIP"
-                      className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
-                      Save property
-                    </button>
-                    <Link
-                      href={`/dashboard/customers/${customer.id}?tab=overview`}
-                      className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
-                    >
-                      Cancel
-                    </Link>
-                  </div>
-                </form>
-                )}
-              </div>
-            ))}
-          </section>
+                    <div className="flex items-center gap-2">
+                      <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                        Save property
+                      </button>
+                      <Link
+                        href={`/dashboard/customers/${customer.id}?tab=overview`}
+                        className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+                      >
+                        Cancel
+                      </Link>
+                    </div>
+                  </form>
+                  )}
+                </div>
+              ))}
+            </section>
+          ) : null}
         </>
       ) : null}
 
