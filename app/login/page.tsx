@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { LoginForm } from "./login-form";
 
 type PageProps = {
@@ -6,6 +8,9 @@ type PageProps = {
 
 export default async function LoginPage({ searchParams }: PageProps) {
   const params = await searchParams;
+
+  const appUser = await getCurrentAppUser();
+  if (appUser) redirect("/dashboard");
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">

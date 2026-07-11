@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VisitForm } from "./visit-form";
 
 type PageProps = {
@@ -22,7 +24,7 @@ export default async function VisitPage({ params }: PageProps) {
       bodyOfWater: { select: { id: true, name: true, type: true } },
       reading: true,
       doses: { orderBy: { createdAt: "desc" } },
-      photos: { orderBy: { createdAt: "desc" }, select: { id: true, createdAt: true, takenAt: true } },
+      photos: { orderBy: { createdAt: "desc" }, select: { id: true, createdAt: true, takenAt: true, storagePath: true } },
       checklistCompletions: { select: { checklistItemId: true, completed: true } },
       issues: { orderBy: { createdAt: "desc" }, select: { id: true, description: true, severity: true, createdAt: true } },
     },
@@ -68,6 +70,14 @@ export default async function VisitPage({ params }: PageProps) {
     completed: completionById.get(item.id) ?? false,
   }));
 
+  const supabaseAdmin = createSupabaseAdminClient();
+  const photosWithUrls = await Promise.all(
+    visit.photos.map(async (p) => {
+      const { data } = await supabaseAdmin.storage.from(VISIT_PHOTOS_BUCKET).createSignedUrl(p.storagePath, 3600);
+      return { id: p.id, url: data?.signedUrl ?? null, takenAt: p.takenAt ? p.takenAt.toISOString() : null };
+    }),
+  );
+
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
       <div className="mb-6">
@@ -100,6 +110,7 @@ export default async function VisitPage({ params }: PageProps) {
         }))}
         initialReading={visit.reading}
         initialPhotoCount={visit.photos.length}
+        initialPhotos={photosWithUrls}
         initialDoses={visit.doses.map((d) => ({
           id: d.id,
           productName: d.productName,

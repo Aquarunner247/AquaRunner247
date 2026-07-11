@@ -38,11 +38,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && path === "/login") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
+  // Note: deliberately no "authenticated -> /dashboard" redirect here. A Supabase auth
+  // session alone doesn't mean the user is staff — customer-portal users share the same
+  // auth pool, and bouncing them off /login toward /dashboard (which then bounces them
+  // back, since they have no staff User row) would loop forever. app/login/page.tsx does
+  // this redirect itself, scoped to real staff app users only.
 
   return supabaseResponse;
 }

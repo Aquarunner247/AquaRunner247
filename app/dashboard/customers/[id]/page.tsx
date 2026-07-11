@@ -6,13 +6,22 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { generateQrDataUrl, publicBodyOfWaterUrl } from "@/lib/qr";
 import { createBodyOfWater } from "../actions";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
-import { deleteCustomer, updateCustomer, updateProperty, uploadCustomerDocument, deleteCustomerDocument } from "./actions";
+import {
+  deleteCustomer,
+  updateCustomer,
+  updateProperty,
+  uploadCustomerDocument,
+  deleteCustomerDocument,
+  createCustomerLogin,
+  deleteCustomerLogin,
+  sendCustomerAlert,
+} from "./actions";
 import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ tab?: string; edit?: string }>;
+  searchParams?: Promise<{ tab?: string; edit?: string; error?: string }>;
 };
 
 export default async function CustomerDetailPage({ params, searchParams }: PageProps) {
@@ -58,6 +67,18 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       }),
     );
   })();
+
+  const customerUsers = await prisma.customerUser.findMany({
+    where: { customerId: customer.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const alerts = await prisma.customerAlert.findMany({
+    where: { customerId: customer.id },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: { id: true, subject: true, message: true, createdAt: true },
+  });
 
   const managementCompanies = await prisma.managementCompany.findMany({
     where: { organizationId: appUser.organizationId },
@@ -240,6 +261,106 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 Upload
               </button>
             </form>
+          </section>
+
+          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-slate-900">Portal access</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Let this customer sign in at their own portal to see scheduled visits, reports, and documents.
+            </p>
+
+            {customerUsers.length ? (
+              <ul className="mt-3 space-y-1 text-sm text-slate-700">
+                {customerUsers.map((cu) => (
+                  <li
+                    key={cu.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5"
+                  >
+                    <span>
+                      <span className="font-medium text-slate-900">{cu.name ?? cu.email}</span>
+                      <span className="ml-2 text-slate-500">{cu.email}</span>
+                    </span>
+                    <form action={deleteCustomerLogin}>
+                      <input type="hidden" name="customerId" value={customer.id} />
+                      <input type="hidden" name="customerUserId" value={cu.id} />
+                      <ConfirmSubmitButton
+                        label="🗑"
+                        confirmMessage={`Remove portal access for ${cu.name ?? cu.email}?`}
+                        className="rounded px-2 py-1 text-base hover:bg-slate-200"
+                      />
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">No portal login yet.</p>
+            )}
+
+            <form action={createCustomerLogin} className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
+              <input type="hidden" name="customerId" value={customer.id} />
+              {sp.error === "email-in-use" ? (
+                <p className="mb-2 text-sm text-red-600">That email already belongs to a different account.</p>
+              ) : null}
+              <div className="grid gap-2 md:grid-cols-2">
+                <input name="name" required placeholder="Contact name" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+                <input name="email" type="email" required placeholder="Email" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+                <input
+                  name="password"
+                  type="text"
+                  required
+                  minLength={8}
+                  placeholder="Temporary password (min 8 characters)"
+                  className="rounded border border-slate-300 px-2 py-1.5 text-sm md:col-span-2"
+                />
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Share this password with the customer directly — they can sign in at{" "}
+                <code className="rounded bg-slate-200 px-1">/portal/login</code>.
+              </p>
+              <button className="mt-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                Add portal login
+              </button>
+            </form>
+          </section>
+
+          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-slate-900">Send alert</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Sends an update to this customer&rsquo;s portal and, if they have portal logins, by email.
+            </p>
+
+            <form action={sendCustomerAlert} className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
+              <input type="hidden" name="customerId" value={customer.id} />
+              <div className="grid gap-2">
+                <input name="subject" required placeholder="Subject" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+                <textarea
+                  name="message"
+                  required
+                  rows={3}
+                  placeholder="Message"
+                  className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <button className="mt-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                Send alert
+              </button>
+            </form>
+
+            {alerts.length ? (
+              <ul className="mt-3 space-y-1 text-sm text-slate-700">
+                {alerts.map((a) => (
+                  <li key={a.id} className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-slate-900">{a.subject}</span>
+                      <span className="text-xs text-slate-500">{a.createdAt.toLocaleString()}</span>
+                    </div>
+                    <p className="mt-0.5 whitespace-pre-wrap text-slate-600">{a.message}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-slate-500">No alerts sent yet.</p>
+            )}
           </section>
 
           <section className="mt-6 space-y-3">

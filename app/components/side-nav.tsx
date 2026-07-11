@@ -25,6 +25,9 @@ export function SideNav({ isLoggedIn, isAdmin }: SideNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
+  // The customer portal has its own separate nav/layout (app/portal) — don't show the staff nav there.
+  if (pathname.startsWith("/portal")) return null;
+
   async function onSignOut() {
     setSigningOut(true);
     const supabase = createClient();

@@ -118,6 +118,7 @@ model User {
 
   assignedVisits ServiceVisit[] @relation("VisitTechnician")
   assignedRoutes RecurringRoute[] @relation("RouteTechnician")
+  sentAlerts     CustomerAlert[]
 
   @@index([organizationId])
 }
@@ -133,10 +134,48 @@ model Customer {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  properties Property[]
-  documents  CustomerDocument[]
+  properties     Property[]
+  documents      CustomerDocument[]
+  customerUsers  CustomerUser[]
+  alerts         CustomerAlert[]
 
   @@index([organizationId])
+}
+
+/// A customer-portal login (separate from staff `User`) — a customer's own contact who can
+/// sign in at /portal to see their scheduled visits, reports, photos, documents, and alerts.
+model CustomerUser {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  /// Supabase Auth user id — set after the login is created in Supabase
+  authUserId String? @unique @db.Uuid
+  email      String  @unique
+  name       String?
+  active     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+/// A one-way admin -> customer message, shown in the customer's portal and emailed.
+model CustomerAlert {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdByUserId String?
+  createdBy       User?   @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  subject String
+  message String
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
 }
 
 /// Uploaded files (inspection reports, contracts, etc.) shown on a customer's Overview tab.

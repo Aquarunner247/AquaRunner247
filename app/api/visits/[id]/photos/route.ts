@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { VISIT_PHOTOS_BUCKET, ensureVisitPhotosBucket } from "@/lib/visit-photos";
 
 function decimalOrNull(raw: string | null): number | null {
   if (!raw) return null;
@@ -41,8 +42,18 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const longitude = decimalOrNull(typeof formData.get("longitude") === "string" ? (formData.get("longitude") as string) : null);
   const accuracyMeters = decimalOrNull(typeof formData.get("accuracyMeters") === "string" ? (formData.get("accuracyMeters") as string) : null);
 
-  // MVP: store metadata row now. Real binary upload integration can map this path to Supabase Storage later.
-  const storagePath = `visit-${id}/${Date.now()}-${file.name}`;
+  const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+  const storagePath = `${visit.organizationId}/${id}/${Date.now()}-${safeName}`;
+
+  const supabaseAdmin = await ensureVisitPhotosBucket();
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(VISIT_PHOTOS_BUCKET)
+    .upload(storagePath, file, { contentType: file.type || undefined, upsert: false });
+  if (uploadError) {
+    console.error("[visit photos] upload failed:", uploadError);
+    return NextResponse.json({ error: "UPLOAD_FAILED" }, { status: 500 });
+  }
+
   const photo = await prisma.visitPhoto.create({
     data: {
       visitId: id,

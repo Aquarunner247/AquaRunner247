@@ -7,8 +7,9 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
 import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
-import { CUSTOMER_DOCUMENTS_BUCKET, ensureCustomerDocumentsBucket } from "@/lib/customer-documents";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/customer-documents";
+import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
+import { sendCustomerAlertEmail } from "@/lib/email";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -402,9 +403,7 @@ export async function deleteCustomer(formData: FormData) {
 export async function uploadCustomerDocument(formData: FormData) {
   const appUser = await requireAdmin();
   const customerId = String(formData.get("customerId") ?? "").trim();
-  const label = String(formData.get("label") ?? "").trim();
-  const file = formData.get("file");
-  if (!customerId || !(file instanceof File) || file.size === 0) return;
+  if (!customerId) return;
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, organizationId: appUser.organizationId },
@@ -412,29 +411,7 @@ export async function uploadCustomerDocument(formData: FormData) {
   });
   if (!customer) return;
 
-  const supabaseAdmin = await ensureCustomerDocumentsBucket();
-
-  const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-  const storagePath = `${appUser.organizationId}/${customerId}/${Date.now()}-${safeName}`;
-
-  const { error: uploadError } = await supabaseAdmin.storage
-    .from(CUSTOMER_DOCUMENTS_BUCKET)
-    .upload(storagePath, file, { contentType: file.type || undefined, upsert: false });
-  if (uploadError) {
-    console.error("[customer documents] upload failed:", uploadError);
-    return;
-  }
-
-  await prisma.customerDocument.create({
-    data: {
-      customerId,
-      label: label || file.name,
-      storagePath,
-      contentType: file.type || null,
-      fileSize: file.size,
-    },
-  });
-
+  await uploadDocumentForCustomer(customerId, formData);
   revalidatePath(`/dashboard/customers/${customerId}`);
 }
 
@@ -444,19 +421,122 @@ export async function deleteCustomerDocument(formData: FormData) {
   const documentId = String(formData.get("documentId") ?? "").trim();
   if (!customerId || !documentId) return;
 
-  const document = await prisma.customerDocument.findFirst({
-    where: { id: documentId, customer: { id: customerId, organizationId: appUser.organizationId } },
-    select: { id: true, storagePath: true },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId },
+    select: { id: true },
   });
-  if (!document) return;
+  if (!customer) return;
 
-  try {
-    const supabaseAdmin = createSupabaseAdminClient();
-    await supabaseAdmin.storage.from(CUSTOMER_DOCUMENTS_BUCKET).remove([document.storagePath]);
-  } catch (err) {
-    console.error("[customer documents] storage remove failed:", err);
+  await deleteDocumentForCustomer(customerId, documentId);
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function createCustomerLogin(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "").trim();
+  if (!customerId || !name || !email || !password) return;
+  if (password.length < 8) return;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!customer) return;
+
+  // A customer-portal login and a staff login are separate tables, but both draw from the same
+  // Supabase Auth email pool — check both so we never silently clobber someone else's account
+  // (same class of bug fixed for staff technician creation).
+  const [existingStaffUser, existingCustomerUser] = await Promise.all([
+    prisma.user.findUnique({ where: { email } }),
+    prisma.customerUser.findUnique({ where: { email } }),
+  ]);
+  if (existingStaffUser) {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&error=email-in-use`);
+  }
+  if (existingCustomerUser && existingCustomerUser.customerId !== customerId) {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&error=email-in-use`);
   }
 
-  await prisma.customerDocument.delete({ where: { id: document.id } });
+  const authUserId = await createOrFindAuthUser(email, password);
+
+  if (existingCustomerUser) {
+    await prisma.customerUser.update({
+      where: { id: existingCustomerUser.id },
+      data: { authUserId, name, active: true },
+    });
+  } else {
+    await prisma.customerUser.create({
+      data: { customerId, authUserId, email, name, active: true },
+    });
+  }
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function deleteCustomerLogin(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const customerUserId = String(formData.get("customerUserId") ?? "").trim();
+  if (!customerId || !customerUserId) return;
+
+  const customerUser = await prisma.customerUser.findFirst({
+    where: { id: customerUserId, customer: { id: customerId, organizationId: appUser.organizationId } },
+    select: { id: true, authUserId: true },
+  });
+  if (!customerUser) return;
+
+  await prisma.customerUser.delete({ where: { id: customerUser.id } });
+
+  if (customerUser.authUserId) {
+    try {
+      const supabaseAdmin = createSupabaseAdminClient();
+      await supabaseAdmin.auth.admin.deleteUser(customerUser.authUserId);
+    } catch {
+      // Non-critical — the portal login row is gone either way.
+    }
+  }
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function sendCustomerAlert(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const subject = String(formData.get("subject") ?? "").trim();
+  const message = String(formData.get("message") ?? "").trim();
+  if (!customerId || !subject || !message) return;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId },
+    include: {
+      customerUsers: { where: { active: true }, select: { email: true, name: true } },
+      properties: { select: { managerEmail: true }, take: 1 },
+    },
+  });
+  if (!customer) return;
+
+  await prisma.customerAlert.create({
+    data: { customerId, subject, message, createdByUserId: appUser.id },
+  });
+
+  const recipients =
+    customer.customerUsers.length > 0
+      ? customer.customerUsers.map((cu) => ({ email: cu.email, name: cu.name ?? customer.name }))
+      : customer.properties[0]?.managerEmail
+        ? [{ email: customer.properties[0].managerEmail, name: customer.name }]
+        : [];
+
+  for (const recipient of recipients) {
+    await sendCustomerAlertEmail({
+      to: recipient.email,
+      customerName: recipient.name,
+      subject,
+      message,
+    });
+  }
+
   revalidatePath(`/dashboard/customers/${customerId}`);
 }

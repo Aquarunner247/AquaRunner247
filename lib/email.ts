@@ -103,3 +103,52 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
     return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
   }
 }
+
+type CustomerAlertEmailInput = {
+  to: string;
+  customerName: string;
+  subject: string;
+  message: string;
+};
+
+export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
+  }
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+
+  const resend = new Resend(apiKey);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #12234A;">
+      <div style="background:#12234A; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:#4FCADC; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Update from AquaRunner 24/7 Pro</p>
+        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.subject}</h1>
+      </div>
+      <div style="border:1px solid #C9E3EC; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size:14px; margin:0 0 12px; color:#4A6572;">Hi ${input.customerName},</p>
+        <p style="font-size:14px; margin:0 0 16px; white-space:pre-wrap;">${input.message}</p>
+
+        <p style="font-size:12px; color:#7FA0AC; margin-top:20px; border-top:1px solid #C9E3EC; padding-top:12px;">
+          Sign in to your customer portal to see this and other updates.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: fromAddress,
+      to: input.to,
+      subject: input.subject,
+      html,
+    });
+    if (result.error) {
+      return { ok: false, error: result.error.message };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
+  }
+}

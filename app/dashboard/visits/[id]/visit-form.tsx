@@ -63,6 +63,7 @@ const EQUIPMENT_FIELDS: FieldConfig[] = [
 type ChemicalProductOption = { id: string; name: string; unit: string };
 type ChecklistItemOption = { id: string; label: string; completed: boolean };
 type IssueOption = { id: string; description: string | null; severity: string; createdAt: string };
+type PhotoOption = { id: string; url: string | null; takenAt: string | null };
 
 type Props = {
   visitId: string;
@@ -74,6 +75,7 @@ type Props = {
   initialIssues: IssueOption[];
   initialReading: Record<string, unknown> | null;
   initialPhotoCount: number;
+  initialPhotos?: PhotoOption[];
   initialDoses: Dose[];
 };
 
@@ -102,7 +104,7 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialDoses }: Props) {
+export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses }: Props) {
   const [checklistItems, setChecklistItems] = useState<ChecklistItemOption[]>(initialChecklistItems);
   const [issues, setIssues] = useState<IssueOption[]>(initialIssues);
   const [issueForm, setIssueForm] = useState({ description: "", severity: "MEDIUM" });
@@ -535,6 +537,21 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
           At least 1 photo is required to complete this visit. Photos must be taken live with the camera — uploading an existing image isn&rsquo;t allowed.
         </p>
         <p className="mt-1 text-sm font-medium text-[#12234A]">Photos on file: {photoCount}</p>
+        {initialPhotos.length ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {initialPhotos.map((p) =>
+              p.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={p.id}
+                  src={p.url}
+                  alt="Service visit photo"
+                  className="h-20 w-20 rounded border border-[#C9E3EC] object-cover"
+                />
+              ) : null,
+            )}
+          </div>
+        ) : null}
         <CameraCapture onCapture={uploadPhoto} disabled={isCompleted || uploadingPhoto} />
         {uploadingPhoto ? <p className="mt-2 text-sm text-[#4A6572]">Uploading photo...</p> : null}
       </div>
