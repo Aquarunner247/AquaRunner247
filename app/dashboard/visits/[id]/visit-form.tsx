@@ -26,39 +26,64 @@ type Reading = {
 type FieldConfig = {
   key: keyof Reading;
   label: string;
-  unit: string;
+  unitLabel: string;
   required?: boolean;
-  wholeNumber?: boolean;
-  placeholder?: string;
+  min: number;
+  max: number;
+  step: number;
+  zoneMin?: number;
+  zoneMax?: number;
 };
 
 const CHEMISTRY_FIELDS = (bodyOfWaterType: string, cyaRequired: boolean): FieldConfig[] => [
   {
     key: "freeChlorinePpm",
     label: "Free Chlorine",
-    unit: `ppm, min ${bodyOfWaterType === "SPA" ? 3 : 2}, max 10`,
+    unitLabel: "ppm",
     required: true,
-    wholeNumber: true,
+    min: 0,
+    max: 30,
+    step: 0.5,
+    zoneMin: bodyOfWaterType === "SPA" ? 3 : 2,
+    zoneMax: 10,
   },
-  { key: "ph", label: "pH", unit: "", required: true, placeholder: "7" },
-  { key: "alkalinityPpm", label: "Total Alkalinity", unit: "ppm", required: true, wholeNumber: true },
+  { key: "ph", label: "pH", unitLabel: "", required: true, min: 6, max: 15, step: 0.1, zoneMin: 7.2, zoneMax: 7.6 },
+  {
+    key: "alkalinityPpm",
+    label: "Total Alkalinity",
+    unitLabel: "ppm",
+    required: true,
+    min: 0,
+    max: 300,
+    step: 1,
+    zoneMin: 60,
+    zoneMax: 120,
+  },
   {
     key: "cyanuricAcidPpm",
     label: "Cyanuric Acid",
-    unit: cyaRequired ? "ppm" : "ppm, checked in the last 30 days",
+    unitLabel: cyaRequired ? "ppm" : "ppm, checked in the last 30 days",
     required: cyaRequired,
-    wholeNumber: true,
+    min: 0,
+    max: 100,
+    step: 1,
+    zoneMin: 0,
+    zoneMax: 40,
   },
-  { key: "temperatureF", label: "Water Temperature", unit: "°F", wholeNumber: true },
+  { key: "temperatureF", label: "Water Temperature", unitLabel: "°F", min: 50, max: 110, step: 1, zoneMin: 80, zoneMax: 104 },
 ];
 
 const EQUIPMENT_FIELDS: FieldConfig[] = [
-  { key: "pumpPressurePsi", label: "Pump Pressure", unit: "psi", required: true, wholeNumber: true },
-  { key: "vacGaugeReading", label: "Pump Vacuum Gauge", unit: "inHg", required: true, wholeNumber: true },
-  { key: "filterPressurePsi", label: "Filter Pressure", unit: "psi", required: true, wholeNumber: true },
-  { key: "filterGaugeReading", label: "Filter Gauge", unit: "", wholeNumber: true },
-  { key: "flowMeterGpm", label: "Flow Meter", unit: "gpm", required: true, wholeNumber: true },
+  { key: "pumpPressurePsi", label: "Pump Pressure", unitLabel: "psi", required: true, min: 0, max: 60, step: 1 },
+  { key: "vacGaugeReading", label: "Pump Vacuum Gauge", unitLabel: "inHg", required: true, min: -30, max: 0, step: 1 },
+  { key: "filterPressurePsi", label: "Filter Pressure", unitLabel: "psi", required: true, min: 0, max: 60, step: 1 },
+  { key: "filterGaugeReading", label: "Filter Gauge", unitLabel: "", min: 0, max: 60, step: 1 },
+  { key: "flowMeterGpm", label: "Flow Meter", unitLabel: "gpm", required: true, min: 0, max: 150, step: 1 },
 ];
+
+function pct(value: number, min: number, max: number) {
+  return ((value - min) / (max - min)) * 100;
+}
 
 type ChemicalProductOption = { id: string; name: string; unit: string };
 type ChecklistItemOption = { id: string; label: string; completed: boolean };
@@ -295,28 +320,79 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
     setSaveMsg("Completion failed");
   }
 
-  function renderField(f: FieldConfig) {
+  function renderSlider(f: FieldConfig) {
+    const isSet = reading[f.key] !== "";
+    const fallback = f.zoneMin !== undefined && f.zoneMax !== undefined ? (f.zoneMin + f.zoneMax) / 2 : (f.min + f.max) / 2;
+    const value = isSet ? Number(reading[f.key]) : fallback;
+    const zoneLeft = f.zoneMin !== undefined ? pct(f.zoneMin, f.min, f.max) : null;
+    const zoneWidth = f.zoneMin !== undefined && f.zoneMax !== undefined ? pct(f.zoneMax, f.min, f.max) - zoneLeft! : null;
+    const markerLeft = pct(value, f.min, f.max);
+
     return (
-      <label key={f.key} className="flex flex-col gap-1">
-        <span className="text-xs font-medium uppercase tracking-wide text-[#4A6572]">
-          {f.label}
-          {f.required ? <span className="text-[#C1483B]"> *</span> : null}
-          {f.unit ? <span className="ml-1 normal-case text-[#7FA0AC]">({f.unit})</span> : null}
-        </span>
-        <input
-          type="number"
-          step={f.wholeNumber ? "1" : "0.1"}
-          placeholder={f.placeholder}
-          value={reading[f.key]}
-          disabled={isCompleted}
-          onChange={(e) => {
-            const raw = e.target.value;
-            const value = f.wholeNumber && raw !== "" ? String(Math.round(Number(raw))) : raw;
-            setReading((prev) => ({ ...prev, [f.key]: value }));
-          }}
-          className="rounded border border-[#C9E3EC] px-2 py-1.5 font-[family-name:var(--font-mono)] text-sm text-[#12234A] disabled:bg-[#EAF6FA]"
-        />
-      </label>
+      <div key={f.key} className="rounded-lg border border-[#C9E3EC] bg-white p-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-[#4A6572]">
+            {f.label}
+            {f.required ? <span className="text-[#C1483B]"> *</span> : null}
+            {f.zoneMin !== undefined && f.zoneMax !== undefined ? (
+              <span className="ml-2 normal-case text-[#7FA0AC]">
+                Ideal {f.zoneMin}–{f.zoneMax}
+                {f.unitLabel ? ` ${f.unitLabel}` : ""}
+              </span>
+            ) : null}
+          </span>
+          <span className="flex items-center gap-1">
+            <input
+              type="number"
+              step={f.step}
+              value={reading[f.key]}
+              disabled={isCompleted}
+              placeholder={fallback.toString()}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const val = raw !== "" && Number.isInteger(f.step) ? String(roundToStep(Number(raw), f.step)) : raw;
+                setReading((prev) => ({ ...prev, [f.key]: val }));
+              }}
+              className="w-16 rounded border border-[#C9E3EC] px-1.5 py-0.5 text-right font-[family-name:var(--font-mono)] text-sm text-[#12234A] disabled:bg-[#EAF6FA]"
+            />
+            {f.unitLabel ? <span className="text-xs text-[#7FA0AC]">{f.unitLabel}</span> : null}
+          </span>
+        </div>
+
+        <div className="relative mt-3 h-6">
+          <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-[#EAF6FA]" />
+          {zoneLeft !== null && zoneWidth !== null ? (
+            <div
+              className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-[#0A5FA4]/25"
+              style={{ left: `${zoneLeft}%`, width: `${zoneWidth}%` }}
+            />
+          ) : null}
+          <div
+            className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-[#12234A] shadow"
+            style={{ left: `${markerLeft}%`, background: isSet ? "#0A5FA4" : "#C9E3EC" }}
+          />
+          <input
+            type="range"
+            min={f.min}
+            max={f.max}
+            step={f.step}
+            value={value}
+            disabled={isCompleted}
+            onPointerDown={() => {
+              // The slider starts parked at a plausible reading (the ideal-zone midpoint), so a
+              // user who drags to that exact same value never fires a native change event —
+              // committing on interaction-start guarantees the field still gets marked as read.
+              if (!isSet) setReading((prev) => ({ ...prev, [f.key]: String(roundToStep(fallback, f.step)) }));
+            }}
+            onChange={(e) => setReading((prev) => ({ ...prev, [f.key]: e.target.value }))}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+          />
+        </div>
+        <div className="mt-1 flex justify-between font-[family-name:var(--font-mono)] text-[10px] text-[#7FA0AC]">
+          <span>{f.min}</span>
+          <span>{f.max}</span>
+        </div>
+      </div>
     );
   }
 
@@ -376,12 +452,12 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
 
       <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Chemistry</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">{chemistryFields.map(renderField)}</div>
+        <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
       </div>
 
       <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Equipment</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">{EQUIPMENT_FIELDS.map(renderField)}</div>
+        <div className="mt-3 space-y-3">{EQUIPMENT_FIELDS.map(renderSlider)}</div>
       </div>
 
       <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
