@@ -134,8 +134,26 @@ model Customer {
   updatedAt  DateTime @updatedAt
 
   properties Property[]
+  documents  CustomerDocument[]
 
   @@index([organizationId])
+}
+
+/// Uploaded files (inspection reports, contracts, etc.) shown on a customer's Overview tab.
+/// Binary content lives in Supabase Storage; this row is just the pointer + metadata.
+model CustomerDocument {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  label       String
+  storagePath String
+  contentType String?
+  fileSize    Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
 }
 
 model Property {

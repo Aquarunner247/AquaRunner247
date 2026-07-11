@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
 import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
+import { CUSTOMER_DOCUMENTS_BUCKET, ensureCustomerDocumentsBucket } from "@/lib/customer-documents";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -228,6 +230,12 @@ function parseEquipmentFields(formData: FormData) {
     : null;
 
   const isSpaPurposeKind = kind === EquipmentKind.PUMP || kind === EquipmentKind.MAIN_DRAIN_COVER;
+  const hasVgbaYear = kind === EquipmentKind.MAIN_DRAIN_COVER || kind === EquipmentKind.SKIMMER_COVER;
+  const hasQuantity =
+    kind === EquipmentKind.VALVE ||
+    kind === EquipmentKind.FILTER ||
+    kind === EquipmentKind.MAIN_DRAIN_COVER ||
+    kind === EquipmentKind.SKIMMER_COVER;
 
   return {
     kind,
@@ -245,12 +253,12 @@ function parseEquipmentFields(formData: FormData) {
       voltage: kind === EquipmentKind.PUMP ? voltage || null : null,
       btu: kind === EquipmentKind.HEATER && Number.isFinite(btu) ? btu : null,
       asmeCertified: kind === EquipmentKind.HEATER ? asmeCertified : null,
-      vgbaYear: kind === EquipmentKind.MAIN_DRAIN_COVER && Number.isFinite(vgbaYear) ? vgbaYear : null,
+      vgbaYear: hasVgbaYear && Number.isFinite(vgbaYear) ? vgbaYear : null,
       manufacturedSump: kind === EquipmentKind.MAIN_DRAIN_COVER ? manufacturedSump : null,
       flowRateGpm: kind === EquipmentKind.MAIN_DRAIN_COVER && Number.isFinite(flowRateGpm) ? flowRateGpm : null,
       equalizerAbandoned: kind === EquipmentKind.SKIMMER_COVER ? equalizerAbandoned : null,
       filterMedia: kind === EquipmentKind.FILTER ? filterMedia : null,
-      quantity: kind === EquipmentKind.VALVE && Number.isFinite(quantity) ? quantity : null,
+      quantity: hasQuantity && Number.isFinite(quantity) ? quantity : null,
       purpose: isSpaPurposeKind ? purpose : null,
     },
     minFlowRaw,
@@ -389,4 +397,66 @@ export async function deleteCustomer(formData: FormData) {
 
   revalidatePath("/dashboard/customers");
   redirect("/dashboard/customers");
+}
+
+export async function uploadCustomerDocument(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const label = String(formData.get("label") ?? "").trim();
+  const file = formData.get("file");
+  if (!customerId || !(file instanceof File) || file.size === 0) return;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!customer) return;
+
+  const supabaseAdmin = await ensureCustomerDocumentsBucket();
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+  const storagePath = `${appUser.organizationId}/${customerId}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(CUSTOMER_DOCUMENTS_BUCKET)
+    .upload(storagePath, file, { contentType: file.type || undefined, upsert: false });
+  if (uploadError) {
+    console.error("[customer documents] upload failed:", uploadError);
+    return;
+  }
+
+  await prisma.customerDocument.create({
+    data: {
+      customerId,
+      label: label || file.name,
+      storagePath,
+      contentType: file.type || null,
+      fileSize: file.size,
+    },
+  });
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function deleteCustomerDocument(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const documentId = String(formData.get("documentId") ?? "").trim();
+  if (!customerId || !documentId) return;
+
+  const document = await prisma.customerDocument.findFirst({
+    where: { id: documentId, customer: { id: customerId, organizationId: appUser.organizationId } },
+    select: { id: true, storagePath: true },
+  });
+  if (!document) return;
+
+  try {
+    const supabaseAdmin = createSupabaseAdminClient();
+    await supabaseAdmin.storage.from(CUSTOMER_DOCUMENTS_BUCKET).remove([document.storagePath]);
+  } catch (err) {
+    console.error("[customer documents] storage remove failed:", err);
+  }
+
+  await prisma.customerDocument.delete({ where: { id: document.id } });
+  revalidatePath(`/dashboard/customers/${customerId}`);
 }

@@ -110,6 +110,14 @@ export function EquipmentKindFields({
             defaultValue={defaults.minFlowGpm}
             className={inputClass}
           />
+          <input
+            name="quantity"
+            type="number"
+            step="1"
+            placeholder="How many of this filter"
+            defaultValue={defaults.quantity}
+            className={inputClass}
+          />
         </div>
       ) : null}
 
@@ -146,11 +154,27 @@ export function EquipmentKindFields({
             <input type="checkbox" name="manufacturedSump" defaultChecked={defaults.manufacturedSump} className="rounded border-slate-300" />
             Manufactured sump
           </label>
+          <input
+            name="quantity"
+            type="number"
+            step="1"
+            placeholder="How many of this cover"
+            defaultValue={defaults.quantity}
+            className={inputClass}
+          />
         </div>
       ) : null}
 
       {kind === EquipmentKind.SKIMMER_COVER ? (
         <div className="mt-2 grid gap-2 md:grid-cols-4">
+          <select name="vgbaYear" defaultValue={defaults.vgbaYear ?? ""} className={inputClass}>
+            <option value="">VGBA year…</option>
+            {VGBA_YEARS.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
           <input name="pipeSize" placeholder="Pipe size (e.g. 2 in)" defaultValue={defaults.pipeSize} className={inputClass} />
           <label className="flex items-center gap-1.5 text-sm text-slate-700">
             <input
@@ -161,6 +185,14 @@ export function EquipmentKindFields({
             />
             Equalizer line abandoned
           </label>
+          <input
+            name="quantity"
+            type="number"
+            step="1"
+            placeholder="How many of this cover"
+            defaultValue={defaults.quantity}
+            className={inputClass}
+          />
         </div>
       ) : null}
 

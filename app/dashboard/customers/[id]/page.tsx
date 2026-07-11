@@ -6,7 +6,9 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { generateQrDataUrl, publicBodyOfWaterUrl } from "@/lib/qr";
 import { createBodyOfWater } from "../actions";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
-import { deleteCustomer, updateCustomer, updateProperty } from "./actions";
+import { deleteCustomer, updateCustomer, updateProperty, uploadCustomerDocument, deleteCustomerDocument } from "./actions";
+import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -39,6 +41,23 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   });
 
   if (!customer) notFound();
+
+  const documents = await prisma.customerDocument.findMany({
+    where: { customerId: customer.id },
+    orderBy: { createdAt: "desc" },
+  });
+  const documentsWithUrls = await (async () => {
+    if (!documents.length) return [];
+    const supabaseAdmin = createSupabaseAdminClient();
+    return Promise.all(
+      documents.map(async (doc) => {
+        const { data } = await supabaseAdmin.storage
+          .from(CUSTOMER_DOCUMENTS_BUCKET)
+          .createSignedUrl(doc.storagePath, 3600);
+        return { ...doc, url: data?.signedUrl ?? null };
+      }),
+    );
+  })();
 
   const managementCompanies = await prisma.managementCompany.findMany({
     where: { organizationId: appUser.organizationId },
@@ -167,6 +186,60 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 </form>
               </>
             )}
+          </section>
+
+          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-slate-900">Documents</h2>
+            <p className="mt-1 text-sm text-slate-500">Inspection reports, contracts, and other files for this customer.</p>
+
+            {documentsWithUrls.length ? (
+              <ul className="mt-3 space-y-1 text-sm text-slate-700">
+                {documentsWithUrls.map((doc) => (
+                  <li
+                    key={doc.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5"
+                  >
+                    <span>
+                      {doc.url ? (
+                        <a href={doc.url} target="_blank" rel="noreferrer" className="font-medium text-[#0A5FA4] underline">
+                          {doc.label}
+                        </a>
+                      ) : (
+                        <span className="font-medium text-slate-900">{doc.label}</span>
+                      )}
+                      <span className="ml-2 text-xs text-slate-500">{doc.createdAt.toLocaleDateString()}</span>
+                    </span>
+                    <form action={deleteCustomerDocument}>
+                      <input type="hidden" name="customerId" value={customer.id} />
+                      <input type="hidden" name="documentId" value={doc.id} />
+                      <ConfirmSubmitButton
+                        label="🗑"
+                        confirmMessage={`Delete "${doc.label}"?`}
+                        className="rounded px-2 py-1 text-base hover:bg-slate-200"
+                      />
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">No documents uploaded yet.</p>
+            )}
+
+            <form
+              action={uploadCustomerDocument}
+              className="mt-3 flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-slate-50 p-2"
+            >
+              <input type="hidden" name="customerId" value={customer.id} />
+              <input
+                name="label"
+                placeholder="Label (e.g. 2026 Inspection Report)"
+                className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+              />
+              <input type="file" name="file" required className="text-sm" />
+              <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                Upload
+              </button>
+            </form>
           </section>
 
           <section className="mt-6 space-y-3">
