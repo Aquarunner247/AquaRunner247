@@ -121,7 +121,14 @@ export function AddressFields({
               <li key={i}>
                 <button
                   type="button"
-                  onClick={() => pickSuggestion(s)}
+                  // Fire on mousedown (before the input blurs / any re-render can land) rather
+                  // than click — waiting for click let a debounced fetch resolving mid-interaction
+                  // occasionally replace the list out from under the pointer, silently swallowing
+                  // the selection so nothing filled in.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pickSuggestion(s);
+                  }}
                   className="block w-full px-2 py-1.5 text-left hover:bg-slate-100"
                 >
                   {s.label}
