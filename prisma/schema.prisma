@@ -37,6 +37,18 @@ enum EquipmentKind {
   OTHER
 }
 
+enum FilterMedia {
+  SAND
+  CARTRIDGE
+  DE
+}
+
+/// For pools with a spa: whether a pump/main drain serves the filtration loop or the jets
+enum EquipmentPurpose {
+  FILTRATION
+  JETS
+}
+
 enum ScheduleFrequency {
   WEEKLY
   BIWEEKLY
@@ -237,13 +249,24 @@ model Equipment {
   /// Heater: ASME-certified pressure vessel
   asmeCertified Boolean?
 
-  /// Main drain cover: VGB Act compliance year
+  /// Main drain cover: VGB Act compliance year (2008 or 2017)
   vgbaYear Int?
   /// Main drain cover: manufactured sump (vs. field-built)
   manufacturedSump Boolean?
+  /// Main drain cover: max GPM flow rate (shown in place of serial # for this kind)
+  flowRateGpm Decimal? @db.Decimal(10, 2)
 
   /// Skimmer cover: equalizer line abandoned
   equalizerAbandoned Boolean?
+
+  /// Filter: media type (shown in place of serial # for this kind)
+  filterMedia FilterMedia?
+
+  /// Valve: how many of this same valve are installed
+  quantity Int?
+
+  /// Spa only — Pump / Main Drain Cover: whether this serves filtration or jets
+  purpose EquipmentPurpose?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

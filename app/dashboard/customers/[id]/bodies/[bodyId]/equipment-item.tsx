@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { EquipmentKind } from "@/generated/prisma/enums";
 import { deleteEquipment, updateEquipment } from "../../actions";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
-import { EquipmentKindFields, inputClass } from "./equipment-form";
+import { EquipmentKindFields, EquipmentTopFields, inputClass } from "./equipment-form";
 
 export type EquipmentRow = {
   id: string;
@@ -21,7 +21,11 @@ export type EquipmentRow = {
   asmeCertified: boolean | null;
   vgbaYear: number | null;
   manufacturedSump: boolean | null;
+  flowRateGpm: number | string | null;
   equalizerAbandoned: boolean | null;
+  filterMedia: string | null;
+  quantity: number | null;
+  purpose: string | null;
 };
 
 type Props = {
@@ -29,6 +33,18 @@ type Props = {
   equipment: EquipmentRow;
   minFlowGpm: number | string | null;
   maxFlowGpm: number | string | null;
+  isSpa: boolean;
+};
+
+const FILTER_MEDIA_LABELS: Record<string, string> = {
+  SAND: "Sand",
+  CARTRIDGE: "Cartridge",
+  DE: "DE",
+};
+
+const PURPOSE_LABELS: Record<string, string> = {
+  FILTRATION: "Filtration",
+  JETS: "Jets",
 };
 
 function toDateInput(d: Date | null) {
@@ -36,9 +52,10 @@ function toDateInput(d: Date | null) {
   return new Date(d).toISOString().slice(0, 10);
 }
 
-export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGpm }: Props) {
+export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGpm, isSpa }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [kind, setKind] = useState<EquipmentKind>(eq.kind);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -51,10 +68,22 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
     return () => document.removeEventListener("click", onClickOutside);
   }, [menuOpen]);
 
+  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    setSaving(true);
+    try {
+      await updateEquipment(formData);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (editing) {
     return (
       <li className="rounded border border-[#C9E3EC] bg-white px-2 py-2">
-        <form action={updateEquipment} className="space-y-2">
+        <form onSubmit={handleSave} className="space-y-2">
           <input type="hidden" name="customerId" value={customerId} />
           <input type="hidden" name="equipmentId" value={eq.id} />
           <div className="grid gap-2 md:grid-cols-4">
@@ -72,11 +101,19 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
             </select>
             <input name="make" placeholder="Make" defaultValue={eq.make ?? ""} className={inputClass} />
             <input name="model" placeholder="Model" defaultValue={eq.model ?? ""} className={inputClass} />
-            <input name="serialNumber" placeholder="Serial #" defaultValue={eq.serialNumber ?? ""} className={inputClass} />
+            <EquipmentTopFields
+              kind={kind}
+              defaults={{
+                serialNumber: eq.serialNumber ?? "",
+                filterMedia: eq.filterMedia ?? "",
+                flowRateGpm: eq.flowRateGpm?.toString() ?? "",
+              }}
+            />
           </div>
 
           <EquipmentKindFields
             kind={kind}
+            isSpa={isSpa}
             defaults={{
               pipeSize: eq.pipeSize ?? "",
               numberOfPorts: eq.numberOfPorts?.toString() ?? "",
@@ -87,6 +124,8 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
               vgbaYear: eq.vgbaYear?.toString() ?? "",
               manufacturedSump: eq.manufacturedSump ?? false,
               equalizerAbandoned: eq.equalizerAbandoned ?? false,
+              quantity: eq.quantity?.toString() ?? "",
+              purpose: eq.purpose ?? "",
               minFlowGpm: minFlowGpm?.toString() ?? "",
               maxFlowGpm: maxFlowGpm?.toString() ?? "",
             }}
@@ -103,12 +142,17 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
           </div>
 
           <div className="flex gap-2">
-            <button type="submit" className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white">
-              Save
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save"}
             </button>
             <button
               type="button"
               onClick={() => setEditing(false)}
+              disabled={saving}
               className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
             >
               Cancel
@@ -132,8 +176,12 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
         {eq.asmeCertified ? ` • ASME certified` : ""}
         {eq.vgbaYear ? ` • VGBA ${eq.vgbaYear}` : ""}
         {eq.manufacturedSump ? ` • Manufactured sump` : ""}
+        {eq.flowRateGpm ? ` • ${eq.flowRateGpm} GPM max` : ""}
         {eq.equalizerAbandoned ? ` • Equalizer abandoned` : ""}
-        {eq.pipeSize ? ` • Pipe ${eq.pipeSize}` : ""}
+        {eq.filterMedia ? ` • ${FILTER_MEDIA_LABELS[eq.filterMedia] ?? eq.filterMedia}` : ""}
+        {eq.quantity ? ` • Qty ${eq.quantity}` : ""}
+        {eq.purpose ? ` • ${PURPOSE_LABELS[eq.purpose] ?? eq.purpose}` : ""}
+        {eq.pipeSize ? ` • ${eq.kind === "FLOW_METER" ? "Size" : "Pipe"} ${eq.pipeSize}` : ""}
         {eq.numberOfPorts ? ` • ${eq.numberOfPorts} port${eq.numberOfPorts === 1 ? "" : "s"}` : ""}
         {eq.lastServicedAt ? ` • Last serviced ${new Date(eq.lastServicedAt).toLocaleDateString()}` : ""}
       </span>

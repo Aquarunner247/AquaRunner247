@@ -110,9 +110,14 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
               <EquipmentItem
                 key={eq.id}
                 customerId={customerId}
-                equipment={{ ...eq, horsepower: eq.horsepower?.toString() ?? null }}
+                equipment={{
+                  ...eq,
+                  horsepower: eq.horsepower?.toString() ?? null,
+                  flowRateGpm: eq.flowRateGpm?.toString() ?? null,
+                }}
                 minFlowGpm={body.minimumRequiredFlowGpm?.toString() ?? null}
                 maxFlowGpm={body.maximumFilterFlowGpm?.toString() ?? null}
+                isSpa={body.type === "SPA"}
               />
             ))}
           </ul>
@@ -120,7 +125,7 @@ export default async function BodyOfWaterDetailPage({ params }: PageProps) {
           <p className="mt-2 text-sm text-slate-500">No equipment yet.</p>
         )}
 
-        <EquipmentForm customerId={customerId} bodyId={body.id} />
+        <EquipmentForm customerId={customerId} bodyId={body.id} isSpa={body.type === "SPA"} />
       </section>
 
       <section className="mt-6 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">

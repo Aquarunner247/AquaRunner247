@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { BodyOfWaterType, EquipmentKind } from "@/generated/prisma/client";
+import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
@@ -206,6 +206,10 @@ function parseEquipmentFields(formData: FormData) {
   const equalizerAbandoned = formData.get("equalizerAbandoned") === "on";
   const minFlowRaw = String(formData.get("minFlowGpm") ?? "").trim();
   const maxFlowRaw = String(formData.get("maxFlowGpm") ?? "").trim();
+  const filterMediaRaw = String(formData.get("filterMedia") ?? "").trim();
+  const flowRateGpmRaw = String(formData.get("flowRateGpm") ?? "").trim();
+  const quantityRaw = String(formData.get("quantity") ?? "").trim();
+  const purposeRaw = String(formData.get("purpose") ?? "").trim();
 
   const numberOfPorts = portsRaw ? Number(portsRaw) : null;
   const lastServicedAt = lastServicedRaw ? new Date(lastServicedRaw) : null;
@@ -214,6 +218,16 @@ function parseEquipmentFields(formData: FormData) {
   const vgbaYear = vgbaYearRaw ? Number(vgbaYearRaw) : null;
   const minFlow = minFlowRaw ? Number(minFlowRaw) : null;
   const maxFlow = maxFlowRaw ? Number(maxFlowRaw) : null;
+  const flowRateGpm = flowRateGpmRaw ? Number(flowRateGpmRaw) : null;
+  const quantity = quantityRaw ? Number(quantityRaw) : null;
+  const filterMedia = (Object.values(FilterMedia) as string[]).includes(filterMediaRaw)
+    ? (filterMediaRaw as FilterMedia)
+    : null;
+  const purpose = (Object.values(EquipmentPurpose) as string[]).includes(purposeRaw)
+    ? (purposeRaw as EquipmentPurpose)
+    : null;
+
+  const isSpaPurposeKind = kind === EquipmentKind.PUMP || kind === EquipmentKind.MAIN_DRAIN_COVER;
 
   return {
     kind,
@@ -221,7 +235,9 @@ function parseEquipmentFields(formData: FormData) {
       kind,
       make: make || null,
       model: model || null,
-      serialNumber: serialNumber || null,
+      // Filter and Main Drain Cover show a different field in place of serial # (see below),
+      // so serialNumber is only ever submitted — and stored — for every other kind.
+      serialNumber: kind === EquipmentKind.FILTER || kind === EquipmentKind.MAIN_DRAIN_COVER ? null : serialNumber || null,
       pipeSize: pipeSize || null,
       numberOfPorts: Number.isFinite(numberOfPorts) ? numberOfPorts : null,
       lastServicedAt: lastServicedAt && !Number.isNaN(lastServicedAt.getTime()) ? lastServicedAt : null,
@@ -231,7 +247,11 @@ function parseEquipmentFields(formData: FormData) {
       asmeCertified: kind === EquipmentKind.HEATER ? asmeCertified : null,
       vgbaYear: kind === EquipmentKind.MAIN_DRAIN_COVER && Number.isFinite(vgbaYear) ? vgbaYear : null,
       manufacturedSump: kind === EquipmentKind.MAIN_DRAIN_COVER ? manufacturedSump : null,
+      flowRateGpm: kind === EquipmentKind.MAIN_DRAIN_COVER && Number.isFinite(flowRateGpm) ? flowRateGpm : null,
       equalizerAbandoned: kind === EquipmentKind.SKIMMER_COVER ? equalizerAbandoned : null,
+      filterMedia: kind === EquipmentKind.FILTER ? filterMedia : null,
+      quantity: kind === EquipmentKind.VALVE && Number.isFinite(quantity) ? quantity : null,
+      purpose: isSpaPurposeKind ? purpose : null,
     },
     minFlowRaw,
     maxFlowRaw,
