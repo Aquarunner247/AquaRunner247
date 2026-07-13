@@ -66,7 +66,44 @@ function matchColumn(header: string): ColumnField | null {
   if (h.includes("filter") && h.includes("pressure")) return "filterPressurePsi";
   if (h.includes("flow")) return "flowMeterGpm";
   if (h === "ph" || h.startsWith("ph ") || h.startsWith("ph(")) return "ph";
-  if (h.includes("day")) return "day";
+  if (h.includes("day") || h.includes("date")) return "day";
+  return null;
+}
+
+/**
+ * Extracts the day-of-month from a cell that might be a bare number ("7"),
+ * or a full date in a few common formats: M/D/YYYY, M/D/YY, YYYY-MM-DD,
+ * or anything else JS Date can parse. Assumes US month/day order for slash
+ * dates, since that's the convention used everywhere else in this app.
+ */
+function parseDayFromCell(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // Bare number, e.g. "7" or "07"
+  if (/^\d{1,2}$/.test(trimmed)) {
+    const bare = Number(trimmed);
+    if (bare >= 1 && bare <= 31) return bare;
+  }
+
+  // M/D/YYYY or M/D/YY, e.g. 7/7/2026, 07/07/26
+  const slash = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (slash) {
+    const day = Number(slash[2]);
+    if (day >= 1 && day <= 31) return day;
+  }
+
+  // ISO format, e.g. 2026-07-07
+  const iso = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) {
+    const day = Number(iso[3]);
+    if (day >= 1 && day <= 31) return day;
+  }
+
+  // Fallback: let JS try to parse it (handles things like "July 7, 2026")
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) return parsed.getDate();
+
   return null;
 }
 
@@ -84,14 +121,17 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
   let columnMap: (ColumnField | null)[] = [];
   for (let i = 0; i < lines.length; i++) {
     const cells = splitCsvLine(lines[i]);
-    if (cells.some((c) => c.trim().toLowerCase() === "day")) {
+    if (cells.some((c) => {
+      const trimmed = c.trim().toLowerCase();
+      return trimmed === "day" || trimmed === "date";
+    })) {
       headerIndex = i;
       columnMap = cells.map(matchColumn);
       break;
     }
   }
   if (headerIndex === -1) {
-    return { rows: [], error: 'Could not find a header row with a "Day" column in this file.' };
+    return { rows: [], error: 'Could not find a header row with a "Day" or "Date" column in this file.' };
   }
 
   const rows: ImportedReadingRow[] = [];
@@ -120,8 +160,8 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
       const raw = cells[c] ?? "";
       switch (field) {
         case "day": {
-          const d = Number(raw.trim());
-          if (Number.isFinite(d)) day = d;
+          const d = parseDayFromCell(raw);
+          if (d !== null) day = d;
           break;
         }
         case "backwashed":
