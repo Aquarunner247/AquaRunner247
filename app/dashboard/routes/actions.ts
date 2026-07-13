@@ -65,8 +65,16 @@ export async function deleteRoute(formData: FormData) {
   });
   if (!route) return;
 
+  // Visits already generated from this route's stops aren't cascaded away by the
+  // RecurringStop delete (recurringStopId is just SetNull'd), so they'd otherwise
+  // keep showing up on the technician's dashboard after the route is gone.
+  await prisma.serviceVisit.deleteMany({
+    where: { recurringStop: { routeId: route.id }, status: "SCHEDULED" },
+  });
+
   await prisma.recurringRoute.delete({ where: { id: route.id } });
   revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard");
 }
 
 export async function addRouteStop(formData: FormData) {
