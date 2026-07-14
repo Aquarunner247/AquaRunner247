@@ -4,7 +4,7 @@ import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
 import { RouteDayView } from "@/app/components/route-day-view";
-import { resolveIssue } from "./actions";
+import { resolveIssue, addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "./actions";
 
 type DashboardPageProps = {
   searchParams?: Promise<{ date?: string }>;
@@ -100,6 +100,43 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     latitude: v.property.latitude != null ? Number(v.property.latitude) : null,
     longitude: v.property.longitude != null ? Number(v.property.longitude) : null,
   }));
+
+  const isPrivileged = appUser?.role === "ADMIN" || appUser?.role === "OFFICE";
+
+  const adHocStops = appUser
+    ? await prisma.adHocStop.findMany({
+        where: {
+          organizationId: appUser.organizationId,
+          scheduledDate: { gte: startOfDay, lte: endOfDay },
+          ...(isPrivileged ? {} : { technicianId: appUser.id }),
+        },
+        orderBy: [{ completed: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          description: true,
+          completed: true,
+          property: { select: { name: true } },
+          technician: { select: { name: true, email: true } },
+        },
+      })
+    : [];
+
+  const adHocProperties = appUser
+    ? await prisma.property.findMany({
+        where: { organizationId: appUser.organizationId },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : [];
+
+  const adHocTechnicians =
+    appUser && isPrivileged
+      ? await prisma.user.findMany({
+          where: { organizationId: appUser.organizationId, active: true },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
 
   // ---- Admin overview data ----
   let stats: { customers: number; managementCompanies: number; bodiesOfWater: number; upcomingThisWeek: number } | null = null;
@@ -352,6 +389,70 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             ) : null}
 
+            {/* Extra stops — pool store runs, property drop-offs, anything that isn't a chemistry visit */}
+            <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+              <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-[#0A5FA4]">
+                Extra stops
+              </p>
+              {adHocStops.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500">No extra stops for this day.</p>
+              ) : (
+                <ul className="mt-2 space-y-1.5">
+                  {adHocStops.map((s) => (
+                    <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                      <span className={s.completed ? "text-slate-400 line-through" : "text-slate-800"}>
+                        {s.description}
+                        {s.property ? ` — ${s.property.name}` : ""}
+                        {s.technician ? ` · ${s.technician.name ?? s.technician.email}` : " · Unassigned"}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <form action={toggleAdHocStop}>
+                          <input type="hidden" name="stopId" value={s.id} />
+                          <button type="submit" className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100">
+                            {s.completed ? "Undo" : "Done"}
+                          </button>
+                        </form>
+                        <form action={deleteAdHocStop}>
+                          <input type="hidden" name="stopId" value={s.id} />
+                          <button type="submit" className="rounded border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-800 hover:bg-rose-50">
+                            Delete
+                          </button>
+                        </form>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form action={addAdHocStop} className="mt-3 flex flex-wrap items-center gap-2 rounded border border-slate-200 bg-slate-50 p-2">
+                <input type="hidden" name="scheduledDate" value={selectedYmd} />
+                <input
+                  name="description"
+                  required
+                  placeholder="e.g. Pool store, drop off filter…"
+                  className="min-w-[180px] flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
+                />
+                <select name="propertyId" defaultValue="" className="rounded border border-slate-300 px-2 py-1.5 text-sm">
+                  <option value="">No property</option>
+                  {adHocProperties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <select name="technicianId" defaultValue="" className="rounded border border-slate-300 px-2 py-1.5 text-sm">
+                  <option value="">Unassigned</option>
+                  {adHocTechnicians.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name ?? t.email}
+                    </option>
+                  ))}
+                </select>
+                <button type="submit" className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white">
+                  Add stop
+                </button>
+              </form>
+            </div>
+
             {/* Quick stats */}
             <div className="grid gap-4 sm:grid-cols-4">
               <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -563,6 +664,61 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     <RouteDayView visits={routeStops} readOnly={isPastDay} isToday={isToday} />
                   </div>
                 ) : null}
+              </div>
+            ) : null}
+            {appUser.role === "TECHNICIAN" ? (
+              <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+                <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-[#0A5FA4]">
+                  Extra stops
+                </p>
+                {adHocStops.length === 0 ? (
+                  <p className="mt-2 text-sm text-[#4A6572]">No extra stops for this day.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1.5">
+                    {adHocStops.map((s) => (
+                      <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-[#C9E3EC] bg-[#EAF6FA] px-3 py-2 text-sm">
+                        <span className={s.completed ? "text-[#7FA0AC] line-through" : "text-[#16324A]"}>
+                          {s.description}
+                          {s.property ? ` — ${s.property.name}` : ""}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <form action={toggleAdHocStop}>
+                            <input type="hidden" name="stopId" value={s.id} />
+                            <button type="submit" className="rounded border border-[#C9E3EC] bg-white px-2 py-1 text-xs font-medium text-[#12234A]">
+                              {s.completed ? "Undo" : "Done"}
+                            </button>
+                          </form>
+                          <form action={deleteAdHocStop}>
+                            <input type="hidden" name="stopId" value={s.id} />
+                            <button type="submit" className="rounded border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-800">
+                              Delete
+                            </button>
+                          </form>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <form action={addAdHocStop} className="mt-3 flex flex-wrap items-center gap-2 rounded border border-[#C9E3EC] bg-[#EAF6FA] p-2">
+                  <input type="hidden" name="scheduledDate" value={selectedYmd} />
+                  <input
+                    name="description"
+                    required
+                    placeholder="e.g. Pool store, drop off filter…"
+                    className="min-w-[180px] flex-1 rounded border border-[#C9E3EC] bg-white px-2 py-1.5 text-sm"
+                  />
+                  <select name="propertyId" defaultValue="" className="rounded border border-[#C9E3EC] bg-white px-2 py-1.5 text-sm">
+                    <option value="">No property</option>
+                    {adHocProperties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="submit" className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white">
+                    Add stop
+                  </button>
+                </form>
               </div>
             ) : null}
             {appUser.role === "TECHNICIAN" ? (
