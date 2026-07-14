@@ -14,7 +14,7 @@ export type ClosureHazardItem = {
 export type ReportedIssueItem = {
   id: string;
   severity: string;
-  description: string;
+  description: string | null;
   visitId: string;
   visitLabel: string;
   techLabel: string;
@@ -145,7 +145,7 @@ export function AlertsBell({
                           <Link href={`/dashboard/visits/${issue.visitId}`} className="font-medium text-[#12234A] underline" onClick={() => setOpen(false)}>
                             {issue.visitLabel}
                           </Link>
-                          <p className="mt-0.5 text-[#4A6572]">{issue.description}</p>
+                          <p className="mt-0.5 text-[#4A6572]">{issue.description || "No description provided"}</p>
                           <p className="mt-0.5 text-xs text-[#7FA0AC]">
                             {issue.techLabel} · {issue.createdAtLabel}
                           </p>
