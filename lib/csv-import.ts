@@ -121,10 +121,11 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
   let columnMap: (ColumnField | null)[] = [];
   for (let i = 0; i < lines.length; i++) {
     const cells = splitCsvLine(lines[i]);
-    if (cells.some((c) => {
-      const trimmed = c.trim().toLowerCase();
-      return trimmed === "day" || trimmed === "date";
-    })) {
+    // Reuse matchColumn itself to find the header row, instead of a separate stricter
+    // exact-match check — otherwise a real day/date column (e.g. "Day/Time", "Service Date")
+    // that matchColumn would happily classify never gets the row recognized as a header in
+    // the first place.
+    if (cells.some((c) => matchColumn(c) === "day")) {
       headerIndex = i;
       columnMap = cells.map(matchColumn);
       break;
