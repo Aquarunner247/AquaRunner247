@@ -9,6 +9,8 @@ function decimalOrNull(raw: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10MB — generous for a phone camera photo, small enough to block abuse
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
   if (!appUser) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
@@ -33,6 +35,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const file = formData.get("photo");
   if (!(file instanceof File) || !file.name) {
     return NextResponse.json({ error: "PHOTO_REQUIRED" }, { status: 400 });
+  }
+  if (!file.type || !file.type.startsWith("image/")) {
+    return NextResponse.json({ error: "INVALID_FILE_TYPE" }, { status: 400 });
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    return NextResponse.json({ error: "FILE_TOO_LARGE" }, { status: 400 });
   }
 
   const capturedAtRaw = formData.get("capturedAt");

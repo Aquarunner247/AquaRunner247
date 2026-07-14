@@ -152,12 +152,6 @@ export default function Home() {
           >
             View dashboard
           </Link>
-          <Link
-            href="/p/demo-public-slug"
-            className="text-sm font-medium text-[#4A6572] underline decoration-[#A9D3E0] underline-offset-4 hover:text-[#16324A]"
-          >
-            View public log demo →
-          </Link>
         </div>
       </section>
     </main>

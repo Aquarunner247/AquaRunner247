@@ -20,7 +20,6 @@ type Reading = {
   vacGaugeReading: string;
   flowMeterGpm: string;
   filterPressurePsi: string;
-  filterGaugeReading: string;
 };
 
 type FieldConfig = {
@@ -70,14 +69,13 @@ const CHEMISTRY_FIELDS = (bodyOfWaterType: string, cyaRequired: boolean): FieldC
     zoneMin: 0,
     zoneMax: 40,
   },
-  { key: "temperatureF", label: "Water Temperature", unitLabel: "°F", min: 50, max: 110, step: 1, zoneMin: 80, zoneMax: 104 },
+  { key: "temperatureF", label: "Water Temperature", unitLabel: "°F", required: true, min: 50, max: 110, step: 1, zoneMin: 80, zoneMax: 104 },
 ];
 
 const EQUIPMENT_FIELDS: FieldConfig[] = [
   { key: "pumpPressurePsi", label: "Pump Pressure", unitLabel: "psi", required: true, min: 0, max: 60, step: 1 },
-  { key: "vacGaugeReading", label: "Pump Vacuum Gauge", unitLabel: "inHg", required: true, min: -30, max: 0, step: 1 },
+  { key: "vacGaugeReading", label: "Pump Vacuum", unitLabel: "inHg", required: true, min: -30, max: 0, step: 1 },
   { key: "filterPressurePsi", label: "Filter Pressure", unitLabel: "psi", required: true, min: 0, max: 60, step: 1 },
-  { key: "filterGaugeReading", label: "Filter Gauge", unitLabel: "", min: 0, max: 60, step: 1 },
   { key: "flowMeterGpm", label: "Flow Meter", unitLabel: "gpm", required: true, min: 0, max: 150, step: 1 },
 ];
 
@@ -144,7 +142,6 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
     vacGaugeReading: toInput(initialReading?.vacGaugeReading),
     flowMeterGpm: toInput(initialReading?.flowMeterGpm),
     filterPressurePsi: toInput(initialReading?.filterPressurePsi),
-    filterGaugeReading: toInput(initialReading?.filterGaugeReading),
   });
   const [backwashPerformed, setBackwashPerformed] = useState<boolean>(Boolean(initialReading?.backwashAt));
   const [backwashTime, setBackwashTime] = useState<string>(toTimeInput(initialReading?.backwashAt));
@@ -182,7 +179,6 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
           vacGaugeReading: reading.vacGaugeReading || null,
           flowMeterGpm: reading.flowMeterGpm || null,
           filterPressurePsi: reading.filterPressurePsi || null,
-          filterGaugeReading: reading.filterGaugeReading || null,
           backwashPerformed,
           backwashAt: backwashPerformed && backwashTime ? `${new Date().toISOString().slice(0, 10)}T${backwashTime}:00` : null,
         }),
@@ -253,8 +249,19 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
         });
       }
       const response = await fetch(`/api/visits/${visitId}/photos`, { method: "POST", body: formData });
-      if (!response.ok) throw new Error("Photo upload failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const messages: Record<string, string> = {
+          INVALID_FILE_TYPE: "That file isn't an image — try again with a photo.",
+          FILE_TOO_LARGE: "That photo is too large (max 10MB) — try again.",
+          PHOTO_REQUIRED: "No photo was received — try again.",
+        };
+        throw new Error(messages[body?.error] ?? "Photo upload failed");
+      }
       setPhotoCount((n) => n + 1);
+    } catch (err) {
+      setSaveState("error");
+      setSaveMsg(err instanceof Error ? err.message : "Photo upload failed");
     } finally {
       setUploadingPhoto(false);
     }
@@ -456,7 +463,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
       </div>
 
       <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Equipment</h2>
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Gauges</h2>
         <div className="mt-3 space-y-3">{EQUIPMENT_FIELDS.map(renderSlider)}</div>
       </div>
 

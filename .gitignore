@@ -43,3 +43,5 @@ prisma/*.db-journal
 
 # Prisma 7 client output (rebuilt by postinstall / prisma generate)
 /generated/prisma
+.env.save
+.env.*

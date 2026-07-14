@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 type SideNavProps = {
   isLoggedIn: boolean;
   isAdmin: boolean;
+  userName?: string | null;
+  orgName?: string | null;
 };
 
 function isActive(currentPath: string, href: string) {
@@ -20,7 +22,7 @@ function navClass(active: boolean) {
     : "flex items-center rounded-md px-3 py-2 text-sm font-medium text-[#A9D3E0] hover:bg-white/5 hover:text-white";
 }
 
-export function SideNav({ isLoggedIn, isAdmin }: SideNavProps) {
+export function SideNav({ isLoggedIn, isAdmin, userName, orgName }: SideNavProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -86,6 +88,12 @@ export function SideNav({ isLoggedIn, isAdmin }: SideNavProps) {
         </nav>
 
         <div className="border-t border-white/10 px-3 py-3">
+          {isLoggedIn && (userName || orgName) ? (
+            <div className="mb-2 rounded-md bg-white/5 px-3 py-2">
+              {userName ? <p className="truncate text-sm font-medium text-white">{userName}</p> : null}
+              {orgName ? <p className="truncate text-xs text-[#A9D3E0]">{orgName}</p> : null}
+            </div>
+          ) : null}
           {isLoggedIn ? (
             <button
               type="button"
