@@ -253,8 +253,19 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
         });
       }
       const response = await fetch(`/api/visits/${visitId}/photos`, { method: "POST", body: formData });
-      if (!response.ok) throw new Error("Photo upload failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const messages: Record<string, string> = {
+          INVALID_FILE_TYPE: "That file isn't an image — try again with a photo.",
+          FILE_TOO_LARGE: "That photo is too large (max 10MB) — try again.",
+          PHOTO_REQUIRED: "No photo was received — try again.",
+        };
+        throw new Error(messages[body?.error] ?? "Photo upload failed");
+      }
       setPhotoCount((n) => n + 1);
+    } catch (err) {
+      setSaveState("error");
+      setSaveMsg(err instanceof Error ? err.message : "Photo upload failed");
     } finally {
       setUploadingPhoto(false);
     }
