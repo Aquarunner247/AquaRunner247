@@ -117,6 +117,7 @@ export default async function VisitPage({ params }: PageProps) {
           quantity: d.quantity.toString(),
           unit: d.unit,
         }))}
+        initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
       />
     </main>
   );

@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CameraCapture } from "@/app/components/camera-capture";
+import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 
 type Dose = {
   id: string;
@@ -100,6 +101,7 @@ type Props = {
   initialPhotoCount: number;
   initialPhotos?: PhotoOption[];
   initialDoses: Dose[];
+  initialStartedAt: string | null;
 };
 
 function toInput(v: unknown): string {
@@ -127,7 +129,10 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses }: Props) {
+export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt }: Props) {
+  const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
+  const [arrivalSaving, setArrivalSaving] = useState(false);
+  const [arrivalError, setArrivalError] = useState("");
   const [checklistItems, setChecklistItems] = useState<ChecklistItemOption[]>(initialChecklistItems);
   const [issues, setIssues] = useState<IssueOption[]>(initialIssues);
   const [issueForm, setIssueForm] = useState({ description: "", severity: "MEDIUM" });
@@ -155,6 +160,21 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
   const isFirstRender = useRef(true);
 
   const isCompleted = visitStatus === "COMPLETED";
+
+  async function markArrived() {
+    setArrivalSaving(true);
+    setArrivalError("");
+    try {
+      const response = await fetch(`/api/visits/${visitId}/arrival`, { method: "PATCH" });
+      if (!response.ok) throw new Error("Couldn't log arrival — try again.");
+      const data = (await response.json()) as { visit: { startedAt: string | null } };
+      setStartedAt(data.visit.startedAt);
+    } catch (err) {
+      setArrivalError(err instanceof Error ? err.message : "Couldn't log arrival — try again.");
+    } finally {
+      setArrivalSaving(false);
+    }
+  }
   const chemistryFields = CHEMISTRY_FIELDS(bodyOfWaterType, cyaRequired);
   const allFields = [...chemistryFields, ...EQUIPMENT_FIELDS];
 
@@ -231,33 +251,8 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
   async function uploadPhoto(file: File) {
     setUploadingPhoto(true);
     try {
-      const formData = new FormData();
-      formData.append("photo", file);
-      formData.append("capturedAt", new Date().toISOString());
-      if (navigator.geolocation) {
-        await new Promise<void>((resolve) => {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              formData.append("latitude", String(position.coords.latitude));
-              formData.append("longitude", String(position.coords.longitude));
-              formData.append("accuracyMeters", String(position.coords.accuracy));
-              resolve();
-            },
-            () => resolve(),
-            { enableHighAccuracy: true, timeout: 7000 },
-          );
-        });
-      }
-      const response = await fetch(`/api/visits/${visitId}/photos`, { method: "POST", body: formData });
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        const messages: Record<string, string> = {
-          INVALID_FILE_TYPE: "That file isn't an image — try again with a photo.",
-          FILE_TOO_LARGE: "That photo is too large (max 10MB) — try again.",
-          PHOTO_REQUIRED: "No photo was received — try again.",
-        };
-        throw new Error(messages[body?.error] ?? "Photo upload failed");
-      }
+      const result = await uploadVisitPhoto(visitId, file);
+      if (!result.ok) throw new Error(result.error);
       setPhotoCount((n) => n + 1);
     } catch (err) {
       setSaveState("error");
@@ -405,6 +400,35 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
 
   return (
     <section className="mt-6 space-y-4">
+      {!isCompleted ? (
+        <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+          {startedAt ? (
+            <p className="text-sm font-medium text-[#0A5FA4]">
+              Arrived at {new Date(startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-[#12234A]">Not logged as arrived yet</p>
+                <p className="text-xs text-[#4A6572]">
+                  This usually happens automatically when your phone&apos;s location enters the property. Tap this if
+                  location isn&apos;t available or hasn&apos;t caught up yet.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void markArrived()}
+                disabled={arrivalSaving}
+                className="shrink-0 rounded bg-[#FF6B5B] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {arrivalSaving ? "Logging..." : "I've arrived"}
+              </button>
+            </div>
+          )}
+          {arrivalError ? <p className="mt-1 text-sm text-[#C1483B]">{arrivalError}</p> : null}
+        </div>
+      ) : null}
+
       <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-medium text-[#12234A]">

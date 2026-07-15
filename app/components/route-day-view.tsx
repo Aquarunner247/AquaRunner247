@@ -8,6 +8,7 @@ import type { Map as LeafletMap, LayerGroup } from "leaflet";
 export type RouteStop = {
   id: string;
   status: string;
+  propertyId: string;
   propertyName: string;
   bodyName: string;
   address: string;
@@ -21,6 +22,8 @@ type Props = {
   visits: RouteStop[];
   readOnly?: boolean;
   isToday?: boolean;
+  /// yyyy-mm-dd for the day being viewed — used to link into the combined stop-capture screen
+  dateYmd?: string;
 };
 
 const ARRIVAL_RADIUS_METERS = 150;
@@ -39,7 +42,45 @@ function haversineMiles(a: { latitude: number | null; longitude: number | null }
   return haversineMeters(a, b) / 1609.34;
 }
 
-export function RouteDayView({ visits: initialVisits, readOnly = false, isToday = false }: Props) {
+/**
+ * Groups visits into contiguous same-property runs (in route-sequence order — the order
+ * `visits` is already provided in), then for each property returns only the visit ids in
+ * that property's earliest not-yet-fully-completed group. This is what GPS auto-arrival
+ * should be allowed to touch: e.g. for a property with a front pool/spa and a separate
+ * back pool/spa, back's visits stay ineligible for auto-stamping until front's are all
+ * COMPLETED — since front and back share one property-level GPS coordinate, without this
+ * gate the phone being anywhere near the property would stamp all four at once.
+ */
+function computeAutoArrivalEligibleIds(visits: RouteStop[]): Set<string> {
+  const groups: { propertyId: string; visitIds: string[] }[] = [];
+  let prevPropertyId: string | null = null;
+  for (const v of visits) {
+    if (v.status === "CANCELLED") continue;
+    if (v.propertyId !== prevPropertyId || groups.length === 0) {
+      groups.push({ propertyId: v.propertyId, visitIds: [] });
+      prevPropertyId = v.propertyId;
+    }
+    groups[groups.length - 1].visitIds.push(v.id);
+  }
+
+  const groupsByProperty = new Map<string, { propertyId: string; visitIds: string[] }[]>();
+  for (const g of groups) {
+    const arr = groupsByProperty.get(g.propertyId) ?? [];
+    arr.push(g);
+    groupsByProperty.set(g.propertyId, arr);
+  }
+
+  const visitById = new Map(visits.map((v) => [v.id, v]));
+  const eligible = new Set<string>();
+  for (const propGroups of groupsByProperty.values()) {
+    const activeGroup = propGroups.find((g) => g.visitIds.some((id) => visitById.get(id)?.status !== "COMPLETED"));
+    if (!activeGroup) continue; // every group at this property is already completed — nothing left to auto-stamp
+    for (const id of activeGroup.visitIds) eligible.add(id);
+  }
+  return eligible;
+}
+
+export function RouteDayView({ visits: initialVisits, readOnly = false, isToday = false, dateYmd }: Props) {
   const [visits, setVisits] = useState<RouteStop[]>(initialVisits);
   const [saving, setSaving] = useState(false);
   const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported">("idle");
@@ -85,8 +126,10 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        const eligibleIds = computeAutoArrivalEligibleIds(visitsRef.current);
         for (const v of visitsRef.current) {
           if (v.startedAt || v.status === "CANCELLED" || notifiedRef.current.has(v.id)) continue;
+          if (!eligibleIds.has(v.id)) continue;
           if (v.latitude == null || v.longitude == null) continue;
           if (haversineMeters(here, v) <= ARRIVAL_RADIUS_METERS) {
             void stampArrival(v.id);
@@ -221,6 +264,28 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
 
   const missingCoords = visits.some((v) => v.latitude == null || v.longitude == null);
 
+  const activeVisits = visits.filter((v) => v.status !== "CANCELLED");
+  // Group visits into contiguous same-property runs, in actual route-sequence order.
+  // A property with a split layout (front pool/spa now, back pool/spa later, with other
+  // stops in between) produces two separate groups here, not one combined stop — each
+  // occasion only bundles the bodies of water actually visited together.
+  const groupIdByVisitId = new Map<string, string>();
+  const visitIdsByGroupId = new Map<string, string[]>();
+  let groupCounter = 0;
+  let prevPropertyId: string | null = null;
+  let currentGroupId = "";
+  for (const v of activeVisits) {
+    if (v.propertyId !== prevPropertyId) {
+      currentGroupId = `g${groupCounter++}`;
+      prevPropertyId = v.propertyId;
+    }
+    groupIdByVisitId.set(v.id, currentGroupId);
+    const arr = visitIdsByGroupId.get(currentGroupId) ?? [];
+    arr.push(v.id);
+    visitIdsByGroupId.set(currentGroupId, arr);
+  }
+  const capturePromptShown = new Set<string>();
+
   return (
     <div>
       {missingCoords ? (
@@ -282,6 +347,26 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
                         Arrived {new Date(v.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                       </p>
                     ) : null}
+                    {!isSkipped && (visitIdsByGroupId.get(groupIdByVisitId.get(v.id) ?? "")?.length ?? 0) > 1 &&
+                    !capturePromptShown.has(groupIdByVisitId.get(v.id) ?? "")
+                      ? (() => {
+                          const groupId = groupIdByVisitId.get(v.id) ?? "";
+                          capturePromptShown.add(groupId);
+                          const groupVisitIds = visitIdsByGroupId.get(groupId) ?? [];
+                          const count = groupVisitIds.length;
+                          const params = new URLSearchParams();
+                          if (dateYmd) params.set("date", dateYmd);
+                          params.set("visits", groupVisitIds.join(","));
+                          return (
+                            <Link
+                              href={`/dashboard/stops/${v.propertyId}?${params.toString()}`}
+                              className="mt-1 inline-block text-xs font-medium text-[#FF6B5B] underline"
+                            >
+                              Capture photos for all {count} stops here
+                            </Link>
+                          );
+                        })()
+                      : null}
                   </div>
                   {!readOnly ? (
                     <button

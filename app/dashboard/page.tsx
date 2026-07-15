@@ -93,6 +93,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const routeStops = todayVisits.map((v) => ({
     id: v.id,
     status: v.status,
+    propertyId: v.property.id,
     propertyName: v.property.name,
     bodyName: v.bodyOfWater.name,
     address: [v.property.addressLine1, v.property.city, v.property.region].filter(Boolean).join(", "),
@@ -428,7 +429,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   {todayVisits.length} stop{todayVisits.length === 1 ? "" : "s"} today. Drag to reorder.
                 </p>
                 <div className="mt-3">
-                  <RouteDayView visits={routeStops} readOnly={isPastDay} isToday={isToday} />
+                  <RouteDayView visits={routeStops} readOnly={isPastDay} isToday={isToday} dateYmd={selectedYmd} />
                 </div>
               </div>
             ) : null}
@@ -621,7 +622,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </p>
                 {todayVisits.length ? (
                   <div className="mt-3">
-                    <RouteDayView visits={routeStops} readOnly={isPastDay} isToday={isToday} />
+                    <RouteDayView visits={routeStops} readOnly={isPastDay} isToday={isToday} dateYmd={selectedYmd} />
                   </div>
                 ) : null}
               </div>

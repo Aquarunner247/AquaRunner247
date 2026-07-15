@@ -19,6 +19,7 @@ import {
 } from "./actions";
 import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -32,7 +33,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
   const { id } = await params;
   const sp = (await searchParams) ?? {};
-  const tab = ["overview", "bodies", "history"].includes(sp.tab ?? "") ? (sp.tab as "overview" | "bodies" | "history") : "overview";
+  const tab = ["overview", "bodies", "history", "log"].includes(sp.tab ?? "") ? (sp.tab as "overview" | "bodies" | "history" | "log") : "overview";
   const editTarget = sp.edit ?? "";
   const isEditingCustomer = editTarget === "customer";
   const isEditingProperty = (propertyId: string) => editTarget === `property:${propertyId}`;
@@ -47,6 +48,12 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         include: {
           managementCompany: { select: { id: true, name: true } },
           bodiesOfWater: { orderBy: { createdAt: "desc" }, include: { equipment: { orderBy: { createdAt: "desc" } } } },
+          recurringStops: {
+            where: { route: { active: true } },
+            include: {
+              route: { select: { name: true, dayOfWeek: true, technician: { select: { name: true } } } },
+            },
+          },
         },
       },
     },
@@ -91,6 +98,30 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
+
+  // Route/technician scheduling info, keyed by body of water — falls back to
+  // property-wide stops (bodyOfWaterId null, i.e. the whole property is on the route).
+  type ScheduleInfo = { routeName: string; technicianName: string | null; dayOfWeek: number | null };
+  const scheduleByBodyId = new Map<string, ScheduleInfo>();
+  const scheduleByPropertyId = new Map<string, ScheduleInfo>();
+  for (const property of customer.properties) {
+    for (const stop of property.recurringStops) {
+      const info: ScheduleInfo = {
+        routeName: stop.route.name,
+        technicianName: stop.route.technician?.name ?? null,
+        dayOfWeek: stop.route.dayOfWeek,
+      };
+      if (stop.bodyOfWaterId) {
+        scheduleByBodyId.set(stop.bodyOfWaterId, info);
+      } else {
+        scheduleByPropertyId.set(property.id, info);
+      }
+    }
+  }
+  const formatSchedule = (info: ScheduleInfo) =>
+    `${info.routeName}${info.dayOfWeek ? ` · ${WEEKDAY_LABELS[info.dayOfWeek]}` : ""}${
+      info.technicianName ? ` · Tech: ${info.technicianName}` : ""
+    }`;
 
   const qrByBodyId = new Map<string, { dataUrl: string; publicUrl: string }>();
   for (const property of customer.properties) {
@@ -151,6 +182,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         <Link href={`/dashboard/customers/${customer.id}?tab=history`} className={tabLinkClass("history")}>
           Service History
         </Link>
+        <Link href={`/dashboard/customers/${customer.id}?tab=log`} className={tabLinkClass("log")}>
+          Visit Log
+        </Link>
       </section>
 
       {tab === "overview" ? (
@@ -172,6 +206,30 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               <div className="mt-3 space-y-1 text-sm text-slate-700">
                 <p className="text-base font-medium text-slate-900">{customer.name}</p>
                 {customer.notes ? <p className="whitespace-pre-wrap text-slate-600">{customer.notes}</p> : null}
+
+                {customer.properties.some((p) => p.bodiesOfWater.length > 0) ? (
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Route schedule</p>
+                    <ul className="mt-1 space-y-0.5">
+                      {customer.properties.flatMap((property) =>
+                        property.bodiesOfWater.map((body) => {
+                          const schedule = scheduleByBodyId.get(body.id) ?? scheduleByPropertyId.get(property.id);
+                          return (
+                            <li key={body.id} className="text-slate-700">
+                              {body.name}
+                              {customer.properties.length > 1 ? ` (${property.name})` : ""}:{" "}
+                              {schedule ? (
+                                <span className="font-medium text-[#0A5FA4]">{formatSchedule(schedule)}</span>
+                              ) : (
+                                <span className="text-slate-400">Not on a recurring route</span>
+                              )}
+                            </li>
+                          );
+                        }),
+                      )}
+                    </ul>
+                  </div>
+                ) : null}
 
                 {primaryProperty ? (
                   <div className="mt-3 space-y-1 border-t border-slate-200 pt-3">
@@ -662,6 +720,14 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{body.name}</p>
                     <p className="text-xs text-slate-500">{body.type} · View details, equipment &amp; QR code</p>
+                    {(() => {
+                      const schedule = scheduleByBodyId.get(body.id) ?? scheduleByPropertyId.get(property.id);
+                      return schedule ? (
+                        <p className="mt-0.5 text-xs font-medium text-[#0A5FA4]">On route: {formatSchedule(schedule)}</p>
+                      ) : (
+                        <p className="mt-0.5 text-xs text-slate-400">Not on a recurring route</p>
+                      );
+                    })()}
                   </div>
                 </Link>
               ))}
@@ -773,6 +839,66 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   </Link>
                 </div>
               ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-slate-500">No completed visits yet.</p>
+          )}
+        </section>
+      ) : null}
+
+      {tab === "log" ? (
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-900">Visit log</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            When each completed stop was logged and finished, and how long the technician was on site.
+          </p>
+          {completedVisits.length ? (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="pb-2 pr-3">Property / venue</th>
+                    <th className="pb-2 pr-3">Tech</th>
+                    <th className="pb-2 pr-3">Logged (arrived)</th>
+                    <th className="pb-2 pr-3">Finished</th>
+                    <th className="pb-2">Time on site</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {completedVisits.map((v) => {
+                    const arrivedAt = v.startedAt;
+                    const finishedAt = v.completedAt;
+                    const durationMinutes =
+                      arrivedAt && finishedAt ? Math.round((finishedAt.getTime() - arrivedAt.getTime()) / 60000) : null;
+                    const durationLabel =
+                      durationMinutes == null
+                        ? "—"
+                        : durationMinutes < 1
+                          ? "< 1 min"
+                          : durationMinutes < 60
+                            ? `${durationMinutes} min`
+                            : `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`;
+                    return (
+                      <tr key={v.id} className="border-b border-slate-100 last:border-0">
+                        <td className="py-2 pr-3">
+                          <Link href={`/dashboard/visits/${v.id}`} className="font-medium text-[#0A5FA4] underline">
+                            {v.property.name} — {v.bodyOfWater.name}
+                          </Link>
+                        </td>
+                        <td className="py-2 pr-3 text-slate-700">{v.technician?.name ?? "—"}</td>
+                        <td className="py-2 pr-3 text-slate-700">{arrivedAt ? arrivedAt.toLocaleString() : "—"}</td>
+                        <td className="py-2 pr-3 text-slate-700">{finishedAt ? finishedAt.toLocaleString() : "—"}</td>
+                        <td className="py-2 font-medium text-slate-900">{durationLabel}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="mt-3 text-xs text-slate-400">
+                &ldquo;Logged (arrived)&rdquo; comes from geofenced arrival detection or manual visit start — if a stop was
+                completed without ever separately marking arrival, arrival and finish times will match and time on site
+                will show as under a minute.
+              </p>
             </div>
           ) : (
             <p className="mt-2 text-sm text-slate-500">No completed visits yet.</p>
