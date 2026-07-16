@@ -6,9 +6,10 @@ import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
 import { RouteDayView } from "@/app/components/route-day-view";
 import { AlertsBell } from "@/app/components/alerts-bell";
 import { resolveIssue, addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "./actions";
+import { TechnicianHome } from "./technician-home";
 
 type DashboardPageProps = {
-  searchParams?: Promise<{ date?: string }>;
+  searchParams?: Promise<{ date?: string; month?: string }>;
 };
 
 function parseDateParam(raw: string | undefined): Date {
@@ -42,6 +43,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const appUser = await getAppUserForAuthUser(user);
+
+  if (appUser?.role === "TECHNICIAN") {
+    const sp = (await searchParams) ?? {};
+    return <TechnicianHome appUser={appUser} monthParam={sp.month} />;
+  }
+
   const params = (await searchParams) ?? {};
   const selectedDate = parseDateParam(params.date);
   const startOfDay = new Date(selectedDate);
@@ -590,110 +597,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </p>
               {appUser.name ? <p className="mt-1 font-[family-name:var(--font-display)] text-lg font-bold text-white">{appUser.name}</p> : null}
             </div>
-            {appUser.role === "TECHNICIAN" ? (
-              <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-[#0A5FA4]">
-                      Route day
-                    </p>
-                    <p className="mt-1 font-[family-name:var(--font-display)] text-base font-bold text-[#12234A]">
-                      {startOfDay.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Link className="rounded border border-[#C9E3EC] bg-white px-2 py-1 text-[#12234A]" href={`/dashboard?date=${toYmd(prevDate)}`}>
-                      Previous day
-                    </Link>
-                    {!isToday ? (
-                      <Link className="rounded border border-[#C9E3EC] bg-white px-2 py-1 text-[#12234A]" href="/dashboard">
-                        Today
-                      </Link>
-                    ) : null}
-                    <Link className="rounded border border-[#C9E3EC] bg-white px-2 py-1 text-[#12234A]" href={`/dashboard?date=${toYmd(nextDate)}`}>
-                      Next day
-                    </Link>
-                  </div>
-                </div>
-                <p className="mt-3 text-sm text-[#4A6572]">
-                  {todayVisits.length === 0
-                    ? "No assigned stops for this day."
-                    : `${todayVisits.length} stop${todayVisits.length === 1 ? "" : "s"} today. Drag to reorder.`}
-                </p>
-                {todayVisits.length ? (
-                  <div className="mt-3">
-                    <RouteDayView visits={routeStops} readOnly={isPastDay} isToday={isToday} dateYmd={selectedYmd} />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            {appUser.role === "TECHNICIAN" ? (
-              <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-                <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-[#0A5FA4]">
-                  Extra stops
-                </p>
-                {adHocStops.length === 0 ? (
-                  <p className="mt-2 text-sm text-[#4A6572]">No extra stops for this day.</p>
-                ) : (
-                  <ul className="mt-2 space-y-1.5">
-                    {adHocStops.map((s) => (
-                      <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-[#C9E3EC] bg-[#EAF6FA] px-3 py-2 text-sm">
-                        <span className={s.completed ? "text-[#7FA0AC] line-through" : "text-[#16324A]"}>
-                          {s.description}
-                          {s.property ? ` — ${s.property.name}` : ""}
-                        </span>
-                        <span className="flex items-center gap-2">
-                          <form action={toggleAdHocStop}>
-                            <input type="hidden" name="stopId" value={s.id} />
-                            <button type="submit" className="rounded border border-[#C9E3EC] bg-white px-2 py-1 text-xs font-medium text-[#12234A]">
-                              {s.completed ? "Undo" : "Done"}
-                            </button>
-                          </form>
-                          <form action={deleteAdHocStop}>
-                            <input type="hidden" name="stopId" value={s.id} />
-                            <button type="submit" className="rounded border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-800">
-                              Delete
-                            </button>
-                          </form>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <form action={addAdHocStop} className="mt-3 flex flex-wrap items-center gap-2 rounded border border-[#C9E3EC] bg-[#EAF6FA] p-2">
-                  <input type="hidden" name="scheduledDate" value={selectedYmd} />
-                  <input
-                    name="description"
-                    required
-                    placeholder="e.g. Pool store, drop off filter…"
-                    className="min-w-[180px] flex-1 rounded border border-[#C9E3EC] bg-white px-2 py-1.5 text-sm"
-                  />
-                  <select name="propertyId" defaultValue="" className="rounded border border-[#C9E3EC] bg-white px-2 py-1.5 text-sm">
-                    <option value="">No property</option>
-                    {adHocProperties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="submit" className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white">
-                    Add stop
-                  </button>
-                </form>
-              </div>
-            ) : null}
-            {appUser.role === "TECHNICIAN" ? (
-              <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-                <p className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">
-                  Service standards
-                </p>
-                <ul className="mt-2 list-inside list-disc text-sm text-[#16324A]">
-                  <li>At least 1 photo per aquatic venue before completion.</li>
-                  <li>Hybrid save flow: autosave + manual Save/Sync action.</li>
-                  <li>Public QR log mirrors aquatic maintenance records.</li>
-                </ul>
-              </div>
-            ) : null}
           </>
         )}
       </section>

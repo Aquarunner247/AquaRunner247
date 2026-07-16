@@ -24,6 +24,9 @@ type Props = {
   isToday?: boolean;
   /// yyyy-mm-dd for the day being viewed — used to link into the combined stop-capture screen
   dateYmd?: string;
+  /// Which parts of this view to show — used by the Schedule tabs (Day = both, List = list
+  /// only, Map = map only). Defaults to "both" for existing call sites.
+  layout?: "both" | "listOnly" | "mapOnly";
 };
 
 const ARRIVAL_RADIUS_METERS = 150;
@@ -80,7 +83,51 @@ function computeAutoArrivalEligibleIds(visits: RouteStop[]): Set<string> {
   return eligible;
 }
 
-export function RouteDayView({ visits: initialVisits, readOnly = false, isToday = false, dateYmd }: Props) {
+function StatusBadge({ status }: { status: string }) {
+  if (status === "COMPLETED") {
+    return (
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#16A34A]">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M8 12.5l2.5 2.5L16 9.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Completed
+      </span>
+    );
+  }
+  if (status === "IN_PROGRESS") {
+    return (
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#D97706]">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        In Progress
+      </span>
+    );
+  }
+  if (status === "CANCELLED") {
+    return (
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#FF6B5B]">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9 9l6 6M15 9l-6 6" strokeLinecap="round" />
+        </svg>
+        Skipped
+      </span>
+    );
+  }
+  return (
+    <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#94A3B8]">
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="9" />
+      </svg>
+      Pending
+    </span>
+  );
+}
+
+export function RouteDayView({ visits: initialVisits, readOnly = false, isToday = false, dateYmd, layout = "both" }: Props) {
   const [visits, setVisits] = useState<RouteStop[]>(initialVisits);
   const [saving, setSaving] = useState(false);
   const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported">("idle");
@@ -303,7 +350,7 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
         <p className="mb-2 text-xs text-[#7FA0AC]">Location on — arrival time logs automatically when you reach a stop.</p>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
-        <div>
+        <div className={layout === "mapOnly" ? "hidden" : ""}>
           {!readOnly ? (
             <button
               type="button"
@@ -369,21 +416,26 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
                       : null}
                   </div>
                   {!readOnly ? (
-                    <button
-                      type="button"
-                      onClick={() => void toggleSkip(v)}
-                      className="shrink-0 rounded border border-[#C9E3EC] px-2 py-1 text-xs font-medium text-[#12234A]"
-                    >
-                      {isSkipped ? "Unskip" : "Skip"}
-                    </button>
-                  ) : null}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <StatusBadge status={v.status} />
+                      <button
+                        type="button"
+                        onClick={() => void toggleSkip(v)}
+                        className="rounded border border-[#C9E3EC] px-2 py-1 text-xs font-medium text-[#12234A]"
+                      >
+                        {isSkipped ? "Unskip" : "Skip"}
+                      </button>
+                    </div>
+                  ) : (
+                    <StatusBadge status={v.status} />
+                  )}
                 </li>
               );
             })}
             {visits.length === 0 ? <p className="text-sm text-[#4A6572]">No stops for this day.</p> : null}
           </ul>
         </div>
-        <div ref={mapDivRef} className="h-[420px] w-full rounded-lg border border-[#C9E3EC]" />
+        <div ref={mapDivRef} className={`${layout === "listOnly" ? "hidden" : ""} ${layout === "mapOnly" ? "h-[70vh]" : "h-[420px]"} w-full rounded-lg border border-[#C9E3EC]`} />
       </div>
     </div>
   );

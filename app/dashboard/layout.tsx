@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { prisma } from "@/lib/prisma";
+import { TechBottomNav } from "@/app/components/tech-bottom-nav";
+
+function toYmd(date: Date): string {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const appUser = await getCurrentAppUser();
@@ -28,6 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       ) : null}
       {children}
+      {appUser.role === "TECHNICIAN" ? <TechBottomNav dateYmd={toYmd(new Date())} /> : null}
     </>
   );
 }
