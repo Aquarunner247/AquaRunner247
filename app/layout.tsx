@@ -6,6 +6,7 @@ import { ServiceWorkerRegister } from "./components/service-worker-register";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
+import { Analytics } from "@vercel/analytics/next";
 
 const display = Big_Shoulders({
   subsets: ["latin"],
@@ -64,6 +65,7 @@ export default async function RootLayout({
           orgName={organization?.name ?? null}
         />
         <div className="min-w-0 flex-1">{children}</div>
+        <Analytics />
       </body>
     </html>
   );
