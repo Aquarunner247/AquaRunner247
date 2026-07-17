@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
-import { createRoute, deleteRoute, addRouteStop, removeRouteStop, geocodeAllProperties, updateRouteTechnician } from "./actions";
+import { createRoute, deleteRoute, addRouteStop, removeRouteStop, geocodeAllProperties, updateRouteTechnician, duplicateRoute } from "./actions";
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -77,6 +77,9 @@ export default async function RoutesPage() {
     );
   }
 
+  const daysWithRoute = new Set(routes.map((r) => r.dayOfWeek ?? 0));
+  const unscheduledDays = [1, 2, 3, 4, 5, 6, 7].filter((d) => !daysWithRoute.has(d));
+
   return (
     <main className="app-page-wide">
       <header className="app-page-head">
@@ -114,14 +117,34 @@ export default async function RoutesPage() {
                   />
                 </form>
               </div>
-              <form action={deleteRoute}>
-                <input type="hidden" name="routeId" value={route.id} />
-                <ConfirmSubmitButton
-                  label="Delete route"
-                  confirmMessage="Delete this route and all its stops?"
-                  className="app-btn-danger-sm"
-                />
-              </form>
+              <div className="flex flex-wrap items-center gap-2">
+                {unscheduledDays.length > 0 ? (
+                  <form action={duplicateRoute} className="flex items-center gap-1.5">
+                    <input type="hidden" name="routeId" value={route.id} />
+                    <select name="targetDayOfWeek" required defaultValue="" className="app-field w-auto py-1 text-xs">
+                      <option value="" disabled>
+                        Duplicate to…
+                      </option>
+                      {unscheduledDays.map((d) => (
+                        <option key={d} value={d}>
+                          {DAY_NAMES[d]}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit" className="app-btn-secondary-sm">
+                      Duplicate
+                    </button>
+                  </form>
+                ) : null}
+                <form action={deleteRoute}>
+                  <input type="hidden" name="routeId" value={route.id} />
+                  <ConfirmSubmitButton
+                    label="Delete route"
+                    confirmMessage="Delete this route and all its stops?"
+                    className="app-btn-danger-sm"
+                  />
+                </form>
+              </div>
             </div>
 
             <ol className="mt-3 space-y-2">

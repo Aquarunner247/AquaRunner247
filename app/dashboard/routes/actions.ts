@@ -96,6 +96,58 @@ export async function updateRouteTechnician(formData: FormData) {
   revalidatePath("/dashboard/schedule");
 }
 
+export async function duplicateRoute(formData: FormData) {
+  const appUser = await requireAdmin();
+  const routeId = String(formData.get("routeId") ?? "").trim();
+  const targetDayRaw = String(formData.get("targetDayOfWeek") ?? "").trim();
+  if (!routeId || !targetDayRaw) return;
+
+  const targetDayOfWeek = Number(targetDayRaw);
+  if (!Number.isFinite(targetDayOfWeek) || targetDayOfWeek < 1 || targetDayOfWeek > 7) return;
+
+  const source = await prisma.recurringRoute.findFirst({
+    where: { id: routeId, organizationId: appUser.organizationId },
+    select: {
+      technicianId: true,
+      frequency: true,
+      stops: {
+        orderBy: { sortOrder: "asc" },
+        select: { propertyId: true, bodyOfWaterId: true, sortOrder: true, etaOffsetMinutes: true },
+      },
+    },
+  });
+  if (!source) return;
+
+  // "Unscheduled" means no route at all exists yet for that weekday -- checked here too,
+  // not just filtered out of the dropdown, so this can't be bypassed by stale page state.
+  const targetAlreadyHasRoute = await prisma.recurringRoute.findFirst({
+    where: { organizationId: appUser.organizationId, dayOfWeek: targetDayOfWeek },
+    select: { id: true },
+  });
+  if (targetAlreadyHasRoute) return;
+
+  await prisma.recurringRoute.create({
+    data: {
+      organizationId: appUser.organizationId,
+      name: DAY_NAMES[targetDayOfWeek],
+      technicianId: source.technicianId,
+      dayOfWeek: targetDayOfWeek,
+      frequency: source.frequency,
+      active: true,
+      stops: {
+        create: source.stops.map((s) => ({
+          propertyId: s.propertyId,
+          bodyOfWaterId: s.bodyOfWaterId,
+          sortOrder: s.sortOrder,
+          etaOffsetMinutes: s.etaOffsetMinutes,
+        })),
+      },
+    },
+  });
+
+  revalidatePath("/dashboard/routes");
+}
+
 export async function deleteRoute(formData: FormData) {
   const appUser = await requireAdmin();
   const routeId = String(formData.get("routeId") ?? "").trim();
