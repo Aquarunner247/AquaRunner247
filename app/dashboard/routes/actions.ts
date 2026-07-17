@@ -54,6 +54,48 @@ export async function createRoute(formData: FormData) {
   revalidatePath("/dashboard/routes");
 }
 
+export async function updateRouteTechnician(formData: FormData) {
+  const appUser = await requireAdmin();
+  const routeId = String(formData.get("routeId") ?? "").trim();
+  const technicianIdRaw = String(formData.get("technicianId") ?? "").trim();
+  if (!routeId) return;
+
+  const route = await prisma.recurringRoute.findFirst({
+    where: { id: routeId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!route) return;
+
+  let technicianId: string | null = null;
+  if (technicianIdRaw) {
+    const tech = await prisma.user.findFirst({
+      where: { id: technicianIdRaw, organizationId: appUser.organizationId },
+      select: { id: true },
+    });
+    if (!tech) return;
+    technicianId = tech.id;
+  }
+
+  await prisma.recurringRoute.update({
+    where: { id: route.id },
+    data: { technicianId },
+  });
+
+  // Visits are generated ahead of time (see ensureVisitsGeneratedForDate) and copy the
+  // route's technicianId onto the ServiceVisit at creation time — reassigning the route
+  // alone wouldn't move already-generated future stops to the new tech. Sync any
+  // not-yet-started ones now so the change takes effect immediately, not just for visits
+  // generated after this point.
+  await prisma.serviceVisit.updateMany({
+    where: { recurringStop: { routeId: route.id }, status: "SCHEDULED" },
+    data: { technicianId },
+  });
+
+  revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/schedule");
+}
+
 export async function deleteRoute(formData: FormData) {
   const appUser = await requireAdmin();
   const routeId = String(formData.get("routeId") ?? "").trim();

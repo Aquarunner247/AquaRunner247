@@ -3,7 +3,8 @@ import { ScheduleFrequency } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
-import { createRoute, deleteRoute, addRouteStop, removeRouteStop, geocodeAllProperties } from "./actions";
+import { InlineAssignSelect } from "@/app/components/inline-assign-select";
+import { createRoute, deleteRoute, addRouteStop, removeRouteStop, geocodeAllProperties, updateRouteTechnician } from "./actions";
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -75,9 +76,15 @@ export default async function RoutesPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-display text-lg font-semibold text-slate-900">{DAY_NAMES[route.dayOfWeek ?? 0]}</h2>
                 <span className="app-badge">{route.frequency}</span>
-                <span className="app-badge">
-                  {route.technician ? route.technician.name ?? route.technician.email : "Unassigned"}
-                </span>
+                <form action={updateRouteTechnician}>
+                  <input type="hidden" name="routeId" value={route.id} />
+                  <InlineAssignSelect
+                    name="technicianId"
+                    defaultValue={route.technician?.id ?? ""}
+                    emptyLabel="Unassigned"
+                    options={users.map((u) => ({ value: u.id, label: u.name ?? u.email }))}
+                  />
+                </form>
               </div>
               <form action={deleteRoute}>
                 <input type="hidden" name="routeId" value={route.id} />
