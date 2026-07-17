@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState } from "react";
 
 type Option = { value: string; label: string };
 
@@ -15,25 +15,22 @@ export function InlineAssignSelect({
   options: Option[];
   emptyLabel: string;
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
-  const [isPending, startTransition] = useTransition();
-  const [value, setValue] = useState(defaultValue);
+  const [isPending, setIsPending] = useState(false);
 
   return (
     <select
+      // Keying on the server-confirmed value forces a fresh, uncontrolled instance
+      // whenever it changes (after the server action + revalidation round-trip) --
+      // this avoids drifting out of sync with a leftover controlled React state value.
+      key={defaultValue}
       name={name}
-      value={value}
+      defaultValue={defaultValue}
       disabled={isPending}
       onChange={(e) => {
-        setValue(e.target.value);
-        startTransition(() => {
-          formRef.current?.requestSubmit();
-        });
-      }}
-      ref={(el) => {
-        // Grab the enclosing form once, without needing a separate ref prop threaded
-        // through from the parent — this select is always rendered inside its own form.
-        if (el) formRef.current = el.form;
+        setIsPending(true);
+        // Read the form straight from the element that just changed, and submit
+        // immediately -- no controlled value / transition indirection to race against.
+        e.currentTarget.form?.requestSubmit();
       }}
       className="inline-flex rounded-full border-none bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/40 disabled:opacity-60"
     >

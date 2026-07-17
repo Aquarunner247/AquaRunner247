@@ -82,7 +82,11 @@ export default async function RoutesPage() {
                     name="technicianId"
                     defaultValue={route.technician?.id ?? ""}
                     emptyLabel="Unassigned"
-                    options={users.map((u) => ({ value: u.id, label: u.name ?? u.email }))}
+                    options={
+                      route.technician && !users.some((u) => u.id === route.technician!.id)
+                        ? [{ value: route.technician.id, label: `${route.technician.name ?? route.technician.email} (inactive)` }, ...users.map((u) => ({ value: u.id, label: u.name ?? u.email }))]
+                        : users.map((u) => ({ value: u.id, label: u.name ?? u.email }))
+                    }
                   />
                 </form>
               </div>
