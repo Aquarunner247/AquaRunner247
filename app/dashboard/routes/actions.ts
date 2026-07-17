@@ -128,7 +128,7 @@ export async function addRouteStop(formData: FormData) {
 
   const route = await prisma.recurringRoute.findFirst({
     where: { id: routeId, organizationId: appUser.organizationId },
-    select: { id: true },
+    select: { id: true, dayOfWeek: true },
   });
   if (!route) return;
 
@@ -137,6 +137,16 @@ export async function addRouteStop(formData: FormData) {
     select: { id: true, propertyId: true },
   });
   if (!body) return;
+
+  // A body of water shouldn't be on two routes (or twice on the same route) for the same
+  // weekday — the Routes page UI already filters these out of the dropdown, but this
+  // guards against stale page state or a direct request bypassing that. Ad-hoc "Extra
+  // stops" are unaffected -- they're a separate system, by design, for same-day one-offs.
+  const alreadyScheduledThatDay = await prisma.recurringStop.findFirst({
+    where: { bodyOfWaterId: body.id, route: { organizationId: appUser.organizationId, dayOfWeek: route.dayOfWeek } },
+    select: { id: true },
+  });
+  if (alreadyScheduledThatDay) return;
 
   const stopCount = await prisma.recurringStop.count({ where: { routeId: route.id } });
   const etaOffsetMinutes = Number(etaOffsetRaw);

@@ -53,6 +53,30 @@ export default async function RoutesPage() {
     include: { property: { select: { name: true } } },
   });
 
+  // A body of water already on ANY route for a given weekday (this route or another)
+  // shouldn't be offered again for that same weekday — a property can't be regularly
+  // serviced twice in one day. Ad-hoc "Extra stops" are a separate system entirely
+  // (not tied to RecurringStop/weekday routes) and are deliberately unaffected by this,
+  // since those exist specifically for same-day repairs/one-offs.
+  const scheduledBodyIdsByDay = new Map<number, Set<string>>();
+  for (const route of routes) {
+    const day = route.dayOfWeek ?? 0;
+    const set = scheduledBodyIdsByDay.get(day) ?? new Set<string>();
+    for (const stop of route.stops) {
+      if (stop.bodyOfWaterId) set.add(stop.bodyOfWaterId);
+    }
+    scheduledBodyIdsByDay.set(day, set);
+  }
+
+  const availableBodiesByRoute = new Map<string, typeof allBodiesOfWater>();
+  for (const route of routes) {
+    const scheduledIds = scheduledBodyIdsByDay.get(route.dayOfWeek ?? 0) ?? new Set<string>();
+    availableBodiesByRoute.set(
+      route.id,
+      allBodiesOfWater.filter((b) => !scheduledIds.has(b.id)),
+    );
+  }
+
   return (
     <main className="app-page-wide">
       <header className="app-page-head">
@@ -122,24 +146,33 @@ export default async function RoutesPage() {
 
             <form action={addRouteStop} className="app-card-inset mt-3 flex flex-wrap items-center gap-2">
               <input type="hidden" name="routeId" value={route.id} />
-              <select name="bodyOfWaterId" required className="app-field w-auto">
-                <option value="">Select aquatic venue…</option>
-                {allBodiesOfWater.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.property.name} — {b.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                name="etaOffsetMinutes"
-                type="number"
-                step="1"
-                placeholder="ETA offset (min)"
-                className="app-field w-40"
-              />
-              <button type="submit" className="app-btn-primary-sm">
-                Add stop
-              </button>
+              {(availableBodiesByRoute.get(route.id) ?? []).length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  Every aquatic venue is already on a {DAY_NAMES[route.dayOfWeek ?? 0]} route. Use &ldquo;Extra stops&rdquo; on the
+                  technician&rsquo;s dashboard for one-off same-day repairs.
+                </p>
+              ) : (
+                <>
+                  <select name="bodyOfWaterId" required className="app-field w-auto">
+                    <option value="">Select aquatic venue…</option>
+                    {(availableBodiesByRoute.get(route.id) ?? []).map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.property.name} — {b.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    name="etaOffsetMinutes"
+                    type="number"
+                    step="1"
+                    placeholder="ETA offset (min)"
+                    className="app-field w-40"
+                  />
+                  <button type="submit" className="app-btn-primary-sm">
+                    Add stop
+                  </button>
+                </>
+              )}
             </form>
           </div>
         ))}
