@@ -1,15 +1,15 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
 import { RouteDayView } from "@/app/components/route-day-view";
+import { TechnicianFilterSelect } from "@/app/components/technician-filter-select";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
-import { AdminSchedule } from "./admin-schedule";
+import { getTechnicianColorMap } from "@/lib/technician-colors";
 
-type PageProps = {
-  searchParams?: Promise<{ tab?: string; date?: string; tech?: string }>;
+type Props = {
+  appUser: { id: string; organizationId: string };
+  searchParams: Promise<{ tab?: string; date?: string; tech?: string }>;
 };
 
 function parseDateParam(raw: string | undefined): Date {
@@ -35,20 +35,16 @@ function startOfWeek(d: Date) {
 const TABS = ["day", "week", "map", "list"] as const;
 type Tab = (typeof TABS)[number];
 
-export default async function SchedulePage({ searchParams }: PageProps) {
-  const appUser = await getCurrentAppUser();
-  if (!appUser) redirect("/login");
-
-  const spPromise: NonNullable<PageProps["searchParams"]> = searchParams ?? Promise.resolve({});
-  if (appUser.role === "ADMIN") {
-    return <AdminSchedule appUser={appUser} searchParams={spPromise} />;
-  }
-  // This tabbed schedule view is built for a technician's day-to-day use. Office keeps
-  // using the dense dashboard at /dashboard for now (the admin gating above is consistent
-  // with every other admin-only nav item — see side-nav.tsx).
-  if (appUser.role !== "TECHNICIAN") redirect("/dashboard");
-
-  const sp = (await spPromise) ?? {};
+/**
+ * Admin/office-facing counterpart to the technician SchedulePage — same tabbed Day/Week/
+ * Map/List structure and status badges, plus a technician filter (default "All
+ * Technicians" combined view, or narrow to one technician's own route). Reuses
+ * RouteDayView's multi-technician mode for the combined view; a single selected
+ * technician renders identically to that technician's own page, minus interactivity —
+ * every view here is read-only (see route-day-view.tsx's `readOnly`/`effectiveReadOnly`).
+ */
+export async function AdminSchedule({ appUser, searchParams }: Props) {
+  const sp = await searchParams;
   const tab: Tab = TABS.includes((sp.tab ?? "") as Tab) ? ((sp.tab ?? "day") as Tab) : "day";
 
   const selectedDate = parseDateParam(sp.date);
@@ -63,18 +59,31 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   const selectedYmd = toYmd(startOfDay);
   const todayYmd = toYmd(new Date());
   const isToday = selectedYmd === todayYmd;
-  const isPastDay = selectedYmd < todayYmd;
+
+  // Fetched once, reused for: the filter dropdown, the technician-color assignment, and
+  // validating `sp.tech` (a non-matching id — wrong org, stale id — silently falls back to
+  // "All" rather than erroring, avoiding leaking existence info).
+  const roster = await prisma.user.findMany({
+    where: { organizationId: appUser.organizationId, role: "TECHNICIAN", active: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: { id: true, name: true, email: true },
+  });
+  const selectedTechnicianId = roster.find((t) => t.id === sp.tech)?.id ?? null;
+  const colorMap = getTechnicianColorMap(roster.map((t) => t.id));
+  const technicianColorsRecord = Object.fromEntries(colorMap);
 
   function tabHref(t: Tab) {
     const params = new URLSearchParams();
     params.set("tab", t);
     if (sp.date) params.set("date", sp.date);
+    if (selectedTechnicianId) params.set("tech", selectedTechnicianId);
     return `/dashboard/schedule?${params.toString()}`;
   }
   function dayHref(ymd: string) {
     const params = new URLSearchParams();
     params.set("tab", tab === "week" ? "day" : tab);
     params.set("date", ymd);
+    if (selectedTechnicianId) params.set("tech", selectedTechnicianId);
     return `/dashboard/schedule?${params.toString()}`;
   }
 
@@ -91,7 +100,11 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     weekEnd.setDate(weekStart.getDate() + 7);
 
     const weekVisits = await prisma.serviceVisit.findMany({
-      where: { technicianId: appUser.id, scheduledStart: { gte: weekStart, lt: weekEnd } },
+      where: {
+        organizationId: appUser.organizationId,
+        scheduledStart: { gte: weekStart, lt: weekEnd },
+        ...(selectedTechnicianId ? { technicianId: selectedTechnicianId } : {}),
+      },
       select: { scheduledStart: true, status: true },
     });
 
@@ -112,15 +125,20 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     await ensureVisitsGeneratedForDate(appUser.organizationId, startOfDay);
   }
 
-  // Unlike the admin dashboard's route list (which hides COMPLETED to keep "what's left
-  // today" focused), this schedule view intentionally shows the full day — completed,
-  // in-progress, pending, and skipped — matching the reference layout.
+  // Same query shape whether "All Technicians" or a single one is selected — the only
+  // difference is whether technicianId is in the where clause. Ordered by technicianId
+  // first so the map's per-tech polylines and the list's grouped headers are trivial
+  // (each tech's stops are already a contiguous run), no client-side regrouping needed.
   const dayVisits =
     tab === "week"
       ? []
       : await prisma.serviceVisit.findMany({
-          where: { technicianId: appUser.id, scheduledStart: { gte: startOfDay, lte: endOfDay } },
-          orderBy: [{ routeSequence: "asc" }, { scheduledStart: "asc" }],
+          where: {
+            organizationId: appUser.organizationId,
+            scheduledStart: { gte: startOfDay, lte: endOfDay },
+            ...(selectedTechnicianId ? { technicianId: selectedTechnicianId } : {}),
+          },
+          orderBy: [{ technicianId: "asc" }, { routeSequence: "asc" }, { scheduledStart: "asc" }],
           select: {
             id: true,
             status: true,
@@ -130,6 +148,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               select: { id: true, name: true, addressLine1: true, city: true, region: true, latitude: true, longitude: true },
             },
             bodyOfWater: { select: { name: true } },
+            technician: { select: { id: true, name: true, email: true } },
           },
         });
 
@@ -144,15 +163,30 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     startedAt: v.startedAt ? v.startedAt.toISOString() : null,
     latitude: v.property.latitude != null ? Number(v.property.latitude) : null,
     longitude: v.property.longitude != null ? Number(v.property.longitude) : null,
+    technicianId: v.technician?.id ?? null,
+    technicianLabel: v.technician ? (v.technician.name ?? v.technician.email) : null,
   }));
 
+  const technicianIdsWithStops = new Set(routeStops.map((v) => v.technicianId).filter((id): id is string => Boolean(id)));
+  const technicianLegend = roster
+    .filter((t) => technicianIdsWithStops.has(t.id))
+    .map((t) => ({ id: t.id, label: t.name ?? t.email, color: colorMap.get(t.id) ?? "#94A3B8" }));
+
+  // Ad-hoc "Extra stops" stays org-wide regardless of the technician filter — it's a
+  // standalone utility list, not part of the route visualization.
   const [adHocStops, adHocProperties] = await Promise.all([
     tab === "week"
       ? Promise.resolve([])
       : prisma.adHocStop.findMany({
-          where: { organizationId: appUser.organizationId, technicianId: appUser.id, scheduledDate: { gte: startOfDay, lte: endOfDay } },
+          where: { organizationId: appUser.organizationId, scheduledDate: { gte: startOfDay, lte: endOfDay } },
           orderBy: [{ completed: "asc" }, { createdAt: "asc" }],
-          select: { id: true, description: true, completed: true, property: { select: { name: true } } },
+          select: {
+            id: true,
+            description: true,
+            completed: true,
+            property: { select: { name: true } },
+            technician: { select: { name: true, email: true } },
+          },
         }),
     tab === "week"
       ? Promise.resolve([])
@@ -166,6 +200,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     pending: routeStops.filter((v) => v.status === "SCHEDULED").length,
     skipped: routeStops.filter((v) => v.status === "CANCELLED").length,
   };
+
+  const technicianOptions = roster.map((t) => ({ id: t.id, label: t.name ?? t.email }));
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl pb-24">
@@ -184,6 +220,10 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               {t}
             </Link>
           ))}
+        </div>
+
+        <div className="mt-4 rounded-lg bg-white/5 p-2">
+          <TechnicianFilterSelect technicians={technicianOptions} selectedId={selectedTechnicianId} tab={tab} date={selectedYmd} />
         </div>
 
         {tab !== "week" ? (
@@ -235,7 +275,9 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               >
                 <div>
                   <p className="text-sm font-semibold text-[#12234A]">{d.label}</p>
-                  <p className="text-xs text-[#4A6572]">{new Date(`${d.ymd}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</p>
+                  <p className="text-xs text-[#4A6572]">
+                    {new Date(`${d.ymd}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </p>
                 </div>
                 <div className="flex gap-3 text-right text-xs">
                   <span className="text-[#12234A]">
@@ -257,10 +299,12 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           <>
             <RouteDayView
               visits={routeStops}
-              readOnly={isPastDay}
+              readOnly
               isToday={isToday}
               dateYmd={selectedYmd}
               layout={tab === "map" ? "mapOnly" : tab === "list" ? "listOnly" : "both"}
+              technicianColors={selectedTechnicianId ? undefined : technicianColorsRecord}
+              technicianLegend={selectedTechnicianId ? undefined : technicianLegend}
             />
 
             {tab !== "map" ? (
@@ -275,6 +319,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                         <span className={s.completed ? "text-[#7FA0AC] line-through" : "text-[#16324A]"}>
                           {s.description}
                           {s.property ? ` — ${s.property.name}` : ""}
+                          {s.technician ? ` · ${s.technician.name ?? s.technician.email}` : " · Unassigned"}
                         </span>
                         <span className="flex items-center gap-2">
                           <form action={toggleAdHocStop}>
@@ -307,6 +352,14 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                     {adHocProperties.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select name="technicianId" defaultValue="" className="rounded border border-[#C9E3EC] bg-white px-2 py-1.5 text-sm">
+                    <option value="">Unassigned</option>
+                    {roster.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name ?? t.email}
                       </option>
                     ))}
                   </select>

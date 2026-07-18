@@ -2,8 +2,9 @@
 
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
+import { getTechnicianInitial } from "@/lib/technician-colors";
 
 export type RouteStop = {
   id: string;
@@ -16,6 +17,10 @@ export type RouteStop = {
   startedAt: string | null;
   latitude: number | null;
   longitude: number | null;
+  /// Set only for the admin "All Technicians" view — absent for a technician's own view
+  /// and for an admin's single-technician view (both single-color, as before).
+  technicianId?: string | null;
+  technicianLabel?: string | null;
 };
 
 type Props = {
@@ -27,6 +32,13 @@ type Props = {
   /// Which parts of this view to show — used by the Schedule tabs (Day = both, List = list
   /// only, Map = map only). Defaults to "both" for existing call sites.
   layout?: "both" | "listOnly" | "mapOnly";
+  /// Presence of this prop switches the map/list into "All Technicians" mode: per-technician
+  /// marker color/polyline instead of one route, list grouped by technician. Keyed by
+  /// RouteStop.technicianId. Omitted entirely for a single technician's route (tech's own
+  /// view, or an admin's single-technician selection) — those stay single-color, unchanged.
+  technicianColors?: Record<string, string>;
+  /// Legend strip shown above the map when technicianColors is set.
+  technicianLegend?: { id: string; label: string; color: string }[];
 };
 
 const ARRIVAL_RADIUS_METERS = 150;
@@ -127,7 +139,21 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function RouteDayView({ visits: initialVisits, readOnly = false, isToday = false, dateYmd, layout = "both" }: Props) {
+export function RouteDayView({
+  visits: initialVisits,
+  readOnly = false,
+  isToday = false,
+  dateYmd,
+  layout = "both",
+  technicianColors,
+  technicianLegend,
+}: Props) {
+  const isMultiTech = Boolean(technicianColors);
+  // Multi-technician mode is always read-only, regardless of the readOnly prop: reordering
+  // or skipping across an interleaved combined route isn't coherent, and GPS auto-arrival
+  // only makes sense from the technician's own device. This is defense-in-depth so a caller
+  // can't accidentally get an interactive combined view by forgetting to pass readOnly.
+  const effectiveReadOnly = readOnly || isMultiTech;
   const [visits, setVisits] = useState<RouteStop[]>(initialVisits);
   const [saving, setSaving] = useState(false);
   const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported">("idle");
@@ -163,7 +189,7 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
   // Watch device location while this is today's route and the tab stays open; auto-stamp
   // arrival time on any stop the tech gets within ARRIVAL_RADIUS_METERS of.
   useEffect(() => {
-    if (readOnly || !isToday) return;
+    if (effectiveReadOnly || !isToday) return;
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       setLocationState("unsupported");
       return;
@@ -190,7 +216,7 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [readOnly, isToday]);
+  }, [effectiveReadOnly, isToday]);
 
   // Initialize the map once
   useEffect(() => {
@@ -217,25 +243,51 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
     if (!mapRef.current || !layerRef.current) return;
     layerRef.current.clearLayers();
     const points: [number, number][] = [];
+    // Multi-tech mode: one polyline per technician, built from that tech's contiguous
+    // subsequence — safe because the "All Technicians" query is pre-ordered by technicianId,
+    // so each tech's stops are already a contiguous run in `visits`.
+    let currentTechPolyline: [number, number][] = [];
+    let currentTechId: string | null | undefined = undefined;
+    const flushTechPolyline = () => {
+      if (isMultiTech && currentTechPolyline.length > 1 && currentTechId !== undefined) {
+        const color = technicianColors?.[currentTechId ?? ""] ?? "#94A3B8";
+        L.polyline(currentTechPolyline, { color, weight: 3, opacity: 0.45 }).addTo(layerRef.current!);
+      }
+      currentTechPolyline = [];
+    };
+
     visits.forEach((v, idx) => {
       if (v.latitude == null || v.longitude == null) return;
       const isSkipped = v.status === "CANCELLED";
-      const color = isSkipped ? "#FF6B5B" : v.status === "COMPLETED" ? "#0A5FA4" : "#0A5FA4";
+      const color = isMultiTech ? technicianColors?.[v.technicianId ?? ""] ?? "#94A3B8" : "#0A5FA4";
+      const glyph = isSkipped ? "×" : isMultiTech ? getTechnicianInitial(v.technicianLabel) : String(idx + 1);
       const icon = L.divIcon({
         className: "",
-        html: `<div style="background:${color};color:white;border-radius:9999px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);">${
-          isSkipped ? "×" : idx + 1
-        }</div>`,
+        html: `<div style="background:${color};color:white;border-radius:9999px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);">${glyph}</div>`,
         iconSize: [26, 26],
         iconAnchor: [13, 13],
       });
+      const popupLines = [`<strong>${v.propertyName}</strong>`, v.bodyName];
+      if (isMultiTech) popupLines.push(v.technicianLabel ?? "Unassigned");
       L.marker([v.latitude, v.longitude], { icon })
         .addTo(layerRef.current!)
-        .bindPopup(`<strong>${v.propertyName}</strong><br/>${v.bodyName}`);
+        .bindPopup(popupLines.join("<br/>"));
       points.push([v.latitude, v.longitude]);
+
+      if (isMultiTech) {
+        if (v.technicianId !== currentTechId) {
+          flushTechPolyline();
+          currentTechId = v.technicianId;
+        }
+        currentTechPolyline.push([v.latitude, v.longitude]);
+      }
     });
+    flushTechPolyline();
+
     if (points.length) {
-      L.polyline(points, { color: "#0A5FA4", weight: 3, opacity: 0.6 }).addTo(layerRef.current!);
+      if (!isMultiTech) {
+        L.polyline(points, { color: "#0A5FA4", weight: 3, opacity: 0.6 }).addTo(layerRef.current!);
+      }
       mapRef.current.fitBounds(points, { padding: [30, 30] });
     }
   }
@@ -315,16 +367,21 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
   // Group visits into contiguous same-property runs, in actual route-sequence order.
   // A property with a split layout (front pool/spa now, back pool/spa later, with other
   // stops in between) produces two separate groups here, not one combined stop — each
-  // occasion only bundles the bodies of water actually visited together.
+  // occasion only bundles the bodies of water actually visited together. Also breaks on a
+  // technician boundary (multi-tech mode only — technicianId is unset elsewhere, so this
+  // never fires for the existing single-technician views), so two different technicians'
+  // adjacent stops at the same property never get bundled into one capture-photos prompt.
   const groupIdByVisitId = new Map<string, string>();
   const visitIdsByGroupId = new Map<string, string[]>();
   let groupCounter = 0;
   let prevPropertyId: string | null = null;
+  let prevTechnicianIdForGrouping: string | null | undefined = undefined;
   let currentGroupId = "";
   for (const v of activeVisits) {
-    if (v.propertyId !== prevPropertyId) {
+    if (v.propertyId !== prevPropertyId || v.technicianId !== prevTechnicianIdForGrouping) {
       currentGroupId = `g${groupCounter++}`;
       prevPropertyId = v.propertyId;
+      prevTechnicianIdForGrouping = v.technicianId;
     }
     groupIdByVisitId.set(v.id, currentGroupId);
     const arr = visitIdsByGroupId.get(currentGroupId) ?? [];
@@ -332,6 +389,22 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
     visitIdsByGroupId.set(currentGroupId, arr);
   }
   const capturePromptShown = new Set<string>();
+
+  // Technician sub-headers for the list, multi-tech mode only — keyed by the id of the
+  // first visit in each contiguous technician run (visits are pre-ordered by technicianId).
+  const technicianGroupStarts = new Map<string, { label: string; color: string; count: number }>();
+  if (isMultiTech) {
+    let prevTechId: string | null | undefined = undefined;
+    let current: { label: string; color: string; count: number } | null = null;
+    for (const v of visits) {
+      if (v.technicianId !== prevTechId) {
+        current = { label: v.technicianLabel ?? "Unassigned", color: technicianColors?.[v.technicianId ?? ""] ?? "#94A3B8", count: 0 };
+        technicianGroupStarts.set(v.id, current);
+        prevTechId = v.technicianId;
+      }
+      if (current) current.count++;
+    }
+  }
 
   return (
     <div>
@@ -351,7 +424,7 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         <div className={layout === "mapOnly" ? "hidden" : ""}>
-          {!readOnly ? (
+          {!effectiveReadOnly ? (
             <button
               type="button"
               onClick={optimizeRoute}
@@ -364,78 +437,99 @@ export function RouteDayView({ visits: initialVisits, readOnly = false, isToday 
           <ul className="space-y-2">
             {visits.map((v, idx) => {
               const isSkipped = v.status === "CANCELLED";
+              const techGroup = technicianGroupStarts.get(v.id);
               return (
-                <li
-                  key={v.id}
-                  draggable={!readOnly}
-                  onDragStart={() => {
-                    dragIndex.current = idx;
-                  }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => onDrop(idx)}
-                  className={`flex items-center gap-3 rounded border p-2 ${
-                    isSkipped ? "border-[#FF6B5B] bg-[#FF6B5B]/10" : "border-[#C9E3EC] bg-white"
-                  } ${!readOnly ? "cursor-move" : ""}`}
-                >
-                  <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
-                      isSkipped ? "bg-[#FF6B5B]" : "bg-[#0A5FA4]"
-                    }`}
+                <Fragment key={v.id}>
+                  {techGroup ? (
+                    <li className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wide text-[#4A6572] first:pt-0">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: techGroup.color }} />
+                      {techGroup.label} ({techGroup.count} stop{techGroup.count === 1 ? "" : "s"})
+                    </li>
+                  ) : null}
+                  <li
+                    draggable={!effectiveReadOnly}
+                    onDragStart={() => {
+                      dragIndex.current = idx;
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => onDrop(idx)}
+                    className={`flex items-center gap-3 rounded border p-2 ${
+                      isSkipped ? "border-[#FF6B5B] bg-[#FF6B5B]/10" : "border-[#C9E3EC] bg-white"
+                    } ${!effectiveReadOnly ? "cursor-move" : ""}`}
                   >
-                    {isSkipped ? "Skip" : idx + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <Link href={`/dashboard/visits/${v.id}`} className="block truncate text-sm font-medium text-[#12234A] underline">
-                      {v.propertyName} — {v.bodyName}
-                    </Link>
-                    <p className="truncate text-xs text-[#4A6572]">{v.address || "No address on file"}</p>
-                    {v.startedAt ? (
-                      <p className="text-xs font-medium text-[#0A5FA4]">
-                        Arrived {new Date(v.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-                      </p>
-                    ) : null}
-                    {!isSkipped && (visitIdsByGroupId.get(groupIdByVisitId.get(v.id) ?? "")?.length ?? 0) > 1 &&
-                    !capturePromptShown.has(groupIdByVisitId.get(v.id) ?? "")
-                      ? (() => {
-                          const groupId = groupIdByVisitId.get(v.id) ?? "";
-                          capturePromptShown.add(groupId);
-                          const groupVisitIds = visitIdsByGroupId.get(groupId) ?? [];
-                          const count = groupVisitIds.length;
-                          const params = new URLSearchParams();
-                          if (dateYmd) params.set("date", dateYmd);
-                          params.set("visits", groupVisitIds.join(","));
-                          return (
-                            <Link
-                              href={`/dashboard/stops/${v.propertyId}?${params.toString()}`}
-                              className="mt-1 inline-block text-xs font-medium text-[#FF6B5B] underline"
-                            >
-                              Capture photos for all {count} stops here
-                            </Link>
-                          );
-                        })()
-                      : null}
-                  </div>
-                  {!readOnly ? (
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <StatusBadge status={v.status} />
-                      <button
-                        type="button"
-                        onClick={() => void toggleSkip(v)}
-                        className="rounded border border-[#C9E3EC] px-2 py-1 text-xs font-medium text-[#12234A]"
-                      >
-                        {isSkipped ? "Unskip" : "Skip"}
-                      </button>
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
+                        isSkipped ? "bg-[#FF6B5B]" : isMultiTech ? "" : "bg-[#0A5FA4]"
+                      }`}
+                      style={!isSkipped && isMultiTech ? { backgroundColor: technicianColors?.[v.technicianId ?? ""] ?? "#94A3B8" } : undefined}
+                    >
+                      {isSkipped ? "Skip" : idx + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/dashboard/visits/${v.id}`} className="block truncate text-sm font-medium text-[#12234A] underline">
+                        {v.propertyName} — {v.bodyName}
+                      </Link>
+                      <p className="truncate text-xs text-[#4A6572]">{v.address || "No address on file"}</p>
+                      {v.startedAt ? (
+                        <p className="text-xs font-medium text-[#0A5FA4]">
+                          Arrived {new Date(v.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                        </p>
+                      ) : null}
+                      {!isSkipped && (visitIdsByGroupId.get(groupIdByVisitId.get(v.id) ?? "")?.length ?? 0) > 1 &&
+                      !capturePromptShown.has(groupIdByVisitId.get(v.id) ?? "")
+                        ? (() => {
+                            const groupId = groupIdByVisitId.get(v.id) ?? "";
+                            capturePromptShown.add(groupId);
+                            const groupVisitIds = visitIdsByGroupId.get(groupId) ?? [];
+                            const count = groupVisitIds.length;
+                            const params = new URLSearchParams();
+                            if (dateYmd) params.set("date", dateYmd);
+                            params.set("visits", groupVisitIds.join(","));
+                            return (
+                              <Link
+                                href={`/dashboard/stops/${v.propertyId}?${params.toString()}`}
+                                className="mt-1 inline-block text-xs font-medium text-[#FF6B5B] underline"
+                              >
+                                Capture photos for all {count} stops here
+                              </Link>
+                            );
+                          })()
+                        : null}
                     </div>
-                  ) : (
-                    <StatusBadge status={v.status} />
-                  )}
-                </li>
+                    {!effectiveReadOnly ? (
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <StatusBadge status={v.status} />
+                        <button
+                          type="button"
+                          onClick={() => void toggleSkip(v)}
+                          className="rounded border border-[#C9E3EC] px-2 py-1 text-xs font-medium text-[#12234A]"
+                        >
+                          {isSkipped ? "Unskip" : "Skip"}
+                        </button>
+                      </div>
+                    ) : (
+                      <StatusBadge status={v.status} />
+                    )}
+                  </li>
+                </Fragment>
               );
             })}
             {visits.length === 0 ? <p className="text-sm text-[#4A6572]">No stops for this day.</p> : null}
           </ul>
         </div>
-        <div ref={mapDivRef} className={`${layout === "listOnly" ? "hidden" : ""} ${layout === "mapOnly" ? "h-[70vh]" : "h-[420px]"} w-full rounded-lg border border-[#C9E3EC]`} />
+        <div className={layout === "listOnly" ? "hidden" : ""}>
+          {technicianLegend && technicianLegend.length > 0 ? (
+            <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#4A6572]">
+              {technicianLegend.map((t) => (
+                <span key={t.id} className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                  {t.label}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <div ref={mapDivRef} className={`${layout === "mapOnly" ? "h-[70vh]" : "h-[420px]"} w-full rounded-lg border border-[#C9E3EC]`} />
+        </div>
       </div>
     </div>
   );

@@ -88,6 +88,7 @@ export async function addAdHocStop(formData: FormData) {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/schedule");
 }
 
 /**
@@ -118,6 +119,7 @@ export async function toggleAdHocStop(formData: FormData) {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/schedule");
 }
 
 /**
@@ -145,4 +147,5 @@ export async function deleteAdHocStop(formData: FormData) {
   await prisma.adHocStop.delete({ where: { id: stop.id } });
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/schedule");
 }

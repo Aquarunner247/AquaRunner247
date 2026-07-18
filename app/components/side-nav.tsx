@@ -39,6 +39,7 @@ export function SideNav({ isLoggedIn, isAdmin, userName, orgName }: SideNavProps
 
   const links = [
     { href: "/dashboard", label: "Dashboard" },
+    ...(isAdmin ? [{ href: "/dashboard/schedule", label: "Schedule" }] : []),
     ...(isAdmin ? [{ href: "/dashboard/customers", label: "Customers" }] : []),
     ...(isAdmin ? [{ href: "/dashboard/technicians", label: "Technicians" }] : []),
     ...(isAdmin ? [{ href: "/dashboard/routes", label: "Routes" }] : []),
