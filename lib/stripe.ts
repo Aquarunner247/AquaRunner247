@@ -1,4 +1,24 @@
 import Stripe from "stripe";
+import type { OrganizationPlanStatus } from "@/generated/prisma/client";
+
+export function mapSubscriptionStatus(status: Stripe.Subscription.Status): OrganizationPlanStatus {
+  switch (status) {
+    case "trialing":
+      return "TRIALING";
+    case "active":
+      return "ACTIVE";
+    case "past_due":
+    case "incomplete":
+    case "paused":
+      return "PAST_DUE";
+    case "canceled":
+    case "unpaid":
+    case "incomplete_expired":
+      return "CANCELED";
+    default:
+      return "PAST_DUE";
+  }
+}
 
 function buildStripeClient(): Stripe {
   const secretKey = process.env.STRIPE_SECRET_KEY;

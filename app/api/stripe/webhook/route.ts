@@ -1,29 +1,9 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { stripe, mapSubscriptionStatus } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
-import type { OrganizationPlanStatus } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
-
-function mapSubscriptionStatus(status: Stripe.Subscription.Status): OrganizationPlanStatus {
-  switch (status) {
-    case "trialing":
-      return "TRIALING";
-    case "active":
-      return "ACTIVE";
-    case "past_due":
-    case "incomplete":
-    case "paused":
-      return "PAST_DUE";
-    case "canceled":
-    case "unpaid":
-    case "incomplete_expired":
-      return "CANCELED";
-    default:
-      return "PAST_DUE";
-  }
-}
 
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
@@ -46,27 +26,50 @@ export async function POST(req: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const organizationId = session.client_reference_id;
         const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
         const subscriptionId =
           typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+        if (!customerId || !subscriptionId) break;
 
-        if (!organizationId || !customerId || !subscriptionId) break;
+        // Safety net only: normally `completeSignup` (app/signup/actions.ts) creates
+        // the Organization right after the browser lands back from Stripe, already
+        // fully populated. This exists for the case where that never happens — card
+        // charged/trial started, but the tab closed before a password was set. It
+        // creates the org (billed, Stripe-linked) with no User attached yet;
+        // `completeSignup` attaches one later if/when the person comes back via
+        // `signUp`'s abandoned-signup check. No password is available here, so no
+        // User/Supabase Auth account can be created from the webhook.
+        const alreadyExists = await prisma.organization.findUnique({ where: { stripeCustomerId: customerId } });
+        if (alreadyExists) break;
 
+        const businessName = String(session.metadata?.businessName ?? "").trim();
+        if (!businessName) break; // shouldn't happen — always set by signUp's checkout session
+
+        const businessPhone = session.metadata?.phone ? String(session.metadata.phone).trim() : null;
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-        await prisma.organization.updateMany({
-          where: { id: organizationId },
-          data: {
-            stripeCustomerId: customerId,
-            stripeSubscriptionId: subscriptionId,
-            planStatus: mapSubscriptionStatus(subscription.status),
-            trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-            currentPeriodEnd: subscription.items.data[0]?.current_period_end
-              ? new Date(subscription.items.data[0].current_period_end * 1000)
-              : null,
-          },
-        });
+        try {
+          await prisma.organization.create({
+            data: {
+              name: businessName,
+              businessName,
+              businessPhone,
+              planStatus: mapSubscriptionStatus(subscription.status),
+              stripeCustomerId: customerId,
+              stripeSubscriptionId: subscriptionId,
+              trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+              currentPeriodEnd: subscription.items.data[0]?.current_period_end
+                ? new Date(subscription.items.data[0].current_period_end * 1000)
+                : null,
+            },
+          });
+        } catch (err) {
+          // Unique constraint on stripeCustomerId means `completeSignup` won a race and
+          // already created this org (with its User) between our check above and this
+          // create — that's the normal/common case, not a real failure.
+          const isDuplicate = typeof err === "object" && err !== null && "code" in err && err.code === "P2002";
+          if (!isDuplicate) throw err;
+        }
         break;
       }
 

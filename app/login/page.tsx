@@ -21,6 +21,9 @@ export default async function LoginPage({ searchParams }: PageProps) {
         {params.error === "auth" ? (
           <p className="mt-3 text-sm text-red-600">Email link sign-in failed. Try again or use password.</p>
         ) : null}
+        {params.error === "email-in-use" ? (
+          <p className="mt-3 text-sm text-red-600">That email already has an account. Sign in below.</p>
+        ) : null}
       </div>
       <LoginForm />
       <p className="mt-6 text-center text-sm text-slate-500">

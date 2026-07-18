@@ -1,5 +1,36 @@
 import { Resend } from "resend";
 
+/**
+ * Notifies the site owner of a new waitlist signup. Best-effort — the WaitlistSignup
+ * DB row is the durable record either way, this is just an immediate ping. Skipped
+ * entirely (not an error) if WAITLIST_NOTIFICATION_EMAIL isn't configured.
+ */
+export async function sendWaitlistNotificationEmail(signupEmail: string): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const notifyTo = process.env.WAITLIST_NOTIFICATION_EMAIL;
+  if (!apiKey || !notifyTo) {
+    return { ok: false, error: "RESEND_API_KEY or WAITLIST_NOTIFICATION_EMAIL not set — notification not sent." };
+  }
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+
+  const resend = new Resend(apiKey);
+
+  try {
+    const result = await resend.emails.send({
+      from: fromAddress,
+      to: notifyTo,
+      subject: `New waitlist signup — ${signupEmail}`,
+      html: `<p style="font-family: Arial, sans-serif; font-size:14px; color:#12234A;">New waitlist signup: <strong>${signupEmail}</strong></p>`,
+    });
+    if (result.error) {
+      return { ok: false, error: result.error.message };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
+  }
+}
+
 type ReadingSummary = {
   ph: number | null;
   freeChlorinePpm: number | null;

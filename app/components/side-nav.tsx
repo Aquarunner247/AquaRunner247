@@ -29,6 +29,9 @@ export function SideNav({ isLoggedIn, isAdmin, userName, orgName }: SideNavProps
 
   // The customer portal has its own separate nav/layout (app/portal) — don't show the staff nav there.
   if (pathname.startsWith("/portal")) return null;
+  // The "/" landing page is a standalone waitlist page with its own nav/footer, not part
+  // of the app shell.
+  if (pathname === "/") return null;
 
   async function onSignOut() {
     setSigningOut(true);

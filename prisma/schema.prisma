@@ -649,3 +649,11 @@ model VisitChecklistCompletion {
   @@index([visitId])
   @@index([checklistItemId])
 }
+
+/// Pre-signup marketing waitlist — deliberately not org-scoped (there's no
+/// Organization yet at this point). Standalone table, no relations.
+model WaitlistSignup {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
