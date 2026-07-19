@@ -2,11 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { AlertsBell } from "@/app/components/alerts-bell";
+import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
 import { resolveIssue } from "./actions";
 import { TechnicianHome } from "./technician-home";
 
 type DashboardPageProps = {
-  searchParams?: Promise<{ month?: string }>;
+  searchParams?: Promise<{ month?: string; type?: string }>;
 };
 
 function startOfWeek(d: Date) {
@@ -29,11 +30,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const appUser = await getAppUserForAuthUser(user);
+  const sp = (await searchParams) ?? {};
 
   if (appUser?.role === "TECHNICIAN") {
-    const sp = (await searchParams) ?? {};
     return <TechnicianHome appUser={appUser} monthParam={sp.month} />;
   }
+
+  const selectedPropertyType: "RESIDENTIAL" | "COMMERCIAL" | null =
+    sp.type === "RESIDENTIAL" || sp.type === "COMMERCIAL" ? sp.type : null;
 
   // ---- Admin overview data ----
   let stats: { customers: number; managementCompanies: number; bodiesOfWater: number; upcomingThisWeek: number } | null = null;
@@ -49,25 +53,36 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
 
+    // Management Companies stays unfiltered — it has no direct propertyType, and filtering it
+    // would need an awkward traversal for a fundamentally different kind of count.
+    const customerPropertyFilter = selectedPropertyType ? { properties: { some: { propertyType: selectedPropertyType } } } : {};
+    const bodyPropertyFilter = selectedPropertyType ? { propertyType: selectedPropertyType } : {};
+    const visitPropertyFilter = selectedPropertyType ? { property: { propertyType: selectedPropertyType } } : {};
+
     const [customersCount, managementCompaniesCount, bodiesCount, upcomingCount] = await Promise.all([
-      prisma.customer.count({ where: { organizationId: orgId } }),
+      prisma.customer.count({ where: { organizationId: orgId, ...customerPropertyFilter } }),
       prisma.managementCompany.count({ where: { organizationId: orgId } }),
-      prisma.bodyOfWater.count({ where: { property: { organizationId: orgId } } }),
+      prisma.bodyOfWater.count({ where: { property: { organizationId: orgId, ...bodyPropertyFilter } } }),
       prisma.serviceVisit.count({
-        where: { organizationId: orgId, scheduledStart: { gte: weekStart, lt: weekEnd }, status: { in: ["SCHEDULED", "IN_PROGRESS"] } },
+        where: {
+          organizationId: orgId,
+          scheduledStart: { gte: weekStart, lt: weekEnd },
+          status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+          ...visitPropertyFilter,
+        },
       }),
     ]);
     stats = { customers: customersCount, managementCompanies: managementCompaniesCount, bodiesOfWater: bodiesCount, upcomingThisWeek: upcomingCount };
 
     const [recentVisits, recentCustomers] = await Promise.all([
       prisma.serviceVisit.findMany({
-        where: { organizationId: orgId, status: "COMPLETED", completedAt: { not: null } },
+        where: { organizationId: orgId, status: "COMPLETED", completedAt: { not: null }, ...visitPropertyFilter },
         orderBy: { completedAt: "desc" },
         take: 8,
         select: { id: true, completedAt: true, property: { select: { name: true } }, bodyOfWater: { select: { name: true } } },
       }),
       prisma.customer.findMany({
-        where: { organizationId: orgId },
+        where: { organizationId: orgId, ...customerPropertyFilter },
         orderBy: { createdAt: "desc" },
         take: 5,
         select: { id: true, name: true, createdAt: true },
@@ -92,7 +107,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .slice(0, 10);
 
     const overdue = await prisma.serviceVisit.findMany({
-      where: { organizationId: orgId, status: { in: ["SCHEDULED", "IN_PROGRESS"] }, scheduledStart: { lt: now } },
+      where: { organizationId: orgId, status: { in: ["SCHEDULED", "IN_PROGRESS"] }, scheduledStart: { lt: now }, ...visitPropertyFilter },
       orderBy: { scheduledStart: "asc" },
       take: 10,
       select: {
@@ -113,27 +128,34 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const readings = await prisma.visitWaterReading.findMany({
-      where: {
-        visit: { organizationId: orgId, completedAt: { gte: sevenDaysAgo } },
-      },
-      orderBy: { visit: { completedAt: "desc" } },
-      take: 30,
-      select: {
-        freeChlorinePpm: true,
-        ph: true,
-        alkalinityPpm: true,
-        cyanuricAcidPpm: true,
-        visit: {
-          select: {
-            id: true,
-            completedAt: true,
-            property: { select: { name: true } },
-            bodyOfWater: { select: { name: true, type: true } },
-          },
-        },
-      },
-    });
+    // SNHD compliance banners are commercial-only, per the residential/commercial split —
+    // residential pools don't have closure-risk rules or ideal-zone chemistry targets. If the
+    // admin explicitly filtered to Residential, there's no such thing as a residential
+    // closure-risk reading — an empty result is correct, so skip the query entirely.
+    const readings =
+      selectedPropertyType === "RESIDENTIAL"
+        ? []
+        : await prisma.visitWaterReading.findMany({
+            where: {
+              visit: { organizationId: orgId, completedAt: { gte: sevenDaysAgo }, property: { propertyType: "COMMERCIAL" } },
+            },
+            orderBy: { visit: { completedAt: "desc" } },
+            take: 30,
+            select: {
+              freeChlorinePpm: true,
+              ph: true,
+              alkalinityPpm: true,
+              cyanuricAcidPpm: true,
+              visit: {
+                select: {
+                  id: true,
+                  completedAt: true,
+                  property: { select: { name: true } },
+                  bodyOfWater: { select: { name: true, type: true } },
+                },
+              },
+            },
+          });
 
     for (const r of readings) {
       const issues: string[] = [];
@@ -178,7 +200,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const reportedIssues =
     appUser?.role === "ADMIN"
       ? await prisma.visitIssueFlag.findMany({
-          where: { resolved: false, visit: { organizationId: appUser.organizationId } },
+          where: {
+            resolved: false,
+            visit: {
+              organizationId: appUser.organizationId,
+              ...(selectedPropertyType ? { property: { propertyType: selectedPropertyType } } : {}),
+            },
+          },
           orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
           take: 15,
           select: {
@@ -241,13 +269,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <p className="mt-1 text-sm text-slate-600">{user.email}</p>
         </div>
         {appUser?.role === "ADMIN" ? (
-          <AlertsBell
-            closureHazardReadings={closureHazardItems}
-            reportedIssues={reportedIssueItems}
-            overdueVisits={overdueVisitItems}
-            outOfRangeReadings={outOfRangeItems}
-            resolveIssue={resolveIssue}
-          />
+          <div className="flex items-center gap-4">
+            <PropertyTypeFilterSelect selected={selectedPropertyType} action="/dashboard" />
+            <AlertsBell
+              closureHazardReadings={closureHazardItems}
+              reportedIssues={reportedIssueItems}
+              overdueVisits={overdueVisitItems}
+              outOfRangeReadings={outOfRangeItems}
+              resolveIssue={resolveIssue}
+            />
+          </div>
         ) : null}
       </header>
 

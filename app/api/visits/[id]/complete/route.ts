@@ -13,8 +13,17 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     include: {
       reading: true,
       photos: { select: { id: true } },
-      property: { select: { name: true, managerEmail: true } },
-      bodyOfWater: { select: { id: true, name: true } },
+      property: { select: { name: true, managerEmail: true, propertyType: true } },
+      bodyOfWater: {
+        select: {
+          id: true,
+          name: true,
+          requiresFC: true,
+          requiresPH: true,
+          requiresAlkalinity: true,
+          requiresCYA: true,
+        },
+      },
       technician: { select: { name: true, email: true } },
       doses: { select: { productName: true, quantity: true, unit: true } },
       checklistCompletions: { where: { completed: true }, select: { label: true } },
@@ -43,16 +52,25 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   });
   const cyaRequired = !recentCya;
 
-  const requiredReadings = [
-    visit.reading?.ph,
-    visit.reading?.freeChlorinePpm,
-    visit.reading?.alkalinityPpm,
-    visit.reading?.pumpPressurePsi,
-    visit.reading?.vacGaugeReading,
-    visit.reading?.flowMeterGpm,
-    visit.reading?.filterPressurePsi,
-    ...(cyaRequired ? [visit.reading?.cyanuricAcidPpm] : []),
-  ];
+  const isResidential = visit.property.propertyType === "RESIDENTIAL";
+
+  const requiredReadings = isResidential
+    ? [
+        ...(visit.bodyOfWater.requiresFC ? [visit.reading?.freeChlorinePpm] : []),
+        ...(visit.bodyOfWater.requiresPH ? [visit.reading?.ph] : []),
+        ...(visit.bodyOfWater.requiresAlkalinity ? [visit.reading?.alkalinityPpm] : []),
+        ...(visit.bodyOfWater.requiresCYA && cyaRequired ? [visit.reading?.cyanuricAcidPpm] : []),
+      ]
+    : [
+        visit.reading?.ph,
+        visit.reading?.freeChlorinePpm,
+        visit.reading?.alkalinityPpm,
+        visit.reading?.pumpPressurePsi,
+        visit.reading?.vacGaugeReading,
+        visit.reading?.flowMeterGpm,
+        visit.reading?.filterPressurePsi,
+        ...(cyaRequired ? [visit.reading?.cyanuricAcidPpm] : []),
+      ];
   const missingReadings = requiredReadings.some((v) => v == null);
   if (missingReadings) {
     return NextResponse.json({ error: "MISSING_REQUIRED_READINGS" }, { status: 400 });

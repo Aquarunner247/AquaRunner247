@@ -3,13 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
 import { RouteDayView } from "@/app/components/route-day-view";
 import { TechnicianFilterSelect } from "@/app/components/technician-filter-select";
+import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 import { getTechnicianColorMap } from "@/lib/technician-colors";
 
 type Props = {
   appUser: { id: string; organizationId: string };
-  searchParams: Promise<{ tab?: string; date?: string; tech?: string }>;
+  searchParams: Promise<{ tab?: string; date?: string; tech?: string; type?: string }>;
 };
 
 function parseDateParam(raw: string | undefined): Date {
@@ -69,6 +70,8 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     select: { id: true, name: true, email: true },
   });
   const selectedTechnicianId = roster.find((t) => t.id === sp.tech)?.id ?? null;
+  const selectedPropertyType: "RESIDENTIAL" | "COMMERCIAL" | null =
+    sp.type === "RESIDENTIAL" || sp.type === "COMMERCIAL" ? sp.type : null;
   const colorMap = getTechnicianColorMap(roster.map((t) => t.id));
   const technicianColorsRecord = Object.fromEntries(colorMap);
 
@@ -77,6 +80,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     params.set("tab", t);
     if (sp.date) params.set("date", sp.date);
     if (selectedTechnicianId) params.set("tech", selectedTechnicianId);
+    if (selectedPropertyType) params.set("type", selectedPropertyType);
     return `/dashboard/schedule?${params.toString()}`;
   }
   function dayHref(ymd: string) {
@@ -84,6 +88,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     params.set("tab", tab === "week" ? "day" : tab);
     params.set("date", ymd);
     if (selectedTechnicianId) params.set("tech", selectedTechnicianId);
+    if (selectedPropertyType) params.set("type", selectedPropertyType);
     return `/dashboard/schedule?${params.toString()}`;
   }
 
@@ -104,6 +109,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
         organizationId: appUser.organizationId,
         scheduledStart: { gte: weekStart, lt: weekEnd },
         ...(selectedTechnicianId ? { technicianId: selectedTechnicianId } : {}),
+        ...(selectedPropertyType ? { property: { propertyType: selectedPropertyType } } : {}),
       },
       select: { scheduledStart: true, status: true },
     });
@@ -137,6 +143,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             organizationId: appUser.organizationId,
             scheduledStart: { gte: startOfDay, lte: endOfDay },
             ...(selectedTechnicianId ? { technicianId: selectedTechnicianId } : {}),
+            ...(selectedPropertyType ? { property: { propertyType: selectedPropertyType } } : {}),
           },
           orderBy: [{ technicianId: "asc" }, { routeSequence: "asc" }, { scheduledStart: "asc" }],
           select: {
@@ -222,8 +229,21 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
           ))}
         </div>
 
-        <div className="mt-4 rounded-lg bg-white/5 p-2">
-          <TechnicianFilterSelect technicians={technicianOptions} selectedId={selectedTechnicianId} tab={tab} date={selectedYmd} />
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-white/5 p-2">
+          <TechnicianFilterSelect
+            technicians={technicianOptions}
+            selectedId={selectedTechnicianId}
+            tab={tab}
+            date={selectedYmd}
+            propertyType={selectedPropertyType}
+          />
+          <PropertyTypeFilterSelect
+            selected={selectedPropertyType}
+            action="/dashboard/schedule"
+            technicianId={selectedTechnicianId}
+            tab={tab}
+            date={selectedYmd}
+          />
         </div>
 
         {tab !== "week" ? (

@@ -9,6 +9,7 @@ import { BodyQrCode } from "@/app/components/body-qr-code";
 import { EquipmentForm } from "./equipment-form";
 import { EquipmentItem } from "./equipment-item";
 import { updateBodyOfWater, deleteBodyOfWater, importVenueReadings } from "../../actions";
+import { FilterTypeFields } from "@/app/components/filter-type-fields";
 
 type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
@@ -35,15 +36,16 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
       property: { organizationId: appUser.organizationId, customerId },
     },
     include: {
-      property: { select: { id: true, name: true, customer: { select: { id: true, name: true } } } },
+      property: { select: { id: true, name: true, propertyType: true, customer: { select: { id: true, name: true } } } },
       equipment: { orderBy: { createdAt: "desc" } },
     },
   });
 
   if (!body) notFound();
 
-  const publicUrl = publicBodyOfWaterUrl(body.publicSlug);
-  const dataUrl = await generateQrDataUrl(publicUrl);
+  const isResidential = body.property.propertyType === "RESIDENTIAL";
+  const publicUrl = isResidential ? null : publicBodyOfWaterUrl(body.publicSlug);
+  const dataUrl = publicUrl ? await generateQrDataUrl(publicUrl) : null;
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
@@ -65,7 +67,13 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
       </header>
 
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <BodyQrCode bodyName={body.name} dataUrl={dataUrl} publicUrl={publicUrl} />
+        {isResidential || !dataUrl || !publicUrl ? (
+          <p className="text-sm text-slate-500">
+            No public QR log for residential venues — the inspector log is a commercial-only feature.
+          </p>
+        ) : (
+          <BodyQrCode bodyName={body.name} dataUrl={dataUrl} publicUrl={publicUrl} />
+        )}
       </section>
 
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -104,6 +112,19 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               className="rounded border border-slate-300 px-2 py-1.5 text-sm"
             />
           </div>
+          {body.property.propertyType === "RESIDENTIAL" ? (
+            <FilterTypeFields
+              defaults={{
+                filterType: body.filterType,
+                cartridgeCleaningIncluded: body.cartridgeCleaningIncluded,
+                cartridgeCleaningFrequencyPerMonth: body.cartridgeCleaningFrequencyPerMonth,
+                requiresFC: body.requiresFC,
+                requiresPH: body.requiresPH,
+                requiresAlkalinity: body.requiresAlkalinity,
+                requiresCYA: body.requiresCYA,
+              }}
+            />
+          ) : null}
           <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
             Save
           </button>

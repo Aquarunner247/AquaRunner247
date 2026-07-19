@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { BodyOfWaterType } from "@/generated/prisma/client";
+import { BodyOfWaterType, PropertyType, FilterMedia } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
@@ -36,6 +36,10 @@ export async function createCustomer(formData: FormData) {
   const initialBodyName = String(formData.get("initialBodyName") ?? "").trim();
   const initialBodyTypeRaw = String(formData.get("initialBodyType") ?? "POOL").trim();
   const initialBodyVolumeRaw = String(formData.get("initialBodyVolumeGallons") ?? "").trim();
+  const propertyTypeRaw = String(formData.get("propertyType") ?? "COMMERCIAL").trim();
+  const propertyType = (Object.values(PropertyType) as string[]).includes(propertyTypeRaw)
+    ? (propertyTypeRaw as PropertyType)
+    : PropertyType.COMMERCIAL;
 
   if (!name) return;
 
@@ -59,6 +63,7 @@ export async function createCustomer(formData: FormData) {
       organizationId: appUser.organizationId,
       customerId: customer.id,
       name,
+      propertyType,
       managerName: managerName || null,
       managerBusinessPhone: managerBusinessPhone || null,
       managerMobilePhone: managerMobilePhone || null,
@@ -99,12 +104,35 @@ export async function createCustomer(formData: FormData) {
         ? (initialBodyTypeRaw as BodyOfWaterType)
         : BodyOfWaterType.POOL;
     const initialBodyVolume = initialBodyVolumeRaw ? Number(initialBodyVolumeRaw) : null;
+
+    // Residential-only venue fields — omitted entirely for commercial so the schema's own
+    // defaults apply (filterType stays null, requires* stay true, neither ever read by the
+    // commercial visit flow anyway).
+    let residentialFields = {};
+    if (propertyType === PropertyType.RESIDENTIAL) {
+      const filterTypeRaw = String(formData.get("filterType") ?? "").trim();
+      const filterType = (Object.values(FilterMedia) as string[]).includes(filterTypeRaw) ? (filterTypeRaw as FilterMedia) : null;
+      const cartridgeCleaningIncludedRaw = String(formData.get("cartridgeCleaningIncluded") ?? "").trim();
+      const cartridgeCleaningFrequencyRaw = String(formData.get("cartridgeCleaningFrequencyPerMonth") ?? "").trim();
+      const isCartridge = filterType === FilterMedia.CARTRIDGE;
+      residentialFields = {
+        filterType,
+        cartridgeCleaningIncluded: isCartridge && cartridgeCleaningIncludedRaw ? cartridgeCleaningIncludedRaw === "true" : null,
+        cartridgeCleaningFrequencyPerMonth: isCartridge && cartridgeCleaningFrequencyRaw ? Number(cartridgeCleaningFrequencyRaw) : null,
+        requiresFC: formData.get("requiresFC") != null,
+        requiresPH: formData.get("requiresPH") != null,
+        requiresAlkalinity: formData.get("requiresAlkalinity") != null,
+        requiresCYA: formData.get("requiresCYA") != null,
+      };
+    }
+
     await prisma.bodyOfWater.create({
       data: {
         propertyId: property.id,
         name: initialBodyName,
         type: initialBodyType,
         volumeGallons: Number.isFinite(initialBodyVolume) ? initialBodyVolume : null,
+        ...residentialFields,
       },
     });
   }
@@ -152,13 +180,33 @@ export async function createBodyOfWater(formData: FormData) {
 
   const property = await prisma.property.findFirst({
     where: { id: propertyId, organizationId: appUser.organizationId },
-    select: { id: true },
+    select: { id: true, propertyType: true },
   });
   if (!property) return;
 
   const type = (Object.values(BodyOfWaterType) as string[]).includes(typeRaw) ? (typeRaw as BodyOfWaterType) : BodyOfWaterType.POOL;
   const volume = volumeRaw ? Number(volumeRaw) : null;
   const occupancy = occupancyRaw ? Number(occupancyRaw) : null;
+
+  // Residential-only venue fields — omitted entirely for commercial (see createCustomer's
+  // identical reasoning for why that's safe: schema defaults apply, never read otherwise).
+  let residentialFields = {};
+  if (property.propertyType === PropertyType.RESIDENTIAL) {
+    const filterTypeRaw = String(formData.get("filterType") ?? "").trim();
+    const filterType = (Object.values(FilterMedia) as string[]).includes(filterTypeRaw) ? (filterTypeRaw as FilterMedia) : null;
+    const cartridgeCleaningIncludedRaw = String(formData.get("cartridgeCleaningIncluded") ?? "").trim();
+    const cartridgeCleaningFrequencyRaw = String(formData.get("cartridgeCleaningFrequencyPerMonth") ?? "").trim();
+    const isCartridge = filterType === FilterMedia.CARTRIDGE;
+    residentialFields = {
+      filterType,
+      cartridgeCleaningIncluded: isCartridge && cartridgeCleaningIncludedRaw ? cartridgeCleaningIncludedRaw === "true" : null,
+      cartridgeCleaningFrequencyPerMonth: isCartridge && cartridgeCleaningFrequencyRaw ? Number(cartridgeCleaningFrequencyRaw) : null,
+      requiresFC: formData.get("requiresFC") != null,
+      requiresPH: formData.get("requiresPH") != null,
+      requiresAlkalinity: formData.get("requiresAlkalinity") != null,
+      requiresCYA: formData.get("requiresCYA") != null,
+    };
+  }
 
   await prisma.bodyOfWater.create({
     data: {
@@ -167,6 +215,7 @@ export async function createBodyOfWater(formData: FormData) {
       type,
       volumeGallons: Number.isFinite(volume) ? volume : null,
       maximumOccupancy: Number.isFinite(occupancy) ? occupancy : null,
+      ...residentialFields,
     },
   });
 

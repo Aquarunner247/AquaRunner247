@@ -21,6 +21,7 @@ import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { RouteSuggestionPanel } from "@/app/components/route-suggestion-panel";
+import { FilterTypeFields } from "@/app/components/filter-type-fields";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -124,8 +125,11 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       info.technicianName ? ` · Tech: ${info.technicianName}` : ""
     }`;
 
+  // Residential venues have no public QR log — skip generating one entirely so admins
+  // never see a code that would just 404 if scanned.
   const qrByBodyId = new Map<string, { dataUrl: string; publicUrl: string }>();
   for (const property of customer.properties) {
+    if (property.propertyType === "RESIDENTIAL") continue;
     for (const body of property.bodiesOfWater) {
       const publicUrl = publicBodyOfWaterUrl(body.publicSlug);
       const dataUrl = await generateQrDataUrl(publicUrl);
@@ -313,6 +317,21 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
                   {primaryProperty ? (
                     <>
+                      <div className="border-t border-slate-200 pt-3">
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Property type</label>
+                        <select
+                          name="propertyType"
+                          defaultValue={primaryProperty.propertyType}
+                          className="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
+                        >
+                          <option value="COMMERCIAL">Commercial</option>
+                          <option value="RESIDENTIAL">Residential</option>
+                        </select>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Filter type and required readings are edited per aquatic venue, on the Aquatic Venues tab.
+                        </p>
+                      </div>
+
                       <div className="border-t border-slate-200 pt-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Manager</p>
                         <input
@@ -633,6 +652,17 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       placeholder="Property name"
                       className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                     />
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Property type</label>
+                      <select
+                        name="propertyType"
+                        defaultValue={property.propertyType}
+                        className="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      >
+                        <option value="COMMERCIAL">Commercial</option>
+                        <option value="RESIDENTIAL">Residential</option>
+                      </select>
+                    </div>
                     <input
                       name="managerName"
                       defaultValue={property.managerName ?? ""}
@@ -750,7 +780,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   ) : null}
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{body.name}</p>
-                    <p className="text-xs text-slate-500">{body.type} · View details, equipment &amp; QR code</p>
+                    <p className="text-xs text-slate-500">
+                      {body.type} · View details &amp; equipment{property.propertyType === "RESIDENTIAL" ? "" : " & QR code"}
+                    </p>
                     {(() => {
                       const schedule = scheduleByBodyId.get(body.id) ?? scheduleByPropertyId.get(property.id);
                       return schedule ? (
@@ -797,6 +829,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     className="rounded border border-slate-300 px-2 py-1.5 text-sm"
                   />
                 </div>
+                {property.propertyType === "RESIDENTIAL" ? <FilterTypeFields /> : null}
                 <button className="mt-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
                   Add venue
                 </button>

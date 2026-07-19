@@ -44,6 +44,11 @@ enum FilterMedia {
   DE
 }
 
+enum PropertyType {
+  RESIDENTIAL
+  COMMERCIAL
+}
+
 /// For pools with a spa: whether a pump/main drain serves the filtration loop or the jets
 enum EquipmentPurpose {
   FILTRATION
@@ -229,6 +234,9 @@ model Property {
   customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   name                  String
+  /// Drives which on-site service form/compliance rules apply — single source of truth,
+  /// not an account- or login-level setting.
+  propertyType          PropertyType @default(COMMERCIAL)
   managerName           String?
   managerBusinessPhone  String?
   managerMobilePhone    String?
@@ -280,6 +288,22 @@ model BodyOfWater {
   minimumRequiredFlowGpm Decimal? @db.Decimal(10, 2)
   /// SNHD log footer: maximum filter flow (GPM)
   maximumFilterFlowGpm   Decimal? @db.Decimal(10, 2)
+
+  /// Residential-only, lightweight — reuses the FilterMedia enum but is deliberately
+  /// separate from Equipment.filterMedia (that flow is a heavyweight form built for
+  /// commercial's detailed compliance needs; this is one dropdown at customer creation).
+  filterType                         FilterMedia?
+  /// Only meaningful when filterType is CARTRIDGE.
+  cartridgeCleaningIncluded          Boolean?
+  cartridgeCleaningFrequencyPerMonth Int?
+
+  /// Residential-only per-reading requirement toggles, set at customer creation/edit.
+  /// Default true (full tracking) — commercial visits never read these, they hardcode
+  /// their own required-reading list independent of these toggles.
+  requiresFC         Boolean @default(true)
+  requiresPH         Boolean @default(true)
+  requiresAlkalinity Boolean @default(true)
+  requiresCYA        Boolean @default(true)
 
   /// Public, unguessable slug used for this body of water's QR code / inspector log page
   publicSlug String @unique @default(cuid())

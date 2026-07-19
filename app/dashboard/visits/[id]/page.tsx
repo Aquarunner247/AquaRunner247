@@ -5,6 +5,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VisitForm } from "./visit-form";
+import { ResidentialVisitForm } from "./residential-visit-form";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -20,8 +21,18 @@ export default async function VisitPage({ params }: PageProps) {
   const visit = await prisma.serviceVisit.findUnique({
     where: { id },
     include: {
-      property: { select: { name: true } },
-      bodyOfWater: { select: { id: true, name: true, type: true } },
+      property: { select: { name: true, propertyType: true } },
+      bodyOfWater: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          requiresFC: true,
+          requiresPH: true,
+          requiresAlkalinity: true,
+          requiresCYA: true,
+        },
+      },
       reading: true,
       doses: { orderBy: { createdAt: "desc" } },
       photos: { orderBy: { createdAt: "desc" }, select: { id: true, createdAt: true, takenAt: true, storagePath: true } },
@@ -58,11 +69,15 @@ export default async function VisitPage({ params }: PageProps) {
     select: { id: true, name: true, unit: true },
   });
 
-  const checklistItemDefs = await prisma.checklistItemDefinition.findMany({
-    where: { organizationId: appUser.organizationId, active: true },
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, label: true },
-  });
+  const isResidential = visit.property.propertyType === "RESIDENTIAL";
+
+  const checklistItemDefs = isResidential
+    ? []
+    : await prisma.checklistItemDefinition.findMany({
+        where: { organizationId: appUser.organizationId, active: true },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, label: true },
+      });
   const completionById = new Map(visit.checklistCompletions.map((c) => [c.checklistItemId, c.completed]));
   const checklistItems = checklistItemDefs.map((item) => ({
     id: item.id,
@@ -95,30 +110,59 @@ export default async function VisitPage({ params }: PageProps) {
         </p>
       </header>
 
-      <VisitForm
-        visitId={visit.id}
-        visitStatus={visit.status}
-        bodyOfWaterType={visit.bodyOfWater.type}
-        cyaRequired={cyaRequired}
-        chemicalProducts={chemicalProducts}
-        checklistItems={checklistItems}
-        initialIssues={visit.issues.map((i) => ({
-          id: i.id,
-          description: i.description,
-          severity: i.severity,
-          createdAt: i.createdAt.toISOString(),
-        }))}
-        initialReading={visit.reading}
-        initialPhotoCount={visit.photos.length}
-        initialPhotos={photosWithUrls}
-        initialDoses={visit.doses.map((d) => ({
-          id: d.id,
-          productName: d.productName,
-          quantity: d.quantity.toString(),
-          unit: d.unit,
-        }))}
-        initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
-      />
+      {isResidential ? (
+        <ResidentialVisitForm
+          visitId={visit.id}
+          visitStatus={visit.status}
+          requiresFC={visit.bodyOfWater.requiresFC}
+          requiresPH={visit.bodyOfWater.requiresPH}
+          requiresAlkalinity={visit.bodyOfWater.requiresAlkalinity}
+          requiresCYA={visit.bodyOfWater.requiresCYA}
+          cyaRequired={cyaRequired}
+          chemicalProducts={chemicalProducts}
+          initialIssues={visit.issues.map((i) => ({
+            id: i.id,
+            description: i.description,
+            severity: i.severity,
+            createdAt: i.createdAt.toISOString(),
+          }))}
+          initialReading={visit.reading}
+          initialPhotoCount={visit.photos.length}
+          initialPhotos={photosWithUrls}
+          initialDoses={visit.doses.map((d) => ({
+            id: d.id,
+            productName: d.productName,
+            quantity: d.quantity.toString(),
+            unit: d.unit,
+          }))}
+          initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
+        />
+      ) : (
+        <VisitForm
+          visitId={visit.id}
+          visitStatus={visit.status}
+          bodyOfWaterType={visit.bodyOfWater.type}
+          cyaRequired={cyaRequired}
+          chemicalProducts={chemicalProducts}
+          checklistItems={checklistItems}
+          initialIssues={visit.issues.map((i) => ({
+            id: i.id,
+            description: i.description,
+            severity: i.severity,
+            createdAt: i.createdAt.toISOString(),
+          }))}
+          initialReading={visit.reading}
+          initialPhotoCount={visit.photos.length}
+          initialPhotos={photosWithUrls}
+          initialDoses={visit.doses.map((d) => ({
+            id: d.id,
+            productName: d.productName,
+            quantity: d.quantity.toString(),
+            unit: d.unit,
+          }))}
+          initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
+        />
+      )}
     </main>
   );
 }

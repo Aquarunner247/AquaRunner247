@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose } from "@/generated/prisma/client";
+import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose, PropertyType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
@@ -17,6 +17,11 @@ async function requireAdmin() {
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN") redirect("/dashboard");
   return appUser;
+}
+
+function parsePropertyType(formData: FormData): PropertyType {
+  const raw = String(formData.get("propertyType") ?? "COMMERCIAL").trim();
+  return (Object.values(PropertyType) as string[]).includes(raw) ? (raw as PropertyType) : PropertyType.COMMERCIAL;
 }
 
 export async function updateCustomer(formData: FormData) {
@@ -107,6 +112,7 @@ export async function updateCustomerAndPrimaryProperty(formData: FormData) {
     where: { id: property.id },
     data: {
       name,
+      propertyType: parsePropertyType(formData),
       managerName: managerName || null,
       managerBusinessPhone: managerBusinessPhone || null,
       managerMobilePhone: managerMobilePhone || null,
@@ -204,6 +210,7 @@ export async function updateProperty(formData: FormData) {
     where: { id: property.id },
     data: {
       name,
+      propertyType: parsePropertyType(formData),
       managerName: managerName || null,
       managerBusinessPhone: managerBusinessPhone || null,
       managerMobilePhone: managerMobilePhone || null,
@@ -262,7 +269,7 @@ export async function updateBodyOfWater(formData: FormData) {
       id: bodyId,
       property: { organizationId: appUser.organizationId, customerId },
     },
-    select: { id: true },
+    select: { id: true, property: { select: { propertyType: true } } },
   });
   if (!body) return;
 
@@ -272,6 +279,24 @@ export async function updateBodyOfWater(formData: FormData) {
   const volume = volumeRaw ? Number(volumeRaw) : null;
   const occupancy = occupancyRaw ? Number(occupancyRaw) : null;
 
+  let residentialFields = {};
+  if (body.property.propertyType === PropertyType.RESIDENTIAL) {
+    const filterTypeRaw = String(formData.get("filterType") ?? "").trim();
+    const filterType = (Object.values(FilterMedia) as string[]).includes(filterTypeRaw) ? (filterTypeRaw as FilterMedia) : null;
+    const cartridgeCleaningIncludedRaw = String(formData.get("cartridgeCleaningIncluded") ?? "").trim();
+    const cartridgeCleaningFrequencyRaw = String(formData.get("cartridgeCleaningFrequencyPerMonth") ?? "").trim();
+    const isCartridge = filterType === FilterMedia.CARTRIDGE;
+    residentialFields = {
+      filterType,
+      cartridgeCleaningIncluded: isCartridge && cartridgeCleaningIncludedRaw ? cartridgeCleaningIncludedRaw === "true" : null,
+      cartridgeCleaningFrequencyPerMonth: isCartridge && cartridgeCleaningFrequencyRaw ? Number(cartridgeCleaningFrequencyRaw) : null,
+      requiresFC: formData.get("requiresFC") != null,
+      requiresPH: formData.get("requiresPH") != null,
+      requiresAlkalinity: formData.get("requiresAlkalinity") != null,
+      requiresCYA: formData.get("requiresCYA") != null,
+    };
+  }
+
   await prisma.bodyOfWater.update({
     where: { id: body.id },
     data: {
@@ -279,6 +304,7 @@ export async function updateBodyOfWater(formData: FormData) {
       type,
       volumeGallons: Number.isFinite(volume) ? volume : null,
       maximumOccupancy: Number.isFinite(occupancy) ? occupancy : null,
+      ...residentialFields,
     },
   });
 

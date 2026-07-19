@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BodyOfWaterType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { AddressFields } from "@/app/components/address-fields";
+import { CustomerPropertyTypeFields } from "@/app/components/customer-property-type-fields";
 import { createCustomer } from "./actions";
 
 type PageProps = {
@@ -161,31 +161,7 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
               className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
               rows={3}
             />
-            <div className="mt-3 border-t border-slate-200 pt-3">
-              <p className="text-sm font-semibold text-slate-900">Initial aquatic venue</p>
-              <input
-                name="initialBodyName"
-                required
-                placeholder="Aquatic venue name (e.g. Main Pool)"
-                className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-              />
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <select name="initialBodyType" className="rounded border border-slate-300 px-2 py-1.5 text-sm">
-                  {Object.values(BodyOfWaterType).map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  name="initialBodyVolumeGallons"
-                  type="number"
-                  step="1"
-                  placeholder="Volume gallons"
-                  className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-                />
-              </div>
-            </div>
+            <CustomerPropertyTypeFields />
             <button className="mt-3 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
               Create customer/property
             </button>

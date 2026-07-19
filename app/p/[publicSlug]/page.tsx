@@ -49,6 +49,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
       property: {
         select: {
           name: true,
+          propertyType: true,
           addressLine1: true,
           city: true,
           region: true,
@@ -59,7 +60,10 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
     },
   });
 
-  if (!body) {
+  // Residential venues have no public log — an unguessable slug is obscurity, not
+  // authorization, so this must 404 identically to a genuinely-unknown slug rather than
+  // leaking "this exists but is private."
+  if (!body || body.property.propertyType === "RESIDENTIAL") {
     return (
       <main className="mx-auto min-h-screen max-w-3xl px-4 py-10">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#0A5FA4]">Public maintenance log</p>
