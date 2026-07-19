@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Big_Shoulders, Inter, IBM_Plex_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SideNav } from "./components/side-nav";
 import { ServiceWorkerRegister } from "./components/service-worker-register";
@@ -64,6 +65,7 @@ export default async function RootLayout({
           orgName={organization?.name ?? null}
         />
         <div className="min-w-0 flex-1">{children}</div>
+        <Analytics />
       </body>
     </html>
   );

@@ -45,3 +45,4 @@ prisma/*.db-journal
 /generated/prisma
 .env.save
 .env.*
+.env*
