@@ -110,7 +110,9 @@ export async function createCustomer(formData: FormData) {
   }
 
   revalidatePath("/dashboard/customers");
-  redirect("/dashboard/customers");
+  // Land on the new customer with the Smart Route Placement panel offered — see
+  // app/dashboard/customers/[id]/page.tsx's suggestRoute handling.
+  redirect(`/dashboard/customers/${customer.id}?suggestRoute=1`);
 }
 
 export async function createProperty(formData: FormData) {

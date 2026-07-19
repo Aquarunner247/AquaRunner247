@@ -784,3 +784,64 @@ export async function sendCustomerAlert(formData: FormData) {
 
   revalidatePath(`/dashboard/customers/${customerId}`);
 }
+
+/**
+ * Commits a Smart Route Placement suggestion — the only place a route suggestion
+ * actually creates anything. Re-validates org scoping and re-runs the same guards
+ * addRouteStop uses (same-weekday duplicate, capacity) since time may have passed
+ * between fetching suggestions and clicking one. No ServiceVisit is created here —
+ * ensureVisitsGeneratedForDate materializes it lazily next time anyone views that
+ * route's day, same as every other RecurringStop creation path.
+ */
+export async function assignNewCustomerToRoute(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  const bodyOfWaterId = String(formData.get("bodyOfWaterId") ?? "").trim();
+  const routeId = String(formData.get("routeId") ?? "").trim();
+  if (!customerId || !propertyId || !bodyOfWaterId || !routeId) return;
+
+  const property = await prisma.property.findFirst({
+    where: { id: propertyId, customerId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!property) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyOfWaterId, propertyId: property.id },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  const route = await prisma.recurringRoute.findFirst({
+    where: { id: routeId, organizationId: appUser.organizationId, active: true },
+    select: { id: true, dayOfWeek: true, maxCapacity: true },
+  });
+  if (!route) return;
+
+  // Same guard addRouteStop uses (routes/actions.ts) — a body of water shouldn't be on
+  // two routes (or twice) for the same weekday. Reused verbatim for consistency and to
+  // catch a race where someone else assigned it manually in the interim.
+  const alreadyScheduledThatDay = await prisma.recurringStop.findFirst({
+    where: { bodyOfWaterId: body.id, route: { organizationId: appUser.organizationId, dayOfWeek: route.dayOfWeek } },
+    select: { id: true },
+  });
+  if (alreadyScheduledThatDay) return;
+
+  const stopCount = await prisma.recurringStop.count({ where: { routeId: route.id } });
+  if (route.maxCapacity != null && stopCount >= route.maxCapacity) return;
+
+  await prisma.recurringStop.create({
+    data: {
+      routeId: route.id,
+      propertyId: property.id,
+      bodyOfWaterId: body.id,
+      sortOrder: stopCount,
+    },
+  });
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard");
+  redirect(`/dashboard/customers/${customerId}`);
+}

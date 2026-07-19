@@ -20,10 +20,11 @@ import {
 import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
+import { RouteSuggestionPanel } from "@/app/components/route-suggestion-panel";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ tab?: string; edit?: string; error?: string }>;
+  searchParams?: Promise<{ tab?: string; edit?: string; error?: string; suggestRoute?: string }>;
 };
 
 export default async function CustomerDetailPage({ params, searchParams }: PageProps) {
@@ -159,6 +160,22 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       ? "rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white"
       : "rounded px-3 py-1.5 text-sm font-medium text-[#12234A] hover:bg-[#EAF6FA]";
 
+  // Smart Route Placement — shown once, right after createCustomer redirects here with
+  // ?suggestRoute=1. Reuses the already-computed schedule maps above instead of a new
+  // query. If the flag is present but a precondition fails, still explain why rather than
+  // silently showing nothing (the redirect explicitly promised a suggestion).
+  const wantsRouteSuggestion = sp.suggestRoute === "1";
+  const unassignedBody = wantsRouteSuggestion
+    ? primaryProperty?.bodiesOfWater.find((b) => !scheduleByBodyId.has(b.id) && !scheduleByPropertyId.has(primaryProperty.id))
+    : undefined;
+  const suggestionUnavailableReason = !wantsRouteSuggestion
+    ? null
+    : !primaryProperty || primaryProperty.latitude == null || primaryProperty.longitude == null
+      ? "Address couldn't be geocoded — assign a route manually from the Routes page."
+      : !unassignedBody
+        ? "Add an aquatic venue below, then assign a route manually from the Routes page."
+        : null;
+
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-5">
@@ -171,6 +188,20 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           Back to customers
         </Link>
       </header>
+
+      {wantsRouteSuggestion ? (
+        primaryProperty && unassignedBody ? (
+          <RouteSuggestionPanel
+            customerId={customer.id}
+            propertyId={primaryProperty.id}
+            bodyOfWaterId={unassignedBody.id}
+          />
+        ) : (
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            {suggestionUnavailableReason}
+          </div>
+        )
+      ) : null}
 
       <section className="mt-6 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
         <Link href={`/dashboard/customers/${customer.id}?tab=overview`} className={tabLinkClass("overview")}>

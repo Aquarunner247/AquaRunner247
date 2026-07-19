@@ -96,6 +96,38 @@ export async function updateRouteTechnician(formData: FormData) {
   revalidatePath("/dashboard/schedule");
 }
 
+/**
+ * Sets a soft stop-count cap for Smart Route Placement suggestions (and the load badge
+ * on this page) — advisory only, never enforced against manual assignment via
+ * addRouteStop. Blank input clears it back to unlimited.
+ */
+export async function updateRouteCapacity(formData: FormData) {
+  const appUser = await requireAdmin();
+  const routeId = String(formData.get("routeId") ?? "").trim();
+  const maxCapacityRaw = String(formData.get("maxCapacity") ?? "").trim();
+  if (!routeId) return;
+
+  const route = await prisma.recurringRoute.findFirst({
+    where: { id: routeId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!route) return;
+
+  let maxCapacity: number | null = null;
+  if (maxCapacityRaw) {
+    const parsed = Number(maxCapacityRaw);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    maxCapacity = Math.trunc(parsed);
+  }
+
+  await prisma.recurringRoute.update({
+    where: { id: route.id },
+    data: { maxCapacity },
+  });
+
+  revalidatePath("/dashboard/routes");
+}
+
 export async function duplicateRoute(formData: FormData) {
   const appUser = await requireAdmin();
   const routeId = String(formData.get("routeId") ?? "").trim();

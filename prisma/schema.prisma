@@ -390,6 +390,11 @@ model RecurringRoute {
   dayOfWeek Int?
   active    Boolean           @default(true)
 
+  /// Soft cap for Smart Route Placement suggestions and the manual Routes page load
+  /// badge — null means unlimited. Advisory only, never enforced against manual
+  /// assignment via addRouteStop.
+  maxCapacity Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

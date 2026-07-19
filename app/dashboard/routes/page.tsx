@@ -4,7 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
-import { createRoute, deleteRoute, addRouteStop, removeRouteStop, geocodeAllProperties, updateRouteTechnician, duplicateRoute } from "./actions";
+import {
+  createRoute,
+  deleteRoute,
+  addRouteStop,
+  removeRouteStop,
+  geocodeAllProperties,
+  updateRouteTechnician,
+  updateRouteCapacity,
+  duplicateRoute,
+} from "./actions";
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -115,6 +124,25 @@ export default async function RoutesPage() {
                         : users.map((u) => ({ value: u.id, label: u.name ?? u.email }))
                     }
                   />
+                </form>
+                <span className="app-badge" title="Stop count used for Smart Route Placement suggestions">
+                  {route.stops.length}
+                  {route.maxCapacity != null ? `/${route.maxCapacity}` : ""} stops
+                </span>
+                <form action={updateRouteCapacity} className="flex items-center gap-1">
+                  <input type="hidden" name="routeId" value={route.id} />
+                  <input
+                    name="maxCapacity"
+                    type="number"
+                    min={0}
+                    step={1}
+                    defaultValue={route.maxCapacity ?? ""}
+                    placeholder="No limit"
+                    className="app-field w-24 py-1 text-xs"
+                  />
+                  <button type="submit" className="app-btn-secondary-sm">
+                    Save
+                  </button>
                 </form>
               </div>
               <div className="flex flex-wrap items-center gap-2">
