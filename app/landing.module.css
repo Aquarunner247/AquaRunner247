@@ -2,22 +2,22 @@
    onto the rest of the site — this file backs a single route (the "/" landing page). */
 
 .root {
-  --ink: #0B2027;
-  --ink-soft: #163038;
-  --cyan: #1C8C9C;
-  --cyan-bright: #2EA8BA;
-  --paper: #F5FAFA;
-  --paper-dim: #E7EFEF;
+  --navy: #12234A;
+  --navy-soft: #1B2F5C;
+  --blue: #0A5FA4;
+  --blue-bright: #1E7FC7;
+  --paper: #EAF6FA;
   --amber: #E8A23D;
   --amber-deep: #C97F1E;
-  --gray: #5C6B70;
-  --line: rgba(11,32,39,0.1);
+  --coral: #FF6B54;
+  --gray: #64748B;
+  --line: rgba(15,23,42,0.1);
   --display: var(--font-landing-display), sans-serif;
   --body: var(--font-body), sans-serif;
   --mono: var(--font-mono), monospace;
 
   background: var(--paper);
-  color: var(--ink);
+  color: #0F172A;
   font-family: var(--body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -48,24 +48,27 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  color: var(--navy);
+  text-transform: uppercase;
 }
+.logo span { color: var(--blue); }
 .logoDot {
   width: 9px; height: 9px;
   border-radius: 50%;
-  background: var(--cyan-bright);
-  box-shadow: 0 0 0 3px rgba(46,168,186,0.18);
+  background: var(--blue);
+  box-shadow: 0 0 0 3px rgba(10,95,164,0.18);
 }
 .navCta {
   font-family: var(--body);
   font-weight: 600;
   font-size: 14px;
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--blue);
+  color: white;
   padding: 10px 20px;
   border-radius: 6px;
   transition: background 0.15s ease;
 }
-.navCta:hover { background: var(--ink-soft); }
+.navCta:hover { background: var(--navy); }
 
 /* HERO */
 .hero {
@@ -78,7 +81,8 @@
 .eyebrow {
   font-family: var(--mono);
   font-size: 13px;
-  color: var(--cyan);
+  color: var(--coral);
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   margin-bottom: 18px;
@@ -89,24 +93,48 @@
 .eyebrow::before {
   content: '';
   width: 18px; height: 1px;
-  background: var(--cyan);
+  background: var(--coral);
 }
 .root h1 {
   font-family: var(--display);
   font-weight: 700;
-  font-size: 52px;
-  line-height: 1.04;
+  font-size: 50px;
+  line-height: 1.08;
   letter-spacing: -0.02em;
-  color: var(--ink);
+  color: var(--navy);
   margin-bottom: 22px;
 }
-.root h1 span { color: var(--cyan); }
+.root h1 span { color: var(--blue); }
 .sub {
   font-size: 18px;
-  color: var(--gray);
+  color: #334155;
   max-width: 460px;
   margin-bottom: 32px;
 }
+
+.splitTags {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.splitTag {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.tagDot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+.splitTag.res .tagDot { background: var(--blue); }
+.splitTag.com .tagDot { background: var(--amber); }
 
 .heroForm {
   display: flex;
@@ -125,11 +153,11 @@
   outline: none;
   transition: border-color 0.15s ease;
 }
-.heroForm input:focus { border-color: var(--cyan); }
+.heroForm input:focus { border-color: var(--blue); }
 .btnPrimary {
   padding: 14px 22px;
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--blue);
+  color: white;
   border: none;
   border-radius: 7px;
   font-family: var(--body);
@@ -139,7 +167,7 @@
   white-space: nowrap;
   transition: background 0.15s ease, transform 0.1s ease;
 }
-.btnPrimary:hover { background: var(--ink-soft); }
+.btnPrimary:hover { background: var(--navy); }
 .btnPrimary:active { transform: scale(0.98); }
 .trustLine {
   font-size: 13px;
@@ -147,24 +175,24 @@
 }
 .confirmBanner {
   font-size: 14px;
-  color: var(--cyan);
+  color: var(--blue);
   font-weight: 600;
   max-width: 440px;
   margin-bottom: 14px;
 }
 
-/* SIGNATURE COMPLIANCE CARD */
+/* SIGNATURE CARD */
 .device {
-  background: var(--ink);
+  background: var(--navy);
   border-radius: 16px;
   padding: 4px;
-  box-shadow: 0 30px 60px -20px rgba(11,32,39,0.35);
+  box-shadow: 0 30px 60px -20px rgba(18,35,74,0.35);
 }
 .card {
-  background: var(--ink-soft);
+  background: var(--navy-soft);
   border-radius: 13px;
   padding: 26px;
-  color: var(--paper);
+  color: white;
   position: relative;
   overflow: hidden;
 }
@@ -175,19 +203,19 @@
   margin-bottom: 20px;
   font-family: var(--mono);
   font-size: 12px;
-  color: rgba(245,250,250,0.5);
+  color: rgba(255,255,255,.5);
   letter-spacing: 0.04em;
 }
 .cardHeader .live {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--cyan-bright);
+  color: #A9D3E0;
 }
 .liveDot {
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: var(--cyan-bright);
+  background: #A9D3E0;
   animation: landingPulse 1.8s infinite;
 }
 @keyframes landingPulse {
@@ -198,22 +226,27 @@
   font-family: var(--display);
   font-size: 17px;
   font-weight: 600;
+  margin-bottom: 2px;
+}
+.poolSub {
+  font-size: 12.5px;
+  color: rgba(255,255,255,.5);
   margin-bottom: 18px;
 }
 .readingRow {
   display: flex;
   justify-content: space-between;
   padding: 11px 0;
-  border-bottom: 1px solid rgba(245,250,250,0.08);
+  border-bottom: 1px solid rgba(255,255,255,.08);
   font-size: 14px;
 }
 .readingRow:last-of-type { border-bottom: none; }
-.readingLabel { color: rgba(245,250,250,0.55); }
+.readingLabel { color: rgba(255,255,255,.55); }
 .readingValue {
   font-family: var(--mono);
   font-weight: 500;
 }
-.readingValue.ok { color: var(--cyan-bright); }
+.readingValue.ok { color: #A9D3E0; }
 .readingValue.flag {
   color: var(--amber);
   animation: landingFlagIn 0.4s ease-out 2.2s both;
@@ -225,7 +258,7 @@
 
 .banner {
   margin-top: 18px;
-  background: rgba(232,162,61,0.12);
+  background: rgba(232,162,61,0.14);
   border: 1px solid rgba(232,162,61,0.35);
   border-radius: 9px;
   padding: 13px 15px;
@@ -258,21 +291,22 @@
   font-size: 12px;
   letter-spacing: 0.02em;
 }
-.bannerBody { color: rgba(245,250,250,0.65); }
+.bannerBody { color: rgba(255,255,255,.65); }
 
-/* PROBLEM */
+/* SECTIONS */
 .section {
   padding: 72px 0;
   border-top: 1px solid var(--line);
 }
 .sectionHead {
-  max-width: 560px;
+  max-width: 580px;
   margin-bottom: 40px;
 }
 .sectionEyebrow {
   font-family: var(--mono);
   font-size: 12.5px;
-  color: var(--cyan);
+  color: var(--coral);
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 12px;
@@ -283,6 +317,7 @@
   font-size: 32px;
   letter-spacing: -0.01em;
   line-height: 1.2;
+  color: var(--navy);
 }
 
 .logList {
@@ -300,16 +335,16 @@
 .logTag {
   font-family: var(--mono);
   font-size: 12px;
-  color: var(--gray);
-  width: 90px;
+  color: var(--blue);
+  width: 20px;
   flex-shrink: 0;
 }
 .logText {
   font-size: 16px;
-  color: var(--ink-soft);
+  color: #334155;
 }
 
-/* SOLUTION GRID */
+/* FEATURES */
 .featureGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -320,13 +355,13 @@
   overflow: hidden;
 }
 .feature {
-  background: var(--paper);
+  background: white;
   padding: 32px;
 }
 .featureNum {
   font-family: var(--mono);
   font-size: 12px;
-  color: var(--cyan);
+  color: var(--blue);
   margin-bottom: 14px;
 }
 .feature h3 {
@@ -334,6 +369,7 @@
   font-size: 19px;
   font-weight: 600;
   margin-bottom: 10px;
+  color: var(--navy);
 }
 .feature p {
   font-size: 14.5px;
@@ -349,15 +385,15 @@
 
 /* SOCIAL PROOF */
 .proof {
-  background: var(--ink);
+  background: var(--navy);
   border-radius: 16px;
   padding: 44px 48px;
-  color: var(--paper);
+  color: white;
 }
 .proofLabel {
   font-family: var(--mono);
   font-size: 12px;
-  color: var(--cyan-bright);
+  color: #A9D3E0;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 20px;
@@ -372,9 +408,9 @@
 }
 .proofAttr {
   font-size: 14px;
-  color: rgba(245,250,250,0.6);
+  color: rgba(255,255,255,.6);
 }
-.proofAttr strong { color: var(--paper); font-weight: 600; }
+.proofAttr strong { color: white; font-weight: 600; }
 
 /* CTA */
 .ctaSection {
@@ -398,7 +434,7 @@
 
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; padding-top: 40px; }
-  .root h1 { font-size: 38px; }
+  .root h1 { font-size: 36px; }
   .featureGrid { grid-template-columns: 1fr; }
   .proof { padding: 32px 26px; }
   .proofQuote { font-size: 20px; }
@@ -412,6 +448,6 @@
 .root button:focus-visible,
 .root input:focus-visible,
 .root a:focus-visible {
-  outline: 2px solid var(--cyan-bright);
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }

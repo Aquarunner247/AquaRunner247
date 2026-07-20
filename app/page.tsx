@@ -10,7 +10,7 @@ const displayFont = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "AquaRunner 24/7 Pro — Pool Service Software Built for Compliance",
+  title: "AquaRunner 24/7 Pro — Pool Route Software for Residential and Commercial",
 };
 
 type PageProps = {
@@ -28,7 +28,7 @@ export default async function Home({ searchParams }: PageProps) {
         <nav>
           <div className={styles.logo}>
             <span className={styles.logoDot} />
-            AquaRunner 24/7
+            AquaRunner <span>24/7</span>
           </div>
           <a href="#waitlist" className={styles.navCta}>
             Join Waitlist
@@ -39,14 +39,27 @@ export default async function Home({ searchParams }: PageProps) {
       <div className={styles.wrap}>
         <section className={styles.hero}>
           <div>
-            <div className={styles.eyebrow}>In development — built on a live commercial route</div>
+            <div className={styles.eyebrow}>
+              In development — created by real pool service professionals, not programmers — the software we built for
+              ourselves, now available to everyone
+            </div>
             <h1>
-              Pool service software that actually understands <span>compliance</span>.
+              One app to run your <span>entire</span> pool business — Commercial, Residential or both.
             </h1>
             <p className={styles.sub}>
-              Built by a real pool company to solve the exact problems SNHD inspections, route chaos, and paper logs create —
-              now coming to yours.
+              Track every visit, build smarter routes, and keep your commercial pools ready for inspection — all without a
+              stack of paper logs.
             </p>
+            <div className={styles.splitTags}>
+              <span className={`${styles.splitTag} ${styles.res}`}>
+                <span className={styles.tagDot} />
+                Residential
+              </span>
+              <span className={`${styles.splitTag} ${styles.com}`}>
+                <span className={styles.tagDot} />
+                Commercial
+              </span>
+            </div>
             {joined ? (
               <p className={styles.confirmBanner}>Thanks — you&rsquo;re on the list. We&rsquo;ll be in touch when we&rsquo;re ready for you.</p>
             ) : (
@@ -64,36 +77,37 @@ export default async function Home({ searchParams }: PageProps) {
           <div className={styles.device}>
             <div className={styles.card}>
               <div className={styles.cardHeader}>
-                <span>ROUTE 04 · STOP 7</span>
+                <span>TODAY&rsquo;S STOP · #7</span>
                 <span className={styles.live}>
                   <span className={styles.liveDot} />
-                  LIVE LOG
+                  LOGGED LIVE
                 </span>
               </div>
-              <div className={styles.poolName}>Desert Palms HOA — Main Pool</div>
+              <div className={styles.poolName}>Desert Palms HOA</div>
+              <div className={styles.poolSub}>Commercial · Route 4</div>
               <div className={styles.readingRow}>
-                <span className={styles.readingLabel}>Free Chlorine</span>
-                <span className={`${styles.readingValue} ${styles.flag}`}>0 ppm ⚠</span>
+                <span className={styles.readingLabel}>Chlorine</span>
+                <span className={`${styles.readingValue} ${styles.flag}`}>Too low ⚠</span>
               </div>
               <div className={styles.readingRow}>
                 <span className={styles.readingLabel}>pH</span>
-                <span className={`${styles.readingValue} ${styles.ok}`}>7.4</span>
+                <span className={`${styles.readingValue} ${styles.ok}`}>Normal</span>
               </div>
               <div className={styles.readingRow}>
-                <span className={styles.readingLabel}>Cyanuric Acid</span>
-                <span className={`${styles.readingValue} ${styles.ok}`}>42 ppm</span>
+                <span className={styles.readingLabel}>Alkalinity</span>
+                <span className={`${styles.readingValue} ${styles.ok}`}>Normal</span>
               </div>
               <div className={styles.readingRow}>
-                <span className={styles.readingLabel}>Last CYA Test</span>
+                <span className={styles.readingLabel}>Last full test</span>
                 <span className={`${styles.readingValue} ${styles.ok}`}>12 days ago</span>
               </div>
               <div className={styles.banner}>
                 <span className={styles.bannerIcon}>▲</span>
                 <div className={styles.bannerText}>
-                  <div className={styles.bannerTitle}>CLOSURE RISK — SNHD THRESHOLD</div>
+                  <div className={styles.bannerTitle}>NEEDS ATTENTION</div>
                   <div className={styles.bannerBody}>
-                    Free Chlorine reads below minimum. Auto-flagged for closure per SNHD code — resolve before reopening to
-                    swimmers.
+                    Chlorine is too low. Flagged automatically so your team can retest before anyone swims — matches your
+                    local health department&rsquo;s rules.
                   </div>
                 </div>
               </div>
@@ -105,29 +119,28 @@ export default async function Home({ searchParams }: PageProps) {
       <div className={styles.wrap}>
         <section className={styles.section}>
           <div className={styles.sectionHead}>
-            <div className={styles.sectionEyebrow}>The problem</div>
-            <h2>Running a route shouldn&rsquo;t mean drowning in paperwork</h2>
+            <h2>Running a pool route shouldn&rsquo;t mean drowning in paperwork</h2>
           </div>
           <div className={styles.logList}>
             <div className={styles.logItem}>
-              <span className={styles.logTag}>INSPECTION</span>
-              <span className={styles.logText}>Chasing down chemical logs the morning an inspector shows up unannounced.</span>
+              <span className={styles.logTag}>—</span>
+              <span className={styles.logText}>No more keeping track of antiquated paper logs for every single pool, every single visit.</span>
             </div>
             <div className={styles.logItem}>
-              <span className={styles.logTag}>TECHS</span>
-              <span className={styles.logText}>Readings missed, written down wrong, or logged hours after the visit.</span>
+              <span className={styles.logTag}>—</span>
+              <span className={styles.logText}>No more uncertainty if your tech did what he was supposed to at each stop.</span>
             </div>
             <div className={styles.logItem}>
-              <span className={styles.logTag}>PROOF</span>
-              <span className={styles.logText}>No easy way to show compliance history when SNHD actually asks for it.</span>
+              <span className={styles.logTag}>—</span>
+              <span className={styles.logText}>No more keeping the inspector waiting for water stained log sheets.</span>
             </div>
             <div className={styles.logItem}>
-              <span className={styles.logTag}>ROUTES</span>
-              <span className={styles.logText}>Routes built from memory instead of the map, with no record of who covered what.</span>
+              <span className={styles.logTag}>—</span>
+              <span className={styles.logText}>No more thinking what route to add your new customer to.</span>
             </div>
             <div className={styles.logItem}>
-              <span className={styles.logTag}>CLIENTS</span>
-              <span className={styles.logText}>Customers asking &ldquo;did anyone come today?&rdquo; — and you&rsquo;re not entirely sure either.</span>
+              <span className={styles.logTag}>—</span>
+              <span className={styles.logText}>No more customers wondering if their pool was serviced.</span>
             </div>
           </div>
         </section>
@@ -136,36 +149,48 @@ export default async function Home({ searchParams }: PageProps) {
       <div className={styles.wrap}>
         <section className={styles.section}>
           <div className={styles.sectionHead}>
-            <div className={styles.sectionEyebrow}>The system</div>
-            <h2>One platform, built around real compliance rules — not bolted on after</h2>
+            <div className={styles.sectionEyebrow}>The app</div>
+            <h2>Everything your business needs, whether it&rsquo;s a backyard pool or a busy commercial property</h2>
           </div>
           <div className={styles.featureGrid}>
             <div className={styles.feature}>
               <div className={styles.featureNum}>01</div>
-              <h3>QR-code inspector logs</h3>
-              <p>Every pool gets a QR code. Inspectors scan it, see the real-time compliance log. No binders, no searching.</p>
+              <h3>Built for homes and businesses</h3>
+              <p>
+                One app for your whole business — a quick chemical check at someone&rsquo;s backyard pool, or a full logged
+                visit at a commercial property. You choose which one applies to each customer.
+              </p>
             </div>
             <div className={styles.feature}>
               <div className={styles.featureNum}>02</div>
-              <h3>SNHD rules, built in</h3>
-              <p>Free Chlorine rounding, 30-day CYA cycles, automatic closure-risk banners on hazardous readings — the rules are baked in.</p>
+              <h3>Every visit logged automatically</h3>
+              <p>
+                Chemical readings, photos, and notes are saved the moment your tech enters them — no more digging through
+                paper when you need to look something up.
+              </p>
             </div>
             <div className={styles.feature}>
               <div className={styles.featureNum}>03</div>
-              <h3>Routes that make sense</h3>
-              <p>Drag-and-drop route building on a real map, with service visits generated automatically as routes change.</p>
+              <h3>Ready when the inspector shows up</h3>
+              <p>
+                Set up to match your state and local health department&rsquo;s rules, so commercial pools stay
+                inspection-ready without anyone having to memorize the requirements.
+              </p>
             </div>
             <div className={styles.feature}>
               <div className={styles.featureNum}>04</div>
-              <h3>Photo proof, no excuses</h3>
-              <p>Camera-only capture — no pulling old photos from a gallery. Every photo is proof it happened today, at that pool.</p>
+              <h3>Photos that actually prove it</h3>
+              <p>
+                Techs snap a photo right in the app at each stop — real proof it happened today, not an old photo pulled
+                from their camera roll.
+              </p>
             </div>
             <div className={`${styles.feature} ${styles.featureWide}`}>
               <div className={styles.featureNum}>05</div>
-              <h3>Smart route placement for new customers</h3>
+              <h3>Smart suggestions for new customers</h3>
               <p>
-                Add a new client and see the best-fit route suggested automatically — based on where your techs already are, not
-                a guess on a map. You still approve every placement.
+                Add a new customer and the app suggests which route makes the most sense based on where your team already
+                is — no more guessing on a map. You always get the final say.
               </p>
             </div>
           </div>
@@ -177,11 +202,14 @@ export default async function Home({ searchParams }: PageProps) {
           <div className={styles.proof}>
             <div className={styles.proofLabel}>From the route this was built on</div>
             <p className={styles.proofQuote}>
-              &ldquo;[Space for your own before/after moment — a close call caught early, hours saved on inspection prep, whatever&rsquo;s
-              most concrete from running Lindley&rsquo;s on this.]&rdquo;
+              &ldquo;We wanted a way to make our techs&rsquo; lives easier. Paper logs are a thing of the past. Now we
+              satisfy inspectors with a clean, easy way to view pool reports, and customers get a comprehensive report via
+              email for every service call, including photos. Not to mention easier than ever route scheduling, with
+              automatic suggestions on which tech and route to place any new customer on. It&rsquo;s a godsend,
+              really!&rdquo;
             </p>
             <div className={styles.proofAttr}>
-              <strong>Breanna</strong> — Owner, Lindley&rsquo;s Pool &amp; Spa Service
+              <strong>Steven</strong> — Owner, Lindley&rsquo;s Pool &amp; Spa Service
             </div>
           </div>
         </section>
@@ -208,6 +236,7 @@ export default async function Home({ searchParams }: PageProps) {
               </button>
             </form>
           )}
+          {waitlistError ? <p className={`${styles.confirmBanner} ${styles.center}`}>Please enter a valid email.</p> : null}
           <div className={`${styles.trustLine} ${styles.center}`}>No spam. Just a note when we&rsquo;re ready for you.</div>
         </section>
       </div>
@@ -215,7 +244,7 @@ export default async function Home({ searchParams }: PageProps) {
       <div className={styles.wrap}>
         <footer>
           <span>AquaRunner 24/7 Pro</span>
-          <span>Pool service software for companies that take compliance seriously.</span>
+          <span>Pool route software for residential and commercial service companies.</span>
         </footer>
       </div>
     </div>
