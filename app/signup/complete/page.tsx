@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { completeSignup } from "../actions";
+import { US_STATES } from "@/lib/us-states";
 
 type PageProps = {
   searchParams: Promise<{
@@ -12,6 +13,8 @@ type PageProps = {
     name?: string;
     email?: string;
     phone?: string;
+    state?: string;
+    hasCommercialPools?: string;
     error?: string;
   }>;
 };
@@ -97,18 +100,54 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
             <input type="hidden" name="name" value={params.name ?? ""} />
             <input type="hidden" name="email" value={params.email} />
             <input type="hidden" name="phone" value={params.phone ?? ""} />
+            <input type="hidden" name="state" value={params.state ?? ""} />
+            <input type="hidden" name="hasCommercialPools" value={params.hasCommercialPools ?? ""} />
           </>
         )}
         {isResume ? (
-          <label className="flex flex-col gap-1 text-sm text-brand-ink">
-            Your name
-            <input
-              name="name"
-              required
-              defaultValue={params.name ?? ""}
-              className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-            />
-          </label>
+          <>
+            <label className="flex flex-col gap-1 text-sm text-brand-ink">
+              Your name
+              <input
+                name="name"
+                required
+                defaultValue={params.name ?? ""}
+                className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-brand-ink">
+              State
+              <select
+                name="state"
+                required
+                defaultValue={params.state ?? ""}
+                className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+              >
+                <option value="" disabled>
+                  Select your state
+                </option>
+                {US_STATES.map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <fieldset className="flex flex-col gap-1 text-sm text-brand-ink">
+              <legend className="mb-1">Do you have commercial pools?</legend>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2">
+                  <input type="radio" name="hasCommercialPools" value="true" required defaultChecked={params.hasCommercialPools === "true"} />
+                  Yes
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="radio" name="hasCommercialPools" value="false" required defaultChecked={params.hasCommercialPools === "false"} />
+                  No, residential only
+                </label>
+              </div>
+            </fieldset>
+          </>
+
         ) : null}
         <label className="flex flex-col gap-1 text-sm text-brand-ink">
           Password

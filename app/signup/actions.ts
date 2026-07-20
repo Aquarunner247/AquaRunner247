@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createOrFindAuthUser, createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stripe, mapSubscriptionStatus } from "@/lib/stripe";
 import type { OrganizationPlanStatus } from "@/generated/prisma/client";
+import { isValidStateCode } from "@/lib/us-states";
 
 const TRIAL_DAYS = 14;
 
@@ -28,8 +29,10 @@ export async function signUp(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim();
+  const state = String(formData.get("state") ?? "").trim().toUpperCase();
+  const hasCommercialPoolsRaw = String(formData.get("hasCommercialPools") ?? "").trim();
 
-  if (!businessName || !name || !email) {
+  if (!businessName || !name || !email || !isValidStateCode(state) || (hasCommercialPoolsRaw !== "true" && hasCommercialPoolsRaw !== "false")) {
     redirect("/signup?error=missing-fields");
   }
 
@@ -73,7 +76,7 @@ export async function signUp(formData: FormData) {
   if (!priceId) {
     // Billing isn't configured in this environment — skip Stripe and go straight to
     // the completion step, which creates the account without any Stripe linkage.
-    const qs = new URLSearchParams({ businessName, name, email, phone });
+    const qs = new URLSearchParams({ businessName, name, email, phone, state, hasCommercialPools: hasCommercialPoolsRaw });
     redirect(`/signup/complete?${qs.toString()}`);
   }
 
@@ -82,7 +85,7 @@ export async function signUp(formData: FormData) {
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: email,
-      metadata: { businessName, name, phone },
+      metadata: { businessName, name, phone, state, hasCommercialPools: hasCommercialPoolsRaw },
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { trial_period_days: TRIAL_DAYS },
       success_url: `${appUrl}/signup/complete?session_id={CHECKOUT_SESSION_ID}`,
@@ -106,6 +109,8 @@ type ResolvedSignup = {
   name: string;
   email: string;
   phone: string | null;
+  state: string;
+  hasCommercialPools: boolean;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   planStatus: OrganizationPlanStatus;
@@ -128,10 +133,12 @@ async function resolveFromStripeSession(sessionId: string): Promise<ResolvedSign
   const businessName = String(session.metadata?.businessName ?? "").trim();
   const name = String(session.metadata?.name ?? "").trim();
   const phone = session.metadata?.phone ? String(session.metadata.phone).trim() : null;
+  const state = String(session.metadata?.state ?? "").trim().toUpperCase();
+  const hasCommercialPools = session.metadata?.hasCommercialPools === "true";
   const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
   const subscription = typeof session.subscription === "string" ? null : session.subscription;
 
-  if (!email || !businessName || !name || !customerId || !subscription) {
+  if (!email || !businessName || !name || !isValidStateCode(state) || !customerId || !subscription) {
     throw new Error(`Checkout session ${sessionId} is missing required fields`);
   }
 
@@ -140,6 +147,8 @@ async function resolveFromStripeSession(sessionId: string): Promise<ResolvedSign
     name,
     email,
     phone,
+    state,
+    hasCommercialPools,
     stripeCustomerId: customerId,
     stripeSubscriptionId: subscription.id,
     planStatus: mapSubscriptionStatus(subscription.status),
@@ -156,8 +165,10 @@ function resolveFromForm(formData: FormData): ResolvedSignup {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim() || null;
+  const state = String(formData.get("state") ?? "").trim().toUpperCase();
+  const hasCommercialPools = String(formData.get("hasCommercialPools") ?? "").trim() === "true";
 
-  if (!businessName || !name || !email) {
+  if (!businessName || !name || !email || !isValidStateCode(state)) {
     redirect("/signup?error=missing-fields");
   }
 
@@ -166,6 +177,8 @@ function resolveFromForm(formData: FormData): ResolvedSignup {
     name,
     email,
     phone,
+    state,
+    hasCommercialPools,
     stripeCustomerId: null,
     stripeSubscriptionId: null,
     planStatus: "TRIALING",
@@ -179,8 +192,9 @@ function resolveFromForm(formData: FormData): ResolvedSignup {
  * password was set — the webhook already created this Organization (billed, Stripe-
  * linked, no User yet). Only the org id needs to round-trip untampered; email/business
  * info come from Stripe's own customer record, not from anything resubmitted.
- * `name` (the contact's personal name) was never captured in this scenario, so it's
- * the one field taken from the resume form itself.
+ * `name`, `state`, and `hasCommercialPools` were never captured in this scenario (the
+ * webhook's safety-net Organization create doesn't have a password-setting form to have
+ * collected them from), so they're the fields taken fresh from the resume form itself.
  */
 async function resolveFromExistingOrg(orgId: string, formData: FormData): Promise<ResolvedSignup> {
   const org = await prisma.organization.findUnique({ where: { id: orgId }, include: { users: { take: 1 } } });
@@ -194,8 +208,10 @@ async function resolveFromExistingOrg(orgId: string, formData: FormData): Promis
   }
   const email = (customer.email ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim();
-  if (!email || !name) {
-    throw new Error(`Missing email (from Stripe) or name (from form) resuming organization ${orgId}`);
+  const state = String(formData.get("state") ?? "").trim().toUpperCase();
+  const hasCommercialPools = String(formData.get("hasCommercialPools") ?? "").trim() === "true";
+  if (!email || !name || !isValidStateCode(state)) {
+    throw new Error(`Missing email (from Stripe), name, or state (from form) resuming organization ${orgId}`);
   }
 
   return {
@@ -203,6 +219,8 @@ async function resolveFromExistingOrg(orgId: string, formData: FormData): Promis
     name,
     email,
     phone: org.businessPhone,
+    state,
+    hasCommercialPools,
     stripeCustomerId: org.stripeCustomerId,
     stripeSubscriptionId: org.stripeSubscriptionId,
     planStatus: org.planStatus,
@@ -228,12 +246,19 @@ export async function completeSignup(formData: FormData) {
   const backToCompleteQs = sessionId
     ? new URLSearchParams({ session_id: sessionId })
     : orgId
-      ? new URLSearchParams({ orgId, name: String(formData.get("name") ?? "") })
+      ? new URLSearchParams({
+          orgId,
+          name: String(formData.get("name") ?? ""),
+          state: String(formData.get("state") ?? ""),
+          hasCommercialPools: String(formData.get("hasCommercialPools") ?? ""),
+        })
       : new URLSearchParams({
           businessName: String(formData.get("businessName") ?? ""),
           name: String(formData.get("name") ?? ""),
           email: String(formData.get("email") ?? ""),
           phone: String(formData.get("phone") ?? ""),
+          state: String(formData.get("state") ?? ""),
+          hasCommercialPools: String(formData.get("hasCommercialPools") ?? ""),
         });
 
   if (password.length < 8) {
@@ -259,13 +284,19 @@ export async function completeSignup(formData: FormData) {
     resolved = resolveFromForm(formData);
   }
 
-  const { businessName, name, email, phone, stripeCustomerId, stripeSubscriptionId, planStatus, trialEndsAt, currentPeriodEnd } =
+  const { businessName, name, email, phone, state, hasCommercialPools, stripeCustomerId, stripeSubscriptionId, planStatus, trialEndsAt, currentPeriodEnd } =
     resolved;
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
     redirect("/login?error=email-in-use");
   }
+
+  // Every state (all 50 + DC) has a ComplianceRuleset stub row from day one (see
+  // prisma/seed-compliance-rulesets.ts), so this should always resolve — null only if
+  // that seed hasn't been run in this environment, in which case the account still signs
+  // up fine and simply has no ruleset linked until it's backfilled.
+  const stateRuleset = await prisma.complianceRuleset.findUnique({ where: { state }, select: { id: true } });
 
   // If a webhook already created this org (paid, but the browser never finished setup
   // last time), attach to it instead of creating a duplicate — this is the normal path
@@ -289,6 +320,13 @@ export async function completeSignup(formData: FormData) {
 
   try {
     if (targetOrgId) {
+      // The webhook's safety-net org create may predate this state/hasCommercialPools
+      // capture (or simply never had it, if metadata was missing) -- this signup
+      // completion's resolved values are authoritative, so set them here regardless.
+      await prisma.organization.update({
+        where: { id: targetOrgId },
+        data: { state, hasCommercialPools, complianceRulesetId: stateRuleset?.id ?? null },
+      });
       await prisma.user.create({
         data: { organizationId: targetOrgId, authUserId, email, name, role: "ADMIN", active: true },
       });
@@ -304,6 +342,9 @@ export async function completeSignup(formData: FormData) {
             stripeSubscriptionId,
             trialEndsAt,
             currentPeriodEnd,
+            state,
+            hasCommercialPools,
+            complianceRulesetId: stateRuleset?.id ?? null,
           },
         });
         await tx.user.create({

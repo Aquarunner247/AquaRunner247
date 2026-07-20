@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signUp } from "./actions";
+import { US_STATES } from "@/lib/us-states";
 
 type PageProps = {
   searchParams: Promise<{ error?: string }>;
@@ -67,6 +68,37 @@ export default async function SignupPage({ searchParams }: PageProps) {
             className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
           />
         </label>
+        <label className="flex flex-col gap-1 text-sm text-brand-ink">
+          State
+          <select
+            name="state"
+            required
+            defaultValue=""
+            className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+          >
+            <option value="" disabled>
+              Select your state
+            </option>
+            {US_STATES.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <fieldset className="flex flex-col gap-1 text-sm text-brand-ink">
+          <legend className="mb-1">Do you have commercial pools?</legend>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2">
+              <input type="radio" name="hasCommercialPools" value="true" required />
+              Yes
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="hasCommercialPools" value="false" required />
+              No, residential only
+            </label>
+          </div>
+        </fieldset>
         <p className="text-xs text-brand-muted">
           You&rsquo;ll set a password after your card is confirmed on the next step.
         </p>

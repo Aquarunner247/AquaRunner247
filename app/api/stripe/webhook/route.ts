@@ -46,7 +46,10 @@ export async function POST(req: Request) {
         if (!businessName) break; // shouldn't happen — always set by signUp's checkout session
 
         const businessPhone = session.metadata?.phone ? String(session.metadata.phone).trim() : null;
+        const state = String(session.metadata?.state ?? "").trim().toUpperCase() || null;
+        const hasCommercialPools = session.metadata?.hasCommercialPools === "true";
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const stateRuleset = state ? await prisma.complianceRuleset.findUnique({ where: { state }, select: { id: true } }) : null;
 
         try {
           await prisma.organization.create({
@@ -61,6 +64,9 @@ export async function POST(req: Request) {
               currentPeriodEnd: subscription.items.data[0]?.current_period_end
                 ? new Date(subscription.items.data[0].current_period_end * 1000)
                 : null,
+              state,
+              hasCommercialPools,
+              complianceRulesetId: stateRuleset?.id ?? null,
             },
           });
         } catch (err) {

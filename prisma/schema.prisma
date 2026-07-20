@@ -98,6 +98,16 @@ model Organization {
   stripeSubscriptionId  String?   @unique
   currentPeriodEnd      DateTime?
 
+  /// Captured at signup — USPS 2-letter code ("NV", "CA", ...). Null for accounts that
+  /// predate multi-state support and haven't been backfilled yet.
+  state                String?
+  /// Captured at signup — whether this account services any commercial pools at all.
+  /// Null means "not asked yet" (pre-multi-state accounts); false means residential-only,
+  /// so compliance features never apply regardless of state support.
+  hasCommercialPools   Boolean?
+  complianceRulesetId  String?
+  complianceRuleset    ComplianceRuleset? @relation(fields: [complianceRulesetId], references: [id])
+
   users     User[]
   customers Customer[]
   properties Property[]
@@ -107,6 +117,64 @@ model Organization {
   recurringRoutes RecurringRoute[]
   serviceVisits   ServiceVisit[]
   adHocStops      AdHocStop[]
+
+  @@index([complianceRulesetId])
+}
+
+/// Config-driven, per-state compliance rules -- replaces hardcoded Nevada/SNHD logic.
+/// Nevada ("NV") is the only fully populated, isSupported:true record initially; every
+/// other state exists as a stub (isSupported:false, name-only) so the data model is ready
+/// to populate as more states' sheets/rules are gathered. County-level granularity
+/// (SNHD is a Clark County entity, not a Nevada state agency) is deliberately deferred --
+/// the `county` field below is reserved for that so this model doesn't need reworking
+/// from scratch when it's needed.
+model ComplianceRuleset {
+  id                   String  @id @default(cuid())
+  /// USPS 2-letter code, e.g. "NV". "DC" included alongside the 50 states.
+  state                String  @unique
+  stateName            String
+  healthDepartmentName String?
+  /// False until this state's actual rules/sheets have been built out -- gates whether
+  /// compliance features (QR inspector logs, closure-risk banners, rule engine) show at
+  /// all for accounts linked to this ruleset.
+  isSupported          Boolean @default(false)
+  /// Reserved for future county-level granularity (e.g. SNHD/Clark County) -- unused today.
+  county               String?
+
+  // Chemistry rules -- populated only once isSupported is true; all null on stub records.
+  cyaTestFrequencyDays   Int?
+  freeChlorineMinPoolPpm Decimal? @db.Decimal(6, 2)
+  freeChlorineMinSpaPpm  Decimal? @db.Decimal(6, 2)
+  freeChlorineMaxPpm     Decimal? @db.Decimal(6, 2)
+  phTargetMin            Decimal? @db.Decimal(4, 2)
+  phTargetMax            Decimal? @db.Decimal(4, 2)
+  phHazardMin            Decimal? @db.Decimal(4, 2)
+  phHazardMax            Decimal? @db.Decimal(4, 2)
+  alkalinityTargetMinPpm Decimal? @db.Decimal(8, 2)
+  alkalinityTargetMaxPpm Decimal? @db.Decimal(8, 2)
+  cyaTargetMinPpm        Decimal? @db.Decimal(8, 2)
+  cyaTargetMaxPpm        Decimal? @db.Decimal(8, 2)
+  cyaHazardMaxPpm        Decimal? @db.Decimal(8, 2)
+  /// Reopening fee after a closure-risk hazard reading, if this health department charges
+  /// one -- shown in the closure-hazard banner when set. Free text note alongside it since
+  /// fee structures/conditions vary by department.
+  closureFeeAmount Decimal? @db.Decimal(10, 2)
+  closureFeeNote   String?
+
+  // Reference/documentation -- backs the in-app state code reference page.
+  codeReferenceLabel  String?
+  codeReferenceUrl    String?
+  logSheetSourceLabel String?
+  logSheetSourceNotes String?
+  /// Markdown body rendered on the in-app state code reference page for supported states.
+  referenceContent String? @db.Text
+
+  organizations Organization[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isSupported])
 }
 
 model ManagementCompany {

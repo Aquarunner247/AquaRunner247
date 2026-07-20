@@ -43,6 +43,9 @@ type AlertsBellProps = {
   overdueVisits: OverdueVisitItem[];
   outOfRangeReadings: OutOfRangeItem[];
   resolveIssue: (formData: FormData) => void | Promise<void>;
+  /** e.g. "$909 reopening fee" -- from the org's ComplianceRuleset, so this isn't hardcoded
+   * to Nevada's fee. Omitted entirely when the linked department doesn't charge one / isn't known. */
+  closureFeeLabel?: string | null;
 };
 
 function BellIcon({ ringing }: { ringing: boolean }) {
@@ -70,6 +73,7 @@ export function AlertsBell({
   overdueVisits,
   outOfRangeReadings,
   resolveIssue,
+  closureFeeLabel,
 }: AlertsBellProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -118,7 +122,7 @@ export function AlertsBell({
               {closureHazardReadings.length > 0 ? (
                 <div className="rounded-xl border-2 border-brand-danger bg-brand-dangerFill p-3">
                   <p className="text-xs font-bold uppercase tracking-wide text-brand-danger">
-                    Closure risk — imminent health hazard ($909 reopening fee)
+                    Closure risk — imminent health hazard{closureFeeLabel ? ` (${closureFeeLabel})` : ""}
                   </p>
                   <ul className="mt-2 space-y-1">
                     {closureHazardReadings.map((r) => (

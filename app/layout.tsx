@@ -30,7 +30,7 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "AquaRunner 24/7 Pro",
-  description: "Commercial pool maintenance — scheduling, service logs, and SNHD-friendly records.",
+  description: "Commercial pool maintenance — scheduling, service logs, and health-department-friendly records.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }],

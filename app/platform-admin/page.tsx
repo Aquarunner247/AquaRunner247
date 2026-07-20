@@ -20,9 +20,23 @@ export default async function PlatformAdminPage() {
   const organizations = await prisma.organization.findMany({
     include: {
       users: { where: { role: "ADMIN" }, take: 1, select: { name: true, email: true } },
+      complianceRuleset: { select: { stateName: true, isSupported: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  // Simple demand signal per multi-state-compliance-spec.md: which unsupported states have
+  // accounts actually waiting on them, so it's obvious which state to build out next.
+  const waitingByState = new Map<string, { stateName: string; count: number }>();
+  for (const org of organizations) {
+    if (org.hasCommercialPools && org.state && org.complianceRuleset && !org.complianceRuleset.isSupported) {
+      const existing = waitingByState.get(org.state);
+      waitingByState.set(org.state, { stateName: org.complianceRuleset.stateName, count: (existing?.count ?? 0) + 1 });
+    }
+  }
+  const waitingList = Array.from(waitingByState.entries())
+    .map(([code, v]) => ({ code, ...v }))
+    .sort((a, b) => b.count - a.count);
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
@@ -32,12 +46,28 @@ export default async function PlatformAdminPage() {
         <p className="mt-1 text-sm text-brand-muted">Every company that has signed up, across all organizations.</p>
       </header>
 
+      {waitingList.length > 0 ? (
+        <section className="mt-6 rounded-lg border border-brand-warn/30 bg-brand-warnFill p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-warn">
+            Accounts waiting on compliance support
+          </p>
+          <ul className="mt-2 space-y-1 text-sm text-brand-warn">
+            {waitingList.map((w) => (
+              <li key={w.code}>
+                <span className="font-medium">{w.stateName}</span> — {w.count} account{w.count === 1 ? "" : "s"} waiting
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="mt-6 overflow-x-auto rounded-lg border border-brand-border bg-white shadow-sm">
         <table className="w-full min-w-[800px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-brand-border bg-brand-surface text-left">
               <th className="px-3 py-2 font-medium text-brand-muted">Company</th>
               <th className="px-3 py-2 font-medium text-brand-muted">Admin</th>
+              <th className="px-3 py-2 font-medium text-brand-muted">State</th>
               <th className="px-3 py-2 font-medium text-brand-muted">Status</th>
               <th className="px-3 py-2 font-medium text-brand-muted">Trial ends</th>
               <th className="px-3 py-2 font-medium text-brand-muted">Stripe</th>
@@ -52,9 +82,16 @@ export default async function PlatformAdminPage() {
                 <tr key={org.id} className="border-b border-brand-border last:border-0">
                   <td className="px-3 py-2 font-medium text-brand-ink">{org.businessName || org.name}</td>
                   <td className="px-3 py-2 text-brand-ink">{admin ? admin.name ?? admin.email : "—"}</td>
+                  <td className="px-3 py-2 text-brand-ink">
+                    {org.state ?? "—"}
+                    {org.hasCommercialPools && org.complianceRuleset && !org.complianceRuleset.isSupported ? (
+                      <span className="ml-1 text-xs text-brand-warn">(waiting)</span>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2 text-brand-ink">{STATUS_LABELS[org.planStatus] ?? org.planStatus}</td>
                   <td className="px-3 py-2 text-brand-ink">{org.trialEndsAt ? org.trialEndsAt.toLocaleDateString() : "—"}</td>
                   <td className="px-3 py-2 text-brand-ink">
+
                     {org.stripeCustomerId ? (
                       <a
                         href={`https://dashboard.stripe.com/test/customers/${org.stripeCustomerId}`}
@@ -95,7 +132,7 @@ export default async function PlatformAdminPage() {
             })}
             {organizations.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-brand-muted">
+                <td colSpan={8} className="px-3 py-6 text-center text-brand-muted">
                   No companies yet.
                 </td>
               </tr>

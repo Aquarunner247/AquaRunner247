@@ -6,6 +6,7 @@ export type NavIconKind =
   | "routes"
   | "chemicals"
   | "checklist"
+  | "compliance"
   | "settings"
   | "billing"
   | "alerts"
@@ -70,6 +71,13 @@ export function NavIcon({ kind, className = "h-5 w-5" }: { kind: NavIconKind; cl
           <rect x="4" y="3.5" width="16" height="17" rx="2" />
           <path d="M7.5 8.5l1.4 1.4L11.5 7M7.5 14.5l1.4 1.4L11.5 13" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M14 8.2h3M14 14.2h3" strokeLinecap="round" />
+        </svg>
+      );
+    case "compliance":
+      return (
+        <svg {...common} className={className}>
+          <path d="M12 3.5l7 2.6v5.4c0 4.5-2.9 7.6-7 9-4.1-1.4-7-4.5-7-9V6.1l7-2.6z" strokeLinejoin="round" />
+          <path d="M8.7 12l2.3 2.3 4.3-4.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     case "settings":

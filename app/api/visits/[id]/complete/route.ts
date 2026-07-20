@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { sendServiceSummaryEmail } from "@/lib/email";
+import { getOrganizationRuleset, cyaTestFrequencyDays } from "@/lib/compliance";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
@@ -40,12 +41,14 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ ok: true, alreadyCompleted: true });
   }
 
-  // Cyanuric acid only needs checking once every 30 days per body of water.
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // Cyanuric acid only needs checking once every N days per body of water (state-
+  // configurable via ComplianceRuleset, 30 days by default).
+  const ruleset = await getOrganizationRuleset(visit.organizationId);
+  const cyaWindowStart = new Date();
+  cyaWindowStart.setDate(cyaWindowStart.getDate() - cyaTestFrequencyDays(ruleset));
   const recentCya = await prisma.visitWaterReading.findFirst({
     where: {
-      visit: { bodyOfWaterId: visit.bodyOfWaterId, id: { not: visit.id }, completedAt: { gte: thirtyDaysAgo } },
+      visit: { bodyOfWaterId: visit.bodyOfWaterId, id: { not: visit.id }, completedAt: { gte: cyaWindowStart } },
       cyanuricAcidPpm: { not: null },
     },
     select: { id: true },
