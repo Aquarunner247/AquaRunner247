@@ -3,6 +3,7 @@ import { ReadingChart } from "@/app/components/reading-chart";
 import { BackwashCalendar } from "@/app/components/backwash-calendar";
 import { getMonthlyReadingRows } from "@/lib/reading-rows";
 import { DEFAULT_BUSINESS_NAME, DEFAULT_BUSINESS_PHONE } from "@/lib/service-company";
+import { isComplianceActive, activeChemistryThresholds, healthDepartmentLabel } from "@/lib/compliance";
 
 type PageProps = {
   params: Promise<{ publicSlug: string }>;
@@ -54,7 +55,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
           city: true,
           region: true,
           customer: { select: { name: true } },
-          organization: { select: { businessName: true, businessPhone: true } },
+          organization: { select: { businessName: true, businessPhone: true, complianceRuleset: true } },
         },
       },
     },
@@ -62,8 +63,12 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
 
   // Residential venues have no public log — an unguessable slug is obscurity, not
   // authorization, so this must 404 identically to a genuinely-unknown slug rather than
-  // leaking "this exists but is private."
-  if (!body || body.property.propertyType === "RESIDENTIAL") {
+  // leaking "this exists but is private." Same treatment for a commercial property whose
+  // state's ComplianceRuleset isn't built out (or isn't linked) yet — per
+  // multi-state-compliance-spec.md, an unsupported-state account gets "the same
+  // experience as a residential-only account" for the QR inspector log specifically.
+  const ruleset = body?.property.organization.complianceRuleset ?? null;
+  if (!body || body.property.propertyType === "RESIDENTIAL" || !isComplianceActive(ruleset)) {
     return (
       <main className="mx-auto min-h-screen max-w-3xl px-4 py-10">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#0A5FA4]">Public maintenance log</p>
@@ -88,7 +93,11 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
     body.type === "SPA"
       ? { min: 100, max: 104, domainMin: 90, domainMax: 110 }
       : { min: 78, max: 84, domainMin: 65, domainMax: 95 };
-  const chlorineMin = body.type === "SPA" ? 3 : 2;
+
+  // ruleset is guaranteed non-null and isSupported here -- the gate above already
+  // returned early otherwise.
+  const thresholds = activeChemistryThresholds(ruleset);
+  const chlorineMin = body.type === "SPA" ? thresholds.freeChlorineMinSpaPpm : thresholds.freeChlorineMinPoolPpm;
 
   const prevDate = new Date(year, monthIndex - 1, 1);
   const nextDate = new Date(year, monthIndex + 1, 1);
@@ -249,7 +258,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
             daysInMonth={totalDays}
             points={seriesFor((r) => r.freeChlorinePpm)}
             targetMin={chlorineMin}
-            targetMax={10}
+            targetMax={thresholds.freeChlorineMaxPpm}
             domainMin={0}
             domainMax={10}
           />
@@ -258,22 +267,31 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
             unit=""
             daysInMonth={totalDays}
             points={seriesFor((r) => r.ph)}
-            targetMin={7.2}
-            targetMax={7.8}
-            hazardMin={6.5}
-            hazardMax={8.0}
+            targetMin={thresholds.phTargetMin}
+            targetMax={thresholds.phTargetMax}
+            hazardMin={thresholds.phHazardMin}
+            hazardMax={thresholds.phHazardMax}
             domainMin={6.0}
             domainMax={8.5}
           />
-          <ReadingChart label="Total alkalinity" unit="ppm" daysInMonth={totalDays} points={seriesFor((r) => r.alkalinityPpm)} targetMin={60} targetMax={180} domainMin={0} domainMax={240} />
+          <ReadingChart
+            label="Total alkalinity"
+            unit="ppm"
+            daysInMonth={totalDays}
+            points={seriesFor((r) => r.alkalinityPpm)}
+            targetMin={thresholds.alkalinityTargetMinPpm}
+            targetMax={thresholds.alkalinityTargetMaxPpm}
+            domainMin={0}
+            domainMax={240}
+          />
           <ReadingChart
             label="Cyanuric acid"
             unit="ppm"
             daysInMonth={totalDays}
             points={seriesFor((r) => r.cyanuricAcidPpm)}
-            targetMin={30}
-            targetMax={50}
-            hazardMax={100}
+            targetMin={thresholds.cyaTargetMinPpm}
+            targetMax={thresholds.cyaTargetMaxPpm}
+            hazardMax={thresholds.cyaHazardMaxPpm}
             domainMin={0}
             domainMax={120}
           />
@@ -322,8 +340,8 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
       ) : null}
 
       <p className="mt-6 text-xs text-[#7FA0AC]">
-        Target ranges shown are typical guidance for commercial pools and this property&rsquo;s configured
-        equipment requirements. Refer to SNHD code for the authoritative standard.
+        Target ranges shown are typical guidance for commercial pools and this property&rsquo;s configured equipment
+        requirements. Refer to {healthDepartmentLabel(ruleset)}&rsquo;s code for the authoritative standard.
       </p>
     </main>
   );

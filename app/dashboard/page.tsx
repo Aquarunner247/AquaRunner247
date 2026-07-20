@@ -3,6 +3,7 @@ import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { AlertsBell } from "@/app/components/alerts-bell";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
+import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds } from "@/lib/compliance";
 import { resolveIssue } from "./actions";
 import { TechnicianHome } from "./technician-home";
 
@@ -46,9 +47,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   let outOfRangeReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[] }> = [];
   let closureHazardReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[] }> = [];
 
+  let complianceComingSoon: { hasCommercialPools: boolean; stateName: string | null } | null = null;
+  let closureFeeLabel: string | null = null;
+
   if (appUser?.role === "ADMIN") {
     const orgId = appUser.organizationId;
     const now = new Date();
+
+    const [organization, ruleset] = await Promise.all([
+      prisma.organization.findUnique({ where: { id: orgId }, select: { state: true, hasCommercialPools: true } }),
+      getOrganizationRuleset(orgId),
+    ]);
+    const rulesetStateName = ruleset?.stateName ?? null;
+    const complianceActive = isComplianceActive(ruleset);
+    if (organization?.hasCommercialPools && !complianceActive) {
+      complianceComingSoon = { hasCommercialPools: true, stateName: rulesetStateName ?? organization.state };
+    }
     const weekStart = startOfWeek(now);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
@@ -128,12 +142,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    // SNHD compliance banners are commercial-only, per the residential/commercial split —
-    // residential pools don't have closure-risk rules or ideal-zone chemistry targets. If the
-    // admin explicitly filtered to Residential, there's no such thing as a residential
-    // closure-risk reading — an empty result is correct, so skip the query entirely.
+    // Compliance banners are commercial-only, per the residential/commercial split —
+    // residential pools don't have closure-risk rules or ideal-zone chemistry targets. Same
+    // treatment for an account whose state's ruleset isn't built out yet (or isn't linked at
+    // all) — no rule engine to apply, so there's nothing to flag; complianceComingSoon above
+    // covers telling the admin why. If the admin explicitly filtered to Residential, there's
+    // no such thing as a residential closure-risk reading either — an empty result is
+    // correct in every one of these cases, so skip the query entirely.
     const readings =
-      selectedPropertyType === "RESIDENTIAL"
+      selectedPropertyType === "RESIDENTIAL" || !complianceActive
         ? []
         : await prisma.visitWaterReading.findMany({
             where: {
@@ -157,6 +174,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             },
           });
 
+    // readings is only ever non-empty when complianceActive is true (see the query gate
+    // above), so ruleset is guaranteed non-null here — activeChemistryThresholds requires it.
+    const thresholds = complianceActive ? activeChemistryThresholds(ruleset) : null;
+    if (thresholds?.closureFeeAmount != null) {
+      const feeAmount = thresholds.closureFeeAmount.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+      closureFeeLabel = `${feeAmount}${thresholds.closureFeeNote ? ` ${thresholds.closureFeeNote}` : ""}`;
+    }
     for (const r of readings) {
       const issues: string[] = [];
       const hazards: string[] = [];
@@ -164,16 +188,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const ph = r.ph != null ? Number(r.ph) : null;
       const alk = r.alkalinityPpm != null ? Number(r.alkalinityPpm) : null;
       const cya = r.cyanuricAcidPpm != null ? Number(r.cyanuricAcidPpm) : null;
-      const fcMin = r.visit.bodyOfWater.type === "SPA" ? 3 : 2;
+      const t = thresholds!;
+      const fcMin = r.visit.bodyOfWater.type === "SPA" ? t.freeChlorineMinSpaPpm : t.freeChlorineMinPoolPpm;
 
-      if (fc != null && (fc < fcMin || fc > 10)) issues.push(`Free chlorine ${fc} ppm`);
-      if (ph != null && (ph < 7.2 || ph > 7.8)) issues.push(`pH ${ph}`);
-      if (alk != null && (alk < 60 || alk > 180)) issues.push(`Alkalinity ${alk} ppm`);
-      if (cya != null && (cya < 30 || cya > 50)) issues.push(`Cyanuric acid ${cya} ppm`);
+      if (fc != null && (fc < fcMin || fc > t.freeChlorineMaxPpm)) issues.push(`Free chlorine ${fc} ppm`);
+      if (ph != null && (ph < t.phTargetMin || ph > t.phTargetMax)) issues.push(`pH ${ph}`);
+      if (alk != null && (alk < t.alkalinityTargetMinPpm || alk > t.alkalinityTargetMaxPpm)) issues.push(`Alkalinity ${alk} ppm`);
+      if (cya != null && (cya < t.cyaTargetMinPpm || cya > t.cyaTargetMaxPpm)) issues.push(`Cyanuric acid ${cya} ppm`);
 
-      // Imminent health hazard — SNHD closure + $909 reopening fee territory
-      if (ph != null && (ph < 6.5 || ph > 8.0)) hazards.push(`pH ${ph} (must be 6.5–8.0)`);
-      if (cya != null && cya > 100) hazards.push(`Cyanuric acid ${cya} ppm (must be ≤100)`);
+      // Imminent health hazard — closure risk (fee, if this department charges one)
+      if (ph != null && (ph < t.phHazardMin || ph > t.phHazardMax)) hazards.push(`pH ${ph} (must be ${t.phHazardMin}–${t.phHazardMax})`);
+      if (cya != null && cya > t.cyaHazardMaxPpm) hazards.push(`Cyanuric acid ${cya} ppm (must be ≤${t.cyaHazardMaxPpm})`);
 
       if (hazards.length) {
         closureHazardReadings.push({
@@ -277,12 +302,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               overdueVisits={overdueVisitItems}
               outOfRangeReadings={outOfRangeItems}
               resolveIssue={resolveIssue}
+              closureFeeLabel={closureFeeLabel}
             />
           </div>
         ) : null}
       </header>
 
       <section className="mt-8 space-y-4">
+        {complianceComingSoon ? (
+          <div className="rounded-lg border border-[#0A5FA4]/30 bg-[#EAF6FA] p-4 text-sm text-[#12234A]">
+            <p className="font-medium">
+              Compliance tracking for {complianceComingSoon.stateName ?? "your state"} is coming soon
+            </p>
+            <p className="mt-1 text-[#4A6572]">
+              Your service data is still being logged normally in the meantime — closure-risk banners and the QR
+              inspector log will turn on automatically once we&rsquo;ve built out your state&rsquo;s rules.
+            </p>
+          </div>
+        ) : null}
         {!appUser ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
             <p className="font-medium">No AquaRunner profile linked</p>

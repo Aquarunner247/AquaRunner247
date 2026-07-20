@@ -48,6 +48,7 @@ export function SideNav({ isLoggedIn, isAdmin, userName, orgName }: SideNavProps
     ...(isAdmin ? [{ href: "/dashboard/routes", label: "Routes" }] : []),
     ...(isAdmin ? [{ href: "/dashboard/chemicals", label: "Chemicals" }] : []),
     ...(isAdmin ? [{ href: "/dashboard/checklist", label: "Checklist" }] : []),
+    ...(isAdmin ? [{ href: "/dashboard/compliance", label: "Compliance" }] : []),
     ...(isAdmin ? [{ href: "/dashboard/settings", label: "Settings" }] : []),
     ...(isAdmin ? [{ href: "/dashboard/billing", label: "Billing" }] : []),
   ];

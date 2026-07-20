@@ -6,6 +6,7 @@ import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VisitForm } from "./visit-form";
 import { ResidentialVisitForm } from "./residential-visit-form";
+import { getOrganizationRuleset, cyaTestFrequencyDays } from "@/lib/compliance";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -46,16 +47,18 @@ export default async function VisitPage({ params }: PageProps) {
   const canAccess = appUser.role === "ADMIN" || appUser.role === "OFFICE" || visit.technicianId === appUser.id;
   if (!canAccess) notFound();
 
-  // Cyanuric acid only needs checking once every 30 days per body of water —
-  // skip requiring it again if a recent reading already covers this period.
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // Cyanuric acid only needs checking once every N days per body of water (state-
+  // configurable via ComplianceRuleset, 30 days by default) — skip requiring it again if a
+  // recent reading already covers this period.
+  const ruleset = await getOrganizationRuleset(visit.organizationId);
+  const cyaWindowStart = new Date();
+  cyaWindowStart.setDate(cyaWindowStart.getDate() - cyaTestFrequencyDays(ruleset));
   const recentCya = await prisma.visitWaterReading.findFirst({
     where: {
       visit: {
         bodyOfWaterId: visit.bodyOfWaterId,
         id: { not: visit.id },
-        completedAt: { gte: thirtyDaysAgo },
+        completedAt: { gte: cyaWindowStart },
       },
       cyanuricAcidPpm: { not: null },
     },

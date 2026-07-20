@@ -20,9 +20,23 @@ export default async function PlatformAdminPage() {
   const organizations = await prisma.organization.findMany({
     include: {
       users: { where: { role: "ADMIN" }, take: 1, select: { name: true, email: true } },
+      complianceRuleset: { select: { stateName: true, isSupported: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  // Simple demand signal per multi-state-compliance-spec.md: which unsupported states have
+  // accounts actually waiting on them, so it's obvious which state to build out next.
+  const waitingByState = new Map<string, { stateName: string; count: number }>();
+  for (const org of organizations) {
+    if (org.hasCommercialPools && org.state && org.complianceRuleset && !org.complianceRuleset.isSupported) {
+      const existing = waitingByState.get(org.state);
+      waitingByState.set(org.state, { stateName: org.complianceRuleset.stateName, count: (existing?.count ?? 0) + 1 });
+    }
+  }
+  const waitingList = Array.from(waitingByState.entries())
+    .map(([code, v]) => ({ code, ...v }))
+    .sort((a, b) => b.count - a.count);
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
@@ -32,12 +46,28 @@ export default async function PlatformAdminPage() {
         <p className="mt-1 text-sm text-slate-500">Every company that has signed up, across all organizations.</p>
       </header>
 
+      {waitingList.length > 0 ? (
+        <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+            Accounts waiting on compliance support
+          </p>
+          <ul className="mt-2 space-y-1 text-sm text-amber-900">
+            {waitingList.map((w) => (
+              <li key={w.code}>
+                <span className="font-medium">{w.stateName}</span> — {w.count} account{w.count === 1 ? "" : "s"} waiting
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         <table className="w-full min-w-[800px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left">
               <th className="px-3 py-2 font-medium text-slate-500">Company</th>
               <th className="px-3 py-2 font-medium text-slate-500">Admin</th>
+              <th className="px-3 py-2 font-medium text-slate-500">State</th>
               <th className="px-3 py-2 font-medium text-slate-500">Status</th>
               <th className="px-3 py-2 font-medium text-slate-500">Trial ends</th>
               <th className="px-3 py-2 font-medium text-slate-500">Stripe</th>
@@ -52,6 +82,12 @@ export default async function PlatformAdminPage() {
                 <tr key={org.id} className="border-b border-slate-100 last:border-0">
                   <td className="px-3 py-2 font-medium text-slate-900">{org.businessName || org.name}</td>
                   <td className="px-3 py-2 text-slate-700">{admin ? admin.name ?? admin.email : "—"}</td>
+                  <td className="px-3 py-2 text-slate-700">
+                    {org.state ?? "—"}
+                    {org.hasCommercialPools && org.complianceRuleset && !org.complianceRuleset.isSupported ? (
+                      <span className="ml-1 text-xs text-amber-700">(waiting)</span>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2 text-slate-700">{STATUS_LABELS[org.planStatus] ?? org.planStatus}</td>
                   <td className="px-3 py-2 text-slate-700">{org.trialEndsAt ? org.trialEndsAt.toLocaleDateString() : "—"}</td>
                   <td className="px-3 py-2 text-slate-700">
@@ -95,7 +131,7 @@ export default async function PlatformAdminPage() {
             })}
             {organizations.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={8} className="px-3 py-6 text-center text-slate-500">
                   No companies yet.
                 </td>
               </tr>
