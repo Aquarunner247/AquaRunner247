@@ -43,6 +43,29 @@ export async function createCustomer(formData: FormData) {
 
   if (!name) return;
 
+  // Manager/Maintenance (commercial) and Owner/access notes/dog (residential) are mutually
+  // exclusive on the form -- only the block matching propertyType is ever rendered/submitted.
+  const contactFields =
+    propertyType === PropertyType.RESIDENTIAL
+      ? {
+          ownerName: String(formData.get("ownerName") ?? "").trim() || null,
+          ownerMobilePhone: String(formData.get("ownerMobilePhone") ?? "").trim() || null,
+          ownerHomePhone: String(formData.get("ownerHomePhone") ?? "").trim() || null,
+          ownerEmail: String(formData.get("ownerEmail") ?? "").trim() || null,
+          accessNotes: String(formData.get("accessNotes") ?? "").trim() || null,
+          hasDog: formData.get("hasDog") != null,
+        }
+      : {
+          managerName: managerName || null,
+          managerBusinessPhone: managerBusinessPhone || null,
+          managerMobilePhone: managerMobilePhone || null,
+          managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
+          managerEmail: managerEmail || null,
+          maintenanceName: maintenanceName || null,
+          maintenanceCellPhone: maintenanceCellPhone || null,
+          maintenanceEmail: maintenanceEmail || null,
+        };
+
   const customer = await prisma.customer.create({
     data: {
       organizationId: appUser.organizationId,
@@ -64,14 +87,7 @@ export async function createCustomer(formData: FormData) {
       customerId: customer.id,
       name,
       propertyType,
-      managerName: managerName || null,
-      managerBusinessPhone: managerBusinessPhone || null,
-      managerMobilePhone: managerMobilePhone || null,
-      managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
-      managerEmail: managerEmail || null,
-      maintenanceName: maintenanceName || null,
-      maintenanceCellPhone: maintenanceCellPhone || null,
-      maintenanceEmail: maintenanceEmail || null,
+      ...contactFields,
       managementCompanyId: resolvedManagementCompanyId,
       addressLine1: addressLine1 || null,
       addressLine2: addressLine2 || null,

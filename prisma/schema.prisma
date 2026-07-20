@@ -246,6 +246,15 @@ model Property {
   maintenanceName       String?
   maintenanceCellPhone  String?
   maintenanceEmail      String?
+  /// Residential-only: replaces Manager/Maintenance above for propertyType RESIDENTIAL.
+  ownerName             String?
+  ownerMobilePhone      String?
+  ownerHomePhone        String?
+  ownerEmail            String?
+  /// Residential-only: directions for reaching the pool (gate code, parking, side yard, etc.)
+  accessNotes           String?
+  /// Residential-only: whether a dog is on the property, for technician awareness/safety.
+  hasDog                Boolean @default(false)
   managementCompanyId String?
   managementCompany   ManagementCompany? @relation(fields: [managementCompanyId], references: [id], onDelete: SetNull)
   addressLine1          String?

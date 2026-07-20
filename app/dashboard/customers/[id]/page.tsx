@@ -22,6 +22,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { RouteSuggestionPanel } from "@/app/components/route-suggestion-panel";
 import { FilterTypeFields } from "@/app/components/filter-type-fields";
+import { PropertyContactFields } from "@/app/components/property-contact-fields";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -269,19 +270,38 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 {primaryProperty ? (
                   <div className="mt-3 space-y-1 border-t border-slate-200 pt-3">
                     {primaryProperty.managementCompany ? <p>PMC: {primaryProperty.managementCompany.name}</p> : null}
-                    {primaryProperty.managerName ? <p>Manager: {primaryProperty.managerName}</p> : null}
-                    {primaryProperty.managerBusinessPhone ? <p>Manager business phone: {primaryProperty.managerBusinessPhone}</p> : null}
-                    {primaryProperty.managerMobilePhone ? <p>Manager mobile phone: {primaryProperty.managerMobilePhone}</p> : null}
-                    {primaryProperty.managerEmail ? <p>Manager email: {primaryProperty.managerEmail}</p> : null}
 
-                    {primaryProperty.maintenanceName || primaryProperty.maintenanceCellPhone || primaryProperty.maintenanceEmail ? (
-                      <div className="mt-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
-                        {primaryProperty.maintenanceName ? <p>{primaryProperty.maintenanceName}</p> : null}
-                        {primaryProperty.maintenanceCellPhone ? <p>Cell: {primaryProperty.maintenanceCellPhone}</p> : null}
-                        {primaryProperty.maintenanceEmail ? <p>Email: {primaryProperty.maintenanceEmail}</p> : null}
-                      </div>
-                    ) : null}
+                    {primaryProperty.propertyType === "RESIDENTIAL" ? (
+                      <>
+                        {primaryProperty.ownerName ? <p>Owner: {primaryProperty.ownerName}</p> : null}
+                        {primaryProperty.ownerMobilePhone ? <p>Mobile phone: {primaryProperty.ownerMobilePhone}</p> : null}
+                        {primaryProperty.ownerHomePhone ? <p>Home phone: {primaryProperty.ownerHomePhone}</p> : null}
+                        {primaryProperty.ownerEmail ? <p>Email: {primaryProperty.ownerEmail}</p> : null}
+                        {primaryProperty.accessNotes ? (
+                          <div className="mt-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Access notes</p>
+                            <p className="whitespace-pre-wrap">{primaryProperty.accessNotes}</p>
+                          </div>
+                        ) : null}
+                        {primaryProperty.hasDog ? <p className="font-medium text-amber-700">Dog on property</p> : null}
+                      </>
+                    ) : (
+                      <>
+                        {primaryProperty.managerName ? <p>Manager: {primaryProperty.managerName}</p> : null}
+                        {primaryProperty.managerBusinessPhone ? <p>Manager business phone: {primaryProperty.managerBusinessPhone}</p> : null}
+                        {primaryProperty.managerMobilePhone ? <p>Manager mobile phone: {primaryProperty.managerMobilePhone}</p> : null}
+                        {primaryProperty.managerEmail ? <p>Manager email: {primaryProperty.managerEmail}</p> : null}
+
+                        {primaryProperty.maintenanceName || primaryProperty.maintenanceCellPhone || primaryProperty.maintenanceEmail ? (
+                          <div className="mt-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+                            {primaryProperty.maintenanceName ? <p>{primaryProperty.maintenanceName}</p> : null}
+                            {primaryProperty.maintenanceCellPhone ? <p>Cell: {primaryProperty.maintenanceCellPhone}</p> : null}
+                            {primaryProperty.maintenanceEmail ? <p>Email: {primaryProperty.maintenanceEmail}</p> : null}
+                          </div>
+                        ) : null}
+                      </>
+                    )}
 
                     {primaryProperty.addressLine1 || primaryProperty.city || primaryProperty.region || primaryProperty.postalCode ? (
                       <p className="mt-2 text-slate-600">
@@ -318,72 +338,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   {primaryProperty ? (
                     <>
                       <div className="border-t border-slate-200 pt-3">
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Property type</label>
-                        <select
-                          name="propertyType"
-                          defaultValue={primaryProperty.propertyType}
-                          className="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
-                        >
-                          <option value="COMMERCIAL">Commercial</option>
-                          <option value="RESIDENTIAL">Residential</option>
-                        </select>
+                        <PropertyContactFields
+                          initialPropertyType={primaryProperty.propertyType}
+                          defaults={primaryProperty}
+                        />
                         <p className="mt-1 text-xs text-slate-500">
                           Filter type and required readings are edited per aquatic venue, on the Aquatic Venues tab.
                         </p>
-                      </div>
-
-                      <div className="border-t border-slate-200 pt-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Manager</p>
-                        <input
-                          name="managerName"
-                          defaultValue={primaryProperty.managerName ?? ""}
-                          placeholder="Manager name"
-                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                        />
-                        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-                          <input
-                            name="managerBusinessPhone"
-                            defaultValue={primaryProperty.managerBusinessPhone ?? ""}
-                            placeholder="Manager business phone"
-                            className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-                          />
-                          <input
-                            name="managerMobilePhone"
-                            defaultValue={primaryProperty.managerMobilePhone ?? ""}
-                            placeholder="Manager mobile phone"
-                            className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-                          />
-                        </div>
-                        <input
-                          name="managerEmail"
-                          defaultValue={primaryProperty.managerEmail ?? ""}
-                          placeholder="Manager email"
-                          type="email"
-                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                        />
-                      </div>
-
-                      <div className="border-t border-slate-200 pt-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
-                        <input
-                          name="maintenanceName"
-                          defaultValue={primaryProperty.maintenanceName ?? ""}
-                          placeholder="Maintenance name"
-                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                        />
-                        <input
-                          name="maintenanceCellPhone"
-                          defaultValue={primaryProperty.maintenanceCellPhone ?? ""}
-                          placeholder="Maintenance cell phone"
-                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                        />
-                        <input
-                          name="maintenanceEmail"
-                          defaultValue={primaryProperty.maintenanceEmail ?? ""}
-                          placeholder="Maintenance email"
-                          type="email"
-                          className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                        />
                       </div>
 
                       <div className="border-t border-slate-200 pt-3">
@@ -618,19 +579,38 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     <div className="mt-3 space-y-1 text-sm text-slate-700">
                       <p className="text-base font-medium text-slate-900">{property.name}</p>
                       {property.managementCompany ? <p>PMC: {property.managementCompany.name}</p> : null}
-                      {property.managerName ? <p>Manager: {property.managerName}</p> : null}
-                      {property.managerBusinessPhone ? <p>Business phone: {property.managerBusinessPhone}</p> : null}
-                      {property.managerMobilePhone ? <p>Mobile phone: {property.managerMobilePhone}</p> : null}
-                      {property.managerEmail ? <p>Email: {property.managerEmail}</p> : null}
 
-                      {property.maintenanceName || property.maintenanceCellPhone || property.maintenanceEmail ? (
-                        <div className="mt-2">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
-                          {property.maintenanceName ? <p>{property.maintenanceName}</p> : null}
-                          {property.maintenanceCellPhone ? <p>Cell: {property.maintenanceCellPhone}</p> : null}
-                          {property.maintenanceEmail ? <p>Email: {property.maintenanceEmail}</p> : null}
-                        </div>
-                      ) : null}
+                      {property.propertyType === "RESIDENTIAL" ? (
+                        <>
+                          {property.ownerName ? <p>Owner: {property.ownerName}</p> : null}
+                          {property.ownerMobilePhone ? <p>Mobile phone: {property.ownerMobilePhone}</p> : null}
+                          {property.ownerHomePhone ? <p>Home phone: {property.ownerHomePhone}</p> : null}
+                          {property.ownerEmail ? <p>Email: {property.ownerEmail}</p> : null}
+                          {property.accessNotes ? (
+                            <div className="mt-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Access notes</p>
+                              <p className="whitespace-pre-wrap">{property.accessNotes}</p>
+                            </div>
+                          ) : null}
+                          {property.hasDog ? <p className="font-medium text-amber-700">Dog on property</p> : null}
+                        </>
+                      ) : (
+                        <>
+                          {property.managerName ? <p>Manager: {property.managerName}</p> : null}
+                          {property.managerBusinessPhone ? <p>Business phone: {property.managerBusinessPhone}</p> : null}
+                          {property.managerMobilePhone ? <p>Mobile phone: {property.managerMobilePhone}</p> : null}
+                          {property.managerEmail ? <p>Email: {property.managerEmail}</p> : null}
+
+                          {property.maintenanceName || property.maintenanceCellPhone || property.maintenanceEmail ? (
+                            <div className="mt-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+                              {property.maintenanceName ? <p>{property.maintenanceName}</p> : null}
+                              {property.maintenanceCellPhone ? <p>Cell: {property.maintenanceCellPhone}</p> : null}
+                              {property.maintenanceEmail ? <p>Email: {property.maintenanceEmail}</p> : null}
+                            </div>
+                          ) : null}
+                        </>
+                      )}
 
                       {property.addressLine1 || property.city || property.region || property.postalCode ? (
                         <p className="mt-2 text-slate-600">
@@ -652,66 +632,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       placeholder="Property name"
                       className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                     />
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Property type</label>
-                      <select
-                        name="propertyType"
-                        defaultValue={property.propertyType}
-                        className="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
-                      >
-                        <option value="COMMERCIAL">Commercial</option>
-                        <option value="RESIDENTIAL">Residential</option>
-                      </select>
-                    </div>
-                    <input
-                      name="managerName"
-                      defaultValue={property.managerName ?? ""}
-                      placeholder="Manager name"
-                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                    />
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                      <input
-                        name="managerBusinessPhone"
-                        defaultValue={property.managerBusinessPhone ?? ""}
-                        placeholder="Manager business phone"
-                        className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-                      />
-                      <input
-                        name="managerMobilePhone"
-                        defaultValue={property.managerMobilePhone ?? ""}
-                        placeholder="Manager mobile phone"
-                        className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                    <input
-                      name="managerEmail"
-                      defaultValue={property.managerEmail ?? ""}
-                      placeholder="Manager email"
-                      type="email"
-                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                    />
-                    <div className="border-t border-slate-200 pt-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
-                      <input
-                        name="maintenanceName"
-                        defaultValue={property.maintenanceName ?? ""}
-                        placeholder="Maintenance name"
-                        className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                      />
-                      <input
-                        name="maintenanceCellPhone"
-                        defaultValue={property.maintenanceCellPhone ?? ""}
-                        placeholder="Maintenance cell phone"
-                        className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                      />
-                      <input
-                        name="maintenanceEmail"
-                        defaultValue={property.maintenanceEmail ?? ""}
-                        placeholder="Maintenance email"
-                        type="email"
-                        className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                      />
-                    </div>
+                    <PropertyContactFields initialPropertyType={property.propertyType} defaults={property} />
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       <select
                         name="managementCompanyId"

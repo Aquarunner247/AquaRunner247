@@ -2,8 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { AddressFields } from "@/app/components/address-fields";
-import { CustomerPropertyTypeFields } from "@/app/components/customer-property-type-fields";
+import { NewCustomerFormFields } from "@/app/components/new-customer-form-fields";
 import { createCustomer } from "./actions";
 
 type PageProps = {
@@ -91,77 +90,9 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
                 Cancel
               </Link>
             </div>
-            <input
-              name="name"
-              required
-              placeholder="Property/customer name"
-              className="mt-3 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            />
-            <input
-              name="managerName"
-              placeholder="Manager name"
-              className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            />
-            <input
-              name="managerBusinessPhone"
-              placeholder="Manager business phone"
-              className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            />
-            <input
-              name="managerMobilePhone"
-              placeholder="Manager mobile phone"
-              className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            />
-            <input
-              name="managerEmail"
-              type="email"
-              placeholder="Manager email"
-              className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            />
-            <div className="mt-3 border-t border-slate-200 pt-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
-              <input
-                name="maintenanceName"
-                placeholder="Maintenance name"
-                className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-              />
-              <input
-                name="maintenanceCellPhone"
-                placeholder="Maintenance cell phone"
-                className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-              />
-              <input
-                name="maintenanceEmail"
-                type="email"
-                placeholder="Maintenance email"
-                className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-              />
+            <div className="mt-3">
+              <NewCustomerFormFields managementCompanies={managementCompanies} />
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <select name="managementCompanyId" defaultValue="" className="rounded border border-slate-300 px-2 py-1.5 text-sm">
-                <option value="">No management company</option>
-                {managementCompanies.map((mc) => (
-                  <option key={mc.id} value={mc.id}>
-                    {mc.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                name="newManagementCompanyName"
-                placeholder="Or type a new company name"
-                className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-              />
-            </div>
-            <div className="mt-2">
-              <AddressFields />
-            </div>
-            <textarea
-              name="notes"
-              placeholder="Notes (optional)"
-              className="mt-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-              rows={3}
-            />
-            <CustomerPropertyTypeFields />
             <button className="mt-3 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
               Create customer/property
             </button>

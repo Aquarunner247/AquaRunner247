@@ -77,6 +77,30 @@ export async function updateCustomerAndPrimaryProperty(formData: FormData) {
   const city = String(formData.get("city") ?? "").trim();
   const region = String(formData.get("region") ?? "").trim();
   const postalCode = String(formData.get("postalCode") ?? "").trim();
+  const propertyType = parsePropertyType(formData);
+
+  // Manager/Maintenance (commercial) and Owner/access notes/dog (residential) are mutually
+  // exclusive on the form -- only the block matching propertyType is ever rendered/submitted.
+  const contactFields =
+    propertyType === PropertyType.RESIDENTIAL
+      ? {
+          ownerName: String(formData.get("ownerName") ?? "").trim() || null,
+          ownerMobilePhone: String(formData.get("ownerMobilePhone") ?? "").trim() || null,
+          ownerHomePhone: String(formData.get("ownerHomePhone") ?? "").trim() || null,
+          ownerEmail: String(formData.get("ownerEmail") ?? "").trim() || null,
+          accessNotes: String(formData.get("accessNotes") ?? "").trim() || null,
+          hasDog: formData.get("hasDog") != null,
+        }
+      : {
+          managerName: managerName || null,
+          managerBusinessPhone: managerBusinessPhone || null,
+          managerMobilePhone: managerMobilePhone || null,
+          managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
+          managerEmail: managerEmail || null,
+          maintenanceName: maintenanceName || null,
+          maintenanceCellPhone: maintenanceCellPhone || null,
+          maintenanceEmail: maintenanceEmail || null,
+        };
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, organizationId: appUser.organizationId },
@@ -112,15 +136,8 @@ export async function updateCustomerAndPrimaryProperty(formData: FormData) {
     where: { id: property.id },
     data: {
       name,
-      propertyType: parsePropertyType(formData),
-      managerName: managerName || null,
-      managerBusinessPhone: managerBusinessPhone || null,
-      managerMobilePhone: managerMobilePhone || null,
-      managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
-      managerEmail: managerEmail || null,
-      maintenanceName: maintenanceName || null,
-      maintenanceCellPhone: maintenanceCellPhone || null,
-      maintenanceEmail: maintenanceEmail || null,
+      propertyType,
+      ...contactFields,
       managementCompanyId,
       addressLine1: addressLine1 || null,
       addressLine2: addressLine2 || null,
@@ -178,6 +195,30 @@ export async function updateProperty(formData: FormData) {
   const city = String(formData.get("city") ?? "").trim();
   const region = String(formData.get("region") ?? "").trim();
   const postalCode = String(formData.get("postalCode") ?? "").trim();
+  const propertyType = parsePropertyType(formData);
+
+  // Manager/Maintenance (commercial) and Owner/access notes/dog (residential) are mutually
+  // exclusive on the form -- only the block matching propertyType is ever rendered/submitted.
+  const contactFields =
+    propertyType === PropertyType.RESIDENTIAL
+      ? {
+          ownerName: String(formData.get("ownerName") ?? "").trim() || null,
+          ownerMobilePhone: String(formData.get("ownerMobilePhone") ?? "").trim() || null,
+          ownerHomePhone: String(formData.get("ownerHomePhone") ?? "").trim() || null,
+          ownerEmail: String(formData.get("ownerEmail") ?? "").trim() || null,
+          accessNotes: String(formData.get("accessNotes") ?? "").trim() || null,
+          hasDog: formData.get("hasDog") != null,
+        }
+      : {
+          managerName: managerName || null,
+          managerBusinessPhone: managerBusinessPhone || null,
+          managerMobilePhone: managerMobilePhone || null,
+          managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
+          managerEmail: managerEmail || null,
+          maintenanceName: maintenanceName || null,
+          maintenanceCellPhone: maintenanceCellPhone || null,
+          maintenanceEmail: maintenanceEmail || null,
+        };
 
   const property = await prisma.property.findFirst({
     where: { id: propertyId, organizationId: appUser.organizationId },
@@ -210,15 +251,8 @@ export async function updateProperty(formData: FormData) {
     where: { id: property.id },
     data: {
       name,
-      propertyType: parsePropertyType(formData),
-      managerName: managerName || null,
-      managerBusinessPhone: managerBusinessPhone || null,
-      managerMobilePhone: managerMobilePhone || null,
-      managerPhone: [managerBusinessPhone, managerMobilePhone].filter(Boolean).join(" | ") || null,
-      managerEmail: managerEmail || null,
-      maintenanceName: maintenanceName || null,
-      maintenanceCellPhone: maintenanceCellPhone || null,
-      maintenanceEmail: maintenanceEmail || null,
+      propertyType,
+      ...contactFields,
       managementCompanyId,
       addressLine1: addressLine1 || null,
       addressLine2: addressLine2 || null,
