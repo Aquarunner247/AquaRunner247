@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { AlertsBell } from "@/app/components/alerts-bell";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
-import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds } from "@/lib/compliance";
+import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, organizationHasCommercialPools } from "@/lib/compliance";
 import { resolveIssue } from "./actions";
 import { TechnicianHome } from "./technician-home";
 
@@ -60,8 +61,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ]);
     const rulesetStateName = ruleset?.stateName ?? null;
     const complianceActive = isComplianceActive(ruleset);
-    if (organization?.hasCommercialPools && !complianceActive) {
-      complianceComingSoon = { hasCommercialPools: true, stateName: rulesetStateName ?? organization.state };
+    const hasCommercialPools = await organizationHasCommercialPools(orgId, organization?.hasCommercialPools ?? null);
+    if (hasCommercialPools && !complianceActive) {
+      complianceComingSoon = { hasCommercialPools: true, stateName: rulesetStateName ?? organization?.state ?? null };
     }
     const weekStart = startOfWeek(now);
     const weekEnd = new Date(weekStart);
@@ -309,11 +311,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </header>
 
       <section className="mt-8 space-y-4">
-        {complianceComingSoon ? (
+        {complianceComingSoon && !complianceComingSoon.stateName ? (
           <div className="rounded-lg border border-[#0A5FA4]/30 bg-[#EAF6FA] p-4 text-sm text-[#12234A]">
-            <p className="font-medium">
-              Compliance tracking for {complianceComingSoon.stateName ?? "your state"} is coming soon
+            <p className="font-medium">Set your state to enable compliance tracking</p>
+            <p className="mt-1 text-[#4A6572]">
+              This account has commercial properties, but no state is set yet.{" "}
+              <Link href="/dashboard/settings" className="underline">
+                Set it in Settings
+              </Link>{" "}
+              so closure-risk banners and the QR inspector log can turn on.
             </p>
+          </div>
+        ) : complianceComingSoon ? (
+          <div className="rounded-lg border border-[#0A5FA4]/30 bg-[#EAF6FA] p-4 text-sm text-[#12234A]">
+            <p className="font-medium">Compliance tracking for {complianceComingSoon.stateName} is coming soon</p>
             <p className="mt-1 text-[#4A6572]">
               Your service data is still being logged normally in the meantime — closure-risk banners and the QR
               inspector log will turn on automatically once we&rsquo;ve built out your state&rsquo;s rules.

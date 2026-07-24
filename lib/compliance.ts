@@ -24,6 +24,25 @@ export async function getOrganizationRuleset(organizationId: string): Promise<Co
   return org?.complianceRuleset ?? null;
 }
 
+/**
+ * Whether this account should be treated as having commercial pools at all -- the signal
+ * that decides whether to show compliance UI (vs. treating it as residential-only).
+ * `hasCommercialPools` is only ever set once, at signup, with no way to edit it afterward
+ * except the Settings page -- so it drifts out of sync the moment an account that signed
+ * up "no" (or predates the question entirely) later adds a commercial customer. Real
+ * Property data is the actual ground truth every other commercial/residential feature in
+ * the app already keys off of, so it overrides a stale/unset flag rather than the other
+ * way around.
+ */
+export async function organizationHasCommercialPools(organizationId: string, storedFlag: boolean | null): Promise<boolean> {
+  if (storedFlag) return true;
+  const commercialProperty = await prisma.property.findFirst({
+    where: { organizationId, propertyType: "COMMERCIAL" },
+    select: { id: true },
+  });
+  return commercialProperty != null;
+}
+
 /** True only when a ruleset is linked AND fully built out -- the single gate every
  * compliance-feature check (QR log hazard banners, closure-risk dashboard alerts, the
  * chemistry rule engine) should go through, per multi-state-compliance-spec.md's
