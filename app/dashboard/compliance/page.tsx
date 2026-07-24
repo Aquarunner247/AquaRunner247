@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { getOrganizationRuleset, isComplianceActive } from "@/lib/compliance";
+import { getOrganizationRuleset, isComplianceActive, organizationHasCommercialPools } from "@/lib/compliance";
 import { SimpleMarkdown } from "@/lib/simple-markdown";
 
 export default async function CompliancePage() {
@@ -19,6 +20,7 @@ export default async function CompliancePage() {
 
   const rulesetStateName = ruleset?.stateName ?? null;
   const active = isComplianceActive(ruleset);
+  const hasCommercialPools = await organizationHasCommercialPools(appUser.organizationId, organization?.hasCommercialPools ?? null);
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
@@ -32,12 +34,24 @@ export default async function CompliancePage() {
       </header>
 
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        {!organization?.hasCommercialPools ? (
+        {!hasCommercialPools ? (
           <div className="text-sm text-slate-600">
             <p className="font-medium text-slate-900">Not applicable for this account</p>
             <p className="mt-1">
               Compliance rules only apply to commercial pools. This account is set up for residential service, so
               there&rsquo;s no state rule engine to show here.
+            </p>
+          </div>
+        ) : !organization?.state ? (
+          <div className="text-sm text-slate-600">
+            <p className="font-medium text-slate-900">Set your state to enable compliance tracking</p>
+            <p className="mt-1">
+              This account has commercial properties, but no state is set yet, so AquaRunner doesn&rsquo;t know which
+              health department&rsquo;s rules to apply.{" "}
+              <Link href="/dashboard/settings" className="text-[#0A5FA4] underline">
+                Set it in Settings
+              </Link>
+              .
             </p>
           </div>
         ) : active ? (

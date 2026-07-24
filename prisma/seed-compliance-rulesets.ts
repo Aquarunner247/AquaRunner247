@@ -101,9 +101,7 @@ const NEVADA_RULESET = {
   logSheetSourceLabel: "SNHD paper log format",
   logSheetSourceNotes:
     "AquaRunner's public QR inspector log mirrors the layout of SNHD's paper chemistry/equipment log sheets.",
-  referenceContent: `## Nevada — Southern Nevada Health District
-
-AquaRunner enforces the following for commercial pools/spas under SNHD (Clark County). These
+  referenceContent: `AquaRunner enforces the following for commercial pools/spas under SNHD (Clark County). These
 are the same thresholds already built into the app's closure-risk banners and inspector log --
 this page documents them in one place rather than asserting new rules.
 

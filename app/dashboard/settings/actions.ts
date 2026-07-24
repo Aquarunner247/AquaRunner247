@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { isValidStateCode } from "@/lib/us-states";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -27,4 +28,28 @@ export async function updateBusinessIdentity(formData: FormData) {
   });
 
   revalidatePath("/dashboard/settings");
+}
+
+export async function updateComplianceProfile(formData: FormData) {
+  const appUser = await requireAdmin();
+
+  const stateRaw = String(formData.get("state") ?? "").trim().toUpperCase();
+  const state = isValidStateCode(stateRaw) ? stateRaw : null;
+  const hasCommercialPoolsRaw = String(formData.get("hasCommercialPools") ?? "").trim();
+  const hasCommercialPools = hasCommercialPoolsRaw === "true" ? true : hasCommercialPoolsRaw === "false" ? false : null;
+
+  const ruleset = state ? await prisma.complianceRuleset.findUnique({ where: { state }, select: { id: true } }) : null;
+
+  await prisma.organization.update({
+    where: { id: appUser.organizationId },
+    data: {
+      state,
+      hasCommercialPools,
+      complianceRulesetId: ruleset?.id ?? null,
+    },
+  });
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/compliance");
+  revalidatePath("/dashboard");
 }
