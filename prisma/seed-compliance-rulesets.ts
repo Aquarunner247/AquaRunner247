@@ -1,14 +1,18 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * One-time (idempotent, upsert-based) seed: creates a ComplianceRuleset row for all 50
- * states + DC. Nevada is the only fully populated, isSupported:true record -- its values
- * are migrated directly from the hardcoded thresholds that previously lived in
- * app/dashboard/page.tsx, app/p/[publicSlug]/page.tsx, app/components/alerts-bell.tsx, and
- * the visit-completion CYA-freshness check. Every other state is a stub (isSupported:
- * false, name only) per multi-state-compliance-spec.md step 6 -- healthDepartmentName is
- * left blank except where the codebase already gave us a verified name (Nevada); every
- * other state's actual department name is unverified and deliberately not guessed at here.
+ * One-time (idempotent, upsert-based) seed: creates a bare ComplianceRuleset stub row
+ * (isSupported: false, name only) for every state that doesn't yet have real regulatory
+ * data. Run this first; prisma/seed-compliance-data.ts then upserts full structured data
+ * (ChemistryThreshold/FrequencyRule/EventProtocol/ComplianceNote rows) for the states
+ * that have it, using the same upsert-by-state-code pattern, so order between the two
+ * scripts doesn't matter beyond "stubs exist for every state eventually."
+ *
+ * Nevada is NOT special-cased here anymore -- it gets the same bare-stub treatment as
+ * every other state in this script; its full data now lives in
+ * prisma/seed-compliance-data.ts alongside the other 8 states with real data, since it's
+ * no longer a flat-field special case in the schema either (see
+ * COMPLIANCE_RULESET_NOTES.md).
  *
  * Usage:
  *   DATABASE_URL="<connection string>" npx tsx prisma/seed-compliance-rulesets.ts
@@ -43,7 +47,7 @@ const STUB_STATES: { state: string; stateName: string }[] = [
   { state: "MO", stateName: "Missouri" },
   { state: "MT", stateName: "Montana" },
   { state: "NE", stateName: "Nebraska" },
-  { state: "NV", stateName: "Nevada" }, // populated separately below
+  { state: "NV", stateName: "Nevada" },
   { state: "NH", stateName: "New Hampshire" },
   { state: "NJ", stateName: "New Jersey" },
   { state: "NM", stateName: "New Mexico" },
@@ -68,68 +72,8 @@ const STUB_STATES: { state: string; stateName: string }[] = [
   { state: "WY", stateName: "Wyoming" },
 ];
 
-// Migrated verbatim from the hardcoded values previously scattered across:
-// - app/dashboard/page.tsx (issue/hazard thresholds)
-// - app/p/[publicSlug]/page.tsx (chart target/hazard lines)
-// - app/components/alerts-bell.tsx ($909 reopening fee)
-// - app/dashboard/visits/[id]/page.tsx + app/api/visits/[id]/complete/route.ts (30-day CYA cycle)
-const NEVADA_RULESET = {
-  state: "NV",
-  stateName: "Nevada",
-  // Southern Nevada Health District is technically a Clark County entity, not a
-  // statewide Nevada agency (see the `county` field's doc comment in schema.prisma) --
-  // this is the only district AquaRunner has built rules for so far.
-  healthDepartmentName: "Southern Nevada Health District",
-  isSupported: true,
-  cyaTestFrequencyDays: 30,
-  freeChlorineMinPoolPpm: 2,
-  freeChlorineMinSpaPpm: 3,
-  freeChlorineMaxPpm: 10,
-  phTargetMin: 7.2,
-  phTargetMax: 7.8,
-  phHazardMin: 6.5,
-  phHazardMax: 8.0,
-  alkalinityTargetMinPpm: 60,
-  alkalinityTargetMaxPpm: 180,
-  cyaTargetMinPpm: 30,
-  cyaTargetMaxPpm: 50,
-  cyaHazardMaxPpm: 100,
-  closureFeeAmount: 909,
-  closureFeeNote: "reopening fee",
-  codeReferenceLabel: "Southern Nevada Health District — Pool & Spa Regulations",
-  codeReferenceUrl: null,
-  logSheetSourceLabel: "SNHD paper log format",
-  logSheetSourceNotes:
-    "AquaRunner's public QR inspector log mirrors the layout of SNHD's paper chemistry/equipment log sheets.",
-  referenceContent: `AquaRunner enforces the following for commercial pools/spas under SNHD (Clark County). These
-are the same thresholds already built into the app's closure-risk banners and inspector log --
-this page documents them in one place rather than asserting new rules.
-
-### Chemistry targets (routine range)
-- **Free chlorine:** 2 ppm minimum (pools), 3 ppm minimum (spas), 10 ppm maximum
-- **pH:** 7.2 – 7.8
-- **Total alkalinity:** 60 – 180 ppm
-- **Cyanuric acid:** 30 – 50 ppm, tested at least once every 30 days
-
-### Closure-risk hazard thresholds
-Readings outside these ranges are flagged as an imminent health hazard requiring closure
-until resolved:
-- **pH:** below 6.5 or above 8.0
-- **Cyanuric acid:** above 100 ppm
-
-A closure carries a $909 reopening fee once triggered.
-
-### Log format
-The public per-body-of-water inspector log mirrors SNHD's paper chemistry/equipment log
-layout, so an inspector can review it the same way as a physical binder.
-
-*This page reflects AquaRunner's built-in rule engine, not a substitute for SNHD's own
-published code. Verify against the authoritative source for anything compliance-critical.*`,
-};
-
 async function main() {
   for (const stub of STUB_STATES) {
-    if (stub.state === "NV") continue; // handled fully below
     await prisma.complianceRuleset.upsert({
       where: { state: stub.state },
       create: { state: stub.state, stateName: stub.stateName, isSupported: false },
@@ -137,12 +81,6 @@ async function main() {
       update: {},
     });
   }
-
-  await prisma.complianceRuleset.upsert({
-    where: { state: "NV" },
-    create: NEVADA_RULESET,
-    update: NEVADA_RULESET,
-  });
 
   const count = await prisma.complianceRuleset.count();
   const supported = await prisma.complianceRuleset.count({ where: { isSupported: true } });
