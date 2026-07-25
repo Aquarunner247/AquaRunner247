@@ -262,8 +262,8 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
             unit="ppm"
             daysInMonth={totalDays}
             points={seriesFor((r) => r.freeChlorinePpm)}
-            targetMin={chlorineMin}
-            targetMax={thresholds.freeChlorineMaxPpm}
+            targetMin={chlorineMin ?? undefined}
+            targetMax={thresholds.freeChlorineMaxPpm ?? undefined}
             domainMin={0}
             domainMax={10}
           />
@@ -272,10 +272,10 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
             unit=""
             daysInMonth={totalDays}
             points={seriesFor((r) => r.ph)}
-            targetMin={thresholds.phTargetMin}
-            targetMax={thresholds.phTargetMax}
-            hazardMin={thresholds.phHazardMin}
-            hazardMax={thresholds.phHazardMax}
+            targetMin={thresholds.phTargetMin ?? undefined}
+            targetMax={thresholds.phTargetMax ?? undefined}
+            hazardMin={thresholds.phHazardMin ?? undefined}
+            hazardMax={thresholds.phHazardMax ?? undefined}
             domainMin={6.0}
             domainMax={8.5}
           />
@@ -284,8 +284,8 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
             unit="ppm"
             daysInMonth={totalDays}
             points={seriesFor((r) => r.alkalinityPpm)}
-            targetMin={thresholds.alkalinityTargetMinPpm}
-            targetMax={thresholds.alkalinityTargetMaxPpm}
+            targetMin={thresholds.alkalinityTargetMinPpm ?? undefined}
+            targetMax={thresholds.alkalinityTargetMaxPpm ?? undefined}
             domainMin={0}
             domainMax={240}
           />
@@ -294,9 +294,9 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
             unit="ppm"
             daysInMonth={totalDays}
             points={seriesFor((r) => r.cyanuricAcidPpm)}
-            targetMin={thresholds.cyaTargetMinPpm}
-            targetMax={thresholds.cyaTargetMaxPpm}
-            hazardMax={thresholds.cyaHazardMaxPpm}
+            targetMin={thresholds.cyaTargetMinPpm ?? undefined}
+            targetMax={thresholds.cyaTargetMaxPpm ?? undefined}
+            hazardMax={thresholds.cyaHazardMaxPpm ?? undefined}
             domainMin={0}
             domainMax={120}
           />

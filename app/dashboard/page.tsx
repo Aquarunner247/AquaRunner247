@@ -218,32 +218,81 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const t = thresholds!;
       const fcMin = r.visit.bodyOfWater.type === "SPA" ? t.freeChlorineMinSpaPpm : t.freeChlorineMinPoolPpm;
 
-      if (fc != null && (fc < fcMin || fc > t.freeChlorineMaxPpm)) {
-        issues.push(`Free chlorine ${fc} ppm`);
-        params.push({ key: "freeChlorine", ...READING_GAUGE_RANGES.freeChlorine, value: fc, idealMin: fcMin, idealMax: t.freeChlorineMaxPpm });
+      // Every bound below is checked independently and only when this state's data
+      // actually defines it -- a null bound means this state's regulation doesn't have
+      // one (e.g. Arizona has no hazard tier on anything; Arkansas's CYA has no hazard
+      // cap), never a fallback to another state's number. See
+      // lib/compliance.ts's activeChemistryThresholds doc comment. The gauge shown for a
+      // flagged reading falls back to that gauge's own outer range for whichever bound
+      // this state doesn't define, so it renders sensibly without asserting a false edge.
+      if (fc != null) {
+        if (fcMin != null && fc < fcMin) {
+          issues.push(`Free chlorine ${fc} ppm`);
+          params.push({
+            key: "freeChlorine",
+            ...READING_GAUGE_RANGES.freeChlorine,
+            value: fc,
+            idealMin: fcMin,
+            idealMax: t.freeChlorineMaxPpm ?? READING_GAUGE_RANGES.freeChlorine.max,
+          });
+        } else if (t.freeChlorineMaxPpm != null && fc > t.freeChlorineMaxPpm) {
+          issues.push(`Free chlorine ${fc} ppm`);
+          params.push({
+            key: "freeChlorine",
+            ...READING_GAUGE_RANGES.freeChlorine,
+            value: fc,
+            idealMin: fcMin ?? READING_GAUGE_RANGES.freeChlorine.min,
+            idealMax: t.freeChlorineMaxPpm,
+          });
+        }
       }
-      if (ph != null && (ph < t.phTargetMin || ph > t.phTargetMax)) {
-        issues.push(`pH ${ph}`);
-        params.push({ key: "ph", ...READING_GAUGE_RANGES.ph, value: ph, idealMin: t.phTargetMin, idealMax: t.phTargetMax });
+      if (ph != null) {
+        if (t.phTargetMin != null && ph < t.phTargetMin) {
+          issues.push(`pH ${ph}`);
+          params.push({ key: "ph", ...READING_GAUGE_RANGES.ph, value: ph, idealMin: t.phTargetMin, idealMax: t.phTargetMax ?? READING_GAUGE_RANGES.ph.max });
+        } else if (t.phTargetMax != null && ph > t.phTargetMax) {
+          issues.push(`pH ${ph}`);
+          params.push({ key: "ph", ...READING_GAUGE_RANGES.ph, value: ph, idealMin: t.phTargetMin ?? READING_GAUGE_RANGES.ph.min, idealMax: t.phTargetMax });
+        }
       }
-      if (alk != null && (alk < t.alkalinityTargetMinPpm || alk > t.alkalinityTargetMaxPpm)) {
-        issues.push(`Alkalinity ${alk} ppm`);
-        params.push({
-          key: "alkalinity",
-          ...READING_GAUGE_RANGES.alkalinity,
-          value: alk,
-          idealMin: t.alkalinityTargetMinPpm,
-          idealMax: t.alkalinityTargetMaxPpm,
-        });
+      if (alk != null) {
+        if (t.alkalinityTargetMinPpm != null && alk < t.alkalinityTargetMinPpm) {
+          issues.push(`Alkalinity ${alk} ppm`);
+          params.push({
+            key: "alkalinity",
+            ...READING_GAUGE_RANGES.alkalinity,
+            value: alk,
+            idealMin: t.alkalinityTargetMinPpm,
+            idealMax: t.alkalinityTargetMaxPpm ?? READING_GAUGE_RANGES.alkalinity.max,
+          });
+        } else if (t.alkalinityTargetMaxPpm != null && alk > t.alkalinityTargetMaxPpm) {
+          issues.push(`Alkalinity ${alk} ppm`);
+          params.push({
+            key: "alkalinity",
+            ...READING_GAUGE_RANGES.alkalinity,
+            value: alk,
+            idealMin: t.alkalinityTargetMinPpm ?? READING_GAUGE_RANGES.alkalinity.min,
+            idealMax: t.alkalinityTargetMaxPpm,
+          });
+        }
       }
-      if (cya != null && (cya < t.cyaTargetMinPpm || cya > t.cyaTargetMaxPpm)) {
-        issues.push(`Cyanuric acid ${cya} ppm`);
-        params.push({ key: "cya", ...READING_GAUGE_RANGES.cya, value: cya, idealMin: t.cyaTargetMinPpm, idealMax: t.cyaTargetMaxPpm });
+      if (cya != null) {
+        if (t.cyaTargetMinPpm != null && cya < t.cyaTargetMinPpm) {
+          issues.push(`Cyanuric acid ${cya} ppm`);
+          params.push({ key: "cya", ...READING_GAUGE_RANGES.cya, value: cya, idealMin: t.cyaTargetMinPpm, idealMax: t.cyaTargetMaxPpm ?? READING_GAUGE_RANGES.cya.max });
+        } else if (t.cyaTargetMaxPpm != null && cya > t.cyaTargetMaxPpm) {
+          issues.push(`Cyanuric acid ${cya} ppm`);
+          params.push({ key: "cya", ...READING_GAUGE_RANGES.cya, value: cya, idealMin: t.cyaTargetMinPpm ?? READING_GAUGE_RANGES.cya.min, idealMax: t.cyaTargetMaxPpm });
+        }
       }
 
       // Imminent health hazard — closure risk (fee, if this department charges one)
-      if (ph != null && (ph < t.phHazardMin || ph > t.phHazardMax)) hazards.push(`pH ${ph} (must be ${t.phHazardMin}–${t.phHazardMax})`);
-      if (cya != null && cya > t.cyaHazardMaxPpm) hazards.push(`Cyanuric acid ${cya} ppm (must be ≤${t.cyaHazardMaxPpm})`);
+      if (ph != null && t.phHazardMin != null && t.phHazardMax != null && (ph < t.phHazardMin || ph > t.phHazardMax)) {
+        hazards.push(`pH ${ph} (must be ${t.phHazardMin}–${t.phHazardMax})`);
+      }
+      if (cya != null && t.cyaHazardMaxPpm != null && cya > t.cyaHazardMaxPpm) {
+        hazards.push(`Cyanuric acid ${cya} ppm (must be ≤${t.cyaHazardMaxPpm})`);
+      }
 
       if (hazards.length) {
         closureHazardReadings.push({

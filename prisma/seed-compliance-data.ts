@@ -392,12 +392,35 @@ const ARIZONA: StateSeed = {
   ruleset: {
     stateName: "Arizona",
     healthDepartmentName: "Maricopa County Environmental Health",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "COUNTY",
     countyName: "Maricopa County",
     officialCitation: "Maricopa County Environmental Health Code, Chapter VI, Section 2 (Water Quality Standards), R 2-18-04",
     recordRetentionMonths: 12,
     logSheetSource: "BUILT_FROM_CODE",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Maricopa County
+Environmental Health Code, Chapter VI, Section 2 (R 2-18-04).
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 5.0 ppm (pools), 3.0 – 5.0 ppm (hydrotherapy pools/spas)
+- **pH:** 7.2 – 7.8
+- **Total alkalinity:** 60 – 180 ppm
+- **Cyanuric acid:** max 100 ppm, only if used for stabilization
+
+### Testing frequency
+pH, disinfectant residual, total alkalinity, and temperature all tested at least once daily.
+
+### Closure protocol
+Maricopa County's code defines an explicit fecal-contamination closure sequence, distinct
+from a chemistry-threshold breach:
+- **Solid feces:** pool closes immediately, feces removed, water retested for compliance
+  before reopening.
+- **Liquid feces:** pool closes a **minimum of 24 hours**, liquid feces removed, shock
+  treatment applied, retested 24 hours after treatment before reopening.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for Maricopa
+County's own published code. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.0, maxValue: 5.0, unit: "ppm", sourceConfidence: "confirmed" },
@@ -454,7 +477,7 @@ const ARKANSAS: StateSeed = {
   ruleset: {
     stateName: "Arkansas",
     healthDepartmentName: "Arkansas Department of Health (ADH)",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "STATE",
     officialCitation:
       "Arkansas Act 623 of 1987 (as amended); ADH Rules & Regulations effective August 1, 2012; numeric parameters per AR Appendix B; also references Model Aquatic Health Code (MAHC) 5th Edition",
@@ -463,6 +486,29 @@ const ARKANSAS: StateSeed = {
     logSheetSourceLabel: "Swimming Pool Daily Operation Record (EHP-3)",
     logSheetSourceNotes:
       "Fields: Date, Free Chlorine, pH, Alkalinity, Hardness, Chemicals Added (Cl Added, Soda Ash, Acid, Other), Water Temp, Make-up Water, Backwash, Bather Load, Accident, Remarks, Signature. Two additional required forms: Record of Pool Contamination Incident, and Report of Accident or Drowning.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under the Arkansas
+Department of Health's Rules & Regulations Pertaining to Swimming Pools and Other Related
+Facilities.
+
+### Chemistry targets (routine range)
+- **Free chlorine:** 1.0 – 5.0 ppm (pools), 2.0 – 5.0 ppm (spas)
+- **pH:** 7.0 – 7.8
+- **Total alkalinity:** 60 – 180 ppm (target sub-range shown assumes no CYA/stabilizer in
+  use — the range shifts higher if your sanitizer uses cyanuric acid)
+- **Cyanuric acid:** 25 – 40 ppm ideal, max 90 ppm — tested weekly
+
+### Closure-risk thresholds
+Arkansas's routine range doubles as its immediate-closure trigger for chlorine and pH —
+there's no separate, looser hazard band the way Nevada has:
+- **Free chlorine:** below 1.0 ppm (pools) / 2.0 ppm (spas), or above 5.0 ppm
+- **pH:** below 7.0 or above 7.8
+
+Arkansas's own regulation does not define a closure-risk hazard tier for cyanuric acid
+specifically — only the 90 ppm routine maximum applies.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Arkansas
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.0, idealMin: 1.0, idealMax: 3.0, maxValue: 5.0, hazardMin: 1.0, hazardMax: 5.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also the explicit immediate-closure trigger per 'When to Close a Pool' -- single-tier, the routine range IS the closure trigger." },

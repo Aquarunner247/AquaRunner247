@@ -13,22 +13,36 @@ build order): Nevada, Connecticut, Alabama, Alaska, Arizona, Arkansas, Californi
 Colorado, Florida. Every other state (all 50 + DC) has a bare stub row from
 `prisma/seed-compliance-rulesets.ts`.
 
-**`isSupported` is only ever `true` for Nevada.** The app's actual consumption code
-(`lib/compliance.ts`) only knows how to derive its four gated parameters (chlorine, pH,
-alkalinity, CYA) Nevada-shaped, with per-field fallbacks to *Nevada's own numbers* for a
-row that's missing a value. Flipping any of the other 8 states to `isSupported: true`
-today would make the app silently show Nevada's hazard thresholds for that state's
-genuinely-unstated fields (Connecticut's missing closure threshold, Colorado's missing
-non-oxidizer FC minimum, etc.) — exactly the anti-pattern the handoff's gap-handling
-section warns against. Turning a new state on is a deliberate follow-up decision once:
-1. a per-state consumption path is built (or the four-parameter special-casing is
-   generalized) so a state's *own* gaps surface as "not available" rather than a
-   Nevada-shaped fallback, and
-2. the in-app state-code reference page is extended past Nevada (currently only Nevada
-   has `referenceContent` written).
+**Live (`isSupported: true`): Nevada, Arkansas, Arizona.** Everyone else stays off.
 
-Every state's real data is fully seeded and queryable today regardless of `isSupported`
-— this only gates what the *existing UI* does with it, not whether the data exists.
+`lib/compliance.ts`'s `activeChemistryThresholds()` was rewritten to be genuinely
+per-state safe before any state besides Nevada could go live: every field now returns
+`null` when a state's own data doesn't define it (no more falling back to *Nevada's own
+numbers* for a missing row, which was the original design's anti-pattern). Callers
+(`dashboard/page.tsx`'s hazard/issue loop, the public QR log's chart props) check each
+bound independently and skip it when null, rather than assuming a number always exists.
+Verified end-to-end: a pH reading of 6.8 (above Nevada's 6.5 hazard floor, but below
+Arkansas's tighter 7.0) correctly triggered Arkansas's own hazard banner with Arkansas's
+own numbers in the message; a pH of 6.0 under an Arizona-linked account correctly showed
+only as a routine out-of-range issue, never a hazard banner, since Arizona's regulation
+excerpt has no hazard tier at all.
+
+**One documented simplification, not a data gap:** Arkansas's alkalinity target always
+depends on whether CYA/a stabilized sanitizer is in use (two conditional variants, no
+unconditional default) — the app doesn't track that per account/property yet, so
+`findThreshold()` in `lib/compliance.ts` has an explicit, deterministic tie-break
+(defaults to the "unstabilized sanitizer (no CYA present)" variant). Both numbers are
+still fully seeded and visible in the platform-admin compliance preview; only the
+*live* dashboard's alkalinity target picks one until the app tracks sanitizer/CYA use.
+
+Connecticut, Alabama, Alaska, California, Colorado, and Florida remain
+`isSupported: false` — each has at least one genuine gap in the four parameters the
+dashboard actually gates on (no closure threshold at all, an unresolved conflict, a
+curve with no extractable data points, etc.), documented as `ComplianceNote` rows and
+summarized in each state's section of `state-compliance-data.md`. Every state's real
+data is fully seeded and queryable today regardless of `isSupported` — that only gates
+what the *live* customer-facing UI does with it. The read-only preview at
+`/platform-admin/compliance` shows any state's data regardless of this flag, for review.
 
 ## Scope of this pass
 
