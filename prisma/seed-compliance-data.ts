@@ -567,7 +567,100 @@ const ARKANSAS: StateSeed = {
   complianceNotes: [],
 };
 
-const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA, ARKANSAS];
+// ---------------------------------------------------------------------------
+// California -- first facility-attribute-based frequency exception (small-HOA pools get
+// reduced testing), first equipment-performance-triggered closure (UV dosage), and first
+// performance-based/adaptive frequency (combined chlorine's cadence is "whatever
+// maintains compliance," not a stated number). Also the first ambiguous jurisdiction
+// level: CCR Title 22 is genuinely state-level, but the log sheet itself is
+// Sacramento-County-branded -- seeded as its own value rather than silently picked as
+// either STATE or COUNTY.
+// ---------------------------------------------------------------------------
+const CALIFORNIA: StateSeed = {
+  state: "CA",
+  ruleset: {
+    stateName: "California",
+    healthDepartmentName: "California Department of Public Health",
+    isSupported: false,
+    jurisdictionLevel: "COUNTY_DISTRIBUTED_STATE_DERIVED",
+    countyName: "Sacramento County",
+    officialCitation:
+      "California Code of Regulations (CCR), Title 22, Division 4, Chapter 20 — §65523 (Operation Records), §65529 (Public Pool Disinfection), §65530 (Public Pool Water Characteristics); also California Health and Safety Code §116048 (small common-interest-development exception)",
+    recordRetentionMonths: 24,
+    logSheetSource: "STATE_PROVIDED",
+    logSheetSourceLabel: "Pool/Spa Daily Maintenance Log",
+    logSheetSourceNotes: "Branded Sacramento County Environmental Health, but its numbers directly mirror the state code -- functionally a state-standard form even though county-distributed.",
+  },
+  chemistryThresholds: [
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "no CYA present", minValue: 1.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "with CYA present", minValue: 2.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "SPA",
+      minValue: 3.0,
+      maxValue: 10.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "Same range regardless of CYA use. Also applies to wading pools and spray grounds (not duplicated as separate rows).",
+    },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", minValue: 2.0, unit: "ppm", sourceConfidence: "confirmed", notes: "No stated maximum." },
+    {
+      parameter: "BROMINE",
+      disinfectionMethod: "BROMINE",
+      bodyOfWaterCategory: "SPA",
+      minValue: 4.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "No stated maximum. Also applies to wading pools and spray grounds (not duplicated as separate rows).",
+    },
+    { parameter: "PH", minValue: 7.2, maxValue: 7.8, idealMin: 7.4, idealMax: 7.6, unit: "", sourceConfidence: "confirmed", notes: "7.2-7.8 is the legal range; the log sheet separately notes 7.4-7.6 as a non-binding 'ideal'." },
+    { parameter: "CYANURIC_ACID", minValue: 0, maxValue: 100, idealMin: 20, idealMax: 50, unit: "ppm", sourceConfidence: "confirmed", notes: "0-100 is the legal range; the log sheet separately notes 20-50 ppm as a non-binding 'ideal'." },
+    { parameter: "COMBINED_CHLORINE", maxValue: 0.4, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "TEMPERATURE", maxValue: 104, unit: "°F", sourceConfidence: "confirmed" },
+  ],
+  frequencyRules: [
+    { parameter: "ALL", cadence: "minimum once per day", intervalMinutes: 1440, notes: "Disinfectant residual + pH." },
+    { parameter: "TEMPERATURE", cadence: "minimum once per day", intervalMinutes: 1440, notes: "Heated pools only." },
+    { parameter: "CYANURIC_ACID", cadence: "minimum once per month", intervalMinutes: 43200 },
+    {
+      parameter: "COMBINED_CHLORINE",
+      cadence: "at a frequency required to maintain the 0.4 ppm max",
+      isPerformanceBased: true,
+      notes: "Performance-based per §65523: the required test interval itself is conditional on staying in compliance, not a stated cadence -- contrast with Arkansas's flat 'weekly'.",
+    },
+    {
+      parameter: "ALL",
+      facilityAttribute: "common_interest_development_under_25_units",
+      cadence: "twice per week, no more than 4 days apart",
+      intervalMinutes: 5760,
+      notes: "Per Health & Safety Code §116048: pools in common-interest developments with fewer than 25 separate units get reduced frequency instead of daily. intervalMinutes reflects the maximum allowed gap (4 days).",
+    },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "UV_DOSAGE_BELOW_MINIMUM",
+      triggerLabel: "UV dosage drops below 40 mJ/cm² (spray grounds/water features)",
+      closureKind: "EQUIPMENT_PERFORMANCE",
+      reopeningCondition: "Restore continuous UV dosage to at least 40 mJ/cm² before reopening the spray ground/water feature to bathers.",
+      sourceConfidence: "confirmed",
+    },
+  ],
+  complianceNotes: [
+    {
+      kind: "GAP",
+      summary: "Incident recording (fecal, vomit, blood, near-drowning, drowning) is required per §65546, but that section's actual text wasn't in the source excerpt.",
+      detail: "California requires this recordkeeping, but the specific decontamination protocol/numbers aren't available the way they are for Arkansas or Arizona.",
+    },
+    {
+      kind: "ASSUMPTION",
+      summary: "Jurisdiction level seeded as COUNTY_DISTRIBUTED_STATE_DERIVED rather than picking STATE or COUNTY outright.",
+      detail: "The regulation itself (CCR Title 22) is genuinely state-level, but the log sheet form is Sacramento-County-branded even though its numbers mirror the state code.",
+    },
+  ],
+};
+
+const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA, ARKANSAS, CALIFORNIA];
 
 async function main() {
   const arg = process.argv[2]?.toUpperCase();
