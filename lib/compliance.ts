@@ -83,53 +83,80 @@ export function cyaTestFrequencyDays(ruleset: ComplianceRulesetWithRules | null)
   return DEFAULT_CYA_TEST_FREQUENCY_DAYS;
 }
 
-function toNum(v: unknown, fallback: number): number {
-  return v == null ? fallback : Number(v);
-}
-
-function findThreshold(
-  thresholds: ChemistryThreshold[],
-  parameter: string,
-  bodyOfWaterCategory?: string | null,
-): ChemistryThreshold | undefined {
-  return thresholds.find((t) => t.parameter === parameter && (bodyOfWaterCategory === undefined || t.bodyOfWaterCategory === bodyOfWaterCategory));
+function toNumOrNull(v: unknown): number | null {
+  return v == null ? null : Number(v);
 }
 
 /**
- * Chemistry target/hazard thresholds as plain numbers (Prisma Decimals aren't directly
- * comparable). Only call this once isComplianceActive(ruleset) is true -- callers gate on
- * that first, so this never runs for an unsupported/unlinked account.
+ * Picks the right ChemistryThreshold row for a parameter x body-type, handling states
+ * that have more than one row for the same combination (a conditional variant plus a
+ * default, e.g. Arkansas's spa chlorine "if stabilizer used" row alongside its normal
+ * one). Prefers the unconditional (appliesWhen: null) row. If every match is
+ * conditional -- a state whose rule genuinely always depends on something the app
+ * doesn't track yet (Arkansas's alkalinity depends on whether CYA is in use, which
+ * isn't tracked per account/property) -- falls back to `preferredAppliesWhen` if given,
+ * otherwise the first match. This tie-break is a deliberate, documented simplification
+ * (see COMPLIANCE_RULESET_NOTES.md), not a data gap -- the underlying data isn't lost,
+ * just not fully condition-aware yet.
+ */
+function findThreshold(
+  thresholds: ChemistryThreshold[],
+  parameter: string,
+  bodyOfWaterCategory: string | null,
+  preferredAppliesWhen?: string,
+): ChemistryThreshold | undefined {
+  const matches = thresholds.filter((t) => t.parameter === parameter && t.bodyOfWaterCategory === bodyOfWaterCategory);
+  if (matches.length <= 1) return matches[0];
+  const unconditional = matches.find((t) => t.appliesWhen == null);
+  if (unconditional) return unconditional;
+  if (preferredAppliesWhen) {
+    const preferred = matches.find((t) => t.appliesWhen === preferredAppliesWhen);
+    if (preferred) return preferred;
+  }
+  return matches[0];
+}
+
+/**
+ * Chemistry target/hazard thresholds as plain numbers or null (Prisma Decimals aren't
+ * directly comparable). Only call this once isComplianceActive(ruleset) is true --
+ * callers gate on that first, so this never runs for an unsupported/unlinked account.
  *
  * Derives the app's four consumed parameters (chlorine pool/spa, pH, alkalinity, CYA)
- * from the ChemistryThreshold rows rather than reading flat fields -- see
- * COMPLIANCE_RULESET_NOTES.md's "Migrating Nevada off the flat fields" section. The
- * per-field fallbacks are a defensive last resort for an isSupported:true state missing
- * one of these specific rows (a data-entry gap), not a way to apply Nevada's numbers to a
- * state that was never actually built out -- every other pattern captured in
- * state-compliance-data.md (curves, relational rules, event protocols) lives on these
- * same rows but isn't read here, since the app doesn't evaluate those yet.
+ * from this state's OWN ChemistryThreshold rows -- see COMPLIANCE_RULESET_NOTES.md's
+ * "Migrating Nevada off the flat fields" section. Every field can genuinely be `null`:
+ * a state's regulation may simply not define a hazard tier, a minimum, or a target sub-
+ * range for a given parameter (Arizona has no hazard tier on anything; Arkansas's CYA
+ * has no hazard cap at all). `null` here means "this state doesn't have this rule," and
+ * callers must treat it that way -- never fall back to a hardcoded number (that would
+ * silently apply one state's numbers to another, exactly what this schema exists to
+ * avoid). Falling back to this SAME row's outer min/max when there's no separate ideal
+ * sub-range (most non-Nevada states don't distinguish the two) is safe, since it's still
+ * this state's own data.
  */
 export function activeChemistryThresholds(ruleset: ComplianceRulesetWithRules) {
   const chlorinePool = findThreshold(ruleset.chemistryThresholds, "FREE_CHLORINE", "POOL");
   const chlorineSpa = findThreshold(ruleset.chemistryThresholds, "FREE_CHLORINE", "SPA");
   const ph = findThreshold(ruleset.chemistryThresholds, "PH", null);
-  const alkalinity = findThreshold(ruleset.chemistryThresholds, "TOTAL_ALKALINITY", null);
+  // Arkansas's alkalinity always depends on sanitizer/CYA use with no unconditional
+  // default -- the app doesn't track that per account yet, so "unstabilized (no CYA)"
+  // is the documented default tie-break (see findThreshold's doc comment).
+  const alkalinity = findThreshold(ruleset.chemistryThresholds, "TOTAL_ALKALINITY", null, "unstabilized sanitizer (no CYA present)");
   const cya = findThreshold(ruleset.chemistryThresholds, "CYANURIC_ACID", null);
   const feeProtocol = ruleset.eventProtocols.find((e) => e.feeAmount != null);
 
   return {
-    freeChlorineMinPoolPpm: toNum(chlorinePool?.minValue, 2),
-    freeChlorineMinSpaPpm: toNum(chlorineSpa?.minValue, 3),
-    freeChlorineMaxPpm: toNum(chlorinePool?.maxValue ?? chlorineSpa?.maxValue, 10),
-    phTargetMin: toNum(ph?.idealMin, 7.2),
-    phTargetMax: toNum(ph?.idealMax, 7.8),
-    phHazardMin: toNum(ph?.hazardMin, 6.5),
-    phHazardMax: toNum(ph?.hazardMax, 8.0),
-    alkalinityTargetMinPpm: toNum(alkalinity?.idealMin, 60),
-    alkalinityTargetMaxPpm: toNum(alkalinity?.idealMax, 180),
-    cyaTargetMinPpm: toNum(cya?.idealMin, 30),
-    cyaTargetMaxPpm: toNum(cya?.idealMax, 50),
-    cyaHazardMaxPpm: toNum(cya?.hazardMax, 100),
+    freeChlorineMinPoolPpm: toNumOrNull(chlorinePool?.minValue),
+    freeChlorineMinSpaPpm: toNumOrNull(chlorineSpa?.minValue),
+    freeChlorineMaxPpm: toNumOrNull(chlorinePool?.maxValue ?? chlorineSpa?.maxValue),
+    phTargetMin: toNumOrNull(ph?.idealMin ?? ph?.minValue),
+    phTargetMax: toNumOrNull(ph?.idealMax ?? ph?.maxValue),
+    phHazardMin: toNumOrNull(ph?.hazardMin),
+    phHazardMax: toNumOrNull(ph?.hazardMax),
+    alkalinityTargetMinPpm: toNumOrNull(alkalinity?.idealMin ?? alkalinity?.minValue),
+    alkalinityTargetMaxPpm: toNumOrNull(alkalinity?.idealMax ?? alkalinity?.maxValue),
+    cyaTargetMinPpm: toNumOrNull(cya?.idealMin ?? cya?.minValue),
+    cyaTargetMaxPpm: toNumOrNull(cya?.idealMax ?? cya?.maxValue),
+    cyaHazardMaxPpm: toNumOrNull(cya?.hazardMax),
     closureFeeAmount: feeProtocol?.feeAmount != null ? Number(feeProtocol.feeAmount) : null,
     closureFeeNote: feeProtocol?.feeNote ?? null,
   };

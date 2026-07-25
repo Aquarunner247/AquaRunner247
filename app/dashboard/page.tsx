@@ -193,14 +193,35 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const t = thresholds!;
       const fcMin = r.visit.bodyOfWater.type === "SPA" ? t.freeChlorineMinSpaPpm : t.freeChlorineMinPoolPpm;
 
-      if (fc != null && (fc < fcMin || fc > t.freeChlorineMaxPpm)) issues.push(`Free chlorine ${fc} ppm`);
-      if (ph != null && (ph < t.phTargetMin || ph > t.phTargetMax)) issues.push(`pH ${ph}`);
-      if (alk != null && (alk < t.alkalinityTargetMinPpm || alk > t.alkalinityTargetMaxPpm)) issues.push(`Alkalinity ${alk} ppm`);
-      if (cya != null && (cya < t.cyaTargetMinPpm || cya > t.cyaTargetMaxPpm)) issues.push(`Cyanuric acid ${cya} ppm`);
+      // Every bound below is checked independently and only when this state's data
+      // actually defines it -- a null bound means this state's regulation doesn't have
+      // one (e.g. Arizona has no hazard tier on anything; Arkansas's CYA has no hazard
+      // cap), never a fallback to another state's number. See
+      // lib/compliance.ts's activeChemistryThresholds doc comment.
+      if (fc != null) {
+        if (fcMin != null && fc < fcMin) issues.push(`Free chlorine ${fc} ppm`);
+        else if (t.freeChlorineMaxPpm != null && fc > t.freeChlorineMaxPpm) issues.push(`Free chlorine ${fc} ppm`);
+      }
+      if (ph != null) {
+        if (t.phTargetMin != null && ph < t.phTargetMin) issues.push(`pH ${ph}`);
+        else if (t.phTargetMax != null && ph > t.phTargetMax) issues.push(`pH ${ph}`);
+      }
+      if (alk != null) {
+        if (t.alkalinityTargetMinPpm != null && alk < t.alkalinityTargetMinPpm) issues.push(`Alkalinity ${alk} ppm`);
+        else if (t.alkalinityTargetMaxPpm != null && alk > t.alkalinityTargetMaxPpm) issues.push(`Alkalinity ${alk} ppm`);
+      }
+      if (cya != null) {
+        if (t.cyaTargetMinPpm != null && cya < t.cyaTargetMinPpm) issues.push(`Cyanuric acid ${cya} ppm`);
+        else if (t.cyaTargetMaxPpm != null && cya > t.cyaTargetMaxPpm) issues.push(`Cyanuric acid ${cya} ppm`);
+      }
 
       // Imminent health hazard — closure risk (fee, if this department charges one)
-      if (ph != null && (ph < t.phHazardMin || ph > t.phHazardMax)) hazards.push(`pH ${ph} (must be ${t.phHazardMin}–${t.phHazardMax})`);
-      if (cya != null && cya > t.cyaHazardMaxPpm) hazards.push(`Cyanuric acid ${cya} ppm (must be ≤${t.cyaHazardMaxPpm})`);
+      if (ph != null && t.phHazardMin != null && t.phHazardMax != null && (ph < t.phHazardMin || ph > t.phHazardMax)) {
+        hazards.push(`pH ${ph} (must be ${t.phHazardMin}–${t.phHazardMax})`);
+      }
+      if (cya != null && t.cyaHazardMaxPpm != null && cya > t.cyaHazardMaxPpm) {
+        hazards.push(`Cyanuric acid ${cya} ppm (must be ≤${t.cyaHazardMaxPpm})`);
+      }
 
       if (hazards.length) {
         closureHazardReadings.push({
