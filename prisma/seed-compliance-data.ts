@@ -829,7 +829,183 @@ const COLORADO: StateSeed = {
   ],
 };
 
-const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA, ARKANSAS, CALIFORNIA, COLORADO];
+// ---------------------------------------------------------------------------
+// Florida -- an indoor/outdoor exception on the MAXIMUM rather than a minimum or a
+// banned substance (contrast Alabama's indoor CYA ban); the first chemical-triggered
+// testing/equipment obligations (using CYA/quat-ammonium/ozone/copper/sodium chloride
+// requires a dedicated test kit; silver requires a full lab analysis every six months);
+// a descend-below-a-ceiling reopening trigger (the mirror case of every other state's
+// "restore the minimum"); and an externally-deferred fecal protocol (a real citation
+// pointing to a CDC document, not a missing one). Swim-up bars' facility-subtype rules
+// (depth/turnover/automation/food-service) are flagged for completeness but not modeled
+// -- out of scope per the handoff's explicit non-goals around facility design rules.
+// ---------------------------------------------------------------------------
+const FLORIDA: StateSeed = {
+  state: "FL",
+  ruleset: {
+    stateName: "Florida",
+    healthDepartmentName: "Florida Department of Health, Bureau of Environmental Health",
+    isSupported: false,
+    jurisdictionLevel: "STATE",
+    officialCitation: "Fla. Admin. Code Ann. R. 64E-9.004 (Operational Requirements); log form incorporated by reference at 64E-9.003",
+    logSheetSource: "STATE_PROVIDED",
+    logSheetSourceLabel: "DH 921, Monthly Swimming Pool Report (3/98 edition)",
+    logSheetSourceNotes:
+      "Chlorine residual and pH recorded three times daily (9 AM, 1 PM, 4 PM, dedicated columns each), plus Filter Gauge Reading, Flow GPM, Pool Vacuumed (Y/N), Number of Patrons, and a Remarks column meant for Total Alkalinity, Hardness, Cyanuric Acid, equipment breakdown, water loss, backwash, and clarity -- several readings captured in freeform remarks rather than dedicated columns.",
+  },
+  chemistryThresholds: [
+    { parameter: "PH", minValue: 7.0, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.0, maxValue: 10.0, unit: "mg/L", sourceConfidence: "confirmed", notes: "Conventional pools." },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "WADING_POOL",
+      minValue: 2.0,
+      maxValue: 10.0,
+      unit: "mg/L",
+      sourceConfidence: "confirmed",
+      notes: "Also applies to swim-up bars, special-purpose pools, water attraction pools, and interactive fountains (not duplicated as separate rows).",
+    },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 2.0, maxValue: 5.0, unit: "mg/L", sourceConfidence: "confirmed" },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
+      indoorOutdoor: "INDOOR",
+      maxValue: 5.0,
+      unit: "mg/L",
+      sourceConfidence: "confirmed",
+      notes: "Indoor conventional pools: lower ceiling than the standard 10.0 max. An indoor/outdoor exception on the MAXIMUM, not a minimum or a banned substance -- contrast Alabama's indoor CYA ban.",
+    },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", minValue: 1.5, maxValue: 6.0, unit: "mg/L", sourceConfidence: "confirmed" },
+    {
+      parameter: "BROMINE",
+      disinfectionMethod: "BROMINE",
+      bodyOfWaterCategory: "WADING_POOL",
+      minValue: 3.0,
+      maxValue: 6.0,
+      unit: "mg/L",
+      sourceConfidence: "confirmed",
+      notes: "Also applies to swim-up bars, special-purpose pools, water attraction pools, and interactive fountains (not duplicated as separate rows).",
+    },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", indoorOutdoor: "INDOOR", maxValue: 6.0, unit: "mg/L", sourceConfidence: "confirmed", notes: "Indoor conventional pools." },
+    { parameter: "ORP", minValue: 700, maxValue: 850, unit: "mV", sourceConfidence: "confirmed", notes: "When ORP controllers are used, this does not negate the manual daily testing requirement." },
+    { parameter: "CYANURIC_ACID", bodyOfWaterCategory: "POOL", maxValue: 100, unit: "mg/L", sourceConfidence: "confirmed", notes: "40 mg/L is a non-binding recommended max." },
+    { parameter: "CYANURIC_ACID", bodyOfWaterCategory: "SPA", maxValue: 40, unit: "mg/L", sourceConfidence: "confirmed" },
+    { parameter: "QUATERNARY_AMMONIUM", maxValue: 5, unit: "mg/L", sourceConfidence: "confirmed" },
+    { parameter: "COPPER", maxValue: 1, unit: "mg/L", sourceConfidence: "confirmed" },
+    { parameter: "SILVER", maxValue: 0.1, unit: "mg/L", sourceConfidence: "confirmed" },
+    { parameter: "TURBIDITY", maxValue: 0.5, unit: "NTU", sourceConfidence: "confirmed", notes: "AND the main drain grate must be visible from deck -- both conditions apply." },
+  ],
+  frequencyRules: [
+    {
+      parameter: "ALL",
+      cadence: "minimum once per 24 hours",
+      intervalMinutes: 1440,
+      notes: "Manual pH/disinfectant testing. The DH 921 form has 3 timestamped columns/day (9/1/4), but the regulatory text only requires once per 24 hours -- see ComplianceNote on the form-vs-regulation cadence mismatch.",
+    },
+    {
+      parameter: "CYANURIC_ACID",
+      cadence: "weekly",
+      intervalMinutes: 10080,
+      notes: "Only when chlorinated isocyanurates are used, at both spas and pools.",
+    },
+    {
+      parameter: "SILVER",
+      cadence: "every six months",
+      intervalMinutes: 262800,
+      notes: "Full lab water analysis, not a field test -- required if silver is used as a supplemental disinfectant, submitted to the department on request.",
+    },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "CHEMICAL_MANUAL_ADDITION",
+      triggerLabel: "Manual chemical addition",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 60,
+      reopeningCondition: "Pool must be closed before manually adding chemicals, and remains closed at least 1 hour after (longer if needed for safe distribution).",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "BREAKPOINT_CHLORINATION_REOPENING",
+      triggerLabel: "Reopening after breakpoint chlorination or algae treatment",
+      closureKind: "DESCEND_BELOW_CEILING",
+      reopeningCondition: "Pool may reopen once free chlorine drops to 10.0 mg/L or less -- recovery means the reading coming back down, the mirror case of every other state's 'restore the minimum' reopening logic (Arkansas, Arizona, Colorado all reopen once a minimum is reached or exceeded).",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "CYA_IN_USE",
+      triggerLabel: "Using cyanuric acid",
+      closureKind: "CHEMICAL_TESTING_OBLIGATION",
+      requiresSeparateTestKit: true,
+      reopeningCondition: "N/A -- not a closure trigger. Choosing to use this chemical creates a dedicated test-kit requirement, separate from and in addition to its numeric threshold.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "SODIUM_CHLORIDE_IN_USE",
+      triggerLabel: "Using sodium chloride (salt chlorination)",
+      closureKind: "CHEMICAL_TESTING_OBLIGATION",
+      requiresSeparateTestKit: true,
+      reopeningCondition: "N/A -- testing-equipment obligation, not a closure trigger.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "QUATERNARY_AMMONIUM_IN_USE",
+      triggerLabel: "Using quaternary ammonium",
+      closureKind: "CHEMICAL_TESTING_OBLIGATION",
+      requiresSeparateTestKit: true,
+      reopeningCondition: "N/A -- testing-equipment obligation, not a closure trigger.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "OZONE_IN_USE",
+      triggerLabel: "Using ozone",
+      closureKind: "CHEMICAL_TESTING_OBLIGATION",
+      requiresSeparateTestKit: true,
+      reopeningCondition: "N/A -- testing-equipment obligation, not a closure trigger.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "COPPER_IN_USE",
+      triggerLabel: "Using copper",
+      closureKind: "CHEMICAL_TESTING_OBLIGATION",
+      requiresSeparateTestKit: true,
+      reopeningCondition: "N/A -- testing-equipment obligation, not a closure trigger.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "SILVER_IN_USE",
+      triggerLabel: "Using silver as a supplemental disinfectant",
+      closureKind: "CHEMICAL_TESTING_OBLIGATION",
+      labAnalysisFrequency: "every six months",
+      reopeningCondition: "N/A -- a periodic full lab water analysis obligation (not a field test kit), submitted to the department on request.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "FECAL_INCIDENT",
+      triggerLabel: "Fecal contamination incident",
+      closureKind: "UNTIL_RETEST_PASSES",
+      reopeningCondition: "Not specified in this regulation -- defers by reference to the CDC's 'Fecal Incident Response Recommendations for Aquatic Staff' (June 2018) or an equivalent CDC-approved method.",
+      externalReferenceLabel: "CDC — Fecal Incident Response Recommendations for Aquatic Staff (June 2018)",
+      sourceConfidence: "confirmed",
+      notes: "An externally-deferred protocol, not a missing citation -- the rule IS fully specified, just not reproduced in this document (contrast Connecticut, where no closure rule exists at all).",
+    },
+  ],
+  complianceNotes: [
+    {
+      kind: "GAP",
+      summary: "The DH 921 log form has three timestamped columns per day (9 AM/1 PM/4 PM), but the regulatory text only requires manual testing once per 24 hours.",
+      detail: "The 3x/day structure appears to be the state's standard practice/form design, not a hard regulatory minimum. Worth deciding whether the in-app default should follow the form's implied cadence or the regulation's stated floor -- not resolved here.",
+    },
+    {
+      kind: "OUT_OF_SCOPE",
+      summary: "Swim-up bars are a distinct facility subtype (54-inch max depth, 2-hour turnover vs. the standard 6, mandatory automated dosing controller, food-service rules) beyond the standard pool/spa chemistry variants.",
+      detail: "Noted for completeness per state-compliance-data.md; out of scope for this pass's reading/log-sheet feature per the handoff's explicit non-goals around non-chemistry facility design/construction requirements.",
+    },
+  ],
+};
+
+const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA, ARKANSAS, CALIFORNIA, COLORADO, FLORIDA];
 
 async function main() {
   const arg = process.argv[2]?.toUpperCase();
