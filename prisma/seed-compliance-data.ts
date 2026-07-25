@@ -381,7 +381,67 @@ const ALASKA: StateSeed = {
   ],
 };
 
-const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA];
+// ---------------------------------------------------------------------------
+// Arizona (Maricopa County) -- the clearest event-protocol example collected: an
+// explicit fecal-contamination closure trigger with a real decision branch (solid vs.
+// liquid feces) and, for liquid, a mandatory minimum duration plus a specific
+// remediation sequence -- not just "retest before reopening."
+// ---------------------------------------------------------------------------
+const ARIZONA: StateSeed = {
+  state: "AZ",
+  ruleset: {
+    stateName: "Arizona",
+    healthDepartmentName: "Maricopa County Environmental Health",
+    isSupported: false,
+    jurisdictionLevel: "COUNTY",
+    countyName: "Maricopa County",
+    officialCitation: "Maricopa County Environmental Health Code, Chapter VI, Section 2 (Water Quality Standards), R 2-18-04",
+    recordRetentionMonths: 12,
+    logSheetSource: "BUILT_FROM_CODE",
+  },
+  chemistryThresholds: [
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.0, maxValue: 5.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 3.0, maxValue: 5.0, unit: "ppm", sourceConfidence: "confirmed", notes: "hydrotherapy pool/spa" },
+    { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", minValue: 2.0, maxValue: 4.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "SPA", minValue: 3.0, maxValue: 5.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "TOTAL_ALKALINITY", minValue: 60, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "CYANURIC_ACID", appliesWhen: "if used for stabilization (chlorinated isocyanurates)", maxValue: 100, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "TEMPERATURE", maxValue: 104, unit: "°F", sourceConfidence: "confirmed", notes: "heated water only" },
+    { parameter: "TURBIDITY", unit: "", sourceConfidence: "confirmed", notes: "Water must be clear enough that the main drain outlet is visible from the deck, or a 200mm Secchi disk is visible at the deepest point." },
+  ],
+  frequencyRules: [
+    { parameter: "ALL", cadence: "at least once daily", intervalMinutes: 1440, notes: "pH, disinfectant residual, total alkalinity, and temperature all tested at least once daily." },
+    {
+      parameter: "BACTERIAL_SAMPLE",
+      cadence: "routine, at Department's discretion",
+      isPerformanceBased: true,
+      notes: "No more than 15% of water samples may exceed 200 bacteria/mL (agar plate count) or show confirmed coliform presence. Frequency not explicitly stated, unlike Alaska's explicit monthly requirement.",
+    },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "FECAL_SOLID",
+      triggerLabel: "Solid feces found",
+      closureKind: "UNTIL_RETEST_PASSES",
+      reopeningCondition: "Pool may reopen only once a retest confirms compliance with the water-quality standard (Reg 4).",
+      remediationSteps: "All bathers exit immediately -> feces removed/disposed -> water retested for compliance.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "FECAL_LIQUID",
+      triggerLabel: "Liquid feces found",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 1440,
+      reopeningCondition: "Pool must stay closed a minimum of 24 hours, then may reopen only once a retest taken 24 hours after shock treatment confirms compliance.",
+      remediationSteps: "All bathers exit immediately -> liquid feces removed as much as possible -> shock treatment applied -> retest 24 hours after shock treatment.",
+      sourceConfidence: "confirmed",
+    },
+  ],
+  complianceNotes: [],
+};
+
+const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA];
 
 async function main() {
   const arg = process.argv[2]?.toUpperCase();
