@@ -298,7 +298,90 @@ const ALABAMA: StateSeed = {
   ],
 };
 
-const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA];
+// ---------------------------------------------------------------------------
+// Alaska -- genuinely state-level (contrast with Nevada/Alabama's county sources).
+// First curve-based threshold (pH redefines the FAC minimum via a lookup table, not a
+// branch) and first lab-result-triggered closure with an indeterminate reopening window.
+// The curve's actual data points aren't available -- seeded as flagged (isCurveBased +
+// a ComplianceNote), never approximated.
+// ---------------------------------------------------------------------------
+const ALASKA: StateSeed = {
+  state: "AK",
+  ruleset: {
+    stateName: "Alaska",
+    healthDepartmentName: "Alaska Department of Environmental Conservation (ADEC)",
+    isSupported: false,
+    jurisdictionLevel: "STATE",
+    officialCitation: "18 AAC 30 (18 AAC 30.550)",
+    sourceDocument: "Pool Testing Guidelines (ADEC guidance doc, rev. 6/12/2012) + 18 AAC 30.550 regulatory text",
+    logSheetSource: "BUILT_FROM_CODE",
+  },
+  chemistryThresholds: [
+    { parameter: "PH", minValue: 7.0, maxValue: 8.0, unit: "", sourceConfidence: "confirmed", notes: "measured to nearest 0.2; must be maintained in this range while bathers are in the water" },
+    { parameter: "TOTAL_CHLORINE", disinfectionMethod: "CHLORINE", minValue: 2.0, maxValue: 10.0, unit: "mg/l", sourceConfidence: "confirmed", notes: "Total Available Chlorine (TAC), nearest 0.2mg" },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      unit: "mg/l",
+      isCurveBased: true,
+      curveDescription:
+        "18 AAC 30.550 Table E: the minimum free chlorine dosage needed to hit a 0.3 mg/l hypochlorous-acid yield changes with measured pH (lower pH needs less chlorine for the same kill power, higher pH needs more). Read pH -> find corresponding minimum FAC from the curve -> compare against tested FAC.",
+      relationalRule: "Free Available Chlorine must be greater than half of Total Available Chlorine (equivalently: chloramines may not exceed one-half of the total chlorine level).",
+      sourceConfidence: "gap",
+      notes: "Curve data points not available -- see ComplianceNote. Target yield >= 0.3 mg/l hypochlorous acid, measured to nearest 0.2 mg/l.",
+    },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", minValue: 2.0, maxValue: 4.0, unit: "mg/l", sourceConfidence: "confirmed", notes: "Free Available Bromine, nearest 0.2 mg/l" },
+    { parameter: "TOTAL_ALKALINITY", minValue: 50, maxValue: 200, unit: "mg/l", sourceConfidence: "confirmed", notes: "resolved -- previously an open gap" },
+    { parameter: "TOTAL_HARDNESS", minValue: 100, maxValue: 1000, unit: "mg/l", sourceConfidence: "confirmed" },
+    {
+      parameter: "CALCIUM_HARDNESS",
+      unit: "",
+      relationalRule: "Must be at least 70% of Total Hardness -- a proportional/derived requirement, not a flat range.",
+      sourceConfidence: "confirmed",
+    },
+    { parameter: "SATURATION_INDEX", minValue: -0.5, maxValue: 0.5, unit: "", sourceConfidence: "confirmed", notes: "Langelier Saturation Index -- resolved, previously an open gap" },
+    { parameter: "CYANURIC_ACID", maxValue: 0, unit: "mg/l", sourceConfidence: "confirmed", notes: "Cyanuric acid and chlorinated isocyanurates are prohibited entirely in Alaska (not just indoors, unlike Alabama)." },
+  ],
+  frequencyRules: [
+    { parameter: "PH", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "TOTAL_CHLORINE", cadence: "daily", intervalMinutes: 1440 },
+    {
+      parameter: "FREE_CHLORINE",
+      cadence: "daily, 2x per day",
+      intervalMinutes: 720,
+      notes: "Source table lists both 'daily' and '2x per day' for FAC -- interpreted as up to twice daily (the tighter reading); flagged as an ambiguity, not resolved to a single confirmed number.",
+    },
+    { parameter: "BROMINE", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "TOTAL_ALKALINITY", cadence: "weekly", intervalMinutes: 10080, notes: "Conditional per source: required depending on whether chemicals are routinely added to maintain water quality." },
+    { parameter: "TOTAL_HARDNESS", cadence: "weekly", intervalMinutes: 10080, notes: "Same conditional as alkalinity above." },
+    { parameter: "CALCIUM_HARDNESS", cadence: "weekly", intervalMinutes: 10080, notes: "Same conditional as alkalinity above." },
+    { parameter: "SATURATION_INDEX", cadence: "weekly", intervalMinutes: 10080, notes: "Same conditional as alkalinity above." },
+    {
+      parameter: "BACTERIAL_SAMPLE",
+      cadence: "monthly",
+      intervalMinutes: 43200,
+      notes: "Submitted to a department-certified lab per Standard Methods, 16th Edition. Max 200 bacteria/mL (standard agar plate count) or zero confirmed coliform per sample.",
+    },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "PATHOGEN_LAB_RESULT",
+      triggerLabel: "Positive pathogen test (pseudomonas, etc.)",
+      closureKind: "INDETERMINATE_LAB_RETEST",
+      reopeningCondition: "A retest must confirm the water is free of the pathogen. No fixed reopening window like Arizona's 24-hour liquid-feces rule, since lab turnaround time isn't specified.",
+      sourceConfidence: "confirmed",
+    },
+  ],
+  complianceNotes: [
+    {
+      kind: "GAP",
+      summary: "The actual Table E graph/curve values (pH-to-minimum-FAC lookup) aren't in hand as extractable numbers -- only the rule description.",
+      detail: "If the actual table/graph image or its tabulated values become available, this could be built as real logic rather than a placeholder.",
+    },
+  ],
+};
+
+const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA];
 
 async function main() {
   const arg = process.argv[2]?.toUpperCase();
