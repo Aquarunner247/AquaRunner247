@@ -206,7 +206,99 @@ const CONNECTICUT: StateSeed = {
   ],
 };
 
-const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT];
+// ---------------------------------------------------------------------------
+// Alabama -- pool-vs-spa threshold AND frequency both differ (pattern 8: spa is hourly,
+// pool is twice-daily), not just the numeric range. Has an unresolved conflict between
+// an indoor-CYA-ban provision and a flat numeric CYA range with no indoor/outdoor split
+// -- seeded as-flagged per the handoff's explicit instruction, not resolved here.
+// ---------------------------------------------------------------------------
+const ALABAMA: StateSeed = {
+  state: "AL",
+  ruleset: {
+    stateName: "Alabama",
+    healthDepartmentName: "Alabama Department of Public Health",
+    isSupported: false,
+    jurisdictionLevel: "COUNTY",
+    countyName: "Baldwin County",
+    officialCitation: "Alabama pool rules — General Provisions (Sections 5–6); Appendix A (Public Swimming Pool); Appendix B (Public Spa)",
+    sourceDocument: "Baldwin County Health Dept, Environmental Health Section — General Provisions + Appendix A/B, and the 'Operational Report' log form",
+    recordRetentionMonths: 12,
+    logSheetSource: "STATE_PROVIDED",
+    logSheetSourceLabel: "Baldwin County Health Dept 'Operational Report' form (monthly, one row per day)",
+    logSheetSourceNotes:
+      "Fields: Date, Filter Rate (GPM), Free Chlorine, pH, Alkalinity, Water Temp, Filter Backwash, Pump Strainer Cleaned, Super Chlorination, Cyanuric Acid, Calcium Hardness, Initials, Notes. Pool type captured via checkboxes: Outdoor Pool, Indoor Pool, Wading Pool, Water Attraction Pool, Spa, Therapy Pool, Exercise Pool, Other.",
+  },
+  chemistryThresholds: [
+    // Public Pool -- Appendix A
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.0, idealMin: 1.0, idealMax: 3.0, maxValue: 3.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", appliesWhen: "if used", minValue: 2.0, idealMin: 2.0, idealMax: 4.0, maxValue: 4.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "PH", bodyOfWaterCategory: "POOL", minValue: 7.2, idealMin: 7.4, idealMax: 7.6, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "TOTAL_ALKALINITY", bodyOfWaterCategory: "POOL", minValue: 60, idealMin: 80, idealMax: 120, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed" },
+    {
+      parameter: "CYANURIC_ACID",
+      bodyOfWaterCategory: "POOL",
+      appliesWhen: "if used",
+      minValue: 10,
+      idealMin: 30,
+      idealMax: 50,
+      maxValue: 150,
+      unit: "ppm",
+      sourceConfidence: "conflict",
+      notes: "See ComplianceNote -- conflicts with an earlier indoor-CYA-ban provision; this Appendix A range is seeded as the primary rule per the handoff's explicit instruction, not a resolution of the conflict.",
+    },
+    { parameter: "CALCIUM_HARDNESS", bodyOfWaterCategory: "POOL", minValue: 100, maxValue: 200, unit: "ppm", sourceConfidence: "confirmed", notes: "recommended, not a hard requirement" },
+    { parameter: "TEMPERATURE", bodyOfWaterCategory: "POOL", idealMin: 78, idealMax: 82, unit: "°F", sourceConfidence: "confirmed" },
+    { parameter: "TDS", bodyOfWaterCategory: "POOL", maxValue: 1550, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "TURBIDITY", bodyOfWaterCategory: "POOL", unit: "", sourceConfidence: "confirmed", notes: "Main drain / 6-inch black-and-white disk must be clearly visible -- not a numeric range." },
+    { parameter: "BACTERIA", bodyOfWaterCategory: "POOL", unit: "", sourceConfidence: "confirmed", notes: "Not required routinely -- monitored at Health Dept's discretion." },
+    // Public Spa -- Appendix B (notably stricter and more frequent than the pool table)
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 2.0, idealMin: 3.0, idealMax: 5.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "SPA", appliesWhen: "if used", minValue: 2.0, idealMin: 4.0, idealMax: 6.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "PH", bodyOfWaterCategory: "SPA", minValue: 7.2, idealMin: 7.4, idealMax: 7.6, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "TOTAL_ALKALINITY", bodyOfWaterCategory: "SPA", minValue: 60, idealMin: 80, idealMax: 120, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed" },
+    {
+      parameter: "CYANURIC_ACID",
+      bodyOfWaterCategory: "SPA",
+      appliesWhen: "if used",
+      minValue: 10,
+      idealMin: 30,
+      idealMax: 50,
+      maxValue: 150,
+      unit: "ppm",
+      sourceConfidence: "conflict",
+      notes: "Same indoor-CYA-ban conflict as the pool threshold above -- see ComplianceNote.",
+    },
+    { parameter: "CALCIUM_HARDNESS", bodyOfWaterCategory: "SPA", minValue: 100, idealMin: 150, idealMax: 250, maxValue: 800, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "TEMPERATURE", bodyOfWaterCategory: "SPA", maxValue: 104, unit: "°F", sourceConfidence: "confirmed" },
+    { parameter: "TDS", bodyOfWaterCategory: "SPA", maxValue: 1550, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "TURBIDITY", bodyOfWaterCategory: "SPA", unit: "", sourceConfidence: "confirmed", notes: "6-inch black-and-white disk visible at deepest point, or main drain cover visible." },
+    { parameter: "BACTERIA", bodyOfWaterCategory: "SPA", unit: "", sourceConfidence: "confirmed", notes: "Not required routinely -- monitored at Health Dept's discretion." },
+  ],
+  frequencyRules: [
+    { parameter: "FREE_CHLORINE", bodyOfWaterCategory: "POOL", cadence: "twice daily", intervalMinutes: 720 },
+    { parameter: "PH", bodyOfWaterCategory: "POOL", cadence: "twice daily", intervalMinutes: 720 },
+    { parameter: "TURBIDITY", bodyOfWaterCategory: "POOL", cadence: "hourly", intervalMinutes: 60 },
+    { parameter: "FREE_CHLORINE", bodyOfWaterCategory: "SPA", cadence: "hourly", intervalMinutes: 60 },
+    { parameter: "PH", bodyOfWaterCategory: "SPA", cadence: "hourly", intervalMinutes: 60 },
+    { parameter: "TURBIDITY", bodyOfWaterCategory: "SPA", cadence: "hourly", intervalMinutes: 60 },
+  ],
+  eventProtocols: [],
+  complianceNotes: [
+    {
+      kind: "CONFLICT",
+      summary: "General Provisions text states CYA is prohibited indoors entirely, but Appendix A/B gives a flat 10–150 ppm range with no indoor/outdoor distinction at all.",
+      detail:
+        "Unclear whether the appendix range only applies outdoors (with indoor pools defaulting to CYA=0/not used), or whether the indoor ban is from an older/different provision than this appendix. The Appendix A/B numeric range is seeded as the primary rule per explicit instruction, but this conflict is not resolved -- recommend surfacing to Alabama/Baldwin County directly rather than guessing.",
+    },
+    {
+      kind: "GAP",
+      summary: "Source documents are from Baldwin County Health Dept specifically; unclear whether this form/these rules apply statewide in Alabama or are county-specific.",
+      detail: "Seeded with jurisdictionLevel=COUNTY, countyName=Baldwin County pending confirmation, same pattern as Nevada/SNHD.",
+    },
+  ],
+};
+
+const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA];
 
 async function main() {
   const arg = process.argv[2]?.toUpperCase();
