@@ -138,7 +138,75 @@ published code. Verify against the authoritative source for anything compliance-
   complianceNotes: [],
 };
 
-const ALL_STATES: StateSeed[] = [NEVADA];
+// ---------------------------------------------------------------------------
+// Connecticut -- real thresholds are high-confidence (DPH guideline), but the source
+// document has no closure-risk trigger at all and the CYA cadence is explicitly a
+// business-decision assumption, not a sourced requirement. isSupported stays false: the
+// app's Nevada-shaped consumption code would otherwise silently fall back to Nevada's
+// hazard numbers for CT's missing hazard tier, which is exactly wrong (see design note
+// above and COMPLIANCE_RULESET_NOTES.md).
+// ---------------------------------------------------------------------------
+const CONNECTICUT: StateSeed = {
+  state: "CT",
+  ruleset: {
+    stateName: "Connecticut",
+    healthDepartmentName: "Connecticut Department of Public Health",
+    isSupported: false,
+    jurisdictionLevel: "STATE",
+    officialCitation: "CT Public Health Code § 19-13-B33b",
+    sourceDocument:
+      "Sanitation Guidelines from the Connecticut Department of Public Health — Inspection of Public Swimming Pools (DPH guideline summary, not full code text)",
+    logSheetSource: "BUILT_FROM_CODE",
+  },
+  chemistryThresholds: [
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", minValue: 0.8, unit: "ppm", sourceConfidence: "confirmed", notes: "standard minimum residual" },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      minValue: 1.5,
+      unit: "ppm",
+      appliesWhen: "if chlorinated cyanurates used",
+      sourceConfidence: "confirmed",
+    },
+    { parameter: "PH", idealMin: 7.2, idealMax: 7.8, unit: "", sourceConfidence: "confirmed", notes: "no separate closure-risk hazard tier stated" },
+    { parameter: "TOTAL_ALKALINITY", idealMin: 80, idealMax: 120, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "CYANURIC_ACID", maxValue: 100, unit: "ppm", sourceConfidence: "confirmed" },
+  ],
+  frequencyRules: [
+    {
+      parameter: "ALL",
+      cadence: "minimum daily; DPH recommends 3x/day",
+      intervalMinutes: 1440,
+      notes: "Bundled chlorine + pH reading. 1440 min reflects the required minimum; the 3x/day recommendation isn't a hard requirement.",
+    },
+    {
+      parameter: "CYANURIC_ACID",
+      cadence: "monthly (business decision, not a sourced CT requirement)",
+      intervalMinutes: 43200,
+      notes: "See ComplianceNote -- no official CT source specifies a CYA cadence; this matches Nevada's existing 30-day cycle as a placeholder.",
+    },
+  ],
+  eventProtocols: [],
+  complianceNotes: [
+    {
+      kind: "GAP",
+      summary: "No explicit numeric closure-risk threshold stated in the source document.",
+      detail: "Unlike Nevada's SNHD rules, this guideline document doesn't define closure triggers for out-of-range chemistry readings.",
+    },
+    {
+      kind: "ASSUMPTION",
+      summary: "CYA 30-day testing cadence is a business decision matching Nevada's cadence, not a sourced CT requirement.",
+      detail: "No official CT source specifying a CYA testing frequency was found in the guideline document.",
+    },
+    {
+      kind: "GAP",
+      summary: "Alkalinity testing frequency isn't explicitly stated beyond 'should be recorded in the log'.",
+      detail: "No full code text was found to confirm a cadence; treat as periodic/non-daily until clarified further.",
+    },
+  ],
+};
+
+const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT];
 
 async function main() {
   const arg = process.argv[2]?.toUpperCase();
