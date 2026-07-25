@@ -441,7 +441,133 @@ const ARIZONA: StateSeed = {
   complianceNotes: [],
 };
 
-const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA];
+// ---------------------------------------------------------------------------
+// Arkansas -- the most complete state collected: a full resolved chemistry table,
+// explicit numeric immediate-closure triggers (captured as hazardMin/Max directly on the
+// ChemistryThreshold rows, since Arkansas's routine range IS the closure trigger --
+// single-tier, unlike Nevada's separate tighter hazard band), and the most detailed
+// fecal-contamination protocol collected (exact ppm, exact hold duration, exact pH
+// precondition) -- used as the template shape for EventProtocol going forward.
+// ---------------------------------------------------------------------------
+const ARKANSAS: StateSeed = {
+  state: "AR",
+  ruleset: {
+    stateName: "Arkansas",
+    healthDepartmentName: "Arkansas Department of Health (ADH)",
+    isSupported: false,
+    jurisdictionLevel: "STATE",
+    officialCitation:
+      "Arkansas Act 623 of 1987 (as amended); ADH Rules & Regulations effective August 1, 2012; numeric parameters per AR Appendix B; also references Model Aquatic Health Code (MAHC) 5th Edition",
+    sourceDocument: "Guidelines for Arkansas Pools, Spas, and Other Aquatic Facility Operators — Updated Edition, 2026",
+    logSheetSource: "STATE_PROVIDED",
+    logSheetSourceLabel: "Swimming Pool Daily Operation Record (EHP-3)",
+    logSheetSourceNotes:
+      "Fields: Date, Free Chlorine, pH, Alkalinity, Hardness, Chemicals Added (Cl Added, Soda Ash, Acid, Other), Water Temp, Make-up Water, Backwash, Bather Load, Accident, Remarks, Signature. Two additional required forms: Record of Pool Contamination Incident, and Report of Accident or Drowning.",
+  },
+  chemistryThresholds: [
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.0, idealMin: 1.0, idealMax: 3.0, maxValue: 5.0, hazardMin: 1.0, hazardMax: 5.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also the explicit immediate-closure trigger per 'When to Close a Pool' -- single-tier, the routine range IS the closure trigger." },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 2.0, idealMin: 3.0, idealMax: 5.0, maxValue: 5.0, hazardMin: 2.0, hazardMax: 5.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", appliesWhen: "if stabilizer used", minValue: 1.5, maxValue: 5.0, unit: "ppm", sourceConfidence: "confirmed" },
+    {
+      parameter: "COMBINED_CHLORINE",
+      maxValue: 0.2,
+      unit: "ppm",
+      relationalRule: "Combined Chlorine = Total Chlorine − Free Chlorine. If the result is >= 0.2 ppm, breakpoint chlorination is required.",
+      sourceConfidence: "confirmed",
+    },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", minValue: 2.25, idealMin: 2.25, idealMax: 4.0, maxValue: 4.0, hazardMin: 2.25, hazardMax: 4.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "SPA", minValue: 2.25, idealMin: 3.0, idealMax: 5.0, maxValue: 5.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "PH", minValue: 7.0, idealMin: 7.4, idealMax: 7.6, maxValue: 7.8, hazardMin: 7.0, hazardMax: 7.8, unit: "", sourceConfidence: "confirmed", notes: "Also the explicit immediate-closure trigger per 'When to Close a Pool'." },
+    {
+      parameter: "TOTAL_ALKALINITY",
+      appliesWhen: "unstabilized sanitizer (no CYA present)",
+      minValue: 60,
+      idealMin: 80,
+      idealMax: 100,
+      maxValue: 180,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      relationalRule: "Target range depends on both sanitizer type AND whether CYA is present -- not a single fixed range (see the stabilized/CYA-present variant of this threshold).",
+    },
+    {
+      parameter: "TOTAL_ALKALINITY",
+      appliesWhen: "stabilized sanitizer / CYA present",
+      minValue: 60,
+      idealMin: 100,
+      idealMax: 120,
+      maxValue: 180,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+    },
+    {
+      parameter: "CYANURIC_ACID",
+      idealMin: 25,
+      idealMax: 40,
+      maxValue: 90,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CYA above 50 ppm is called out as 'high' -- known to interfere with alkalinity readings, chlorine kill time, and ORP sensor accuracy. A soft-warning threshold distinct from the hard 90 ppm max; not modeled as a separate hazard tier here.",
+    },
+    { parameter: "TDS", minValue: 300, idealMin: 1000, idealMax: 2000, maxValue: 3000, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "CALCIUM_HARDNESS", minValue: 150, idealMin: 200, idealMax: 400, maxValue: 1000, unit: "ppm", sourceConfidence: "confirmed", notes: "Source table shows the max as a range, '500-1,000' -- seeded as 1000 (the upper bound); flagged in case the lower end (500) turns out to be the intended ceiling." },
+    { parameter: "HEAVY_METALS", unit: "", sourceConfidence: "confirmed", notes: "No routine threshold -- suspect-only testing, not part of the regular cadence." },
+    { parameter: "TEMPERATURE", bodyOfWaterCategory: "SPA", maxValue: 104, unit: "°F", sourceConfidence: "confirmed" },
+    { parameter: "ORP", minValue: 650, unit: "mV", sourceConfidence: "confirmed", notes: "Supplemental measurement only -- does not replace the DPD test." },
+  ],
+  frequencyRules: [
+    { parameter: "FREE_CHLORINE", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "BROMINE", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "PH", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "TOTAL_ALKALINITY", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "ORP", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "COMBINED_CHLORINE", cadence: "weekly", intervalMinutes: 10080 },
+    { parameter: "CYANURIC_ACID", cadence: "weekly", intervalMinutes: 10080 },
+    { parameter: "TDS", cadence: "monthly", intervalMinutes: 43200 },
+    { parameter: "CALCIUM_HARDNESS", cadence: "monthly", intervalMinutes: 43200 },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "CLARITY_FAILURE",
+      triggerLabel: "Main drain not visible from deck",
+      closureKind: "UNTIL_RETEST_PASSES",
+      reopeningCondition: "Restore clarity so the main drain is visible from the deck.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "SAFETY_HAZARD",
+      triggerLabel: "Non-chemistry immediate closure trigger",
+      closureKind: "UNTIL_RETEST_PASSES",
+      reopeningCondition:
+        "Hazard resolved. For lightning/tornado warnings specifically: wait 30 minutes after the last thunder/lightning before reopening (the '30/30 rule').",
+      remediationSteps:
+        "Covers: missing/broken main drain cover, electrical hazard, power outage, drowning, lack of required lifeguard supervision, no emergency phone access, structural hazard, missing safety equipment, no barrier/gate, lightning within 10 miles or tornado warning, flooding, salt cell malfunction with no backup tablet feeder, flow meter out of range, unblocked vacuum port, no lifeline where required (>5.5 ft depth).",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "FECAL_FORMED",
+      triggerLabel: "Formed stool",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 30,
+      reopeningCondition: "Free chlorine raised to and confirmed at >= 2.0 ppm, pH <= 7.5, maintained for 30 minutes with filtration running.",
+      remediationSteps: "Clear pool -> remove stool with net/scoop (never a pool vacuum) -> raise free chlorine to >= 2.0 ppm -> pH <= 7.5 -> maintain 30 minutes with filtration running -> confirm FC before reopening.",
+      notes: "Assumes CYA < 50 ppm; higher CYA roughly doubles the required treatment time (reduces chlorine's effective killing power).",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "FECAL_DIARRHEAL",
+      triggerLabel: "Diarrheal stool",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 765,
+      reopeningCondition: "Free chlorine raised to 20 ppm, pH <= 7.5 (critical), maintained for 12.75 hours with filtration running continuously; FC confirmed back to normal range before reopening.",
+      remediationSteps: "Clear pool -> remove matter -> raise free chlorine to 20 ppm -> pH <= 7.5 -> maintain 12.75 hours, filtration running continuously -> backwash filter after treatment -> confirm FC returned to normal range.",
+      notes: "Assumes CYA < 50 ppm; higher CYA roughly doubles the required treatment time.",
+      sourceConfidence: "confirmed",
+    },
+  ],
+  complianceNotes: [],
+};
+
+const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA, ARKANSAS];
 
 async function main() {
   const arg = process.argv[2]?.toUpperCase();
