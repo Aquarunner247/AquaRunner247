@@ -126,8 +126,10 @@ model Organization {
 /// other state exists as a stub (isSupported:false, name-only) so the data model is ready
 /// to populate as more states' sheets/rules are gathered. County-level granularity
 /// (SNHD is a Clark County entity, not a Nevada state agency) is deliberately deferred --
-/// the `county` field below is reserved for that so this model doesn't need reworking
-/// from scratch when it's needed.
+/// per-state chemistry/frequency/event data lives in the four child models below --
+/// see COMPLIANCE_RULESET_NOTES.md for the full design rationale (real 9-state
+/// regulatory data revealed rule shapes -- curves, cross-method dependencies, event
+/// protocols, repeated-failure closures -- that a flat per-state row can't represent).
 model ComplianceRuleset {
   id                   String  @id @default(cuid())
   /// USPS 2-letter code, e.g. "NV". "DC" included alongside the 50 states.
@@ -138,36 +140,41 @@ model ComplianceRuleset {
   /// compliance features (QR inspector logs, closure-risk banners, rule engine) show at
   /// all for accounts linked to this ruleset.
   isSupported          Boolean @default(false)
-  /// Reserved for future county-level granularity (e.g. SNHD/Clark County) -- unused today.
-  county               String?
 
-  // Chemistry rules -- populated only once isSupported is true; all null on stub records.
-  cyaTestFrequencyDays   Int?
-  freeChlorineMinPoolPpm Decimal? @db.Decimal(6, 2)
-  freeChlorineMinSpaPpm  Decimal? @db.Decimal(6, 2)
-  freeChlorineMaxPpm     Decimal? @db.Decimal(6, 2)
-  phTargetMin            Decimal? @db.Decimal(4, 2)
-  phTargetMax            Decimal? @db.Decimal(4, 2)
-  phHazardMin            Decimal? @db.Decimal(4, 2)
-  phHazardMax            Decimal? @db.Decimal(4, 2)
-  alkalinityTargetMinPpm Decimal? @db.Decimal(8, 2)
-  alkalinityTargetMaxPpm Decimal? @db.Decimal(8, 2)
-  cyaTargetMinPpm        Decimal? @db.Decimal(8, 2)
-  cyaTargetMaxPpm        Decimal? @db.Decimal(8, 2)
-  cyaHazardMaxPpm        Decimal? @db.Decimal(8, 2)
-  /// Reopening fee after a closure-risk hazard reading, if this health department charges
-  /// one -- shown in the closure-hazard banner when set. Free text note alongside it since
-  /// fee structures/conditions vary by department.
-  closureFeeAmount Decimal? @db.Decimal(10, 2)
-  closureFeeNote   String?
+  /// STATE: genuinely state-level (Alaska, Arkansas, Colorado, Florida).
+  /// COUNTY: source regulation is a county health department's own code (Nevada/SNHD =
+  /// Clark County, Alabama = Baldwin County, Arizona = Maricopa County).
+  /// COUNTY_DISTRIBUTED_STATE_DERIVED: the regulation itself is state-level but the log
+  /// sheet form is county-branded (California/Sacramento County) -- kept as its own
+  /// value rather than silently picked as STATE or COUNTY; see the matching
+  /// ComplianceNote on that record.
+  jurisdictionLevel String?
+  countyName        String?
 
-  // Reference/documentation -- backs the in-app state code reference page.
-  codeReferenceLabel  String?
-  codeReferenceUrl    String?
+  /// e.g. "5 CCR 1003-5", "18 AAC 30", "CT Public Health Code § 19-13-B33b"
+  officialCitation String?
+  /// The actual source document(s) extracted from, e.g. "Guidelines for Arkansas Pools,
+  /// Spas, and Other Aquatic Facility Operators -- Updated Edition, 2026"
+  sourceDocument String?
+  /// How long operating logs must be retained on file, in months (12 for AL/AZ, 24 for
+  /// CA, null where the source doesn't state one).
+  recordRetentionMonths Int?
+
+  logSheetSource      LogSheetSource?
   logSheetSourceLabel String?
   logSheetSourceNotes String?
-  /// Markdown body rendered on the in-app state code reference page for supported states.
+
+  codeReferenceLabel String?
+  codeReferenceUrl   String?
+  /// Markdown body rendered on the in-app state code reference page. Only populated for
+  /// Nevada so far -- extending the reference page to the other 8 states is a separate
+  /// pass (see COMPLIANCE_RULESET_NOTES.md).
   referenceContent String? @db.Text
+
+  chemistryThresholds ChemistryThreshold[]
+  frequencyRules      FrequencyRule[]
+  eventProtocols      EventProtocol[]
+  complianceNotes     ComplianceNote[]
 
   organizations Organization[]
 
@@ -175,6 +182,179 @@ model ComplianceRuleset {
   updatedAt DateTime @updatedAt
 
   @@index([isSupported])
+}
+
+enum LogSheetSource {
+  /// An actual official fill-in form exists; the app replicates it.
+  STATE_PROVIDED
+  /// No official form exists; log sheet fields were derived from the regulation text.
+  BUILT_FROM_CODE
+}
+
+enum DisinfectionMethod {
+  CHLORINE
+  BROMINE
+  HYDROGEN_PEROXIDE
+  COPPER_ION
+  SILVER_ION
+  OZONE
+  /// For method-agnostic parameters: pH, alkalinity, hardness, temperature, CYA, etc.
+  NOT_APPLICABLE
+}
+
+/// One row per parameter x context (body-of-water type, disinfection method, indoor/
+/// outdoor, or a conditional like "if CYA used") -- see COMPLIANCE_RULESET_NOTES.md.
+/// `parameter` and `bodyOfWaterCategory` are deliberately free-text, not enums: new
+/// parameters (ORP, ion generators, saturation index) and facility subtypes (swim-up
+/// bars, spray grounds) keep appearing per state, and the whole point of this model is
+/// that a new state is a data-entry exercise, not a schema change.
+model ChemistryThreshold {
+  id                  String            @id @default(cuid())
+  complianceRulesetId String
+  complianceRuleset   ComplianceRuleset @relation(fields: [complianceRulesetId], references: [id], onDelete: Cascade)
+
+  parameter           String
+  disinfectionMethod  DisinfectionMethod @default(NOT_APPLICABLE)
+  /// e.g. "POOL", "SPA", "WADING_POOL", "SPRAY_GROUND", "SWIM_UP_BAR". Null = applies to
+  /// all body types. Not the app's BodyOfWaterType enum on purpose -- see notes doc.
+  bodyOfWaterCategory String?
+  indoorOutdoor       String?
+  /// Free-text condition this row is scoped to (e.g. "if CYA used", "with supplemental
+  /// oxidizer"). Descriptive, not an evaluated expression -- see notes doc's "What's
+  /// deliberately NOT built" section. Null = unconditional.
+  appliesWhen         String?
+
+  minValue Decimal? @db.Decimal(10, 3)
+  idealMin Decimal? @db.Decimal(10, 3)
+  idealMax Decimal? @db.Decimal(10, 3)
+  maxValue Decimal? @db.Decimal(10, 3)
+  /// A separate, optional tier that triggers closure risk specifically -- distinct from
+  /// the routine min/max above (Nevada's pH hazard band 6.5-8.0 vs. its 7.2-7.8 target).
+  /// Most states collected so far only have one tier; hazardMin/Max stay null there.
+  hazardMin Decimal? @db.Decimal(10, 3)
+  hazardMax Decimal? @db.Decimal(10, 3)
+  unit      String?
+
+  /// Cross-field/cross-method checks that aren't a flat range against this parameter
+  /// alone (Alabama's CYA-conditional FC, Alaska's FAC > 0.5xTAC, Arkansas's Combined =
+  /// Total - Free, Colorado's ion generators requiring a 0.4ppm chlorine residual).
+  /// Stored faithfully as the regulation states it; not auto-evaluated this pass.
+  relationalRule String? @db.Text
+
+  /// Curve/table-based lookup in place of a flat threshold (Alaska's Table E, Colorado's
+  /// Graph #1 -- a second reading redefines this one's acceptable range via a lookup,
+  /// not a branch). curveDataPoints stays null until real tabulated values are sourced --
+  /// never fabricated.
+  isCurveBased     Boolean @default(false)
+  curveDescription String? @db.Text
+  curveDataPoints  Json?
+
+  /// "confirmed" | "assumption" | "conflict" | "gap"
+  sourceConfidence String?
+  notes            String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([complianceRulesetId])
+}
+
+/// One row per testing cadence. See COMPLIANCE_RULESET_NOTES.md for why intervalMinutes
+/// is a single canonical field covering both sub-day (Colorado's 2-hour spa bundle) and
+/// supra-day (Nevada's 30-day CYA cycle) frequencies.
+model FrequencyRule {
+  id                  String            @id @default(cuid())
+  complianceRulesetId String
+  complianceRuleset   ComplianceRuleset @relation(fields: [complianceRulesetId], references: [id], onDelete: Cascade)
+
+  /// Same free-text convention as ChemistryThreshold.parameter, or "ALL" for a bundled
+  /// reading (Colorado's spa disinfectant+pH+temperature bundle).
+  parameter           String
+  bodyOfWaterCategory String?
+  /// A property attribute (not a pool type) that changes frequency -- e.g.
+  /// "common_interest_development_under_25_units" (California's small-HOA exception).
+  facilityAttribute String?
+
+  cadence         String?
+  intervalMinutes Int?
+  /// California's combined-chlorine cadence is "whatever frequency maintains
+  /// compliance," not a stated number -- cadence/intervalMinutes hold the closest
+  /// stated approximation (if any); this flag says don't treat that as a hard interval.
+  isPerformanceBased Boolean @default(false)
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([complianceRulesetId])
+}
+
+/// Closures/reopening triggers that aren't a flat threshold breach -- incidents,
+/// equipment performance, lab results, repeated-failure rules, chemical-triggered
+/// testing obligations. See COMPLIANCE_RULESET_NOTES.md for the closureKind vocabulary.
+model EventProtocol {
+  id                  String            @id @default(cuid())
+  complianceRulesetId String
+  complianceRuleset   ComplianceRuleset @relation(fields: [complianceRulesetId], references: [id], onDelete: Cascade)
+
+  /// Free-text, same data-entry-extensible reasoning as ChemistryThreshold.parameter --
+  /// e.g. "FECAL_SOLID", "PATHOGEN_LAB_RESULT", "UV_DOSAGE_BELOW_MINIMUM", "CYA_IN_USE".
+  triggerType  String
+  triggerLabel String
+
+  /// "FIXED_DURATION" | "UNTIL_RETEST_PASSES" | "INDETERMINATE_LAB_RETEST" |
+  /// "N_CONSECUTIVE_FAILURES" | "DESCEND_BELOW_CEILING" | "EQUIPMENT_PERFORMANCE" |
+  /// "CHEMISTRY_HAZARD_THRESHOLD" | "CHEMICAL_TESTING_OBLIGATION"
+  closureKind String
+
+  minimumDurationMinutes      Int?
+  consecutiveFailuresRequired Int?
+  /// Described precisely enough to eventually encode (target chemical, direction,
+  /// value, hold time) but kept as text this pass -- e.g. "Free chlorine >= 2.0 ppm AND
+  /// pH <= 7.5, maintained 30 minutes", or Florida's descend-below-ceiling mirror case:
+  /// "Free chlorine <= 10.0 mg/L".
+  reopeningCondition String  @db.Text
+  remediationSteps   String? @db.Text
+
+  /// Chemical-triggered obligations (Florida: CYA/quat-ammonium/ozone/copper need a
+  /// dedicated test kit; silver needs a full lab analysis every six months).
+  requiresSeparateTestKit Boolean @default(false)
+  labAnalysisFrequency    String?
+
+  /// A real citation pointing elsewhere (Florida's fecal protocol defers to an external
+  /// CDC document) -- distinct from a `gap` ComplianceNote, which is missing information.
+  externalReferenceLabel String?
+  externalReferenceUrl   String?
+
+  /// Fee tied to this closure protocol, if any (Nevada's $909 SNHD reopening fee).
+  feeAmount Decimal? @db.Decimal(10, 2)
+  feeNote   String?
+
+  sourceConfidence String?
+  notes            String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([complianceRulesetId])
+}
+
+/// Structured record of every flagged gap/conflict/assumption from the source data --
+/// exists so "do not silently resolve or guess at any flagged item" is enforced by the
+/// schema itself, not left to a comment that could be forgotten.
+model ComplianceNote {
+  id                  String            @id @default(cuid())
+  complianceRulesetId String
+  complianceRuleset   ComplianceRuleset @relation(fields: [complianceRulesetId], references: [id], onDelete: Cascade)
+
+  kind    String
+  summary String  @db.Text
+  detail  String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([complianceRulesetId])
 }
 
 model ManagementCompany {

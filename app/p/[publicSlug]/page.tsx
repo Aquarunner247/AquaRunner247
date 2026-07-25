@@ -55,7 +55,15 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
           city: true,
           region: true,
           customer: { select: { name: true } },
-          organization: { select: { businessName: true, businessPhone: true, complianceRuleset: true } },
+          organization: {
+            select: {
+              businessName: true,
+              businessPhone: true,
+              complianceRuleset: {
+                include: { chemistryThresholds: true, frequencyRules: true, eventProtocols: true },
+              },
+            },
+          },
         },
       },
     },
