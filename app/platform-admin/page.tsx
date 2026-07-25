@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
@@ -40,10 +41,15 @@ export default async function PlatformAdminPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
-      <header className="border-b border-brand-border pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Platform</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Companies</h1>
-        <p className="mt-1 text-sm text-brand-muted">Every company that has signed up, across all organizations.</p>
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-brand-border pb-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Platform</p>
+          <h1 className="text-2xl font-semibold text-brand-ink">Companies</h1>
+          <p className="mt-1 text-sm text-brand-muted">Every company that has signed up, across all organizations.</p>
+        </div>
+        <Link href="/platform-admin/compliance" className="app-btn-secondary-sm">
+          Compliance data preview →
+        </Link>
       </header>
 
       {waitingList.length > 0 ? (
