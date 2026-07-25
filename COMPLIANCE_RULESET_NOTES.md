@@ -5,6 +5,31 @@ schema/migration work per `claude-code-handoff-compliance-ruleset.md`. Source: t
 patterns indexed in `state-compliance-data.md`'s "★ ARCHITECTURE NOTES" section, checked
 against real data from Nevada + 8 new states.
 
+## Current coverage (as of this pass)
+
+All 9 states from `state-compliance-data.md` are seeded via
+`prisma/seed-compliance-data.ts` (run one at a time, one commit each, per the handoff's
+build order): Nevada, Connecticut, Alabama, Alaska, Arizona, Arkansas, California,
+Colorado, Florida. Every other state (all 50 + DC) has a bare stub row from
+`prisma/seed-compliance-rulesets.ts`.
+
+**`isSupported` is only ever `true` for Nevada.** The app's actual consumption code
+(`lib/compliance.ts`) only knows how to derive its four gated parameters (chlorine, pH,
+alkalinity, CYA) Nevada-shaped, with per-field fallbacks to *Nevada's own numbers* for a
+row that's missing a value. Flipping any of the other 8 states to `isSupported: true`
+today would make the app silently show Nevada's hazard thresholds for that state's
+genuinely-unstated fields (Connecticut's missing closure threshold, Colorado's missing
+non-oxidizer FC minimum, etc.) — exactly the anti-pattern the handoff's gap-handling
+section warns against. Turning a new state on is a deliberate follow-up decision once:
+1. a per-state consumption path is built (or the four-parameter special-casing is
+   generalized) so a state's *own* gaps surface as "not available" rather than a
+   Nevada-shaped fallback, and
+2. the in-app state-code reference page is extended past Nevada (currently only Nevada
+   has `referenceContent` written).
+
+Every state's real data is fully seeded and queryable today regardless of `isSupported`
+— this only gates what the *existing UI* does with it, not whether the data exists.
+
 ## Scope of this pass
 
 This pass builds a schema that can **faithfully store** every pattern below without
