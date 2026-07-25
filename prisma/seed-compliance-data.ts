@@ -660,7 +660,176 @@ const CALIFORNIA: StateSeed = {
   ],
 };
 
-const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA, ARKANSAS, CALIFORNIA];
+// ---------------------------------------------------------------------------
+// Colorado -- the most structurally complex state collected: four parallel disinfection
+// methods (chlorine/bromine/hydrogen peroxide/copper+silver ion) each with a full
+// threshold set (disinfectionMethod axis), a cross-method dependency (ion generators
+// only valid alongside a 0.4ppm chlorine residual), a per-parameter frequency matrix by
+// body-of-water type (not just one cadence per type), and the first repeated-failure
+// closure trigger (two consecutive bacterial samples, not one).
+// ---------------------------------------------------------------------------
+const COLORADO: StateSeed = {
+  state: "CO",
+  ruleset: {
+    stateName: "Colorado",
+    healthDepartmentName: "Colorado Department of Public Health and Environment (CDPHE), Water Quality Control Division",
+    isSupported: false,
+    jurisdictionLevel: "STATE",
+    officialCitation: "5 CCR 1003-5 (Swimming Pools and Mineral Baths), Section 4.7 Table 1 (chemistry), Section 4.9 (record-keeping frequency)",
+    logSheetSource: "BUILT_FROM_CODE",
+  },
+  chemistryThresholds: [
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
+      appliesWhen: "with an approved supplemental oxidizer",
+      minValue: 0.25,
+      maxValue: 5.0,
+      idealMin: 1.0,
+      idealMax: 3.0,
+      unit: "ppm",
+      sourceConfidence: "gap",
+      notes: "The minimum WITHOUT a supplemental oxidizer isn't stated in this excerpt -- see ComplianceNote. 0.25 only applies with an approved oxidizer.",
+    },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "SPA",
+      appliesWhen: "with an approved supplemental oxidizer",
+      minValue: 0.25,
+      maxValue: 5.0,
+      idealMin: 3.0,
+      idealMax: 5.0,
+      unit: "ppm",
+      sourceConfidence: "gap",
+      notes: "Same unstated non-oxidizer minimum gap as the pool row above.",
+    },
+    { parameter: "COMBINED_CHLORINE", minValue: 0.0, maxValue: 1.0, idealMin: 0, idealMax: 0, unit: "ppm", sourceConfidence: "confirmed", notes: "Ideal is none at all." },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", minValue: 1.5, maxValue: 5.0, idealMin: 2.0, idealMax: 3.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "SPA", minValue: 2.0, maxValue: 10.0, idealMin: 3.0, idealMax: 5.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "TOTAL_ALKALINITY", minValue: 70, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed", notes: "Ideal range varies by pool finish/disinfectant -- consult manufacturer; not a fixed ideal range." },
+    { parameter: "PH", minValue: 7.2, maxValue: 8.0, idealMin: 7.4, idealMax: 7.6, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "CALCIUM_HARDNESS", minValue: 150, maxValue: 600, idealMin: 200, idealMax: 400, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "TEMPERATURE", minValue: 77, maxValue: 104, idealMin: 82, idealMax: 84, unit: "°F", sourceConfidence: "confirmed", notes: "Includes spas/therapy pools. 82-84 is a recommended general-use ideal, not a hard requirement." },
+    {
+      parameter: "ORP",
+      minValue: 250,
+      maxValue: 900,
+      idealMin: 650,
+      idealMax: 850,
+      unit: "mV",
+      isCurveBased: true,
+      curveDescription: "Ideal/required range stated as 'at a pH of 7.5, and in accordance with Graph #1' -- a chlorine-ppm/pH/ORP three-variable chart.",
+      sourceConfidence: "gap",
+      notes: "Graph #1's underlying data points aren't extractable from this excerpt (a plotted chart, not a table) -- same open-item shape as Alaska's Table E.",
+    },
+    { parameter: "HYDROGEN_PEROXIDE", disinfectionMethod: "HYDROGEN_PEROXIDE", minValue: 20, maxValue: 100, idealMin: 30, idealMax: 40, unit: "ppm", sourceConfidence: "confirmed" },
+    {
+      parameter: "COPPER_ION",
+      disinfectionMethod: "COPPER_ION",
+      minValue: 0.25,
+      maxValue: 0.95,
+      idealMin: 0.3,
+      idealMax: 0.5,
+      unit: "ppm",
+      relationalRule: "Only valid in conjunction with a 0.4 ppm chlorine residual -- compliance depends on a second, different disinfectant's reading also being present and in range.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      parameter: "SILVER_ION",
+      disinfectionMethod: "SILVER_ION",
+      minValue: 15,
+      maxValue: 50,
+      idealMin: 25,
+      idealMax: 40,
+      unit: "ppm",
+      relationalRule: "Only valid in conjunction with a 0.4 ppm chlorine residual -- same cross-method dependency as the copper ion generator row above.",
+      sourceConfidence: "confirmed",
+    },
+    { parameter: "OZONE", disinfectionMethod: "OZONE", maxValue: 0.1, unit: "ppm", sourceConfidence: "confirmed", notes: "Supplemental oxidizer only -- no ideal range applies." },
+    { parameter: "SATURATION_INDEX", minValue: -0.5, maxValue: 0.5, idealMin: -0.2, idealMax: 0.2, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "CYANURIC_ACID", minValue: 20, maxValue: 100, idealMin: 20, idealMax: 40, unit: "ppm", sourceConfidence: "confirmed" },
+  ],
+  frequencyRules: [
+    // Pools (includes therapeutic and wading pools)
+    { parameter: "DISINFECTANT_AND_PH", bodyOfWaterCategory: "POOL", cadence: "3x/day", intervalMinutes: 480 },
+    { parameter: "TEMPERATURE", bodyOfWaterCategory: "POOL", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "SATURATION_INDEX", bodyOfWaterCategory: "POOL", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "ORP", bodyOfWaterCategory: "POOL", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "CALCIUM_HARDNESS", bodyOfWaterCategory: "POOL", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "TOTAL_ALKALINITY", bodyOfWaterCategory: "POOL", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "FLOWMETER", bodyOfWaterCategory: "POOL", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "CYANURIC_ACID", bodyOfWaterCategory: "POOL", cadence: "weekly", intervalMinutes: 10080 },
+    { parameter: "RESPIRATOR_CHECK", bodyOfWaterCategory: "POOL", cadence: "monthly", intervalMinutes: 43200, notes: "SCBA/canister-type respirator check and canister expiration check." },
+    // Spa/Hot Tub -- note temperature moves into the tighter 2-hour bundle here, unlike
+    // pools where it's only daily: the per-parameter-by-body-type matrix pattern.
+    {
+      parameter: "DISINFECTANT_PH_TEMPERATURE",
+      bodyOfWaterCategory: "SPA",
+      cadence: "every 2 hours",
+      intervalMinutes: 120,
+      notes: "Bundles disinfectant level, pH, AND temperature -- more granular than a single per-body-type cadence.",
+    },
+    { parameter: "FLOWMETER", bodyOfWaterCategory: "SPA", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "SATURATION_INDEX", bodyOfWaterCategory: "SPA", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "CALCIUM_HARDNESS", bodyOfWaterCategory: "SPA", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "TOTAL_ALKALINITY", bodyOfWaterCategory: "SPA", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "CYANURIC_ACID", bodyOfWaterCategory: "SPA", cadence: "weekly", intervalMinutes: 10080 },
+    { parameter: "RESPIRATOR_CHECK", bodyOfWaterCategory: "SPA", cadence: "monthly", intervalMinutes: 43200 },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "BACTERIAL_REPEATED_FAILURE",
+      triggerLabel: "Fecal coliform >1/100mL or plate count >200 bacteria/mL",
+      closureKind: "N_CONSECUTIVE_FAILURES",
+      consecutiveFailuresRequired: 2,
+      reopeningCondition: "Resolve the bacterial exceedance. Closure only triggers after two consecutive failed samples -- distinct from every single-reading chemistry-threshold closure collected so far.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "CLARITY_FAILURE",
+      triggerLabel: "Main drain grate not visible from deck",
+      closureKind: "UNTIL_RETEST_PASSES",
+      reopeningCondition: "Restore clarity so the grate is clearly visible; no algae or foreign matter permitted.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "FECAL_SOLID",
+      triggerLabel: "Solid feces",
+      closureKind: "UNTIL_RETEST_PASSES",
+      minimumDurationMinutes: 60,
+      reopeningCondition:
+        "If disinfection was already within required parameters at time of discovery: closed a minimum of 60 minutes, then reopens. If not: restore disinfection first, then reopen 60 minutes after acceptable levels are attained.",
+      remediationSteps: "Close pool, remove all bathers, remove solid matter, check water chemistry -> branch on whether disinfection was already compliant at time of discovery.",
+      notes: "A decision-tree shape not seen in Arizona's or Arkansas's otherwise-similar solid-feces protocols.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "FECAL_DIARRHEAL",
+      triggerLabel: "Diarrheal contamination",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 1440,
+      reopeningCondition: "Superchlorinate (or equivalent); remain closed 24 hours; reopen only if disinfection levels are within required parameters at that point.",
+      notes: "24-hour hold is longer than Arkansas's 12.75-hour diarrheal hold, despite Colorado's solid-feces hold (60 min) being shorter than Arkansas's (30 min) -- not a consistent multiplier between the two states.",
+      sourceConfidence: "confirmed",
+    },
+  ],
+  complianceNotes: [
+    {
+      kind: "GAP",
+      summary: "The free-chlorine minimum when NOT using a supplemental oxidizer isn't stated -- only the 0.25 ppm with-oxidizer case is given.",
+      detail: "Not inferred as a number; flagged via sourceConfidence=gap on both FREE_CHLORINE threshold rows (pool and spa).",
+    },
+    {
+      kind: "GAP",
+      summary: "The ORP/pH/chlorine graph (Graph #1) has the same no-extractable-data-points issue as Alaska's Table E.",
+      detail: "The source document includes an actual chart, but its underlying data points aren't extractable as clean numbers from this excerpt.",
+    },
+  ],
+};
+
+const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA, ARKANSAS, CALIFORNIA, COLORADO];
 
 async function main() {
   const arg = process.argv[2]?.toUpperCase();
