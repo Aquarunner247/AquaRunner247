@@ -1,13 +1,22 @@
 /**
  * Parses a CSV shaped like the downloadable QR-log spreadsheet
- * (see app/api/qr/[slug]/export/route.ts) — one row per day of a month, with the same
- * column set — so historical readings from before this app can be imported.
+ * (see app/api/qr/[slug]/export/route.ts) — one row per day, with the same column set —
+ * so historical readings from before this app can be imported. Normally that's one
+ * month per file, but rows whose day cell is a full date (not just a bare day number)
+ * carry their own month/year, so a file spanning several months works too -- see
+ * ImportedReadingRow.month/year and importVenueReadings' grouping in actions.ts.
  * Columns are matched by keyword, not exact position, so minor header differences
  * (capitalization, reordering) in a hand-edited spreadsheet don't break the import.
  */
 
 export type ImportedReadingRow = {
   day: number;
+  /** Non-null only when the cell had a full date (not just a bare day number) --
+   * lets the importer file a row under its own month/year instead of whatever
+   * single month the admin picked in the form, so a file spanning several months
+   * gets split correctly instead of every row landing in one month. */
+  month: number | null;
+  year: number | null;
   freeChlorinePpm: number | null;
   ph: number | null;
   alkalinityPpm: number | null;
@@ -70,39 +79,61 @@ function matchColumn(header: string): ColumnField | null {
   return null;
 }
 
+type ParsedDateCell = { day: number; month: number | null; year: number | null };
+
+/** "26" -> 2026, "98" -> 1998. Two-digit years only ever show up in hand-edited
+ * spreadsheets of recent readings, so a 1969/2068 split-century cutoff is plenty. */
+function normalizeTwoDigitYear(y: number): number {
+  if (y >= 100) return y;
+  return y >= 69 ? 1900 + y : 2000 + y;
+}
+
 /**
- * Extracts the day-of-month from a cell that might be a bare number ("7"),
- * or a full date in a few common formats: M/D/YYYY, M/D/YY, YYYY-MM-DD,
- * or anything else JS Date can parse. Assumes US month/day order for slash
- * dates, since that's the convention used everywhere else in this app.
+ * Extracts the day-of-month -- and, when the cell is a full date rather than a bare
+ * day number, the month/year too -- from formats: bare "7"/"07", M/D/YYYY, M/D/YY,
+ * YYYY-MM-DD, or anything else JS Date can parse. Assumes US month/day order for
+ * slash dates, since that's the convention used everywhere else in this app.
+ * month/year come back null whenever the cell doesn't actually carry that info (a
+ * bare day number) or the extra info looks invalid -- callers fall back to an
+ * explicitly-chosen month/year in that case, same as when this only returned a day.
  */
-function parseDayFromCell(raw: string): number | null {
+function parseDateFromCell(raw: string): ParsedDateCell | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
-  // Bare number, e.g. "7" or "07"
+  // Bare number, e.g. "7" or "07" -- day only, no month/year in the cell.
   if (/^\d{1,2}$/.test(trimmed)) {
     const bare = Number(trimmed);
-    if (bare >= 1 && bare <= 31) return bare;
+    if (bare >= 1 && bare <= 31) return { day: bare, month: null, year: null };
   }
 
   // M/D/YYYY or M/D/YY, e.g. 7/7/2026, 07/07/26
   const slash = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (slash) {
     const day = Number(slash[2]);
-    if (day >= 1 && day <= 31) return day;
+    const monthRaw = Number(slash[1]);
+    if (day >= 1 && day <= 31) {
+      const month = monthRaw >= 1 && monthRaw <= 12 ? monthRaw : null;
+      return { day, month, year: month != null ? normalizeTwoDigitYear(Number(slash[3])) : null };
+    }
   }
 
   // ISO format, e.g. 2026-07-07
   const iso = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (iso) {
     const day = Number(iso[3]);
-    if (day >= 1 && day <= 31) return day;
+    const monthRaw = Number(iso[2]);
+    if (day >= 1 && day <= 31) {
+      const month = monthRaw >= 1 && monthRaw <= 12 ? monthRaw : null;
+      return { day, month, year: month != null ? Number(iso[1]) : null };
+    }
   }
 
   // Fallback: let JS try to parse it (handles things like "July 7, 2026")
   const parsed = new Date(trimmed);
-  if (!Number.isNaN(parsed.getTime())) return parsed.getDate();
+  if (!Number.isNaN(parsed.getTime())) {
+    return { day: parsed.getDate(), month: parsed.getMonth() + 1, year: parsed.getFullYear() };
+  }
 
   return null;
 }
@@ -143,6 +174,8 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
     if (cells.every((c) => !c.trim())) continue;
 
     let day: number | null = null;
+    let month: number | null = null;
+    let year: number | null = null;
     let freeChlorinePpm: number | null = null;
     let ph: number | null = null;
     let alkalinityPpm: number | null = null;
@@ -161,8 +194,12 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
       const raw = cells[c] ?? "";
       switch (field) {
         case "day": {
-          const d = parseDayFromCell(raw);
-          if (d !== null) day = d;
+          const parsedDate = parseDateFromCell(raw);
+          if (parsedDate !== null) {
+            day = parsedDate.day;
+            month = parsedDate.month;
+            year = parsedDate.year;
+          }
           break;
         }
         case "backwashed":
@@ -205,6 +242,8 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
 
     rows.push({
       day,
+      month,
+      year,
       freeChlorinePpm,
       ph,
       alkalinityPpm,

@@ -400,96 +400,130 @@ export async function importVenueReadings(formData: FormData) {
   if (error) fail(error);
   if (rows.length === 0) fail("No day rows with data were found in this file.");
 
-  const monthIndex = month - 1;
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  // Rows whose day cell was a full date carry their own month/year (see
+  // ImportedReadingRow.month/year) -- group by that so a file spanning several
+  // months gets each row filed under its actual date instead of every row landing
+  // in the single month picked above. Bare day-only rows (no month/year in the
+  // cell) fall back to that picked month/year, same as before this existed.
+  const groups = new Map<string, { year: number; month: number; rows: typeof rows }>();
+  for (const row of rows) {
+    const effYear = row.year ?? year;
+    const effMonth = row.month ?? month;
+    const key = `${effYear}-${effMonth}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.rows.push(row);
+    } else {
+      groups.set(key, { year: effYear, month: effMonth, rows: [row] });
+    }
+  }
 
   let importedCount = 0;
-  for (const row of rows) {
-    if (row.day < 1 || row.day > daysInMonth) continue;
+  const monthSummaries: { label: string; count: number }[] = [];
 
-    const hasData =
-      row.freeChlorinePpm != null ||
-      row.ph != null ||
-      row.alkalinityPpm != null ||
-      row.cyanuricAcidPpm != null ||
-      row.temperatureF != null ||
-      row.pumpPressurePsi != null ||
-      row.vacGaugeReading != null ||
-      row.filterPressurePsi != null ||
-      row.flowMeterGpm != null ||
-      row.backwashed;
-    if (!hasData) continue;
+  for (const group of groups.values()) {
+    const monthIndex = group.month - 1;
+    const daysInMonth = new Date(group.year, monthIndex + 1, 0).getDate();
+    let groupCount = 0;
 
-    const dayStart = new Date(year, monthIndex, row.day, 0, 0, 0, 0);
-    const dayEnd = new Date(year, monthIndex, row.day, 23, 59, 59, 999);
-    const noon = new Date(year, monthIndex, row.day, 12, 0, 0, 0);
+    for (const row of group.rows) {
+      if (row.day < 1 || row.day > daysInMonth) continue;
 
-    let visit = await prisma.serviceVisit.findFirst({
-      where: { bodyOfWaterId: body.id, completedAt: { gte: dayStart, lte: dayEnd } },
-      select: { id: true },
-    });
-    if (!visit) {
-      visit = await prisma.serviceVisit.create({
-        data: {
-          organizationId: appUser.organizationId,
-          propertyId: body.propertyId,
-          bodyOfWaterId: body.id,
-          scheduledStart: noon,
-          status: "COMPLETED",
-          serviceComplete: true,
-          completedAt: noon,
-        },
+      const hasData =
+        row.freeChlorinePpm != null ||
+        row.ph != null ||
+        row.alkalinityPpm != null ||
+        row.cyanuricAcidPpm != null ||
+        row.temperatureF != null ||
+        row.pumpPressurePsi != null ||
+        row.vacGaugeReading != null ||
+        row.filterPressurePsi != null ||
+        row.flowMeterGpm != null ||
+        row.backwashed;
+      if (!hasData) continue;
+
+      const dayStart = new Date(group.year, monthIndex, row.day, 0, 0, 0, 0);
+      const dayEnd = new Date(group.year, monthIndex, row.day, 23, 59, 59, 999);
+      const noon = new Date(group.year, monthIndex, row.day, 12, 0, 0, 0);
+
+      let visit = await prisma.serviceVisit.findFirst({
+        where: { bodyOfWaterId: body.id, completedAt: { gte: dayStart, lte: dayEnd } },
         select: { id: true },
       });
+      if (!visit) {
+        visit = await prisma.serviceVisit.create({
+          data: {
+            organizationId: appUser.organizationId,
+            propertyId: body.propertyId,
+            bodyOfWaterId: body.id,
+            scheduledStart: noon,
+            status: "COMPLETED",
+            serviceComplete: true,
+            completedAt: noon,
+          },
+          select: { id: true },
+        });
+      }
+
+      let backwashAt: Date | null = null;
+      if (row.backwashed) {
+        const parsedTime = row.backwashTime ? parseTimeOfDay(row.backwashTime) : null;
+        backwashAt = parsedTime
+          ? new Date(group.year, monthIndex, row.day, parsedTime.hours, parsedTime.minutes, 0, 0)
+          : noon;
+      }
+
+      await prisma.visitWaterReading.upsert({
+        where: { visitId: visit.id },
+        create: {
+          visitId: visit.id,
+          ph: row.ph,
+          freeChlorinePpm: row.freeChlorinePpm,
+          alkalinityPpm: row.alkalinityPpm,
+          cyanuricAcidPpm: row.cyanuricAcidPpm,
+          temperatureF: row.temperatureF,
+          pumpPressurePsi: row.pumpPressurePsi,
+          vacGaugeReading: row.vacGaugeReading,
+          filterPressurePsi: row.filterPressurePsi,
+          flowMeterGpm: row.flowMeterGpm,
+          backwashAt,
+          capturedAt: noon,
+        },
+        update: {
+          ph: row.ph,
+          freeChlorinePpm: row.freeChlorinePpm,
+          alkalinityPpm: row.alkalinityPpm,
+          cyanuricAcidPpm: row.cyanuricAcidPpm,
+          temperatureF: row.temperatureF,
+          pumpPressurePsi: row.pumpPressurePsi,
+          vacGaugeReading: row.vacGaugeReading,
+          filterPressurePsi: row.filterPressurePsi,
+          flowMeterGpm: row.flowMeterGpm,
+          backwashAt,
+          capturedAt: noon,
+        },
+      });
+
+      groupCount += 1;
     }
 
-    let backwashAt: Date | null = null;
-    if (row.backwashed) {
-      const parsedTime = row.backwashTime ? parseTimeOfDay(row.backwashTime) : null;
-      backwashAt = parsedTime
-        ? new Date(year, monthIndex, row.day, parsedTime.hours, parsedTime.minutes, 0, 0)
-        : noon;
+    if (groupCount > 0) {
+      const label = new Date(group.year, monthIndex, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+      monthSummaries.push({ label, count: groupCount });
     }
-
-    await prisma.visitWaterReading.upsert({
-      where: { visitId: visit.id },
-      create: {
-        visitId: visit.id,
-        ph: row.ph,
-        freeChlorinePpm: row.freeChlorinePpm,
-        alkalinityPpm: row.alkalinityPpm,
-        cyanuricAcidPpm: row.cyanuricAcidPpm,
-        temperatureF: row.temperatureF,
-        pumpPressurePsi: row.pumpPressurePsi,
-        vacGaugeReading: row.vacGaugeReading,
-        filterPressurePsi: row.filterPressurePsi,
-        flowMeterGpm: row.flowMeterGpm,
-        backwashAt,
-        capturedAt: noon,
-      },
-      update: {
-        ph: row.ph,
-        freeChlorinePpm: row.freeChlorinePpm,
-        alkalinityPpm: row.alkalinityPpm,
-        cyanuricAcidPpm: row.cyanuricAcidPpm,
-        temperatureF: row.temperatureF,
-        pumpPressurePsi: row.pumpPressurePsi,
-        vacGaugeReading: row.vacGaugeReading,
-        filterPressurePsi: row.filterPressurePsi,
-        flowMeterGpm: row.flowMeterGpm,
-        backwashAt,
-        capturedAt: noon,
-      },
-    });
-
-    importedCount += 1;
+    importedCount += groupCount;
   }
 
   if (importedCount === 0) fail("No day rows with any readings were found in this file.");
 
   revalidatePath(`/dashboard/customers/${customerId}`);
   revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
-  redirect(`/dashboard/customers/${customerId}/bodies/${bodyId}?imported=${importedCount}`);
+
+  const redirectParams = new URLSearchParams({ imported: String(importedCount) });
+  if (monthSummaries.length > 1) {
+    redirectParams.set("importedMonths", monthSummaries.map((m) => `${m.label}: ${m.count}`).join(", "));
+  }
+  redirect(`/dashboard/customers/${customerId}/bodies/${bodyId}?${redirectParams.toString()}`);
 }
 
 function parseEquipmentFields(formData: FormData) {
