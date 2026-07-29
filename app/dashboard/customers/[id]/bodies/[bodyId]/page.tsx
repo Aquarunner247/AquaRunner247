@@ -172,6 +172,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
             <p>Imported {sp.imported} day(s) of readings.</p>
             {sp.importedMonths ? (
               <p className="mt-0.5 font-normal text-brand-ok">Detected multiple months — {sp.importedMonths}.</p>
+
             ) : null}
           </div>
         ) : null}
