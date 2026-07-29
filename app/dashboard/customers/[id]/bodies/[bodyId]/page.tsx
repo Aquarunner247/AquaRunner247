@@ -13,7 +13,7 @@ import { FilterTypeFields } from "@/app/components/filter-type-fields";
 
 type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
-  searchParams?: Promise<{ imported?: string; importError?: string }>;
+  searchParams?: Promise<{ imported?: string; importError?: string; importedMonths?: string }>;
 };
 
 const MONTH_NAMES = [
@@ -161,11 +161,19 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         <h2 className="text-base font-semibold text-slate-900">Import historical readings</h2>
         <p className="mt-1 text-sm text-slate-500">
           Upload a spreadsheet shaped like the downloadable QR-log CSV (one row per day, same columns) to backfill
-          readings from before this app was in use. Existing days in the same month are updated, not duplicated.
+          readings from before this app was in use. If a row&apos;s day cell is a full date rather than a bare day
+          number, its own month/year is used, so a file spanning several months is filed under the right month
+          automatically — the Month/Year below are only a fallback for rows that just give a day number. Existing
+          days are updated, not duplicated.
         </p>
 
         {sp.imported ? (
-          <p className="mt-2 text-sm font-medium text-emerald-700">Imported {sp.imported} day(s) of readings.</p>
+          <div className="mt-2 text-sm font-medium text-emerald-700">
+            <p>Imported {sp.imported} day(s) of readings.</p>
+            {sp.importedMonths ? (
+              <p className="mt-0.5 font-normal text-emerald-600">Detected multiple months — {sp.importedMonths}.</p>
+            ) : null}
+          </div>
         ) : null}
         {sp.importError ? <p className="mt-2 text-sm text-red-600">{sp.importError}</p> : null}
 
