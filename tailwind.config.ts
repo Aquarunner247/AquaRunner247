@@ -17,26 +17,48 @@ const config: Config = {
         display: ["var(--font-display)", "var(--font-body)", "system-ui", "sans-serif"],
       },
       colors: {
-        // The app's actual brand palette (navy/blue/coral) previously only existed as
-        // one-off hex literals scattered across ~15 files, while most dashboard pages
-        // ran on the generic teal/slate defaults baked into globals.css's .app-* classes.
-        // Centralizing it here lets every component reference the same tokens.
+        // Core system: deep navy + pool-water teal + coral accent, grounded in what this
+        // product actually is (technicians reading water chemistry outdoors, on phones) —
+        // not a generic SaaS palette. Every dashboard surface should draw from this set
+        // rather than one-off hex literals. `blue`/`blueDark`/`sky`/etc are kept as aliases
+        // of the teal family so existing .app-* consumers (forms, links) shift automatically.
         brand: {
-          navy: "#12234A",
-          navyLight: "#1B3364",
-          blue: "#0A5FA4",
-          blueDark: "#084A82",
-          sky: "#A9D3E0",
-          border: "#C9E3EC",
-          mist: "#EAF6FA",
-          icon: "#7FA0AC",
-          coral: "#E29B8F",
-          alert: "#FF6B5B",
+          navy: "#0F2A3D",
+          navyLight: "#1C4257",
+          teal: "#1F8A80",
+          tealDark: "#146A62",
+          coral: "#E2775E",
+          coralDark: "#C65D46",
+          ink: "#16242B",
+          surface: "#F5F8F7",
+          foam: "#E6F3F1",
+          border: "#CFE3E0",
+          icon: "#6E8E8A",
+          // Aliases so existing usages of brand-blue/brand-sky/brand-mist/brand-alert
+          // continue to resolve, now pointed at the new teal-forward palette.
+          blue: "#1F8A80",
+          blueDark: "#146A62",
+          sky: "#9FCFC8",
+          mist: "#E6F3F1",
+          alert: "#E2775E",
         },
       },
       boxShadow: {
-        soft: "0 8px 30px -12px rgba(18, 35, 74, 0.14)",
-        nav: "0 4px 24px -8px rgba(18, 35, 74, 0.10)",
+        soft: "0 8px 30px -12px rgba(15, 42, 61, 0.16)",
+        softLg: "0 16px 40px -16px rgba(15, 42, 61, 0.22)",
+        nav: "0 4px 24px -8px rgba(15, 42, 61, 0.10)",
+      },
+      transitionDuration: {
+        DEFAULT: "180ms",
+      },
+      keyframes: {
+        waveDrift: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+      },
+      animation: {
+        "wave-drift": "waveDrift 6s linear infinite",
       },
     },
   },

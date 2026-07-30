@@ -98,7 +98,7 @@ function computeAutoArrivalEligibleIds(visits: RouteStop[]): Set<string> {
 function StatusBadge({ status }: { status: string }) {
   if (status === "COMPLETED") {
     return (
-      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#16A34A]">
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#1F8A80]">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="9" />
           <path d="M8 12.5l2.5 2.5L16 9.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -109,7 +109,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (status === "IN_PROGRESS") {
     return (
-      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#D97706]">
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#0F2A3D]">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
@@ -120,7 +120,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (status === "CANCELLED") {
     return (
-      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#FF6B5B]">
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#E2775E]">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="9" />
           <path d="M9 9l6 6M15 9l-6 6" strokeLinecap="round" />
@@ -259,7 +259,7 @@ export function RouteDayView({
     visits.forEach((v, idx) => {
       if (v.latitude == null || v.longitude == null) return;
       const isSkipped = v.status === "CANCELLED";
-      const color = isMultiTech ? technicianColors?.[v.technicianId ?? ""] ?? "#94A3B8" : "#0A5FA4";
+      const color = isMultiTech ? technicianColors?.[v.technicianId ?? ""] ?? "#94A3B8" : "#1F8A80";
       const glyph = isSkipped ? "×" : isMultiTech ? getTechnicianInitial(v.technicianLabel) : String(idx + 1);
       const icon = L.divIcon({
         className: "",
@@ -286,7 +286,7 @@ export function RouteDayView({
 
     if (points.length) {
       if (!isMultiTech) {
-        L.polyline(points, { color: "#0A5FA4", weight: 3, opacity: 0.6 }).addTo(layerRef.current!);
+        L.polyline(points, { color: "#1F8A80", weight: 3, opacity: 0.6 }).addTo(layerRef.current!);
       }
       mapRef.current.fitBounds(points, { padding: [30, 30] });
     }
@@ -420,7 +420,7 @@ export function RouteDayView({
         </p>
       ) : null}
       {locationState === "watching" ? (
-        <p className="mb-2 text-xs text-[#7FA0AC]">Location on — arrival time logs automatically when you reach a stop.</p>
+        <p className="mb-2 text-xs text-[#6E8E8A]">Location on — arrival time logs automatically when you reach a stop.</p>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         <div className={layout === "mapOnly" ? "hidden" : ""}>
@@ -429,7 +429,7 @@ export function RouteDayView({
               type="button"
               onClick={optimizeRoute}
               disabled={saving}
-              className="mb-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="mb-2 rounded bg-[#1F8A80] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
             >
               Optimize route (straight-line)
             </button>
@@ -441,7 +441,7 @@ export function RouteDayView({
               return (
                 <Fragment key={v.id}>
                   {techGroup ? (
-                    <li className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wide text-[#4A6572] first:pt-0">
+                    <li className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wide text-[#6E8E8A] first:pt-0">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: techGroup.color }} />
                       {techGroup.label} ({techGroup.count} stop{techGroup.count === 1 ? "" : "s"})
                     </li>
@@ -454,24 +454,24 @@ export function RouteDayView({
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => onDrop(idx)}
                     className={`flex items-center gap-3 rounded border p-2 ${
-                      isSkipped ? "border-[#FF6B5B] bg-[#FF6B5B]/10" : "border-[#C9E3EC] bg-white"
+                      isSkipped ? "border-[#E2775E] bg-[#E2775E]/10" : "border-[#CFE3E0] bg-white"
                     } ${!effectiveReadOnly ? "cursor-move" : ""}`}
                   >
                     <span
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
-                        isSkipped ? "bg-[#FF6B5B]" : isMultiTech ? "" : "bg-[#0A5FA4]"
+                        isSkipped ? "bg-[#E2775E]" : isMultiTech ? "" : "bg-[#1F8A80]"
                       }`}
                       style={!isSkipped && isMultiTech ? { backgroundColor: technicianColors?.[v.technicianId ?? ""] ?? "#94A3B8" } : undefined}
                     >
                       {isSkipped ? "Skip" : idx + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <Link href={`/dashboard/visits/${v.id}`} className="block truncate text-sm font-medium text-[#12234A] underline">
+                      <Link href={`/dashboard/visits/${v.id}`} className="block truncate text-sm font-medium text-[#0F2A3D] underline">
                         {v.propertyName} — {v.bodyName}
                       </Link>
-                      <p className="truncate text-xs text-[#4A6572]">{v.address || "No address on file"}</p>
+                      <p className="truncate text-xs text-[#6E8E8A]">{v.address || "No address on file"}</p>
                       {v.startedAt ? (
-                        <p className="text-xs font-medium text-[#0A5FA4]">
+                        <p className="text-xs font-medium text-[#1F8A80]">
                           Arrived {new Date(v.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                         </p>
                       ) : null}
@@ -488,7 +488,7 @@ export function RouteDayView({
                             return (
                               <Link
                                 href={`/dashboard/stops/${v.propertyId}?${params.toString()}`}
-                                className="mt-1 inline-block text-xs font-medium text-[#FF6B5B] underline"
+                                className="mt-1 inline-block text-xs font-medium text-[#E2775E] underline"
                               >
                                 Capture photos for all {count} stops here
                               </Link>
@@ -502,7 +502,7 @@ export function RouteDayView({
                         <button
                           type="button"
                           onClick={() => void toggleSkip(v)}
-                          className="rounded border border-[#C9E3EC] px-2 py-1 text-xs font-medium text-[#12234A]"
+                          className="rounded border border-[#CFE3E0] px-2 py-1 text-xs font-medium text-[#0F2A3D]"
                         >
                           {isSkipped ? "Unskip" : "Skip"}
                         </button>
@@ -514,12 +514,12 @@ export function RouteDayView({
                 </Fragment>
               );
             })}
-            {visits.length === 0 ? <p className="text-sm text-[#4A6572]">No stops for this day.</p> : null}
+            {visits.length === 0 ? <p className="text-sm text-[#6E8E8A]">No stops for this day.</p> : null}
           </ul>
         </div>
         <div className={layout === "listOnly" ? "hidden" : ""}>
           {technicianLegend && technicianLegend.length > 0 ? (
-            <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#4A6572]">
+            <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#6E8E8A]">
               {technicianLegend.map((t) => (
                 <span key={t.id} className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
@@ -528,7 +528,7 @@ export function RouteDayView({
               ))}
             </div>
           ) : null}
-          <div ref={mapDivRef} className={`${layout === "mapOnly" ? "h-[70vh]" : "h-[420px]"} w-full rounded-lg border border-[#C9E3EC]`} />
+          <div ref={mapDivRef} className={`${layout === "mapOnly" ? "h-[70vh]" : "h-[420px]"} w-full rounded-lg border border-[#CFE3E0]`} />
         </div>
       </div>
     </div>

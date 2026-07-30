@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --foreground: #0f172a;
-  --background: #f8fafc;
+  --foreground: #16242b;
+  --background: #f5f8f7;
 }
 
 @layer base {
@@ -18,7 +18,22 @@
   }
 
   ::selection {
-    @apply bg-brand-sky/60 text-brand-navy;
+    @apply bg-brand-teal/25 text-brand-navy;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-teal ring-offset-2 ring-offset-white;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
@@ -56,11 +71,15 @@
   }
 
   .app-card {
-    @apply rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-soft backdrop-blur-sm md:p-5;
+    @apply rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-soft backdrop-blur-sm transition duration-200 md:p-5;
+  }
+
+  .app-card-hover {
+    @apply hover:-translate-y-0.5 hover:shadow-softLg motion-reduce:hover:translate-y-0;
   }
 
   .app-card-muted {
-    @apply rounded-2xl border border-brand-border/70 bg-gradient-to-br from-brand-mist/80 via-white to-white p-4 shadow-soft md:p-5;
+    @apply rounded-2xl border border-brand-border/70 bg-gradient-to-br from-brand-foam/80 via-white to-white p-4 shadow-soft transition duration-200 md:p-5;
   }
 
   .app-card-inset {
@@ -137,5 +156,45 @@
 
   .app-badge-warn {
     @apply text-xs font-semibold text-amber-800;
+  }
+
+  /* Status pills — teal=good, coral=needs attention, gray=inactive. Used across route
+     cards, schedule stats, and reading alerts so status always reads the same way. */
+  .app-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .app-pill-good {
+    @apply app-pill bg-brand-teal/10 text-brand-tealDark;
+  }
+
+  .app-pill-attention {
+    @apply app-pill bg-brand-coral/[0.14] text-brand-coralDark;
+  }
+
+  .app-pill-inactive {
+    @apply app-pill bg-slate-100 text-slate-500;
+  }
+
+  .app-pill-active {
+    @apply app-pill bg-brand-navy/10 text-brand-navy;
+  }
+
+  /* Segmented pill-style tab control — Day/Week/Map/List and similar toggles. */
+  .app-tabs {
+    @apply inline-flex items-center gap-1 rounded-full bg-brand-navy/10 p-1;
+  }
+
+  .app-tab {
+    @apply rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-navy/60 transition duration-150 hover:text-brand-navy;
+  }
+
+  .app-tab-active {
+    @apply app-tab bg-brand-navy text-white shadow-sm hover:text-white;
+  }
+
+  /* Numeric/utility face — gauge readings, timestamps, metadata read differently from prose. */
+  .app-metric {
+    @apply font-[family-name:var(--font-mono)] tabular-nums;
   }
 }
