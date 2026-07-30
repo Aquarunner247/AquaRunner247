@@ -74,7 +74,7 @@ export function CameraCapture({ onCapture, disabled }: Props) {
         type="button"
         onClick={openCamera}
         disabled={disabled}
-        className="mt-3 rounded-md bg-[#0A5FA4] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        className="app-btn-primary-sm mt-3"
       >
         Take photo
       </button>
@@ -82,7 +82,7 @@ export function CameraCapture({ onCapture, disabled }: Props) {
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-[#C9E3EC] bg-black p-2">
+    <div className="mt-3 rounded-lg border border-brand-border bg-black p-2">
       {error ? (
         <div className="p-4 text-center">
           <p className="text-sm text-white">{error}</p>
@@ -105,7 +105,7 @@ export function CameraCapture({ onCapture, disabled }: Props) {
               className="rounded-full bg-white p-4 shadow disabled:opacity-50"
               aria-label="Capture photo"
             >
-              <span className="block h-6 w-6 rounded-full bg-[#0A5FA4]" />
+              <span className="block h-6 w-6 rounded-full bg-brand-primary" />
             </button>
             <button
               type="button"

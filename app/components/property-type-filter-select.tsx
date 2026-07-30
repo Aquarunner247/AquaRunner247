@@ -19,7 +19,7 @@ export function PropertyTypeFilterSelect({ selected, action, technicianId, tab, 
       {tab != null ? <input type="hidden" name="tab" value={tab} /> : null}
       {date != null ? <input type="hidden" name="date" value={date} /> : null}
       {technicianId ? <input type="hidden" name="tech" value={technicianId} /> : null}
-      <label className="text-sm font-medium text-brand-navy" htmlFor="property-type-filter">
+      <label className="text-sm font-medium text-brand-ink" htmlFor="property-type-filter">
         Type
       </label>
       <select
@@ -27,7 +27,7 @@ export function PropertyTypeFilterSelect({ selected, action, technicianId, tab, 
         name="type"
         defaultValue={selected ?? ""}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="rounded-md border border-brand-border bg-white px-2 py-1.5 text-sm text-brand-navy transition focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
+        className="rounded-md border border-brand-border bg-white px-2 py-1.5 text-sm text-brand-ink transition focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
       >
         <option value="">All Types</option>
         <option value="COMMERCIAL">Commercial</option>

@@ -1,252 +1,375 @@
 import type { Metadata } from "next";
-import { Space_Grotesk } from "next/font/google";
-import { joinWaitlist } from "./waitlist-actions";
+import Image from "next/image";
+import { AppPreview } from "./components/landing/app-preview";
+import { LogoMark } from "./components/landing/logo-mark";
+import { InspectorRecord, QrPlacard } from "./components/landing/scan-flow";
+import { WaitlistForm } from "./components/landing/waitlist-form";
 import styles from "./landing.module.css";
 
-const displayFont = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-landing-display",
-});
-
 export const metadata: Metadata = {
-  title: "AquaRunner 24/7 Pro — Pool Route Software for Residential and Commercial",
+  title: "AquaRunner 24/7 — One app to run your entire pool business",
+  description:
+    "Software built by a Las Vegas commercial pool maintenance company, for pool service companies. Log every visit, stay inspection-ready, and build routes that build themselves. Join the waitlist.",
+  openGraph: {
+    title: "AquaRunner 24/7 — One app to run your entire pool business",
+    description:
+      "Commercial, residential, or both. Built by real pool service professionals in Las Vegas, Nevada. Join the waitlist.",
+    type: "website",
+  },
 };
 
-type PageProps = {
-  searchParams?: Promise<{ joined?: string; waitlistError?: string }>;
-};
+const FEATURES = [
+  {
+    n: "01",
+    title: "Commercial and residential in one place",
+    body: "A quick chemical check at someone's backyard pool, or a full logged visit at a commercial property. You choose which one applies to each customer.",
+  },
+  {
+    n: "02",
+    title: "Nothing gets lost",
+    body: "Chemical readings, photos, and notes are saved the moment your tech enters them. No more digging through paper when you need to look something up.",
+  },
+  {
+    n: "05",
+    title: "Proof of service",
+    body: "Techs snap a photo right in the app at each stop. Real proof it happened today, not an old photo pulled from a camera roll.",
+  },
+  {
+    n: "06",
+    title: "Routes that build themselves",
+    body: "Add a new customer and the app suggests which tech and route makes the most sense based on where your team already is. You always get the final say.",
+  },
+];
 
-export default async function Home({ searchParams }: PageProps) {
-  const sp = (await searchParams) ?? {};
-  const joined = sp.joined === "1";
-  const waitlistError = sp.waitlistError === "1";
+const STATES = ["Arizona", "California", "Texas", "Florida", "Your state"];
 
+function Brand({ className }: { className?: string }) {
   return (
-    <div className={`${styles.root} ${displayFont.variable}`}>
-      <div className={styles.wrap}>
-        <nav>
-          <div className={styles.logo}>
-            <span className={styles.logoDot} />
-            AquaRunner <span>24/7</span>
-          </div>
-          <a href="#waitlist" className={styles.navCta}>
-            Join Waitlist
+    <a className={`${styles.brand} ${className ?? ""}`} href="#top" aria-label="AquaRunner 24/7 home">
+      <LogoMark />
+      <span className={styles.brandName}>
+        AquaRunner<span> 24/7</span>
+      </span>
+    </a>
+  );
+}
+
+export default function Home() {
+  return (
+    <div className={styles.root}>
+      <a className={styles.skip} href="#main">
+        Skip to content
+      </a>
+
+      <header className={styles.nav}>
+        <div className={`${styles.wrap} ${styles.navIn}`}>
+          <Brand />
+          <span className={styles.navTag}>Las Vegas, NV · In final development</span>
+          <a className={`${styles.btn} ${styles.navBtn}`} href="#waitlist">
+            Join the waitlist
           </a>
-        </nav>
-      </div>
+        </div>
+      </header>
 
-      <div className={styles.wrap}>
+      <main id="main">
+        <span id="top" />
+
+        {/* ---------- hero ---------- */}
         <section className={styles.hero}>
-          <div>
-            <div className={styles.eyebrow}>
-              In development — created by real pool service professionals, not programmers — the software we built for
-              ourselves, now available to everyone
+          <div className={styles.wrap}>
+            <div className={styles.heroGrid}>
+              <div className={styles.heroCopy}>
+                <p className={`${styles.eyebrow} ${styles.heroEyebrow}`}>
+                  <span className={styles.heroDot} aria-hidden="true" />
+                  In development — built by real pool service professionals, not programmers
+                </p>
+                <h1 className={styles.displayXl}>
+                  One app to run your entire pool business — <em>commercial, residential, or both.</em>
+                </h1>
+                <p className={`${styles.lede} ${styles.heroSub}`}>
+                  Track every visit, build smarter routes, and keep your commercial pools ready for inspection — all
+                  without a stack of paper logs.
+                </p>
+
+                <WaitlistForm label="Get on the waitlist" />
+
+                <p className={styles.heroBuilt}>
+                  The software we built for ourselves, running a commercial pool company in the Nevada heat. Now
+                  we&rsquo;re opening it up to everyone else doing the same work.
+                </p>
+              </div>
+
+              <div className={styles.heroMedia}>
+                <Image
+                  src="/marketing/hero-pool.jpg"
+                  alt="A large commercial pool in Las Vegas at golden hour, palm trees reflected in still turquoise water."
+                  width={1800}
+                  height={1200}
+                  sizes="(max-width: 1080px) 100vw, 48vw"
+                  priority
+                />
+                <span className={styles.heroStamp}>Las Vegas, Nevada</span>
+              </div>
             </div>
-            <h1>
-              One app to run your <span>entire</span> pool business — Commercial, Residential or both.
-            </h1>
-            <p className={styles.sub}>
-              Track every visit, build smarter routes, and keep your commercial pools ready for inspection — all without a
-              stack of paper logs.
-            </p>
-            <div className={styles.splitTags}>
-              <span className={`${styles.splitTag} ${styles.res}`}>
-                <span className={styles.tagDot} />
-                Residential
-              </span>
-              <span className={`${styles.splitTag} ${styles.com}`}>
-                <span className={styles.tagDot} />
-                Commercial
-              </span>
-            </div>
-            {joined ? (
-              <p className={styles.confirmBanner}>Thanks — you&rsquo;re on the list. We&rsquo;ll be in touch when we&rsquo;re ready for you.</p>
-            ) : (
-              <form className={styles.heroForm} id="waitlist" action={joinWaitlist}>
-                <input type="email" name="email" placeholder="you@poolcompany.com" required />
-                <button type="submit" className={styles.btnPrimary}>
-                  Get Early Access
-                </button>
-              </form>
-            )}
-            {waitlistError ? <p className={styles.confirmBanner}>Please enter a valid email.</p> : null}
-            <div className={styles.trustLine}>No spam. Just a note when we&rsquo;re ready for you.</div>
           </div>
 
-          <div className={styles.device}>
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
-                <span>TODAY&rsquo;S STOP · #7</span>
-                <span className={styles.live}>
-                  <span className={styles.liveDot} />
-                  LOGGED LIVE
-                </span>
+          <div className={styles.wrap}>
+            <div className={styles.heroStrip}>
+              <div>
+                <b>Every body of water gets a QR code</b>
+                Techs scan it, log the visit, and it&rsquo;s on the record.
               </div>
-              <div className={styles.poolName}>Desert Palms HOA</div>
-              <div className={styles.poolSub}>Commercial · Route 4</div>
-              <div className={styles.readingRow}>
-                <span className={styles.readingLabel}>Chlorine</span>
-                <span className={`${styles.readingValue} ${styles.flag}`}>Too low ⚠</span>
+              <div>
+                <b>Configured to your state&rsquo;s rules</b>
+                The tech logs exactly what your state requires — every visit.
               </div>
-              <div className={styles.readingRow}>
-                <span className={styles.readingLabel}>pH</span>
-                <span className={`${styles.readingValue} ${styles.ok}`}>Normal</span>
+              <div>
+                <b>Built on real routes</b>
+                Written by operators who service pools for a living.
               </div>
-              <div className={styles.readingRow}>
-                <span className={styles.readingLabel}>Alkalinity</span>
-                <span className={`${styles.readingValue} ${styles.ok}`}>Normal</span>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- statement band ---------- */}
+        <section className={`${styles.onInk} ${styles.band}`}>
+          <div className={`${styles.wrap} ${styles.bandGrid}`}>
+            <p className={styles.bandQuote}>
+              Paper logs, a truck full of binders, and a filing cabinet nobody wants to open. That was us too.
+            </p>
+            <div className={styles.bandSide}>
+              <p>
+                We run a commercial pool maintenance company in Las Vegas. We built AquaRunner because nothing on the
+                market did the job the way the work actually happens — a quick chemical check at a backyard pool one
+                stop, a fully logged commercial visit the next.
+              </p>
+              <p>It&rsquo;s in final development now. Waitlist members get in first.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- the two differentiators ---------- */}
+        <section className={`${styles.onInk} ${styles.sec} ${styles.diff}`} id="difference">
+          <div className={styles.wrap}>
+            <div className={styles.secHead}>
+              <span className={styles.secNum} aria-hidden="true">
+                01
+              </span>
+              <div className={styles.secHeadText}>
+                <p className={styles.eyebrow}>What nothing else does</p>
+                <h2 className={styles.displayL}>
+                  Scan the pool. See the whole record. Log exactly what your state requires.
+                </h2>
               </div>
-              <div className={styles.readingRow}>
-                <span className={styles.readingLabel}>Last full test</span>
-                <span className={`${styles.readingValue} ${styles.ok}`}>12 days ago</span>
+            </div>
+
+            <div className={styles.diffLead}>
+              <p className={styles.lede}>
+                Two things sit at the center of AquaRunner: a QR code on every single body of water, and a compliance
+                setup that already knows your state&rsquo;s commercial pool rules. Together they replace the binder, the
+                clipboard, and the phone call to the office.
+              </p>
+              <p className={styles.diffAside}>
+                Pool, spa, splash pad, fountain — each one is its own record with its own code. Nothing gets logged
+                against the wrong body of water again.
+              </p>
+            </div>
+
+            <hr className={styles.hr} />
+
+            <div className={styles.diffTwo}>
+              <div className={styles.diffCol}>
+                <span className={styles.diffNum}>Paperless records</span>
+                <h3>A QR code on every body of water</h3>
+                <p>
+                  Each pool, spa, and water feature gets its own QR code. Techs scan it to pull up that exact body of
+                  water and log the visit — fully paperless. An inspector on site scans the same code and instantly sees
+                  the complete, current record for that pool. No binder, no filing cabinet, no waiting on the office.
+                </p>
+                <div className={styles.visual}>
+                  <QrPlacard />
+                  <p className={styles.scanNote}>One code per body of water — pool, spa, splash pad, fountain.</p>
+                </div>
               </div>
-              <div className={styles.banner}>
-                <span className={styles.bannerIcon}>▲</span>
-                <div className={styles.bannerText}>
-                  <div className={styles.bannerTitle}>NEEDS ATTENTION</div>
-                  <div className={styles.bannerBody}>
-                    Chlorine is too low. Flagged automatically so your team can retest before anyone swims — matches your
-                    local health department&rsquo;s rules.
-                  </div>
+
+              <div className={styles.diffCol}>
+                <span className={styles.diffNum}>State rules</span>
+                <h3>Built for state compliance</h3>
+                <p>
+                  Every state has its own commercial pool requirements. AquaRunner is configured to your state&rsquo;s
+                  rules, so the technician logs exactly what that state requires at every visit — nothing missed,
+                  nothing memorized.
+                </p>
+                <div className={styles.states} aria-label="Configured per state">
+                  <span className={styles.stateOn}>Nevada · SNHD</span>
+                  {STATES.map((state) => (
+                    <span key={state}>{state}</span>
+                  ))}
+                </div>
+                <ul className={styles.checks}>
+                  <li>Required readings and fields set by your state and local health department.</li>
+                  <li>The tech sees only what that body of water needs, in the order it&rsquo;s asked for.</li>
+                  <li>Built in Nevada under SNHD rules — and built to handle any state&rsquo;s requirements.</li>
+                </ul>
+                <div className={styles.visual}>
+                  <InspectorRecord />
                 </div>
               </div>
             </div>
           </div>
         </section>
-      </div>
 
-      <div className={styles.wrap}>
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <h2>Running a pool route shouldn&rsquo;t mean drowning in paperwork</h2>
-          </div>
-          <div className={styles.logList}>
-            <div className={styles.logItem}>
-              <span className={styles.logTag}>—</span>
-              <span className={styles.logText}>No more keeping track of antiquated paper logs for every single pool, every single visit.</span>
+        {/* ---------- the rest of the features ---------- */}
+        <section className={styles.sec} id="features">
+          <div className={styles.wrap}>
+            <div className={styles.secHead}>
+              <span className={styles.secNum} aria-hidden="true">
+                02
+              </span>
+              <div className={styles.secHeadText}>
+                <p className={styles.eyebrow}>The rest of the job</p>
+                <h2 className={styles.displayL}>Everything the day actually needs.</h2>
+              </div>
             </div>
-            <div className={styles.logItem}>
-              <span className={styles.logTag}>—</span>
-              <span className={styles.logText}>No more uncertainty if your tech did what he was supposed to at each stop.</span>
-            </div>
-            <div className={styles.logItem}>
-              <span className={styles.logTag}>—</span>
-              <span className={styles.logText}>No more keeping the inspector waiting for water stained log sheets.</span>
-            </div>
-            <div className={styles.logItem}>
-              <span className={styles.logTag}>—</span>
-              <span className={styles.logText}>No more thinking what route to add your new customer to.</span>
-            </div>
-            <div className={styles.logItem}>
-              <span className={styles.logTag}>—</span>
-              <span className={styles.logText}>No more customers wondering if their pool was serviced.</span>
-            </div>
-          </div>
-        </section>
-      </div>
 
-      <div className={styles.wrap}>
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <div className={styles.sectionEyebrow}>The app</div>
-            <h2>Everything your business needs, whether it&rsquo;s a backyard pool or a busy commercial property</h2>
-          </div>
-          <div className={styles.featureGrid}>
-            <div className={styles.feature}>
-              <div className={styles.featureNum}>01</div>
-              <h3>Built for homes and businesses</h3>
-              <p>
-                One app for your whole business — a quick chemical check at someone&rsquo;s backyard pool, or a full logged
-                visit at a commercial property. You choose which one applies to each customer.
-              </p>
+            <div className={styles.feat}>
+              {FEATURES.map((feature) => (
+                <article className={styles.featItem} key={feature.n}>
+                  <span className={styles.featNum}>{feature.n}</span>
+                  <h3>{feature.title}</h3>
+                  <p>{feature.body}</p>
+                </article>
+              ))}
             </div>
-            <div className={styles.feature}>
-              <div className={styles.featureNum}>02</div>
-              <h3>Every visit logged automatically</h3>
-              <p>
-                Chemical readings, photos, and notes are saved the moment your tech enters them — no more digging through
-                paper when you need to look something up.
-              </p>
-            </div>
-            <div className={styles.feature}>
-              <div className={styles.featureNum}>03</div>
-              <h3>Ready when the inspector shows up</h3>
-              <p>
-                Set up to match your state and local health department&rsquo;s rules, so commercial pools stay
-                inspection-ready without anyone having to memorize the requirements.
-              </p>
-            </div>
-            <div className={styles.feature}>
-              <div className={styles.featureNum}>04</div>
-              <h3>Photos that actually prove it</h3>
-              <p>
-                Techs snap a photo right in the app at each stop — real proof it happened today, not an old photo pulled
-                from their camera roll.
-              </p>
-            </div>
-            <div className={`${styles.feature} ${styles.featureWide}`}>
-              <div className={styles.featureNum}>05</div>
-              <h3>Smart suggestions for new customers</h3>
-              <p>
-                Add a new customer and the app suggests which route makes the most sense based on where your team already
-                is — no more guessing on a map. You always get the final say.
-              </p>
-            </div>
-          </div>
-        </section>
-      </div>
 
-      <div className={styles.wrap}>
-        <section className={styles.section}>
-          <div className={styles.proof}>
-            <div className={styles.proofLabel}>From the route this was built on</div>
-            <p className={styles.proofQuote}>
-              &ldquo;We wanted a way to make our techs&rsquo; lives easier. Paper logs are a thing of the past. Now we
-              satisfy inspectors with a clean, easy way to view pool reports, and customers get a comprehensive report via
-              email for every service call, including photos. Not to mention easier than ever route scheduling, with
-              automatic suggestions on which tech and route to place any new customer on. It&rsquo;s a godsend,
-              really!&rdquo;
+            <p className={styles.featFoot}>
+              <strong>And your customers hear about it.</strong>{" "}
+              <span className={styles.muted}>
+                Every service call sends the customer a comprehensive emailed report — readings, notes, and photos
+                included.
+              </span>
             </p>
-            <div className={styles.proofAttr}>
-              <strong>Steven</strong> — Owner, Lindley&rsquo;s Pool &amp; Spa Service
+          </div>
+        </section>
+
+        {/* ---------- in the field ---------- */}
+        <section className={`${styles.onFoam} ${styles.sec}`} id="field">
+          <div className={styles.wrap}>
+            <div className={styles.secHead}>
+              <span className={styles.secNum} aria-hidden="true">
+                03
+              </span>
+              <div className={styles.secHeadText}>
+                <p className={styles.eyebrow}>In the field</p>
+                <h2 className={styles.displayL}>Built for a phone, a wet hand, and Nevada sun.</h2>
+              </div>
+            </div>
+
+            <div className={styles.fieldGrid}>
+              <figure className={styles.photoOffset}>
+                <Image
+                  src="/marketing/tech-hands.jpg"
+                  alt="A pool technician's weathered hands holding a water test kit vial of pink reagent water above a turquoise pool in harsh afternoon sun."
+                  width={1800}
+                  height={1200}
+                  sizes="(max-width: 1080px) 100vw, 42vw"
+                />
+                <figcaption>Test, log, photo, next stop</figcaption>
+              </figure>
+
+              <AppPreview />
             </div>
           </div>
         </section>
-      </div>
 
-      <div className={styles.wrap}>
-        <section className={styles.ctaSection} id="waitlist-bottom">
-          <div className={styles.sectionEyebrow} style={{ textAlign: "center" }}>
-            Be first in the water
+        {/* ---------- testimonial ---------- */}
+        <section className={`${styles.onInk} ${styles.sec} ${styles.quote}`}>
+          <div className={styles.quoteBg} aria-hidden="true">
+            <Image
+              src="/marketing/water-texture.jpg"
+              alt=""
+              width={1400}
+              height={2100}
+              sizes="100vw"
+              aria-hidden="true"
+            />
           </div>
-          <h2>Join the waitlist for early access</h2>
-          <p className={styles.sub}>
-            AquaRunner is in final development. Waitlist members get early access and founding-customer pricing at launch.
+          <div className={`${styles.wrap} ${styles.quoteIn}`}>
+            <div className={styles.quoteGrid}>
+              <blockquote>
+                <p>&ldquo;Paper logs are a thing of the past. It&rsquo;s a godsend, really.&rdquo;</p>
+                <cite>Owner, AquaRunner 24/7 — Las Vegas, NV</cite>
+              </blockquote>
+              <div className={styles.quoteRest}>
+                <p>
+                  &ldquo;We wanted a way to make our techs&rsquo; lives easier. Now we satisfy inspectors with a clean,
+                  easy way to view pool reports, and customers get a comprehensive report via email for every service
+                  call, including photos.
+                </p>
+                <p>
+                  Not to mention easier than ever route scheduling, with automatic suggestions on which tech and route
+                  to place any new customer on.&rdquo;
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- closing waitlist ---------- */}
+        <section className={`${styles.onFoam} ${styles.sec} ${styles.cta}`} id="waitlist">
+          <div className={styles.wrap}>
+            <div className={styles.secHead}>
+              <span className={styles.secNum} aria-hidden="true">
+                04
+              </span>
+              <div className={styles.secHeadText}>
+                <p className={styles.eyebrow}>Waitlist</p>
+              </div>
+            </div>
+
+            <div className={styles.ctaGrid}>
+              <div>
+                <h2 className={styles.displayL}>Get in before launch.</h2>
+                <p className={styles.lede}>
+                  AquaRunner is in final development. Waitlist members get early access and founding-customer pricing at
+                  launch.
+                </p>
+
+                <div className={styles.ctaForm}>
+                  <WaitlistForm label="Your email" />
+                </div>
+
+                <ul className={styles.ctaList}>
+                  <li>Early access before public launch.</li>
+                  <li>Founding-customer pricing at launch.</li>
+                  <li>Built by people who service commercial pools every day.</li>
+                </ul>
+              </div>
+
+              <div className={styles.ctaMedia}>
+                <Image
+                  src="/marketing/water-texture.jpg"
+                  alt="Sunlit pool water surface with warm golden light across the ripples."
+                  width={1400}
+                  height={2100}
+                  sizes="(max-width: 1080px) 100vw, 34vw"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className={`${styles.onInk} ${styles.foot}`}>
+        <div className={`${styles.wrap} ${styles.footIn}`}>
+          <Brand />
+          <p className={styles.footMeta}>
+            <span>AquaRunner 24/7 — Las Vegas, NV</span>
+            <span>&copy; 2026</span>
+            <a href="mailto:hello@aquarunner247.com">hello@aquarunner247.com</a>
           </p>
-          {joined ? (
-            <p className={`${styles.confirmBanner} ${styles.center}`}>
-              Thanks — you&rsquo;re on the list. We&rsquo;ll be in touch when we&rsquo;re ready for you.
-            </p>
-          ) : (
-            <form className={`${styles.heroForm} ${styles.center}`} action={joinWaitlist}>
-              <input type="email" name="email" placeholder="you@poolcompany.com" required />
-              <button type="submit" className={styles.btnPrimary}>
-                Get Early Access
-              </button>
-            </form>
-          )}
-          {waitlistError ? <p className={`${styles.confirmBanner} ${styles.center}`}>Please enter a valid email.</p> : null}
-          <div className={`${styles.trustLine} ${styles.center}`}>No spam. Just a note when we&rsquo;re ready for you.</div>
-        </section>
-      </div>
-
-      <div className={styles.wrap}>
-        <footer>
-          <span>AquaRunner 24/7 Pro</span>
-          <span>Pool route software for residential and commercial service companies.</span>
-        </footer>
-      </div>
+        </div>
+      </footer>
     </div>
   );
 }

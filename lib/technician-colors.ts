@@ -17,7 +17,11 @@ const PALETTE = [
   "#e34948", // red
 ] as const;
 
-const FALLBACK_COLOR = "#94A3B8"; // slate — used for a stop with no technician assigned
+/** Slate — a stop with no technician assigned. Deliberately outside the brand palette:
+ *  it has to stay distinguishable from all 8 categorical slots above. */
+export const UNASSIGNED_TECHNICIAN_COLOR = "#94A3B8";
+
+const FALLBACK_COLOR = UNASSIGNED_TECHNICIAN_COLOR;
 
 /**
  * `technicianIds` must already be in the stable roster order (e.g. sorted by

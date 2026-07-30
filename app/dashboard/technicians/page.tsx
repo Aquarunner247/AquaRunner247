@@ -31,33 +31,33 @@ export default async function TechniciansPage({ searchParams }: PageProps) {
       </header>
 
       <section className="app-card-muted mt-6 text-sm">
-        <p className="font-medium text-brand-navy">Roles</p>
+        <p className="font-medium text-brand-ink">Roles</p>
         <dl className="mt-2 space-y-2">
           <div>
-            <dt className="font-semibold text-brand-navy">Admin</dt>
-            <dd className="text-brand-navy/70">
+            <dt className="font-semibold text-brand-ink">Admin</dt>
+            <dd className="text-brand-ink/70">
               Full control — manage customers, properties, routes, chemicals, checklist templates, and team
               member roles. Sees the office-wide dashboard, alerts, and reports. Can also be assigned stops on a
               route like a technician.
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-brand-navy">Office</dt>
-            <dd className="text-brand-navy/70">
+            <dt className="font-semibold text-brand-ink">Office</dt>
+            <dd className="text-brand-ink/70">
               Can review and update any service visit — chemistry, doses, checklist, photos, issues — and the
               day&rsquo;s schedule, but can&rsquo;t manage customers, routes, chemicals, or team members.
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-brand-navy">Technician</dt>
-            <dd className="text-brand-navy/70">
+            <dt className="font-semibold text-brand-ink">Technician</dt>
+            <dd className="text-brand-ink/70">
               Sees and completes only the visits assigned to them for the day: chemistry readings, chemical
               doses, equipment checks, photos, and issue reports.
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-brand-navy">Customer</dt>
-            <dd className="text-brand-navy/70">
+            <dt className="font-semibold text-brand-ink">Customer</dt>
+            <dd className="text-brand-ink/70">
               Not a team-member role — customers get their own separate portal login (no access here) to see
               scheduled service days, reports, photos, and documents. Add or remove a customer&rsquo;s portal
               login from their page under{" "}
@@ -75,8 +75,8 @@ export default async function TechniciansPage({ searchParams }: PageProps) {
           {users.map((u) => (
             <li key={u.id} className="app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm">
               <span>
-                <span className="font-medium text-brand-navy">{u.name ?? u.email}</span>
-                <span className="ml-2 text-brand-navy/60">
+                <span className="font-medium text-brand-ink">{u.name ?? u.email}</span>
+                <span className="ml-2 text-brand-ink/60">
                   {u.email}
                   {u.phone ? ` · ${u.phone}` : ""}
                 </span>
@@ -106,13 +106,13 @@ export default async function TechniciansPage({ searchParams }: PageProps) {
               </div>
             </li>
           ))}
-          {users.length === 0 ? <p className="app-card-inset text-sm text-brand-navy/60">No team members yet — add one below.</p> : null}
+          {users.length === 0 ? <p className="app-card-inset text-sm text-brand-ink/60">No team members yet — add one below.</p> : null}
         </ul>
 
         <form action={createTechnician} className="app-card-inset mt-4">
-          <p className="text-sm font-medium text-brand-navy">Add technician</p>
+          <p className="text-sm font-medium text-brand-ink">Add technician</p>
           {params.error === "email-in-use" ? (
-            <p className="mt-1 text-sm font-medium text-brand-coralDark">
+            <p className="mt-1 text-sm font-medium text-brand-danger">
               That email already belongs to a different company&rsquo;s account — use a different email to add this technician.
             </p>
           ) : null}
@@ -136,7 +136,7 @@ export default async function TechniciansPage({ searchParams }: PageProps) {
               className="app-field md:col-span-2"
             />
           </div>
-          <p className="mt-1 text-xs text-brand-navy/60">
+          <p className="mt-1 text-xs text-brand-ink/60">
             Share this password with the technician directly — they can sign in at{" "}
             <code className="app-code">/login</code> and should change it from their account settings.
           </p>

@@ -325,14 +325,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <section className="mt-6 space-y-5">
         {!appUser ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <div className="rounded-2xl border border-brand-warn/30 bg-brand-warnFill p-4 text-sm text-brand-warn">
             <p className="font-medium">No AquaRunner profile linked</p>
-            <p className="mt-2 text-amber-900">
-              Your Supabase login works, but there is no matching row in the <code className="rounded bg-amber-100 px-1">User</code> table
-              (or <code className="rounded bg-amber-100 px-1">authUserId</code> is not set). Run{" "}
-              <code className="rounded bg-amber-100 px-1">npm run db:seed</code> with{" "}
-              <code className="rounded bg-amber-100 px-1">SUPABASE_SERVICE_ROLE_KEY</code> and{" "}
-              <code className="rounded bg-amber-100 px-1">SEED_DEV_PASSWORD</code>, then sign in with a seeded email.
+            <p className="mt-2 text-brand-warn">
+              Your Supabase login works, but there is no matching row in the <code className="rounded bg-brand-warnFill px-1">User</code> table
+              (or <code className="rounded bg-brand-warnFill px-1">authUserId</code> is not set). Run{" "}
+              <code className="rounded bg-brand-warnFill px-1">npm run db:seed</code> with{" "}
+              <code className="rounded bg-brand-warnFill px-1">SUPABASE_SERVICE_ROLE_KEY</code> and{" "}
+              <code className="rounded bg-brand-warnFill px-1">SEED_DEV_PASSWORD</code>, then sign in with a seeded email.
             </p>
           </div>
         ) : appUser.role === "ADMIN" && stats ? (
@@ -341,19 +341,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="app-card app-card-hover">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Customers</p>
-                <p className="app-metric mt-1 text-3xl font-semibold text-brand-navy">{stats.customers}</p>
+                <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.customers}</p>
               </div>
               <div className="app-card app-card-hover">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Property mgmt. cos.</p>
-                <p className="app-metric mt-1 text-3xl font-semibold text-brand-navy">{stats.managementCompanies}</p>
+                <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.managementCompanies}</p>
               </div>
               <div className="app-card app-card-hover">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Aquatic venues</p>
-                <p className="app-metric mt-1 text-3xl font-semibold text-brand-navy">{stats.bodiesOfWater}</p>
+                <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.bodiesOfWater}</p>
               </div>
               <div className="app-card app-card-hover">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Scheduled this week</p>
-                <p className="app-metric mt-1 text-3xl font-semibold text-brand-navy">{stats.upcomingThisWeek}</p>
+                <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.upcomingThisWeek}</p>
               </div>
             </div>
 
@@ -367,15 +367,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
 
             {closureHazardReadings.length > 0 ? (
-              <div className="rounded-2xl border-2 border-brand-coralDark bg-brand-coral/10 p-4 shadow-soft md:p-5">
-                <p className="text-xs font-bold uppercase tracking-wide text-brand-coralDark">
+              <div className="rounded-2xl border-2 border-brand-danger bg-brand-dangerFill p-4 shadow-soft md:p-5">
+                <p className="text-xs font-bold uppercase tracking-wide text-brand-danger">
                   Closure risk — imminent health hazard ($909 reopening fee)
                 </p>
                 <ul className="mt-3 space-y-3">
                   {closureHazardReadings.map((r) => (
-                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-coral/30 bg-white/70 p-3">
+                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-danger/30 bg-white/70 p-3">
                       <div>
-                        <p className="text-sm font-semibold text-brand-navy">
+                        <p className="text-sm font-semibold text-brand-ink">
                           {r.property} — {r.body}
                         </p>
                         {r.completedAt ? <p className="text-xs text-brand-icon">{r.completedAt.toLocaleDateString()}</p> : null}
@@ -384,7 +384,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                         {r.params.map((p) => (
                           <span key={p.key} className="flex items-center gap-1.5">
                             <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
-                            <span className="text-xs font-medium text-brand-navy/70">{p.label}</span>
+                            <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
                           </span>
                         ))}
                       </div>
@@ -399,13 +399,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div className="app-card">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Out-of-range readings (last 7 days)</p>
                 {outOfRangeReadings.length === 0 ? (
-                  <p className="mt-2 text-sm text-brand-navy/60">Every commercial reading this week is in range.</p>
+                  <p className="mt-2 text-sm text-brand-ink/60">Every commercial reading this week is in range.</p>
                 ) : (
                   <ul className="mt-3 space-y-3">
                     {outOfRangeReadings.map((r) => (
                       <li key={r.id} className="app-card-inset flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold text-brand-navy">
+                          <p className="text-sm font-semibold text-brand-ink">
                             {r.property} — {r.body}
                           </p>
                           {r.completedAt ? <p className="text-xs text-brand-icon">{r.completedAt.toLocaleDateString()}</p> : null}
@@ -414,7 +414,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           {r.params.map((p) => (
                             <span key={p.key} className="flex items-center gap-1.5">
                               <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
-                              <span className="text-xs font-medium text-brand-navy/70">{p.label}</span>
+                              <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
                             </span>
                           ))}
                         </div>
@@ -428,13 +428,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div className="app-card">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Overdue stops</p>
                 {overdueVisits.length === 0 ? (
-                  <p className="mt-2 text-sm text-brand-navy/60">Nothing overdue — every stop is on schedule.</p>
+                  <p className="mt-2 text-sm text-brand-ink/60">Nothing overdue — every stop is on schedule.</p>
                 ) : (
                   <ul className="mt-3 space-y-2">
                     {overdueVisits.map((v) => (
                       <li key={v.id} className="app-card-inset flex items-center justify-between gap-2 text-sm">
-                        <span className="min-w-0 truncate text-brand-navy">
-                          {v.property} — {v.body} <span className="text-brand-navy/60">· {v.tech}</span>
+                        <span className="min-w-0 truncate text-brand-ink">
+                          {v.property} — {v.body} <span className="text-brand-ink/60">· {v.tech}</span>
                         </span>
                         <span className="app-pill-attention shrink-0">
                           Due {v.scheduledStart.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -450,13 +450,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <div className="app-card">
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Recent activity</p>
               {activity.length === 0 ? (
-                <p className="mt-2 text-sm text-brand-navy/60">No recent activity yet — completed visits and new customers will show up here.</p>
+                <p className="mt-2 text-sm text-brand-ink/60">No recent activity yet — completed visits and new customers will show up here.</p>
               ) : (
                 <ul className="mt-2 space-y-2 text-sm">
                   {activity.map((a) => (
-                    <li key={a.id} className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-                      <span className="text-brand-navy/80">
-                        <span className="font-medium text-brand-navy">{a.label}</span> — {a.detail}
+                    <li key={a.id} className="flex items-center justify-between gap-2 border-b border-brand-border pb-2 last:border-0 last:pb-0">
+                      <span className="text-brand-ink/80">
+                        <span className="font-medium text-brand-ink">{a.label}</span> — {a.detail}
                       </span>
                       <span className="app-metric shrink-0 text-xs text-brand-icon">
                         {a.at.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
@@ -469,8 +469,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </>
         ) : (
           <>
-            <div className="rounded-2xl border border-brand-navy bg-brand-navy p-4 shadow-soft">
-              <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-coral">{appUser.role}</p>
+            <div className="rounded-2xl border border-brand-ink bg-brand-ink p-4 shadow-soft">
+              <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-accent">{appUser.role}</p>
               {appUser.name ? <p className="mt-1 font-display text-lg font-bold text-white">{appUser.name}</p> : null}
             </div>
           </>

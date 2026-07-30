@@ -82,7 +82,7 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
 
   if (editing) {
     return (
-      <li className="rounded border border-[#C9E3EC] bg-white px-2 py-2">
+      <li className="rounded border border-brand-border bg-white px-2 py-2">
         <form onSubmit={handleSave} className="space-y-2">
           <input type="hidden" name="customerId" value={customerId} />
           <input type="hidden" name="equipmentId" value={eq.id} />
@@ -132,7 +132,7 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
           />
 
           <div>
-            <label className="block text-xs text-slate-500">Last changed / fixed</label>
+            <label className="block text-xs text-brand-muted">Last changed / fixed</label>
             <input
               name="lastServicedAt"
               type="date"
@@ -145,7 +145,7 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
             <button
               type="submit"
               disabled={saving}
-              className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+              className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -153,7 +153,7 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
               type="button"
               onClick={() => setEditing(false)}
               disabled={saving}
-              className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="rounded border border-brand-control px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-foam"
             >
               Cancel
             </button>
@@ -164,8 +164,8 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
   }
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5">
-      <span className="text-sm text-slate-700">
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-border bg-brand-surface px-2 py-1.5">
+      <span className="text-sm text-brand-ink">
         {eq.kind}
         {eq.make ? ` • ${eq.make}` : ""}
         {eq.model ? ` ${eq.model}` : ""}
@@ -190,20 +190,20 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="rounded px-2 py-1 text-base hover:bg-slate-200"
+          className="rounded px-2 py-1 text-base hover:bg-brand-border"
           aria-label="Equipment actions"
         >
           ⋮
         </button>
         {menuOpen ? (
-          <div className="absolute right-0 z-10 mt-1 w-32 rounded border border-slate-200 bg-white py-1 shadow-md">
+          <div className="absolute right-0 z-10 mt-1 w-32 rounded border border-brand-border bg-white py-1 shadow-md">
             <button
               type="button"
               onClick={() => {
                 setEditing(true);
                 setMenuOpen(false);
               }}
-              className="block w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100"
+              className="block w-full px-3 py-1.5 text-left text-sm text-brand-ink hover:bg-brand-foam"
             >
               Edit
             </button>
@@ -213,7 +213,7 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
               <ConfirmSubmitButton
                 label="Delete"
                 confirmMessage="Delete this equipment item?"
-                className="block w-full px-3 py-1.5 text-left text-sm text-rose-700 hover:bg-slate-100"
+                className="block w-full px-3 py-1.5 text-left text-sm text-brand-danger hover:bg-brand-foam"
               />
             </form>
           </div>

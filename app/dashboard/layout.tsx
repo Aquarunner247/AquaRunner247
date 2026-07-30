@@ -24,7 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <>
       {pastDue ? (
-        <div className="border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">
+        <div className="border-b border-brand-warn/40 bg-brand-warnFill px-4 py-2 text-center text-sm text-brand-warn">
           Your last payment failed.{" "}
           <a href="/dashboard/billing" className="font-medium underline">
             Update your billing info

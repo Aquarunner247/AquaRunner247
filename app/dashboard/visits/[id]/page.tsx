@@ -96,16 +96,16 @@ export default async function VisitPage({ params }: PageProps) {
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
       <div className="mb-6">
-        <Link href="/dashboard" className="text-sm text-[#0A5FA4] underline">
+        <Link href="/dashboard" className="text-sm text-brand-primary underline">
           Back to dashboard
         </Link>
       </div>
-      <header className="rounded-lg border border-[#12234A] bg-[#12234A] p-4 shadow-sm">
-        <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-[#FF6B5B]">
+      <header className="rounded-lg border border-brand-ink bg-brand-ink p-4 shadow-sm">
+        <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-brand-accent">
           Technician visit
         </p>
         <h1 className="mt-1 font-[family-name:var(--font-display)] text-xl font-bold uppercase text-white">{visit.property.name}</h1>
-        <p className="mt-1 text-sm text-[#A9D3E0]">
+        <p className="mt-1 text-sm text-brand-border">
           {visit.bodyOfWater.name} • {visit.scheduledStart.toLocaleString()}
         </p>
       </header>

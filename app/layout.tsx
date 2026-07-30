@@ -7,6 +7,7 @@ import { ServiceWorkerRegister } from "./components/service-worker-register";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
+import { BRAND_INK } from "@/app/lib/chart-colors";
 
 const display = Big_Shoulders({
   subsets: ["latin"],
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#12234A",
+  themeColor: BRAND_INK,
 };
 
 export default async function RootLayout({
@@ -56,7 +57,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
-      <body className="min-h-screen bg-brand-mist font-[family-name:var(--font-body)] antialiased md:flex">
+      <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased md:flex">
         <ServiceWorkerRegister />
         <SideNav
           isLoggedIn={Boolean(user)}

@@ -20,7 +20,7 @@ export async function sendWaitlistNotificationEmail(signupEmail: string): Promis
       from: fromAddress,
       to: notifyTo,
       subject: `New waitlist signup — ${signupEmail}`,
-      html: `<p style="font-family: Arial, sans-serif; font-size:14px; color:#12234A;">New waitlist signup: <strong>${signupEmail}</strong></p>`,
+      html: `<p style="font-family: Arial, sans-serif; font-size:14px; color:#06333B;">New waitlist signup: <strong>${signupEmail}</strong></p>`,
     });
     if (result.error) {
       return { ok: false, error: result.error.message };
@@ -71,22 +71,22 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   const timeStr = input.completedAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #12234A;">
-      <div style="background:#12234A; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#4FCADC; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Service Summary</p>
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
+      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Service Summary</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.propertyName} — ${input.bodyOfWaterName}</h1>
-        <p style="color:#A9D3E0; font-size:13px; margin:6px 0 0;">${dateStr} at ${timeStr}</p>
+        <p style="color:#9CC3C6; font-size:13px; margin:6px 0 0;">${dateStr} at ${timeStr}</p>
       </div>
-      <div style="border:1px solid #C9E3EC; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
         <p style="font-size:14px; margin:0 0 12px;">Technician: <strong>${input.technicianName ?? "—"}</strong></p>
 
         <table style="width:100%; border-collapse:collapse; font-size:14px; margin-bottom:16px;">
-          <tr><td style="padding:4px 0; color:#4A6572;">Free Chlorine</td><td style="text-align:right;">${fmt(input.reading?.freeChlorinePpm ?? null)} ppm</td></tr>
-          <tr><td style="padding:4px 0; color:#4A6572;">pH</td><td style="text-align:right;">${fmt(input.reading?.ph ?? null)}</td></tr>
-          <tr><td style="padding:4px 0; color:#4A6572;">Total Alkalinity</td><td style="text-align:right;">${fmt(input.reading?.alkalinityPpm ?? null, 0)} ppm</td></tr>
-          <tr><td style="padding:4px 0; color:#4A6572;">Cyanuric Acid</td><td style="text-align:right;">${fmt(input.reading?.cyanuricAcidPpm ?? null, 0)} ppm</td></tr>
-          <tr><td style="padding:4px 0; color:#4A6572;">Water Temperature</td><td style="text-align:right;">${fmt(input.reading?.temperatureF ?? null, 0)}°F</td></tr>
-          <tr><td style="padding:4px 0; color:#4A6572;">Backwash</td><td style="text-align:right;">${input.reading?.backwashAt ? "Yes" : "No"}</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">Free Chlorine</td><td style="text-align:right;">${fmt(input.reading?.freeChlorinePpm ?? null)} ppm</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">pH</td><td style="text-align:right;">${fmt(input.reading?.ph ?? null)}</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">Total Alkalinity</td><td style="text-align:right;">${fmt(input.reading?.alkalinityPpm ?? null, 0)} ppm</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">Cyanuric Acid</td><td style="text-align:right;">${fmt(input.reading?.cyanuricAcidPpm ?? null, 0)} ppm</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">Water Temperature</td><td style="text-align:right;">${fmt(input.reading?.temperatureF ?? null, 0)}°F</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">Backwash</td><td style="text-align:right;">${input.reading?.backwashAt ? "Yes" : "No"}</td></tr>
         </table>
 
         ${
@@ -112,7 +112,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
             : ""
         }
 
-        <p style="font-size:12px; color:#7FA0AC; margin-top:20px; border-top:1px solid #C9E3EC; padding-top:12px;">
+        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
           This is an automated summary from AquaRunner 24/7 Pro.
         </p>
       </div>
@@ -152,16 +152,16 @@ export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Pr
   const resend = new Resend(apiKey);
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #12234A;">
-      <div style="background:#12234A; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#4FCADC; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Update from AquaRunner 24/7 Pro</p>
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
+      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Update from AquaRunner 24/7 Pro</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.subject}</h1>
       </div>
-      <div style="border:1px solid #C9E3EC; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
-        <p style="font-size:14px; margin:0 0 12px; color:#4A6572;">Hi ${input.customerName},</p>
+      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size:14px; margin:0 0 12px; color:#55696C;">Hi ${input.customerName},</p>
         <p style="font-size:14px; margin:0 0 16px; white-space:pre-wrap;">${input.message}</p>
 
-        <p style="font-size:12px; color:#7FA0AC; margin-top:20px; border-top:1px solid #C9E3EC; padding-top:12px;">
+        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
           Sign in to your customer portal to see this and other updates.
         </p>
       </div>

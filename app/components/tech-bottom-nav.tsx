@@ -33,14 +33,14 @@ export function TechBottomNav({ dateYmd }: { dateYmd: string }) {
             <Link
               href={`/dashboard/schedule?tab=day&date=${dateYmd}`}
               onClick={() => setSheetOpen(false)}
-              className="block rounded px-3 py-3 text-sm font-semibold text-brand-navy hover:bg-brand-mist"
+              className="block rounded px-3 py-3 text-sm font-semibold text-brand-ink hover:bg-brand-foam"
             >
               Add a stop
             </Link>
             <Link
               href="/dashboard/report-issue"
               onClick={() => setSheetOpen(false)}
-              className="block rounded px-3 py-3 text-sm font-semibold text-brand-navy hover:bg-brand-mist"
+              className="block rounded px-3 py-3 text-sm font-semibold text-brand-ink hover:bg-brand-foam"
             >
               Report an issue
             </Link>
@@ -48,7 +48,7 @@ export function TechBottomNav({ dateYmd }: { dateYmd: string }) {
         </div>
       ) : null}
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-white/10 bg-brand-navy px-2 pb-[env(safe-area-inset-bottom)] pt-1 md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-white/10 bg-brand-ink px-2 pb-[env(safe-area-inset-bottom)] pt-1 md:hidden">
         {items.map((item) => (
           <Link
             key={item.href}
@@ -66,7 +66,7 @@ export function TechBottomNav({ dateYmd }: { dateYmd: string }) {
           type="button"
           onClick={() => setSheetOpen((v) => !v)}
           aria-label="Quick actions"
-          className="-mt-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-blue text-2xl font-bold text-white shadow-lg"
+          className="-mt-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-primary text-2xl font-bold text-white shadow-lg"
         >
           +
         </button>

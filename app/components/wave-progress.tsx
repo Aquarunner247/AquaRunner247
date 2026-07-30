@@ -1,3 +1,5 @@
+import { BRAND_CTA, BRAND_PRIMARY } from "@/app/lib/chart-colors";
+
 // Signature motif: a water-level fill used functionally as a progress indicator — not
 // decoration. `percent` should reflect something real (stops completed, day progress).
 type WaveProgressProps = {
@@ -5,16 +7,16 @@ type WaveProgressProps = {
   label?: string;
   sublabel?: string;
   tone?: "teal" | "coral";
-  /** Set when rendering on a dark (e.g. brand-navy) background — flips label/track contrast. */
+  /** Set when rendering on a dark (e.g. brand-ink) background — flips label/track contrast. */
   onDark?: boolean;
 };
 
 export function WaveProgress({ percent, label, sublabel, tone = "teal", onDark = false }: WaveProgressProps) {
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
-  const fill = tone === "coral" ? "#E2775E" : "#1F8A80";
-  const labelClass = onDark ? "text-white/70" : "text-brand-navy/70";
-  const sublabelClass = onDark ? "text-white" : "text-brand-navy";
-  const trackClass = onDark ? "bg-white/10" : "bg-brand-navy/[0.07]";
+  const fill = tone === "coral" ? BRAND_CTA : BRAND_PRIMARY;
+  const labelClass = onDark ? "text-white/70" : "text-brand-ink/70";
+  const sublabelClass = onDark ? "text-white" : "text-brand-ink";
+  const trackClass = onDark ? "bg-white/10" : "bg-brand-ink/[0.07]";
 
   return (
     <div className="w-full">

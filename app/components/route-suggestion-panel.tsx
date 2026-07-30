@@ -55,29 +55,29 @@ export function RouteSuggestionPanel({ customerId, propertyId, bodyOfWaterId }: 
   }, [propertyId]);
 
   const skipLink = (
-    <Link href={`/dashboard/customers/${customerId}`} className="text-sm text-[#0A5FA4] underline">
+    <Link href={`/dashboard/customers/${customerId}`} className="app-link">
       Skip — assign manually later
     </Link>
   );
 
   return (
-    <div className="mt-6 rounded-lg border border-[#0A5FA4]/30 bg-[#EAF6FA] p-4">
-      <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-[#0A5FA4]">
+    <div className="mt-6 rounded-lg border border-brand-primary/30 bg-brand-foam p-4">
+      <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-brand-primary">
         Suggested route placement
       </p>
 
-      {state === "loading" ? <p className="mt-3 text-sm text-[#4A6572]">Finding nearby routes…</p> : null}
+      {state === "loading" ? <p className="mt-3 text-sm text-brand-muted">Finding nearby routes…</p> : null}
 
       {state === "error" ? (
         <>
-          <p className="mt-3 text-sm text-[#4A6572]">Couldn&rsquo;t load suggestions right now.</p>
+          <p className="mt-3 text-sm text-brand-muted">Couldn&rsquo;t load suggestions right now.</p>
           <div className="mt-2">{skipLink}</div>
         </>
       ) : null}
 
       {state === "ready" && data && "reason" in data ? (
         <>
-          <p className="mt-3 text-sm text-[#4A6572]">Address couldn&rsquo;t be geocoded — assign a route manually from the Routes page.</p>
+          <p className="mt-3 text-sm text-brand-muted">Address couldn&rsquo;t be geocoded — assign a route manually from the Routes page.</p>
           <div className="mt-2">{skipLink}</div>
         </>
       ) : null}
@@ -85,7 +85,7 @@ export function RouteSuggestionPanel({ customerId, propertyId, bodyOfWaterId }: 
       {state === "ready" && data && !("reason" in data) ? (
         data.suggestions.length === 0 ? (
           <>
-            <p className="mt-3 text-sm text-[#4A6572]">No eligible routes found nearby — assign one manually from the Routes page.</p>
+            <p className="mt-3 text-sm text-brand-muted">No eligible routes found nearby — assign one manually from the Routes page.</p>
             <div className="mt-2">{skipLink}</div>
           </>
         ) : (
@@ -99,13 +99,13 @@ export function RouteSuggestionPanel({ customerId, propertyId, bodyOfWaterId }: 
                     type="button"
                     onClick={() => setSelectedRouteId(s.routeId)}
                     className={`rounded-lg border p-3 text-left text-sm transition ${
-                      selected ? "border-[#0A5FA4] bg-white shadow-sm" : "border-[#C9E3EC] bg-white/60 hover:bg-white"
+                      selected ? "border-brand-primary bg-white shadow-sm" : "border-brand-border bg-white/60 hover:bg-white"
                     }`}
                   >
-                    <p className="font-semibold text-[#12234A]">{s.technicianLabel}</p>
-                    <p className="text-xs text-[#4A6572]">{s.dayOfWeek ? WEEKDAY_LABELS[s.dayOfWeek] : "Unscheduled day"}</p>
-                    <p className="mt-1 text-[#0A5FA4]">{s.distanceMiles.toFixed(1)} mi from nearest stop</p>
-                    <p className="text-xs text-[#4A6572]">
+                    <p className="font-semibold text-brand-ink">{s.technicianLabel}</p>
+                    <p className="text-xs text-brand-muted">{s.dayOfWeek ? WEEKDAY_LABELS[s.dayOfWeek] : "Unscheduled day"}</p>
+                    <p className="mt-1 text-brand-primary">{s.distanceMiles.toFixed(1)} mi from nearest stop</p>
+                    <p className="text-xs text-brand-muted">
                       {s.currentStopCount}
                       {s.maxCapacity != null ? `/${s.maxCapacity}` : ""} stops{s.maxCapacity == null ? " (no limit set)" : ""}
                     </p>
@@ -125,7 +125,7 @@ export function RouteSuggestionPanel({ customerId, propertyId, bodyOfWaterId }: 
                   <input type="hidden" name="propertyId" value={propertyId} />
                   <input type="hidden" name="bodyOfWaterId" value={bodyOfWaterId} />
                   <input type="hidden" name="routeId" value={selectedRouteId} />
-                  <button type="submit" className="rounded bg-[#0A5FA4] px-4 py-2 text-sm font-medium text-white">
+                  <button type="submit" className="app-btn-primary-sm">
                     Assign to this route
                   </button>
                   {skipLink}

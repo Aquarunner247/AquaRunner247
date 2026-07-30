@@ -6,7 +6,7 @@ import { TechnicianFilterSelect } from "@/app/components/technician-filter-selec
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
-import { getTechnicianColorMap } from "@/lib/technician-colors";
+import { getTechnicianColorMap, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { WaveProgress } from "@/app/components/wave-progress";
 
 type Props = {
@@ -178,7 +178,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
   const technicianIdsWithStops = new Set(routeStops.map((v) => v.technicianId).filter((id): id is string => Boolean(id)));
   const technicianLegend = roster
     .filter((t) => technicianIdsWithStops.has(t.id))
-    .map((t) => ({ id: t.id, label: t.name ?? t.email, color: colorMap.get(t.id) ?? "#94A3B8" }));
+    .map((t) => ({ id: t.id, label: t.name ?? t.email, color: colorMap.get(t.id) ?? UNASSIGNED_TECHNICIAN_COLOR }));
 
   // Ad-hoc "Extra stops" stays org-wide regardless of the technician filter — it's a
   // standalone utility list, not part of the route visualization.
@@ -215,12 +215,12 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl pb-24">
-      <header className="bg-brand-navy px-4 pb-4 pt-6">
+      <header className="bg-brand-ink px-4 pb-4 pt-6">
         <h1 className="font-display text-xl font-bold uppercase tracking-wide text-white">Schedule</h1>
 
         <div className="app-tabs mt-4 grid grid-cols-4 bg-white/10">
           {TABS.map((t) => (
-            <Link key={t} href={tabHref(t)} className={`text-center ${tab === t ? "app-tab-active" : "app-tab text-brand-sky hover:text-white"}`}>
+            <Link key={t} href={tabHref(t)} className={`text-center ${tab === t ? "app-tab-active" : "app-tab text-brand-border hover:text-white"}`}>
               {t}
             </Link>
           ))}
@@ -262,19 +262,19 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             <div className="grid grid-cols-4 gap-2 text-center">
               <div>
                 <p className="app-metric text-2xl font-bold">{stats.total}</p>
-                <p className="text-[10px] uppercase tracking-wide text-brand-sky">Total jobs</p>
+                <p className="text-[10px] uppercase tracking-wide text-brand-border">Total jobs</p>
               </div>
               <div>
-                <p className="app-metric text-2xl font-bold text-brand-teal">{stats.completed}</p>
-                <p className="text-[10px] uppercase tracking-wide text-brand-sky">Completed</p>
+                <p className="app-metric text-2xl font-bold text-brand-primary">{stats.completed}</p>
+                <p className="text-[10px] uppercase tracking-wide text-brand-border">Completed</p>
               </div>
               <div>
                 <p className="app-metric text-2xl font-bold text-white">{stats.inProgress}</p>
-                <p className="text-[10px] uppercase tracking-wide text-brand-sky">In progress</p>
+                <p className="text-[10px] uppercase tracking-wide text-brand-border">In progress</p>
               </div>
               <div>
-                <p className="app-metric text-2xl font-bold text-brand-coral">{stats.pending}</p>
-                <p className="text-[10px] uppercase tracking-wide text-brand-sky">Pending</p>
+                <p className="app-metric text-2xl font-bold text-brand-warnFill">{stats.pending}</p>
+                <p className="text-[10px] uppercase tracking-wide text-brand-border">Pending</p>
               </div>
             </div>
             {stats.total > 0 ? (
@@ -294,24 +294,24 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
                 key={d.ymd}
                 href={dayHref(d.ymd)}
                 className={`app-card-hover flex items-center justify-between rounded-xl border p-3 transition ${
-                  d.ymd === todayYmd ? "border-brand-teal bg-brand-foam" : "border-brand-border bg-white"
+                  d.ymd === todayYmd ? "border-brand-primary bg-brand-foam" : "border-brand-border bg-white"
                 }`}
               >
                 <div>
-                  <p className="text-sm font-semibold text-brand-navy">{d.label}</p>
+                  <p className="text-sm font-semibold text-brand-ink">{d.label}</p>
                   <p className="text-xs text-brand-icon">
                     {new Date(`${d.ymd}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </p>
                 </div>
                 <div className="flex gap-3 text-right text-xs">
-                  <span className="app-metric text-brand-navy">
+                  <span className="app-metric text-brand-ink">
                     <span className="font-semibold">{d.total}</span> jobs
                   </span>
-                  <span className="app-metric text-brand-tealDark">
+                  <span className="app-metric text-brand-primaryHover">
                     <span className="font-semibold">{d.completed}</span> done
                   </span>
                   {d.skipped > 0 ? (
-                    <span className="app-metric text-brand-coralDark">
+                    <span className="app-metric text-brand-danger">
                       <span className="font-semibold">{d.skipped}</span> skipped
                     </span>
                   ) : null}
@@ -333,14 +333,14 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
 
             {tab !== "map" ? (
               <div className="app-card mt-4">
-                <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-teal">Extra stops</p>
+                <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-primary">Extra stops</p>
                 {adHocStops.length === 0 ? (
-                  <p className="mt-2 text-sm text-brand-navy/60">No extra stops for this day — add one below.</p>
+                  <p className="mt-2 text-sm text-brand-ink/60">No extra stops for this day — add one below.</p>
                 ) : (
                   <ul className="mt-2 space-y-1.5">
                     {adHocStops.map((s) => (
                       <li key={s.id} className="app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm">
-                        <span className={s.completed ? "text-brand-icon line-through" : "text-brand-navy"}>
+                        <span className={s.completed ? "text-brand-icon line-through" : "text-brand-ink"}>
                           {s.description}
                           {s.property ? ` — ${s.property.name}` : ""}
                           {s.technician ? ` · ${s.technician.name ?? s.technician.email}` : " · Unassigned"}

@@ -282,11 +282,11 @@ export function ResidentialVisitForm({
     const markerLeft = pct(value, f.min, f.max);
 
     return (
-      <div key={f.key} className="rounded-lg border border-[#C9E3EC] bg-white p-3">
+      <div key={f.key} className="rounded-lg border border-brand-border bg-white p-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-[#4A6572]">
+          <span className="text-xs font-medium uppercase tracking-wide text-brand-muted">
             {f.label}
-            {f.required ? <span className="text-[#C1483B]"> *</span> : null}
+            {f.required ? <span className="text-brand-danger"> *</span> : null}
           </span>
           <span className="flex items-center gap-1">
             <input
@@ -300,17 +300,17 @@ export function ResidentialVisitForm({
                 const val = raw !== "" && Number.isInteger(f.step) ? String(roundToStep(Number(raw), f.step)) : raw;
                 setReading((prev) => ({ ...prev, [f.key]: val }));
               }}
-              className="w-16 rounded border border-[#C9E3EC] px-1.5 py-0.5 text-right font-[family-name:var(--font-mono)] text-sm text-[#12234A] disabled:bg-[#EAF6FA]"
+              className="w-16 rounded border border-brand-control px-1.5 py-0.5 text-right font-[family-name:var(--font-mono)] text-sm text-brand-ink disabled:bg-brand-foam"
             />
-            {f.unitLabel ? <span className="text-xs text-[#7FA0AC]">{f.unitLabel}</span> : null}
+            {f.unitLabel ? <span className="text-xs text-brand-muted">{f.unitLabel}</span> : null}
           </span>
         </div>
 
         <div className="relative mt-3 h-6">
-          <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-[#EAF6FA]" />
+          <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-brand-foam" />
           <div
-            className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-[#12234A] shadow"
-            style={{ left: `${markerLeft}%`, background: isSet ? "#0A5FA4" : "#C9E3EC" }}
+            className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-brand-ink shadow ${isSet ? "bg-brand-primary" : "bg-brand-border"}`}
+            style={{ left: `${markerLeft}%` }}
           />
           <input
             type="range"
@@ -326,7 +326,7 @@ export function ResidentialVisitForm({
             className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
           />
         </div>
-        <div className="mt-1 flex justify-between font-[family-name:var(--font-mono)] text-[10px] text-[#7FA0AC]">
+        <div className="mt-1 flex justify-between font-[family-name:var(--font-mono)] text-[10px] text-brand-muted">
           <span>{f.min}</span>
           <span>{f.max}</span>
         </div>
@@ -337,16 +337,16 @@ export function ResidentialVisitForm({
   return (
     <section className="mt-6 space-y-4">
       {!isCompleted ? (
-        <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+        <div className="app-card">
           {startedAt ? (
-            <p className="text-sm font-medium text-[#0A5FA4]">
+            <p className="text-sm font-medium text-brand-primary">
               Arrived at {new Date(startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
             </p>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-[#12234A]">Not logged as arrived yet</p>
-                <p className="text-xs text-[#4A6572]">
+                <p className="text-sm font-medium text-brand-ink">Not logged as arrived yet</p>
+                <p className="text-xs text-brand-muted">
                   This usually happens automatically when your phone&apos;s location enters the property. Tap this if
                   location isn&apos;t available or hasn&apos;t caught up yet.
                 </p>
@@ -355,19 +355,19 @@ export function ResidentialVisitForm({
                 type="button"
                 onClick={() => void markArrived()}
                 disabled={arrivalSaving}
-                className="shrink-0 rounded bg-[#FF6B5B] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="app-btn-accent-sm shrink-0"
               >
                 {arrivalSaving ? "Logging..." : "I've arrived"}
               </button>
             </div>
           )}
-          {arrivalError ? <p className="mt-1 text-sm text-[#C1483B]">{arrivalError}</p> : null}
+          {arrivalError ? <p className="mt-1 text-sm text-brand-danger">{arrivalError}</p> : null}
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+      <div className="app-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-[#12234A]">
+          <p className="text-sm font-medium text-brand-ink">
             Save status:{" "}
             <span className="font-semibold">
               {saveState === "saving" ? "Saving..." : saveState === "saved" ? saveMsg || "Saved" : saveState === "error" ? saveMsg || "Error" : "Idle"}
@@ -377,7 +377,7 @@ export function ResidentialVisitForm({
             type="button"
             onClick={() => void saveReading("manual")}
             disabled={isCompleted}
-            className="rounded border border-[#C9E3EC] px-3 py-1.5 text-sm font-medium text-[#12234A] disabled:opacity-50"
+            className="app-btn-secondary-sm disabled:opacity-50"
           >
             Save / Sync now
           </button>
@@ -385,16 +385,16 @@ export function ResidentialVisitForm({
       </div>
 
       {chemistryFields.some((f) => f.required) || chemistryFields.length > 0 ? (
-        <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-          <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Chemistry</h2>
+        <div className="app-card">
+          <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
           <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Chemical Doses</h2>
+      <div className="app-card">
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemical Doses</h2>
         {chemicalProducts.length === 0 ? (
-          <p className="mt-2 text-sm text-[#7FA0AC]">
+          <p className="mt-2 text-sm text-brand-muted">
             No chemical products set up yet. An admin can add them under Chemicals in the sidebar.
           </p>
         ) : (
@@ -403,7 +403,7 @@ export function ResidentialVisitForm({
               value={doseForm.chemicalProductId}
               disabled={isCompleted}
               onChange={(e) => setDoseForm((d) => ({ ...d, chemicalProductId: e.target.value }))}
-              className="rounded border border-[#C9E3EC] px-2 py-1.5 text-sm disabled:bg-[#EAF6FA]"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
             >
               <option value="">Select chemical…</option>
               {chemicalProducts.map((p) => (
@@ -425,40 +425,40 @@ export function ResidentialVisitForm({
                 const value = raw !== "" ? String(roundToStep(Number(raw), step)) : raw;
                 setDoseForm((d) => ({ ...d, quantity: value }));
               }}
-              className="rounded border border-[#C9E3EC] px-2 py-1.5 text-sm disabled:bg-[#EAF6FA]"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
             />
             <button
               type="submit"
               disabled={isCompleted || !doseForm.chemicalProductId || !doseForm.quantity}
-              className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              className="app-btn-primary-sm"
             >
               Add dose
             </button>
           </form>
         )}
-        <ul className="mt-3 space-y-1 text-sm text-[#16324A]">
+        <ul className="mt-3 space-y-1 text-sm text-brand-ink">
           {doses.map((d) => (
             <li key={d.id}>
               {d.productName}: {d.quantity} {d.unit}
             </li>
           ))}
-          {doses.length === 0 ? <li className="text-[#7FA0AC]">No doses added yet.</li> : null}
+          {doses.length === 0 ? <li className="text-brand-muted">No doses added yet.</li> : null}
         </ul>
       </div>
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">
+      <div className="app-card">
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
           Report an Issue
         </h2>
-        <p className="mt-1 text-sm text-[#4A6572]">
+        <p className="mt-1 text-sm text-brand-muted">
           Anything wrong or needing repair? Report it here — it shows up on the admin dashboard right away.
         </p>
 
         {issues.length > 0 ? (
           <ul className="mt-3 space-y-2">
             {issues.map((issue) => (
-              <li key={issue.id} className="rounded border border-[#FF6B5B]/40 bg-[#FF6B5B]/10 px-3 py-2 text-sm text-[#12234A]">
-                <span className="font-semibold uppercase text-xs text-[#FF6B5B]">{issue.severity}</span> — {issue.description}
+              <li key={issue.id} className="rounded border border-brand-danger/40 bg-brand-dangerFill px-3 py-2 text-sm text-brand-ink">
+                <span className="font-semibold uppercase text-xs text-brand-danger">{issue.severity}</span> — {issue.description}
               </li>
             ))}
           </ul>
@@ -471,14 +471,14 @@ export function ResidentialVisitForm({
             onChange={(e) => setIssueForm((f) => ({ ...f, description: e.target.value }))}
             placeholder="Describe what's wrong or needs repair..."
             rows={2}
-            className="w-full rounded border border-[#C9E3EC] px-2 py-1.5 text-sm disabled:bg-[#EAF6FA]"
+            className="app-field"
           />
           <div className="flex items-center gap-2">
             <select
               value={issueForm.severity}
               disabled={isCompleted || reportingIssue}
               onChange={(e) => setIssueForm((f) => ({ ...f, severity: e.target.value }))}
-              className="rounded border border-[#C9E3EC] px-2 py-1.5 text-sm disabled:bg-[#EAF6FA]"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
             >
               <option value="LOW">Low</option>
               <option value="MEDIUM">Medium</option>
@@ -487,7 +487,7 @@ export function ResidentialVisitForm({
             <button
               type="submit"
               disabled={isCompleted || reportingIssue || !issueForm.description.trim()}
-              className="rounded bg-[#FF6B5B] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="app-btn-accent-sm"
             >
               {reportingIssue ? "Reporting..." : "Report issue"}
             </button>
@@ -495,12 +495,12 @@ export function ResidentialVisitForm({
         </form>
       </div>
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Photo Capture</h2>
-        <p className="mt-1 text-sm text-[#4A6572]">
+      <div className="app-card">
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Photo Capture</h2>
+        <p className="mt-1 text-sm text-brand-muted">
           At least 1 photo is required to complete this visit. Photos must be taken live with the camera — uploading an existing image isn&rsquo;t allowed.
         </p>
-        <p className="mt-1 text-sm font-medium text-[#12234A]">Photos on file: {photoCount}</p>
+        <p className="mt-1 text-sm font-medium text-brand-ink">Photos on file: {photoCount}</p>
         {initialPhotos.length ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {initialPhotos.map((p) =>
@@ -510,27 +510,27 @@ export function ResidentialVisitForm({
                   key={p.id}
                   src={p.url}
                   alt="Service visit photo"
-                  className="h-20 w-20 rounded border border-[#C9E3EC] object-cover"
+                  className="h-20 w-20 rounded border border-brand-border object-cover"
                 />
               ) : null,
             )}
           </div>
         ) : null}
         <CameraCapture onCapture={uploadPhoto} disabled={isCompleted || uploadingPhoto} />
-        {uploadingPhoto ? <p className="mt-2 text-sm text-[#4A6572]">Uploading photo...</p> : null}
+        {uploadingPhoto ? <p className="mt-2 text-sm text-brand-muted">Uploading photo...</p> : null}
       </div>
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+      <div className="app-card">
         <button
           type="button"
           onClick={() => void completeVisit()}
           disabled={isCompleted || requiredMissing || photoCount < 1}
-          className="rounded bg-[#0A5FA4] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#7FA0AC]"
+          className="rounded bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primaryHover disabled:cursor-not-allowed disabled:bg-brand-control"
         >
           {isCompleted ? "Visit completed" : "Complete service visit"}
         </button>
         {!isCompleted && (requiredMissing || photoCount < 1) ? (
-          <p className="mt-2 text-sm text-[#B5793D]">Completion requires all required (*) readings and at least one photo.</p>
+          <p className="mt-2 text-sm text-brand-warn">Completion requires all required (*) readings and at least one photo.</p>
         ) : null}
       </div>
     </section>

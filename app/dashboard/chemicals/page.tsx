@@ -102,7 +102,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
 
       {/* Catalog */}
       <section className="app-card mt-6">
-        <h2 className="text-base font-semibold text-brand-navy">Chemical products</h2>
+        <h2 className="text-base font-semibold text-brand-ink">Chemical products</h2>
         <div className="mt-3 space-y-2">
           {products.map((p) => {
             const isEditing = editingId === p.id;
@@ -111,10 +111,10 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
                 {!isEditing ? (
                   <div className="flex items-center gap-2">
                     <div className="grid flex-1 grid-cols-4 items-center gap-2 text-sm">
-                      <span className="font-medium text-brand-navy">{p.name}</span>
-                      <span className="app-metric text-brand-navy/70">{p.unit}</span>
-                      <span className="app-metric text-brand-navy/70">Cost: {fmtMoney(Number(p.costPerUnit))}</span>
-                      <span className="app-metric text-brand-navy/70">Charge: {fmtMoney(Number(p.chargePerUnit))}</span>
+                      <span className="font-medium text-brand-ink">{p.name}</span>
+                      <span className="app-metric text-brand-ink/70">{p.unit}</span>
+                      <span className="app-metric text-brand-ink/70">Cost: {fmtMoney(Number(p.costPerUnit))}</span>
+                      <span className="app-metric text-brand-ink/70">Charge: {fmtMoney(Number(p.chargePerUnit))}</span>
                     </div>
                     <a href={`/dashboard/chemicals?edit=${p.id}`} className="app-btn-secondary-sm">
                       Edit
@@ -162,11 +162,11 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
               </div>
             );
           })}
-          {products.length === 0 ? <p className="app-card-inset text-sm text-brand-navy/60">No chemical products yet — add one below.</p> : null}
+          {products.length === 0 ? <p className="app-card-inset text-sm text-brand-ink/60">No chemical products yet — add one below.</p> : null}
         </div>
 
         <form action={createChemicalProduct} className="app-card-inset mt-4">
-          <p className="text-sm font-medium text-brand-navy">Add chemical product</p>
+          <p className="text-sm font-medium text-brand-ink">Add chemical product</p>
           <div className="mt-2 grid grid-cols-4 gap-2">
             <input name="name" required placeholder="Name (e.g. Cal Hypo)" className="app-field" />
             <input name="unit" required placeholder="Unit (e.g. lb, gal)" className="app-field" />
@@ -181,13 +181,13 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
 
       {/* Usage / billing report */}
       <section className="app-card mt-6">
-        <h2 className="text-base font-semibold text-brand-navy">Usage &amp; billing by property</h2>
+        <h2 className="text-base font-semibold text-brand-ink">Usage &amp; billing by property</h2>
 
         <form className="mt-3 flex flex-wrap items-center gap-2" method="GET">
-          <label className="text-sm text-brand-navy/70">
+          <label className="text-sm text-brand-ink/70">
             From <input type="date" name="from" defaultValue={toYmd(from)} className="app-field w-auto py-1" />
           </label>
-          <label className="text-sm text-brand-navy/70">
+          <label className="text-sm text-brand-ink/70">
             To <input type="date" name="to" defaultValue={toYmd(to)} className="app-field w-auto py-1" />
           </label>
           <select name="propertyId" defaultValue={propertyId} className="app-field w-auto">
@@ -204,7 +204,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
         </form>
 
         {propertyTotals.length === 0 ? (
-          <p className="mt-4 text-sm text-brand-navy/60">No chemical doses logged for this range.</p>
+          <p className="mt-4 text-sm text-brand-ink/60">No chemical doses logged for this range.</p>
         ) : (
           <>
             {/* Bar chart: $ charged per property */}
@@ -212,12 +212,12 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
               {propertyTotals.map((p) => (
                 <div key={p.propertyId}>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-brand-navy">{p.propertyName}</span>
-                    <span className="app-metric text-brand-navy/70">{fmtMoney(p.totalCharge)}</span>
+                    <span className="font-medium text-brand-ink">{p.propertyName}</span>
+                    <span className="app-metric text-brand-ink/70">{fmtMoney(p.totalCharge)}</span>
                   </div>
-                  <div className="mt-1 h-2 rounded-full bg-brand-navy/[0.07]">
+                  <div className="mt-1 h-2 rounded-full bg-brand-ink/[0.07]">
                     <div
-                      className="h-2 rounded-full bg-brand-teal transition-[width] duration-500 motion-reduce:transition-none"
+                      className="h-2 rounded-full bg-brand-primary transition-[width] duration-500 motion-reduce:transition-none"
                       style={{ width: `${Math.max((p.totalCharge / maxCharge) * 100, 2)}%` }}
                     />
                   </div>
@@ -230,8 +230,8 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
               {propertyTotals.map((p) => (
                 <div key={`detail-${p.propertyId}`} className="app-card-inset">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-brand-navy">{p.propertyName}</p>
-                    <p className="app-metric text-sm text-brand-navy/70">
+                    <p className="text-sm font-semibold text-brand-ink">{p.propertyName}</p>
+                    <p className="app-metric text-sm text-brand-ink/70">
                       Cost {fmtMoney(p.totalCost)} · Charge {fmtMoney(p.totalCharge)}
                     </p>
                   </div>
@@ -261,7 +261,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
               ))}
             </div>
 
-            <div className="mt-4 flex justify-end gap-6 border-t border-brand-border/70 pt-3 text-sm font-semibold text-brand-navy">
+            <div className="mt-4 flex justify-end gap-6 border-t border-brand-border/70 pt-3 text-sm font-semibold text-brand-ink">
               <span className="app-metric">Total cost: {fmtMoney(grandCost)}</span>
               <span className="app-metric">Total charge: {fmtMoney(grandCharge)}</span>
             </div>

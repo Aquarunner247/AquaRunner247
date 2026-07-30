@@ -6,7 +6,7 @@ import { FilterTypeFields } from "./filter-type-fields";
 import { PropertyContactFields } from "./property-contact-fields";
 import { AddressFields } from "./address-fields";
 
-const inputClass = "rounded border border-slate-300 px-2 py-1.5 text-sm";
+const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
 
 type ManagementCompany = { id: string; name: string };
 
@@ -23,7 +23,7 @@ export function NewCustomerFormFields({ managementCompanies }: { managementCompa
     <>
       <PropertyContactFields propertyType={propertyType} onPropertyTypeChange={setPropertyType} />
 
-      <div className="mt-3 border-t border-slate-200 pt-3">
+      <div className="mt-3 border-t border-brand-border pt-3">
         <input name="name" required placeholder="Property/customer name" className={`w-full ${inputClass}`} />
       </div>
 
@@ -45,8 +45,8 @@ export function NewCustomerFormFields({ managementCompanies }: { managementCompa
 
       <textarea name="notes" placeholder="Notes (optional)" className={`mt-2 w-full ${inputClass}`} rows={3} />
 
-      <div className="mt-3 border-t border-slate-200 pt-3">
-        <p className="text-sm font-semibold text-slate-900">Initial aquatic venue</p>
+      <div className="mt-3 border-t border-brand-border pt-3">
+        <p className="text-sm font-semibold text-brand-ink">Initial aquatic venue</p>
         <input
           name="initialBodyName"
           required
