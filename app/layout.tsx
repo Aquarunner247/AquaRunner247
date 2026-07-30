@@ -56,11 +56,11 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
-      <body className="min-h-screen bg-[#EAF6FA] font-[family-name:var(--font-body)] antialiased md:flex">
+      <body className="min-h-screen bg-brand-mist font-[family-name:var(--font-body)] antialiased md:flex">
         <ServiceWorkerRegister />
         <SideNav
           isLoggedIn={Boolean(user)}
-          isAdmin={appUser?.role === "ADMIN"}
+          role={appUser?.role ?? null}
           userName={appUser?.name ?? appUser?.email ?? null}
           orgName={organization?.name ?? null}
         />

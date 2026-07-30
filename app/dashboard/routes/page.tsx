@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
+import { WaveProgress } from "@/app/components/wave-progress";
 import {
   createRoute,
   deleteRoute,
@@ -16,19 +17,6 @@ import {
 } from "./actions";
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-// One accent color per weekday, drawn from colors already used elsewhere in the app
-// (teal is the primary brand accent; the rest are the same supporting palette used
-// for badges/warnings/success states throughout the dashboard).
-const DAY_ACCENT: Record<number, string> = {
-  1: "border-l-teal-500", // Monday
-  2: "border-l-sky-500", // Tuesday
-  3: "border-l-violet-500", // Wednesday
-  4: "border-l-amber-500", // Thursday
-  5: "border-l-rose-500", // Friday
-  6: "border-l-emerald-500", // Saturday
-  7: "border-l-slate-400", // Sunday
-};
 
 export default async function RoutesPage() {
   const appUser = await getCurrentAppUser();
@@ -107,10 +95,10 @@ export default async function RoutesPage() {
 
       <section className="mt-6 space-y-5">
         {routes.map((route) => (
-          <div key={route.id} className={`app-card-muted border-l-4 ${DAY_ACCENT[route.dayOfWeek ?? 1] ?? "border-l-teal-500"}`}>
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-teal-100/70 pb-3">
+          <div key={route.id} className="app-card-muted app-card-hover border-l-4 border-l-brand-teal">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-brand-border/70 pb-3">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-lg font-semibold text-slate-900">{DAY_NAMES[route.dayOfWeek ?? 0]}</h2>
+                <h2 className="font-display text-lg font-semibold text-brand-navy">{DAY_NAMES[route.dayOfWeek ?? 0]}</h2>
                 <span className="app-badge">{route.frequency}</span>
                 <form action={updateRouteTechnician}>
                   <input type="hidden" name="routeId" value={route.id} />
@@ -175,11 +163,22 @@ export default async function RoutesPage() {
               </div>
             </div>
 
+            {route.maxCapacity != null ? (
+              <div className="mt-3">
+                <WaveProgress
+                  percent={(route.stops.length / route.maxCapacity) * 100}
+                  label="Route capacity"
+                  sublabel={`${route.stops.length}/${route.maxCapacity} stops`}
+                  tone={route.stops.length > route.maxCapacity ? "coral" : "teal"}
+                />
+              </div>
+            ) : null}
+
             <ol className="mt-3 space-y-2">
               {route.stops.map((stop, idx) => (
                 <li key={stop.id} className="app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span>
-                    <span className="font-semibold text-teal-800">{idx + 1}.</span> {stop.property.name} — {stop.bodyOfWater?.name ?? "Property-level"}
+                    <span className="font-semibold text-brand-tealDark">{idx + 1}.</span> {stop.property.name} — {stop.bodyOfWater?.name ?? "Property-level"}
                     {stop.etaOffsetMinutes ? ` · +${stop.etaOffsetMinutes} min` : ""}
                   </span>
                   <form action={removeRouteStop}>
