@@ -32,7 +32,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
           to avoid an interruption.
         </div>
       ) : null}
-      {children}
+      {/* Technician pages already reserve their own space for TechBottomNav (pb-24 per
+          page); admin/office get the equivalent bottom nav from SideNav on mobile, which
+          those pages were never built to leave room for, so pad it here instead of
+          touching every page individually. */}
+      {appUser.role === "TECHNICIAN" ? children : <div className="pb-20 md:pb-0">{children}</div>}
       {appUser.role === "TECHNICIAN" ? <TechBottomNav dateYmd={toYmd(new Date())} /> : null}
     </>
   );
