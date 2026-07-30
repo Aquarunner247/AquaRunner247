@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --foreground: #16242b;
-  --background: #f5f8f7;
+  --foreground: #06333b;   /* brand.ink */
+  --background: #f4f8f8;   /* brand.surface */
 }
 
 @layer base {
@@ -18,11 +18,11 @@
   }
 
   ::selection {
-    @apply bg-brand-teal/[0.25] text-brand-navy;
+    @apply bg-brand-primary/[0.18] text-brand-ink;
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-brand-teal ring-offset-2 ring-offset-white;
+    @apply outline-none ring-2 ring-brand-primary ring-offset-2 ring-offset-white;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -71,7 +71,7 @@
   }
 
   .app-card {
-    @apply rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-soft backdrop-blur-sm transition duration-200 md:p-5;
+    @apply rounded-2xl border border-brand-border bg-white p-4 shadow-soft backdrop-blur-sm transition duration-200 md:p-5;
   }
 
   .app-card-hover {
@@ -79,118 +79,119 @@
   }
 
   .app-card-muted {
-    @apply rounded-2xl border border-brand-border/70 bg-gradient-to-br from-brand-foam/80 via-white to-white p-4 shadow-soft transition duration-200 md:p-5;
+    @apply rounded-2xl border border-brand-border/70 bg-gradient-to-br from-brand-foam via-white to-white p-4 shadow-soft transition duration-200 md:p-5;
   }
 
   .app-card-inset {
-    @apply rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 md:p-4;
+    @apply rounded-xl border border-brand-border/70 bg-brand-foam/60 p-3 md:p-4;
   }
 
   .app-page-head {
-    @apply border-b border-slate-200/90 pb-5 md:pb-6;
+    @apply border-b border-brand-border pb-5 md:pb-6;
   }
 
   .app-kicker {
-    @apply text-xs font-semibold uppercase tracking-[0.14em] text-brand-blue;
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary;
   }
 
   .app-h1 {
-    @apply font-display text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl;
+    @apply font-display text-2xl font-semibold tracking-tight text-brand-ink md:text-3xl;
   }
 
   .app-subhead {
-    @apply mt-1 text-sm leading-relaxed text-slate-600 md:text-base;
+    @apply mt-1 text-sm leading-relaxed text-brand-muted md:text-base;
   }
 
   .app-field {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner shadow-slate-100/80 transition placeholder:text-slate-400 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20 disabled:bg-slate-50 disabled:text-slate-500;
+    @apply w-full rounded-xl border border-brand-control bg-white px-3 py-2 text-sm text-brand-ink transition placeholder:text-brand-muted/70 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/35 disabled:bg-brand-foam disabled:text-brand-muted;
   }
 
   .app-field-search {
-    @apply w-full rounded-xl border border-brand-border bg-gradient-to-r from-brand-mist/70 to-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/30;
+    @apply w-full rounded-xl border border-brand-control bg-gradient-to-r from-brand-foam/70 to-white px-3 py-2 text-sm text-brand-ink placeholder:text-brand-muted focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/35;
   }
 
   .app-btn-primary {
-    @apply inline-flex items-center justify-center rounded-xl bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-brand-navy/15 transition hover:bg-brand-blueDark focus:outline-none focus:ring-2 focus:ring-brand-blue/50 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-brand-ink/15 transition hover:bg-brand-primaryHover focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
   }
 
   .app-btn-primary-sm {
-    @apply inline-flex items-center justify-center rounded-lg bg-brand-blue px-3 py-1.5 text-sm font-semibold text-white shadow-sm shadow-brand-navy/10 transition hover:bg-brand-blueDark focus:outline-none focus:ring-2 focus:ring-brand-blue/40 focus:ring-offset-1 disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg bg-brand-primary px-3 py-1.5 text-sm font-semibold text-white shadow-sm shadow-brand-ink/10 transition hover:bg-brand-primaryHover focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:ring-offset-1 disabled:opacity-50;
   }
 
   .app-btn-accent-sm {
-    @apply inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg bg-brand-cta px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-ctaHover focus:outline-none focus:ring-2 focus:ring-brand-cta/45 disabled:opacity-50;
   }
 
   .app-btn-secondary-sm {
-    @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-brand-border hover:bg-brand-mist/60 hover:text-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-blue/30;
+    @apply inline-flex items-center justify-center rounded-lg border border-brand-control bg-white px-3 py-2 text-sm font-semibold text-brand-ink shadow-sm transition hover:bg-brand-foam focus:outline-none focus:ring-2 focus:ring-brand-primary/35;
   }
 
   .app-btn-ghost-sm {
-    @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:border-brand-border hover:bg-brand-mist/50 disabled:opacity-40;
+    @apply inline-flex items-center justify-center rounded-lg border border-brand-control bg-white px-2 py-1 text-xs font-semibold text-brand-ink transition hover:bg-brand-foam disabled:opacity-40;
   }
 
   .app-btn-danger-sm {
-    @apply inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-800 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-300/50;
+    @apply inline-flex items-center justify-center rounded-lg border border-brand-danger/45 bg-white px-2.5 py-1 text-xs font-semibold text-brand-danger transition hover:bg-brand-dangerFill focus:outline-none focus:ring-2 focus:ring-brand-danger/40;
   }
 
   .app-btn-danger-solid-sm {
-    @apply inline-flex items-center justify-center rounded-lg bg-rose-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg bg-brand-danger px-2 py-1 text-xs font-semibold text-white transition hover:bg-brand-danger/90 disabled:opacity-50;
   }
 
   .app-link {
-    @apply text-sm font-medium text-brand-blue underline decoration-brand-blue/35 underline-offset-[5px] transition hover:text-brand-navy hover:decoration-brand-navy/50;
+    @apply text-sm font-medium text-brand-primary underline decoration-brand-primary/40 underline-offset-[5px] transition hover:text-brand-ink hover:decoration-brand-ink/50;
   }
 
   .app-code {
-    @apply rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.8em] text-slate-800;
+    @apply rounded-md bg-brand-foam px-1.5 py-0.5 font-mono text-[0.8em] text-brand-ink;
   }
 
   .app-badge {
-    @apply inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800;
+    @apply inline-flex rounded-full bg-brand-foam px-2.5 py-0.5 text-xs font-semibold text-brand-ink;
   }
 
   .app-badge-success {
-    @apply inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900;
+    @apply inline-flex rounded-full bg-brand-okFill px-2 py-0.5 text-xs font-semibold text-brand-ok;
   }
 
   .app-badge-warn {
-    @apply text-xs font-semibold text-amber-800;
+    @apply text-xs font-semibold text-brand-warn;
   }
 
-  /* Status pills — teal=good, coral=needs attention, gray=inactive. Used across route
-     cards, schedule stats, and reading alerts so status always reads the same way. */
+  /* Status pills — these carry MEANING, not brand. good=ok green, attention=warn amber,
+     inactive=neutral. Never restyle these with brand.cta or brand.accent: a reading that
+     failed must never look like a marketing highlight. */
   .app-pill {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
   }
 
   .app-pill-good {
-    @apply app-pill bg-brand-teal/10 text-brand-tealDark;
+    @apply app-pill bg-brand-okFill text-brand-ok;
   }
 
   .app-pill-attention {
-    @apply app-pill bg-brand-coral/[0.14] text-brand-coralDark;
+    @apply app-pill bg-brand-warnFill text-brand-warn;
   }
 
   .app-pill-inactive {
-    @apply app-pill bg-slate-100 text-slate-500;
+    @apply app-pill bg-brand-foam text-brand-muted;
   }
 
   .app-pill-active {
-    @apply app-pill bg-brand-navy/10 text-brand-navy;
+    @apply app-pill bg-brand-primary/12 text-brand-ink;
   }
 
   /* Segmented pill-style tab control — Day/Week/Map/List and similar toggles. */
   .app-tabs {
-    @apply inline-flex items-center gap-1 rounded-full bg-brand-navy/10 p-1;
+    @apply inline-flex items-center gap-1 rounded-full bg-brand-foam p-1;
   }
 
   .app-tab {
-    @apply rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-navy/60 transition duration-150 hover:text-brand-navy;
+    @apply rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-muted transition duration-150 hover:text-brand-ink;
   }
 
   .app-tab-active {
-    @apply app-tab bg-brand-navy text-white shadow-sm hover:text-white;
+    @apply app-tab bg-brand-anchor text-white shadow-sm hover:text-white;
   }
 
   /* Numeric/utility face — gauge readings, timestamps, metadata read differently from prose. */
