@@ -18,7 +18,7 @@
   }
 
   ::selection {
-    @apply bg-brand-teal/25 text-brand-navy;
+    @apply bg-brand-teal/[0.25] text-brand-navy;
   }
 
   :focus-visible {
