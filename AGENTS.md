@@ -8,6 +8,34 @@ public QR logbook at `/p/[publicSlug]`.
 Standard commands live in `package.json` (`dev`, `build`, `start`, `lint`, `db:*`); the env
 contract is in `.env.example`.
 
+## Read these two files first
+
+- **`DESIGN-SYSTEM.md`** — the only palette and type spec. Read it before writing any UI.
+  One palette in `tailwind.config.ts` under `brand.*`; no hex literals in components;
+  cool teal is the product and warm clay is marketing; `brand-accent` is dark-background
+  only; `ok`/`warn`/`danger` are reserved for water-reading results; no `slate-*`,
+  `gray-*`, `emerald-*`, `rose-*`, `amber-*`, `sky-*`, `blue-*`.
+- **`CLAUDE.md`** — working conventions (credentials, destructive operations, verifying
+  claims before reporting them). These apply to every agent, not just Claude.
+
+## Database access model — important
+
+**All application data access goes through Prisma** on a direct Postgres connection
+(`DATABASE_URL`). The Supabase JS client is used for **auth only**, plus storage buckets
+via the `service_role` key.
+
+This is enforced at the database level in production, not just by convention:
+
+- Row-level security is enabled on every table in `public`, with no policies. Prisma
+  connects as the table owner and bypasses RLS; client roles get nothing.
+- `USAGE` and all table/sequence/function privileges on schema `public` have been
+  **revoked from `anon` and `authenticated`**, including default privileges for future
+  tables. The PostgREST and GraphQL endpoints therefore expose no application tables.
+
+**Consequence:** if you write `supabase.from("SomeTable").select(...)` it will fail in
+production, by design. Use Prisma. If you genuinely need a client-side read, that is an
+architectural decision — raise it rather than re-granting privileges.
+
 ## Cursor Cloud specific instructions
 
 ### Services & how they run
