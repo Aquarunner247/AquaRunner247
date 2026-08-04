@@ -27,17 +27,19 @@ export function NewCustomerFormFields({ managementCompanies }: { managementCompa
         <input name="name" required placeholder="Property/customer name" className={`w-full ${inputClass}`} />
       </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <select name="managementCompanyId" defaultValue="" className={inputClass}>
-          <option value="">No management company</option>
-          {managementCompanies.map((mc) => (
-            <option key={mc.id} value={mc.id}>
-              {mc.name}
-            </option>
-          ))}
-        </select>
-        <input name="newManagementCompanyName" placeholder="Or type a new company name" className={inputClass} />
-      </div>
+      {propertyType === PropertyType.COMMERCIAL ? (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <select name="managementCompanyId" defaultValue="" className={inputClass}>
+            <option value="">No management company</option>
+            {managementCompanies.map((mc) => (
+              <option key={mc.id} value={mc.id}>
+                {mc.name}
+              </option>
+            ))}
+          </select>
+          <input name="newManagementCompanyName" placeholder="Or type a new company name" className={inputClass} />
+        </div>
+      ) : null}
 
       <div className="mt-2">
         <AddressFields />

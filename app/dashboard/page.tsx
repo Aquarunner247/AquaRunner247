@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
@@ -338,7 +339,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ) : appUser.role === "ADMIN" && stats ? (
           <>
             {/* Quick stats — card grid */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <div className="app-card app-card-hover">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Customers</p>
                 <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.customers}</p>
@@ -356,6 +357,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.upcomingThisWeek}</p>
               </div>
             </div>
+
+            {stats.customers === 0 ? (
+              <div className="app-card flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-brand-ink">Add your first customer to get started</p>
+                  <p className="mt-1 text-sm text-brand-muted">Customers, properties, and aquatic venues will show up here once added.</p>
+                </div>
+                <Link href="/dashboard/customers?new=1" className="app-btn-primary-sm shrink-0">
+                  + Add customer
+                </Link>
+              </div>
+            ) : null}
 
             {/* Week progress — the signature water-level motif, doing real work: share of this week's stops completed */}
             <div className="app-card">
@@ -394,7 +407,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             ) : null}
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* Out-of-range readings — signature chemistry gauge instead of a plain number */}
               <div className="app-card">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Out-of-range readings (last 7 days)</p>

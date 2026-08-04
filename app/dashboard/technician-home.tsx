@@ -64,16 +64,16 @@ export async function TechnicianHome({
   const firstName = (appUser.name ?? appUser.email).split(" ")[0];
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl pb-24">
-      <header className="bg-brand-ink px-4 pb-6 pt-6">
+    <main className="mx-auto min-h-screen max-w-2xl pb-24 lg:max-w-4xl">
+      <header className="bg-brand-ink px-4 pb-6 pt-6 lg:px-8 lg:pb-8 lg:pt-8">
         <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-brand-border">AquaRunner 24/7 Pro</p>
-        <h1 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-white">Welcome back, {firstName}!</h1>
+        <h1 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-white lg:text-3xl">Welcome back, {firstName}!</h1>
       </header>
 
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 px-4 py-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 lg:px-8 lg:py-6">
         <Link
           href="/dashboard/schedule"
-          className="app-card flex items-center justify-between"
+          className="app-card flex items-center justify-between lg:col-span-2"
         >
           <div>
             <p className="text-sm font-semibold text-brand-ink">View today&rsquo;s schedule</p>
