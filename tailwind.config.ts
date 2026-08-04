@@ -66,23 +66,7 @@ const config: Config = {
           warnFill: "#F7EBD6",
           dangerFill: "#F7E3E0",
 
-          // — Legacy aliases —
-          // Kept so existing brand-navy / brand-teal / brand-blue / brand-sky /
-          // brand-mist / brand-alert / brand-coral consumers keep compiling while
-          // screens are migrated. Do not use these in new code; they will be removed
-          // once the last consumer is converted.
-          navy: "#06333B",
-          navyLight: "#07606D",
-          teal: "#0A6E7C",
-          tealDark: "#054E58",
-          coral: "#B8503E",
-          coralDark: "#9C4132",
           icon: "#55696C",
-          blue: "#0A6E7C",
-          blueDark: "#054E58",
-          sky: "#9CC3C6",
-          mist: "#E4EFEF",
-          alert: "#B8503E",
         },
       },
       boxShadow: {

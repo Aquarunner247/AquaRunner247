@@ -13,6 +13,10 @@ const display = Big_Shoulders({
   subsets: ["latin"],
   weight: ["600", "700", "800"],
   variable: "--font-display",
+  // Next's curated font-metrics database doesn't include Big Shoulders, so automatic
+  // fallback-metric adjustment always fails with a console warning. Disabling it trades
+  // away that auto CLS-mitigation for this one font in exchange for a clean build/dev log.
+  adjustFontFallback: false,
 });
 const body = Inter({
   subsets: ["latin"],
