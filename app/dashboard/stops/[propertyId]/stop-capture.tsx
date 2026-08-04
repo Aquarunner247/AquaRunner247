@@ -11,7 +11,7 @@ export type StopBody = {
   bodyType: string;
   status: string;
   photoCount: number;
-  thumbnails: { id: string; url: string | null }[];
+  thumbnails: { id: string; url: string | null; pending?: boolean }[];
 };
 
 type Props = {
@@ -34,12 +34,15 @@ export function StopCapture({ propertyName, bodies: initialBodies }: Props) {
         return;
       }
       // Show the freshly taken photo immediately as a local preview — it'll get a real
-      // signed URL next time the page is loaded from the server.
+      // signed URL next time the page is loaded from the server. If offline, the upload
+      // itself is queued (see uploadVisitPhoto), so there's no real photoId yet.
       const localUrl = URL.createObjectURL(file);
+      const queued = "queued" in result;
+      const id = queued ? `pending-${Date.now()}` : (result as { photoId: string }).photoId;
       setBodies((prev) =>
         prev.map((b) =>
           b.visitId === visitId
-            ? { ...b, photoCount: b.photoCount + 1, thumbnails: [{ id: result.photoId, url: localUrl }, ...b.thumbnails] }
+            ? { ...b, photoCount: b.photoCount + 1, thumbnails: [{ id, url: localUrl, pending: queued }, ...b.thumbnails] }
             : b,
         ),
       );
@@ -70,8 +73,15 @@ export function StopCapture({ propertyName, bodies: initialBodies }: Props) {
               <div className="mt-3 flex flex-wrap gap-2">
                 {body.thumbnails.slice(0, 6).map((t) =>
                   t.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={t.id} src={t.url} alt="" className="h-16 w-16 rounded border border-brand-border object-cover" />
+                    <div key={t.id} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={t.url} alt="" className="h-16 w-16 rounded border border-brand-border object-cover" />
+                      {t.pending ? (
+                        <span className="absolute -right-1 -top-1 rounded-full bg-brand-warn px-1.5 py-0.5 text-[9px] font-bold text-white">
+                          sync
+                        </span>
+                      ) : null}
+                    </div>
                   ) : null,
                 )}
               </div>

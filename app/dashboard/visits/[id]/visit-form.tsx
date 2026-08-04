@@ -3,12 +3,15 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CameraCapture } from "@/app/components/camera-capture";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
+import { queuedSubmitJson } from "@/lib/client/offline-queue";
+import { useOfflineSync } from "@/lib/client/use-offline-sync";
 
 type Dose = {
   id: string;
   productName: string;
   quantity: string;
   unit: string;
+  pending?: boolean;
 };
 
 type Reading = {
@@ -158,6 +161,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const timerRef = useRef<number | null>(null);
   const isFirstRender = useRef(true);
+  const { pendingCount, syncNow } = useOfflineSync();
 
   const isCompleted = visitStatus === "COMPLETED";
 
@@ -184,29 +188,33 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
   }, [reading]);
 
   async function saveReading(source: "auto" | "manual") {
-    try {
-      setSaveState("saving");
-      const response = await fetch(`/api/visits/${visitId}/reading`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ph: reading.ph || null,
-          freeChlorinePpm: reading.freeChlorinePpm || null,
-          alkalinityPpm: reading.alkalinityPpm || null,
-          cyanuricAcidPpm: reading.cyanuricAcidPpm || null,
-          temperatureF: reading.temperatureF || null,
-          pumpPressurePsi: reading.pumpPressurePsi || null,
-          vacGaugeReading: reading.vacGaugeReading || null,
-          flowMeterGpm: reading.flowMeterGpm || null,
-          filterPressurePsi: reading.filterPressurePsi || null,
-          backwashPerformed,
-          backwashAt: backwashPerformed && backwashTime ? `${new Date().toISOString().slice(0, 10)}T${backwashTime}:00` : null,
-        }),
-      });
-      if (!response.ok) throw new Error("Save failed");
+    setSaveState("saving");
+    const result = await queuedSubmitJson({
+      url: `/api/visits/${visitId}/reading`,
+      method: "PATCH",
+      label: "Water reading",
+      visitId,
+      body: {
+        ph: reading.ph || null,
+        freeChlorinePpm: reading.freeChlorinePpm || null,
+        alkalinityPpm: reading.alkalinityPpm || null,
+        cyanuricAcidPpm: reading.cyanuricAcidPpm || null,
+        temperatureF: reading.temperatureF || null,
+        pumpPressurePsi: reading.pumpPressurePsi || null,
+        vacGaugeReading: reading.vacGaugeReading || null,
+        flowMeterGpm: reading.flowMeterGpm || null,
+        filterPressurePsi: reading.filterPressurePsi || null,
+        backwashPerformed,
+        backwashAt: backwashPerformed && backwashTime ? `${new Date().toISOString().slice(0, 10)}T${backwashTime}:00` : null,
+      },
+    });
+    if (result.status === "queued") {
+      setSaveState("saved");
+      setSaveMsg("Saved offline — will sync");
+    } else if (result.status === "sent") {
       setSaveState("saved");
       setSaveMsg(source === "auto" ? "Autosaved" : "Saved");
-    } catch {
+    } else {
       setSaveState("error");
       setSaveMsg("Save failed");
     }
@@ -230,20 +238,33 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
 
   async function addDose(e: FormEvent) {
     e.preventDefault();
-    const response = await fetch(`/api/visits/${visitId}/doses`, {
+    const result = await queuedSubmitJson({
+      url: `/api/visits/${visitId}/doses`,
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      label: "Chemical dose",
+      visitId,
+      body: {
         chemicalProductId: doseForm.chemicalProductId,
         quantity: Number(doseForm.quantity),
-      }),
+      },
     });
-    if (!response.ok) {
+    if (result.status === "failed") {
       setSaveState("error");
       setSaveMsg("Dose add failed");
       return;
     }
-    const data = (await response.json()) as { dose: Dose };
+    if (result.status === "queued") {
+      const product = chemicalProducts.find((p) => p.id === doseForm.chemicalProductId);
+      setDoses((prev) => [
+        { id: `pending-${Date.now()}`, productName: product?.name ?? "Chemical", quantity: doseForm.quantity, unit: product?.unit ?? "", pending: true },
+        ...prev,
+      ]);
+      setSaveState("saved");
+      setSaveMsg("Saved offline — will sync");
+      setDoseForm({ chemicalProductId: "", quantity: "" });
+      return;
+    }
+    const data = (await result.response.json()) as { dose: Dose };
     setDoses((prev) => [data.dose, ...prev]);
     setDoseForm({ chemicalProductId: "", quantity: "" });
   }
@@ -254,6 +275,10 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
       const result = await uploadVisitPhoto(visitId, file);
       if (!result.ok) throw new Error(result.error);
       setPhotoCount((n) => n + 1);
+      if ("queued" in result && result.queued) {
+        setSaveState("saved");
+        setSaveMsg("Photo saved offline — will upload when back online");
+      }
     } catch (err) {
       setSaveState("error");
       setSaveMsg(err instanceof Error ? err.message : "Photo upload failed");
@@ -264,15 +289,20 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
 
   async function toggleChecklistItem(itemId: string, completed: boolean) {
     setChecklistItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, completed } : it)));
-    try {
-      const response = await fetch(`/api/visits/${visitId}/checklist`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checklistItemId: itemId, completed }),
-      });
-      if (!response.ok) throw new Error("Checklist save failed");
-    } catch {
-      // revert on failure
+    const result = await queuedSubmitJson({
+      url: `/api/visits/${visitId}/checklist`,
+      method: "PATCH",
+      label: "Checklist item",
+      visitId,
+      body: { checklistItemId: itemId, completed },
+    });
+    if (result.status === "queued") {
+      setSaveState("saved");
+      setSaveMsg("Saved offline — will sync");
+      return;
+    }
+    if (result.status === "failed") {
+      // revert on a real (non-network) failure — the server rejected it, not just offline
       setChecklistItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, completed: !completed } : it)));
       setSaveState("error");
       setSaveMsg("Checklist save failed");
@@ -431,19 +461,29 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
 
       <div className="app-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-brand-ink">
-            Save status:{" "}
-            <span className="font-semibold">
-              {saveState === "saving" ? "Saving..." : saveState === "saved" ? saveMsg || "Saved" : saveState === "error" ? saveMsg || "Error" : "Idle"}
-            </span>
-          </p>
+          <div>
+            <p className="text-sm font-medium text-brand-ink">
+              Save status:{" "}
+              <span className="font-semibold">
+                {saveState === "saving" ? "Saving..." : saveState === "saved" ? saveMsg || "Saved" : saveState === "error" ? saveMsg || "Error" : "Idle"}
+              </span>
+            </p>
+            {pendingCount > 0 ? (
+              <p className="mt-1 text-xs font-medium text-brand-warn">
+                {pendingCount} {pendingCount === 1 ? "item" : "items"} saved offline, waiting to sync
+              </p>
+            ) : null}
+          </div>
           <button
             type="button"
-            onClick={() => void saveReading("manual")}
+            onClick={() => {
+              void saveReading("manual");
+              void syncNow();
+            }}
             disabled={isCompleted}
             className="app-btn-secondary-sm disabled:opacity-50"
           >
-            Save / Sync now
+            {pendingCount > 0 ? `Sync now (${pendingCount})` : "Save / Sync now"}
           </button>
         </div>
       </div>
@@ -581,8 +621,11 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
         )}
         <ul className="mt-3 space-y-1 text-sm text-brand-ink">
           {doses.map((d) => (
-            <li key={d.id}>
-              {d.productName}: {d.quantity} {d.unit}
+            <li key={d.id} className="flex items-center gap-2">
+              <span>
+                {d.productName}: {d.quantity} {d.unit}
+              </span>
+              {d.pending ? <span className="app-pill-attention">Pending sync</span> : null}
             </li>
           ))}
           {doses.length === 0 ? <li className="text-brand-muted">No doses added yet.</li> : null}
