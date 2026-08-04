@@ -16,19 +16,19 @@ export default async function LoginPage({ searchParams }: PageProps) {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-[#0A5FA4]">AquaRunner 24/7 Pro</p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">Sign in</h1>
+        <p className="text-sm font-medium uppercase tracking-wide text-brand-primary">AquaRunner 24/7 Pro</p>
+        <h1 className="mt-2 text-2xl font-semibold text-brand-ink">Sign in</h1>
         {params.error === "auth" ? (
-          <p className="mt-3 text-sm text-red-600">Email link sign-in failed. Try again or use password.</p>
+          <p className="mt-3 text-sm text-brand-danger">Email link sign-in failed. Try again or use password.</p>
         ) : null}
         {params.error === "email-in-use" ? (
-          <p className="mt-3 text-sm text-red-600">That email already has an account. Sign in below.</p>
+          <p className="mt-3 text-sm text-brand-danger">That email already has an account. Sign in below.</p>
         ) : null}
       </div>
       <LoginForm />
-      <p className="mt-6 text-center text-sm text-slate-500">
+      <p className="mt-6 text-center text-sm text-brand-muted">
         New here?{" "}
-        <Link href="/signup" className="font-medium text-[#0A5FA4] underline">
+        <Link href="/signup" className="font-medium text-brand-primary underline">
           Create an account
         </Link>
       </p>

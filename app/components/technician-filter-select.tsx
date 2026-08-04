@@ -19,7 +19,7 @@ export function TechnicianFilterSelect({ technicians, selectedId, tab, date, pro
       <input type="hidden" name="tab" value={tab} />
       <input type="hidden" name="date" value={date} />
       {propertyType ? <input type="hidden" name="type" value={propertyType} /> : null}
-      <label className="text-sm font-medium text-[#12234A]" htmlFor="tech-filter">
+      <label className="text-sm font-medium text-brand-ink" htmlFor="tech-filter">
         Technician
       </label>
       <select
@@ -27,7 +27,7 @@ export function TechnicianFilterSelect({ technicians, selectedId, tab, date, pro
         name="tech"
         defaultValue={selectedId ?? ""}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="rounded-md border border-[#C9E3EC] bg-white px-2 py-1.5 text-sm text-[#12234A]"
+        className="rounded-md border border-brand-border bg-white px-2 py-1.5 text-sm text-brand-ink"
       >
         <option value="">All Technicians</option>
         {technicians.map((t) => (

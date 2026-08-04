@@ -66,9 +66,9 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
   if (!body || body.property.propertyType === "RESIDENTIAL") {
     return (
       <main className="mx-auto min-h-screen max-w-3xl px-4 py-10">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#0A5FA4]">Public maintenance log</p>
-        <h1 className="mt-1 text-2xl font-semibold text-[#12234A]">Aquatic venue log</h1>
-        <section className="mt-8 rounded-lg border border-dashed border-[#C9E3EC] bg-white p-8 text-center text-[#4A6572]">
+        <p className="text-xs font-semibold uppercase tracking-wider text-brand-primary">Public maintenance log</p>
+        <h1 className="mt-1 text-2xl font-semibold text-brand-ink">Aquatic venue log</h1>
+        <section className="mt-8 rounded-lg border border-dashed border-brand-border bg-white p-8 text-center text-brand-muted">
           No aquatic venue found for this QR reference.
         </section>
       </main>
@@ -95,53 +95,50 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
   const linkFor = (d: Date) => `?month=${d.getMonth() + 1}&year=${d.getFullYear()}&section=${section}`;
   const sectionLinkFor = (s: Section) => `?month=${monthIndex + 1}&year=${year}&section=${s}`;
 
-  const sectionTabClass = (target: Section) =>
-    target === section
-      ? "rounded-md bg-[#0A5FA4] px-4 py-1.5 text-sm font-semibold text-white"
-      : "rounded-md px-4 py-1.5 text-sm font-medium text-[#12234A] hover:bg-white";
+  const sectionTabClass = (target: Section) => (target === section ? "app-tab-active" : "app-tab");
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-4 py-8 md:px-6">
-      <header className="border-b border-[#C9E3EC] pb-6">
-        <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wider text-[#0A5FA4]">
+      <header className="border-b border-brand-border pb-6">
+        <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wider text-brand-primary">
           Public maintenance log — inspector view
         </p>
-        <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-extrabold uppercase tracking-tight text-[#12234A]">
+        <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-extrabold uppercase tracking-tight text-brand-ink">
           {body.property.customer?.name ?? body.property.name}
         </h1>
-        <p className="mt-1 text-sm text-[#4A6572]">
+        <p className="mt-1 text-sm text-brand-muted">
           {body.property.name} · {body.name}
           {body.property.addressLine1 ? ` — ${body.property.addressLine1}` : ""}
           {body.property.city ? `, ${body.property.city}` : ""}
           {body.property.region ? `, ${body.property.region}` : ""}
         </p>
 
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-[#C9E3EC] bg-white p-4 text-sm sm:grid-cols-3">
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-brand-border bg-white p-4 text-sm sm:grid-cols-3">
           <div>
-            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Facility</dt>
-            <dd className="text-[#12234A]">{body.property.name}</dd>
+            <dt className="text-xs uppercase tracking-wide text-brand-muted">Facility</dt>
+            <dd className="text-brand-ink">{body.property.name}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Operator / service company</dt>
-            <dd className="text-[#12234A]">{body.property.organization.businessName || DEFAULT_BUSINESS_NAME}</dd>
+            <dt className="text-xs uppercase tracking-wide text-brand-muted">Operator / service company</dt>
+            <dd className="text-brand-ink">{body.property.organization.businessName || DEFAULT_BUSINESS_NAME}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Service company phone</dt>
-            <dd className="text-[#12234A]">{body.property.organization.businessPhone || DEFAULT_BUSINESS_PHONE || "—"}</dd>
+            <dt className="text-xs uppercase tracking-wide text-brand-muted">Service company phone</dt>
+            <dd className="text-brand-ink">{body.property.organization.businessPhone || DEFAULT_BUSINESS_PHONE || "—"}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Water volume (gal)</dt>
-            <dd className="font-[family-name:var(--font-mono)] text-[#12234A]">
+            <dt className="text-xs uppercase tracking-wide text-brand-muted">Water volume (gal)</dt>
+            <dd className="font-[family-name:var(--font-mono)] text-brand-ink">
               {volumeGallons != null ? volumeGallons.toLocaleString() : "—"}
             </dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Min required flow (GPM)</dt>
-            <dd className="font-[family-name:var(--font-mono)] text-[#12234A]">{minFlow ?? "—"}</dd>
+            <dt className="text-xs uppercase tracking-wide text-brand-muted">Min required flow (GPM)</dt>
+            <dd className="font-[family-name:var(--font-mono)] text-brand-ink">{minFlow ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-[#7FA0AC]">Max filter flow (GPM)</dt>
-            <dd className="font-[family-name:var(--font-mono)] text-[#12234A]">{maxFilterFlow ?? "—"}</dd>
+            <dt className="text-xs uppercase tracking-wide text-brand-muted">Max filter flow (GPM)</dt>
+            <dd className="font-[family-name:var(--font-mono)] text-brand-ink">{maxFilterFlow ?? "—"}</dd>
           </div>
         </dl>
       </header>
@@ -150,66 +147,66 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
         <input type="hidden" name="section" value={section} />
         <a
           href={linkFor(prevDate)}
-          className="rounded-md border border-[#C9E3EC] bg-white px-3 py-1.5 text-sm font-medium text-[#12234A] hover:bg-[#EAF6FA]"
+          className="app-btn-secondary-sm"
         >
           ← Prev
         </a>
-        <select name="month" defaultValue={monthIndex + 1} className="rounded-md border border-[#C9E3EC] bg-white px-3 py-1.5 text-sm text-[#12234A]">
+        <select name="month" defaultValue={monthIndex + 1} className="rounded-md border border-brand-control bg-white px-3 py-1.5 text-sm text-brand-ink">
           {MONTH_NAMES.map((m, i) => (
             <option key={m} value={i + 1}>
               {m}
             </option>
           ))}
         </select>
-        <select name="year" defaultValue={year} className="rounded-md border border-[#C9E3EC] bg-white px-3 py-1.5 text-sm text-[#12234A]">
+        <select name="year" defaultValue={year} className="rounded-md border border-brand-control bg-white px-3 py-1.5 text-sm text-brand-ink">
           {Array.from({ length: 6 }, (_, i) => now.getFullYear() - 4 + i).map((y) => (
             <option key={y} value={y}>
               {y}
             </option>
           ))}
         </select>
-        <button type="submit" className="rounded-md bg-[#0A5FA4] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#084A82]">
+        <button type="submit" className="app-btn-primary-sm">
           View
         </button>
         <a
           href={linkFor(nextDate)}
-          className="rounded-md border border-[#C9E3EC] bg-white px-3 py-1.5 text-sm font-medium text-[#12234A] hover:bg-[#EAF6FA]"
+          className="app-btn-secondary-sm"
         >
           Next →
         </a>
         <a
           href={`/api/qr/${encodeURIComponent(publicSlug)}/export?month=${monthIndex + 1}&year=${year}`}
-          className="rounded-md border border-[#0A5FA4] px-3 py-1.5 text-sm font-semibold text-[#0A5FA4] hover:bg-[#0A5FA4]/5"
+          className="rounded-md border border-brand-primary px-3 py-1.5 text-sm font-semibold text-brand-primary hover:bg-brand-primary/5"
         >
           Download CSV
         </a>
-        <span className="font-[family-name:var(--font-mono)] ml-auto text-sm text-[#4A6572]">
+        <span className="font-[family-name:var(--font-mono)] ml-auto text-sm text-brand-muted">
           {monthTitle(year, monthIndex)} · {visitCount} completed visit{visitCount === 1 ? "" : "s"}
         </span>
       </form>
 
       {/* Data table — mirrors the SNHD paper log layout */}
-      <section className="mt-6 overflow-x-auto rounded-lg border border-[#C9E3EC] bg-white">
+      <section className="mt-6 overflow-x-auto rounded-lg border border-brand-border bg-white">
         <table className="w-full min-w-[880px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-[#C9E3EC] bg-[#EAF6FA] text-left">
-              <th className="px-2 py-2 font-medium text-[#4A6572]">Day</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">Cl (ppm)</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">pH</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">Alk (ppm)</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">CYA (ppm)</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">Temp (°F)</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">Pump (psi)</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">Vac (inHg)</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">Filter (psi)</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">Flow (gpm)</th>
-              <th className="px-2 py-2 font-medium text-[#4A6572]">Backwash</th>
+            <tr className="border-b border-brand-border bg-brand-foam text-left">
+              <th className="px-2 py-2 font-medium text-brand-ink">Day</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">Cl (ppm)</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">pH</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">Alk (ppm)</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">CYA (ppm)</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">Temp (°F)</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">Pump (psi)</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">Vac (inHg)</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">Filter (psi)</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">Flow (gpm)</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">Backwash</th>
             </tr>
           </thead>
           <tbody className="font-[family-name:var(--font-mono)]">
             {rows.map((row) => (
-              <tr key={row.day} className={`border-b border-[#EFEBE2] last:border-0 ${row.visited ? "" : "text-[#C7C2B6]"}`}>
-                <td className="px-2 py-1.5 font-sans font-medium text-[#12234A]">{row.day}</td>
+              <tr key={row.day} className={`border-b border-brand-border last:border-0 ${row.visited ? "" : "text-brand-muted"}`}>
+                <td className="px-2 py-1.5 font-sans font-medium text-brand-ink">{row.day}</td>
                 <td className="px-2 py-1.5">{fmt(row.freeChlorinePpm)}</td>
                 <td className="px-2 py-1.5">{fmt(row.ph)}</td>
                 <td className="px-2 py-1.5">{fmt(row.alkalinityPpm, 0)}</td>
@@ -229,7 +226,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
       </section>
 
       {/* Chart section tabs */}
-      <div className="mt-8 inline-flex gap-1 rounded-lg bg-[#EAF6FA] p-1">
+      <div className="app-tabs mt-8">
         <a href={sectionLinkFor("chemistry")} className={sectionTabClass("chemistry")}>
           Chemistry
         </a>
@@ -321,7 +318,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
         </section>
       ) : null}
 
-      <p className="mt-6 text-xs text-[#7FA0AC]">
+      <p className="mt-6 text-xs text-brand-muted">
         Target ranges shown are typical guidance for commercial pools and this property&rsquo;s configured
         equipment requirements. Refer to SNHD code for the authoritative standard.
       </p>

@@ -162,8 +162,8 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
   const tabLinkClass = (target: string) =>
     tab === target
-      ? "rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white"
-      : "rounded px-3 py-1.5 text-sm font-medium text-[#12234A] hover:bg-[#EAF6FA]";
+      ? "rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white"
+      : "rounded px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-surface";
 
   // Smart Route Placement — shown once, right after createCustomer redirects here with
   // ?suggestRoute=1. Reuses the already-computed schedule maps above instead of a new
@@ -183,13 +183,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-5">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border pb-5">
         <div>
-          <p className="text-sm font-medium text-[#12234A]">Admin / Customer</p>
-          <h1 className="text-2xl font-semibold text-slate-900">{customer.name}</h1>
-          <p className="mt-1 text-sm text-slate-600">Edit customer and property details. Add aquatic venues here.</p>
+          <p className="text-sm font-medium text-brand-ink">Admin / Customer</p>
+          <h1 className="text-2xl font-semibold text-brand-ink">{customer.name}</h1>
+          <p className="mt-1 text-sm text-brand-muted">Edit customer and property details. Add aquatic venues here.</p>
         </div>
-        <Link href="/dashboard/customers" className="text-sm text-[#0A5FA4] underline">
+        <Link href="/dashboard/customers" className="text-sm text-brand-primary underline">
           Back to customers
         </Link>
       </header>
@@ -202,13 +202,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             bodyOfWaterId={unassignedBody.id}
           />
         ) : (
-          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="mt-6 rounded-lg border border-brand-warn/30 bg-brand-warnFill p-4 text-sm text-brand-warn">
             {suggestionUnavailableReason}
           </div>
         )
       ) : null}
 
-      <section className="mt-6 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+      <section className="mt-6 flex flex-wrap items-center gap-2 border-b border-brand-border pb-3">
         <Link href={`/dashboard/customers/${customer.id}?tab=overview`} className={tabLinkClass("overview")}>
           Overview
         </Link>
@@ -225,13 +225,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
       {tab === "overview" ? (
         <>
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-900">Customer info</h2>
+              <h2 className="text-base font-semibold text-brand-ink">Customer info</h2>
               {!isEditingCustomer ? (
                 <Link
                   href={`/dashboard/customers/${customer.id}?tab=overview&edit=customer`}
-                  className="rounded bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                  className="rounded bg-brand-foam px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-border"
                 >
                   Edit
                 </Link>
@@ -239,25 +239,25 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             </div>
 
             {!isEditingCustomer ? (
-              <div className="mt-3 space-y-1 text-sm text-slate-700">
-                <p className="text-base font-medium text-slate-900">{customer.name}</p>
-                {customer.notes ? <p className="whitespace-pre-wrap text-slate-600">{customer.notes}</p> : null}
+              <div className="mt-3 space-y-1 text-sm text-brand-ink">
+                <p className="text-base font-medium text-brand-ink">{customer.name}</p>
+                {customer.notes ? <p className="whitespace-pre-wrap text-brand-muted">{customer.notes}</p> : null}
 
                 {customer.properties.some((p) => p.bodiesOfWater.length > 0) ? (
-                  <div className="mt-3 border-t border-slate-200 pt-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Route schedule</p>
+                  <div className="mt-3 border-t border-brand-border pt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Route schedule</p>
                     <ul className="mt-1 space-y-0.5">
                       {customer.properties.flatMap((property) =>
                         property.bodiesOfWater.map((body) => {
                           const schedule = scheduleByBodyId.get(body.id) ?? scheduleByPropertyId.get(property.id);
                           return (
-                            <li key={body.id} className="text-slate-700">
+                            <li key={body.id} className="text-brand-ink">
                               {body.name}
                               {customer.properties.length > 1 ? ` (${property.name})` : ""}:{" "}
                               {schedule ? (
-                                <span className="font-medium text-[#0A5FA4]">{formatSchedule(schedule)}</span>
+                                <span className="font-medium text-brand-primary">{formatSchedule(schedule)}</span>
                               ) : (
-                                <span className="text-slate-400">Not on a recurring route</span>
+                                <span className="text-brand-control">Not on a recurring route</span>
                               )}
                             </li>
                           );
@@ -268,7 +268,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 ) : null}
 
                 {primaryProperty ? (
-                  <div className="mt-3 space-y-1 border-t border-slate-200 pt-3">
+                  <div className="mt-3 space-y-1 border-t border-brand-border pt-3">
                     {primaryProperty.managementCompany ? <p>PMC: {primaryProperty.managementCompany.name}</p> : null}
 
                     {primaryProperty.propertyType === "RESIDENTIAL" ? (
@@ -279,11 +279,11 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                         {primaryProperty.ownerEmail ? <p>Email: {primaryProperty.ownerEmail}</p> : null}
                         {primaryProperty.accessNotes ? (
                           <div className="mt-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Access notes</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Access notes</p>
                             <p className="whitespace-pre-wrap">{primaryProperty.accessNotes}</p>
                           </div>
                         ) : null}
-                        {primaryProperty.hasDog ? <p className="font-medium text-amber-700">Dog on property</p> : null}
+                        {primaryProperty.hasDog ? <p className="font-medium text-brand-warn">Dog on property</p> : null}
                       </>
                     ) : (
                       <>
@@ -294,7 +294,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
                         {primaryProperty.maintenanceName || primaryProperty.maintenanceCellPhone || primaryProperty.maintenanceEmail ? (
                           <div className="mt-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Maintenance contact</p>
                             {primaryProperty.maintenanceName ? <p>{primaryProperty.maintenanceName}</p> : null}
                             {primaryProperty.maintenanceCellPhone ? <p>Cell: {primaryProperty.maintenanceCellPhone}</p> : null}
                             {primaryProperty.maintenanceEmail ? <p>Email: {primaryProperty.maintenanceEmail}</p> : null}
@@ -304,7 +304,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     )}
 
                     {primaryProperty.addressLine1 || primaryProperty.city || primaryProperty.region || primaryProperty.postalCode ? (
-                      <p className="mt-2 text-slate-600">
+                      <p className="mt-2 text-brand-muted">
                         {primaryProperty.addressLine1 ?? ""}
                         {primaryProperty.addressLine2 ? `, ${primaryProperty.addressLine2}` : ""}
                         {primaryProperty.city ? `, ${primaryProperty.city}` : ""}
@@ -325,34 +325,34 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     required
                     defaultValue={customer.name}
                     placeholder="Customer name"
-                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                    className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
                   />
                   <textarea
                     name="notes"
                     defaultValue={customer.notes ?? ""}
                     placeholder="Notes"
-                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                    className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
                     rows={3}
                   />
 
                   {primaryProperty ? (
                     <>
-                      <div className="border-t border-slate-200 pt-3">
+                      <div className="border-t border-brand-border pt-3">
                         <PropertyContactFields
                           initialPropertyType={primaryProperty.propertyType}
                           defaults={primaryProperty}
                         />
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-brand-muted">
                           Filter type and required readings are edited per aquatic venue, on the Aquatic Venues tab.
                         </p>
                       </div>
 
-                      <div className="border-t border-slate-200 pt-3">
+                      <div className="border-t border-brand-border pt-3">
                         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                           <select
                             name="managementCompanyId"
                             defaultValue={primaryProperty.managementCompany?.id ?? ""}
-                            className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                            className="rounded border border-brand-control px-2 py-1.5 text-sm"
                           >
                             <option value="">No management company</option>
                             {managementCompanies.map((mc) => (
@@ -364,7 +364,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                           <input
                             name="newManagementCompanyName"
                             placeholder="Or type a new company name"
-                            className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                            className="rounded border border-brand-control px-2 py-1.5 text-sm"
                           />
                         </div>
                         <div className="mt-2">
@@ -381,50 +381,50 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   ) : null}
 
                   <div className="flex items-center gap-2 pt-1">
-                    <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                    <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                       Save
                     </button>
                     <Link
                       href={`/dashboard/customers/${customer.id}?tab=overview`}
-                      className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+                      className="rounded border border-brand-control px-3 py-1.5 text-sm font-medium text-brand-ink"
                     >
                       Cancel
                     </Link>
                   </div>
                 </form>
-                <form action={deleteCustomer} className="mt-4 border-t border-slate-200 pt-4">
+                <form action={deleteCustomer} className="mt-4 border-t border-brand-border pt-4">
                   <input type="hidden" name="customerId" value={customer.id} />
                   <ConfirmSubmitButton
                     label="Delete customer"
                     confirmMessage="Delete this customer and all linked properties/data?"
-                    className="rounded bg-rose-700 px-3 py-1.5 text-sm font-medium text-white"
+                    className="rounded bg-brand-danger px-3 py-1.5 text-sm font-medium text-white"
                   />
-                  <p className="mt-1 text-xs text-rose-700">Deletes this customer and linked properties/data.</p>
+                  <p className="mt-1 text-xs text-brand-danger">Deletes this customer and linked properties/data.</p>
                 </form>
               </>
             )}
           </section>
 
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">Documents</h2>
-            <p className="mt-1 text-sm text-slate-500">Inspection reports, contracts, and other files for this customer.</p>
+          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-brand-ink">Documents</h2>
+            <p className="mt-1 text-sm text-brand-muted">Inspection reports, contracts, and other files for this customer.</p>
 
             {documentsWithUrls.length ? (
-              <ul className="mt-3 space-y-1 text-sm text-slate-700">
+              <ul className="mt-3 space-y-1 text-sm text-brand-ink">
                 {documentsWithUrls.map((doc) => (
                   <li
                     key={doc.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-border bg-brand-surface px-2 py-1.5"
                   >
                     <span>
                       {doc.url ? (
-                        <a href={doc.url} target="_blank" rel="noreferrer" className="font-medium text-[#0A5FA4] underline">
+                        <a href={doc.url} target="_blank" rel="noreferrer" className="font-medium text-brand-primary underline">
                           {doc.label}
                         </a>
                       ) : (
-                        <span className="font-medium text-slate-900">{doc.label}</span>
+                        <span className="font-medium text-brand-ink">{doc.label}</span>
                       )}
-                      <span className="ml-2 text-xs text-slate-500">{doc.createdAt.toLocaleDateString()}</span>
+                      <span className="ml-2 text-xs text-brand-muted">{doc.createdAt.toLocaleDateString()}</span>
                     </span>
                     <form action={deleteCustomerDocument}>
                       <input type="hidden" name="customerId" value={customer.id} />
@@ -432,49 +432,49 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       <ConfirmSubmitButton
                         label="🗑"
                         confirmMessage={`Delete "${doc.label}"?`}
-                        className="rounded px-2 py-1 text-base hover:bg-slate-200"
+                        className="rounded px-2 py-1 text-base hover:bg-brand-border"
                       />
                     </form>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-slate-500">No documents uploaded yet.</p>
+              <p className="mt-2 text-sm text-brand-muted">No documents uploaded yet.</p>
             )}
 
             <form
               action={uploadCustomerDocument}
-              className="mt-3 flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-slate-50 p-2"
+              className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2"
             >
               <input type="hidden" name="customerId" value={customer.id} />
               <input
                 name="label"
                 placeholder="Label (e.g. 2026 Inspection Report)"
-                className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="rounded border border-brand-control px-2 py-1.5 text-sm"
               />
               <input type="file" name="file" required className="text-sm" />
-              <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+              <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                 Upload
               </button>
             </form>
           </section>
 
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">Portal access</h2>
-            <p className="mt-1 text-sm text-slate-500">
+          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-brand-ink">Portal access</h2>
+            <p className="mt-1 text-sm text-brand-muted">
               Let this customer sign in at their own portal to see scheduled visits, reports, and documents.
             </p>
 
             {customerUsers.length ? (
-              <ul className="mt-3 space-y-1 text-sm text-slate-700">
+              <ul className="mt-3 space-y-1 text-sm text-brand-ink">
                 {customerUsers.map((cu) => (
                   <li
                     key={cu.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-border bg-brand-surface px-2 py-1.5"
                   >
                     <span>
-                      <span className="font-medium text-slate-900">{cu.name ?? cu.email}</span>
-                      <span className="ml-2 text-slate-500">{cu.email}</span>
+                      <span className="font-medium text-brand-ink">{cu.name ?? cu.email}</span>
+                      <span className="ml-2 text-brand-muted">{cu.email}</span>
                     </span>
                     <form action={deleteCustomerLogin}>
                       <input type="hidden" name="customerId" value={customer.id} />
@@ -482,93 +482,93 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       <ConfirmSubmitButton
                         label="🗑"
                         confirmMessage={`Remove portal access for ${cu.name ?? cu.email}?`}
-                        className="rounded px-2 py-1 text-base hover:bg-slate-200"
+                        className="rounded px-2 py-1 text-base hover:bg-brand-border"
                       />
                     </form>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-slate-500">No portal login yet.</p>
+              <p className="mt-2 text-sm text-brand-muted">No portal login yet.</p>
             )}
 
-            <form action={createCustomerLogin} className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
+            <form action={createCustomerLogin} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
               <input type="hidden" name="customerId" value={customer.id} />
               {sp.error === "email-in-use" ? (
-                <p className="mb-2 text-sm text-red-600">That email already belongs to a different account.</p>
+                <p className="mb-2 text-sm text-brand-danger">That email already belongs to a different account.</p>
               ) : null}
               <div className="grid gap-2 md:grid-cols-2">
-                <input name="name" required placeholder="Contact name" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
-                <input name="email" type="email" required placeholder="Email" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+                <input name="name" required placeholder="Contact name" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+                <input name="email" type="email" required placeholder="Email" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
                 <input
                   name="password"
                   type="text"
                   required
                   minLength={8}
                   placeholder="Temporary password (min 8 characters)"
-                  className="rounded border border-slate-300 px-2 py-1.5 text-sm md:col-span-2"
+                  className="rounded border border-brand-control px-2 py-1.5 text-sm md:col-span-2"
                 />
               </div>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-brand-muted">
                 Share this password with the customer directly — they can sign in at{" "}
-                <code className="rounded bg-slate-200 px-1">/portal/login</code>.
+                <code className="rounded bg-brand-border px-1">/portal/login</code>.
               </p>
-              <button className="mt-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+              <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                 Add portal login
               </button>
             </form>
           </section>
 
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">Send alert</h2>
-            <p className="mt-1 text-sm text-slate-500">
+          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-brand-ink">Send alert</h2>
+            <p className="mt-1 text-sm text-brand-muted">
               Sends an update to this customer&rsquo;s portal and, if they have portal logins, by email.
             </p>
 
-            <form action={sendCustomerAlert} className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
+            <form action={sendCustomerAlert} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
               <input type="hidden" name="customerId" value={customer.id} />
               <div className="grid gap-2">
-                <input name="subject" required placeholder="Subject" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+                <input name="subject" required placeholder="Subject" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
                 <textarea
                   name="message"
                   required
                   rows={3}
                   placeholder="Message"
-                  className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                  className="rounded border border-brand-control px-2 py-1.5 text-sm"
                 />
               </div>
-              <button className="mt-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+              <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                 Send alert
               </button>
             </form>
 
             {alerts.length ? (
-              <ul className="mt-3 space-y-1 text-sm text-slate-700">
+              <ul className="mt-3 space-y-1 text-sm text-brand-ink">
                 {alerts.map((a) => (
-                  <li key={a.id} className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5">
+                  <li key={a.id} className="rounded border border-brand-border bg-brand-surface px-2 py-1.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium text-slate-900">{a.subject}</span>
-                      <span className="text-xs text-slate-500">{a.createdAt.toLocaleString()}</span>
+                      <span className="font-medium text-brand-ink">{a.subject}</span>
+                      <span className="text-xs text-brand-muted">{a.createdAt.toLocaleString()}</span>
                     </div>
-                    <p className="mt-0.5 whitespace-pre-wrap text-slate-600">{a.message}</p>
+                    <p className="mt-0.5 whitespace-pre-wrap text-brand-muted">{a.message}</p>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-3 text-sm text-slate-500">No alerts sent yet.</p>
+              <p className="mt-3 text-sm text-brand-muted">No alerts sent yet.</p>
             )}
           </section>
 
           {extraProperties.length > 0 ? (
             <section className="mt-6 space-y-3">
               {extraProperties.map((property) => (
-                <div key={property.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div key={property.id} className="rounded-lg border border-brand-border bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-base font-semibold text-slate-900">Additional property</h3>
+                    <h3 className="text-base font-semibold text-brand-ink">Additional property</h3>
                     {!isEditingProperty(property.id) ? (
                       <Link
                         href={`/dashboard/customers/${customer.id}?tab=overview&edit=property:${property.id}`}
-                        className="rounded bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                        className="rounded bg-brand-foam px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-border"
                       >
                         Edit
                       </Link>
@@ -576,8 +576,8 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   </div>
 
                   {!isEditingProperty(property.id) ? (
-                    <div className="mt-3 space-y-1 text-sm text-slate-700">
-                      <p className="text-base font-medium text-slate-900">{property.name}</p>
+                    <div className="mt-3 space-y-1 text-sm text-brand-ink">
+                      <p className="text-base font-medium text-brand-ink">{property.name}</p>
                       {property.managementCompany ? <p>PMC: {property.managementCompany.name}</p> : null}
 
                       {property.propertyType === "RESIDENTIAL" ? (
@@ -588,11 +588,11 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                           {property.ownerEmail ? <p>Email: {property.ownerEmail}</p> : null}
                           {property.accessNotes ? (
                             <div className="mt-2">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Access notes</p>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Access notes</p>
                               <p className="whitespace-pre-wrap">{property.accessNotes}</p>
                             </div>
                           ) : null}
-                          {property.hasDog ? <p className="font-medium text-amber-700">Dog on property</p> : null}
+                          {property.hasDog ? <p className="font-medium text-brand-warn">Dog on property</p> : null}
                         </>
                       ) : (
                         <>
@@ -603,7 +603,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
                           {property.maintenanceName || property.maintenanceCellPhone || property.maintenanceEmail ? (
                             <div className="mt-2">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Maintenance contact</p>
                               {property.maintenanceName ? <p>{property.maintenanceName}</p> : null}
                               {property.maintenanceCellPhone ? <p>Cell: {property.maintenanceCellPhone}</p> : null}
                               {property.maintenanceEmail ? <p>Email: {property.maintenanceEmail}</p> : null}
@@ -613,7 +613,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       )}
 
                       {property.addressLine1 || property.city || property.region || property.postalCode ? (
-                        <p className="mt-2 text-slate-600">
+                        <p className="mt-2 text-brand-muted">
                           {property.addressLine1 ?? ""}
                           {property.addressLine2 ? `, ${property.addressLine2}` : ""}
                           {property.city ? `, ${property.city}` : ""}
@@ -630,14 +630,14 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       required
                       defaultValue={property.name}
                       placeholder="Property name"
-                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                      className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
                     />
                     <PropertyContactFields initialPropertyType={property.propertyType} defaults={property} />
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       <select
                         name="managementCompanyId"
                         defaultValue={property.managementCompany?.id ?? ""}
-                        className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                        className="rounded border border-brand-control px-2 py-1.5 text-sm"
                       >
                         <option value="">No management company</option>
                         {managementCompanies.map((mc) => (
@@ -649,7 +649,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       <input
                         name="newManagementCompanyName"
                         placeholder="Or type a new company name"
-                        className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                        className="rounded border border-brand-control px-2 py-1.5 text-sm"
                       />
                     </div>
                     <AddressFields
@@ -660,12 +660,12 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       initialPostalCode={property.postalCode}
                     />
                     <div className="flex items-center gap-2">
-                      <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                      <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                         Save property
                       </button>
                       <Link
                         href={`/dashboard/customers/${customer.id}?tab=overview`}
-                        className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+                        className="rounded border border-brand-control px-3 py-1.5 text-sm font-medium text-brand-ink"
                       >
                         Cancel
                       </Link>
@@ -682,34 +682,34 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       {tab === "bodies" ? (
         <section className="mt-6 space-y-4">
           {customer.properties.map((property) => (
-            <div key={property.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h3 className="text-base font-semibold text-slate-900">{property.name}</h3>
+            <div key={property.id} className="rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+              <h3 className="text-base font-semibold text-brand-ink">{property.name}</h3>
 
               {property.bodiesOfWater.map((body) => (
                 <Link
                   key={body.id}
                   href={`/dashboard/customers/${customer.id}/bodies/${body.id}`}
-                  className="mt-3 flex items-center gap-3 rounded border border-slate-200 bg-slate-50 p-3 hover:bg-slate-100"
+                  className="mt-3 flex items-center gap-3 rounded border border-brand-border bg-brand-surface p-3 hover:bg-brand-foam"
                 >
                   {qrByBodyId.has(body.id) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={qrByBodyId.get(body.id)!.dataUrl}
                       alt={`QR code for ${body.name}`}
-                      className="h-14 w-14 shrink-0 rounded border border-slate-200 bg-white"
+                      className="h-14 w-14 shrink-0 rounded border border-brand-border bg-white"
                     />
                   ) : null}
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{body.name}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm font-semibold text-brand-ink">{body.name}</p>
+                    <p className="text-xs text-brand-muted">
                       {body.type} · View details &amp; equipment{property.propertyType === "RESIDENTIAL" ? "" : " & QR code"}
                     </p>
                     {(() => {
                       const schedule = scheduleByBodyId.get(body.id) ?? scheduleByPropertyId.get(property.id);
                       return schedule ? (
-                        <p className="mt-0.5 text-xs font-medium text-[#0A5FA4]">On route: {formatSchedule(schedule)}</p>
+                        <p className="mt-0.5 text-xs font-medium text-brand-primary">On route: {formatSchedule(schedule)}</p>
                       ) : (
-                        <p className="mt-0.5 text-xs text-slate-400">Not on a recurring route</p>
+                        <p className="mt-0.5 text-xs text-brand-control">Not on a recurring route</p>
                       );
                     })()}
                   </div>
@@ -717,18 +717,18 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               ))}
 
 
-              <form action={createBodyOfWater} className="mt-4 rounded border border-slate-200 bg-slate-50 p-3">
+              <form action={createBodyOfWater} className="mt-4 rounded border border-brand-border bg-brand-surface p-3">
                 <input type="hidden" name="propertyId" value={property.id} />
                 <input type="hidden" name="returnPath" value={`/dashboard/customers/${customer.id}?tab=bodies`} />
-                <p className="text-sm font-medium text-slate-900">Add aquatic venue</p>
+                <p className="text-sm font-medium text-brand-ink">Add aquatic venue</p>
                 <div className="mt-2 grid gap-2 md:grid-cols-4">
                   <input
                     name="name"
                     required
                     placeholder="Venue name"
-                    className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                    className="rounded border border-brand-control px-2 py-1.5 text-sm"
                   />
-                  <select name="type" className="rounded border border-slate-300 px-2 py-1.5 text-sm">
+                  <select name="type" className="rounded border border-brand-control px-2 py-1.5 text-sm">
                     {Object.values(BodyOfWaterType).map((type) => (
                       <option key={type} value={type}>
                         {type}
@@ -740,18 +740,18 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     type="number"
                     step="1"
                     placeholder="Total gallons"
-                    className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                    className="rounded border border-brand-control px-2 py-1.5 text-sm"
                   />
                   <input
                     name="maximumOccupancy"
                     type="number"
                     step="1"
                     placeholder="Max occupancy"
-                    className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                    className="rounded border border-brand-control px-2 py-1.5 text-sm"
                   />
                 </div>
                 {property.propertyType === "RESIDENTIAL" ? <FilterTypeFields /> : null}
-                <button className="mt-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                   Add venue
                 </button>
               </form>
@@ -761,21 +761,21 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       ) : null}
 
       {tab === "history" ? (
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Recent completed visits</h2>
+        <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <h2 className="text-base font-semibold text-brand-ink">Recent completed visits</h2>
           {completedVisits.length ? (
             <div className="mt-3 space-y-3">
               {completedVisits.map((v) => (
-                <div key={v.id} className="rounded border border-slate-200 bg-slate-50 p-3 text-sm">
+                <div key={v.id} className="rounded border border-brand-border bg-brand-surface p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium text-slate-900">
+                    <p className="font-medium text-brand-ink">
                       {v.property.name} — {v.bodyOfWater.name}
                     </p>
-                    <p className="text-xs text-slate-500">{v.completedAt ? v.completedAt.toLocaleString() : "—"}</p>
+                    <p className="text-xs text-brand-muted">{v.completedAt ? v.completedAt.toLocaleString() : "—"}</p>
                   </div>
-                  <p className="mt-0.5 text-xs text-slate-500">Tech: {v.technician?.name ?? "—"}</p>
+                  <p className="mt-0.5 text-xs text-brand-muted">Tech: {v.technician?.name ?? "—"}</p>
 
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-brand-ink">
                     <span>pH: {v.reading?.ph?.toString() ?? "—"}</span>
                     <span>FC: {v.reading?.freeChlorinePpm?.toString() ?? "—"} ppm</span>
                     <span>Alk: {v.reading?.alkalinityPpm?.toString() ?? "—"} ppm</span>
@@ -789,9 +789,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   </div>
 
                   <div className="mt-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chemicals dosed</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Chemicals dosed</p>
                     {v.doses.length ? (
-                      <ul className="mt-0.5 text-slate-700">
+                      <ul className="mt-0.5 text-brand-ink">
                         {v.doses.map((d, i) => (
                           <li key={i}>
                             {d.productName}: {d.quantity.toString()} {d.unit}
@@ -799,14 +799,14 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-slate-500">None logged</p>
+                      <p className="text-brand-muted">None logged</p>
                     )}
                   </div>
 
                   {v.checklistCompletions.length > 0 ? (
                     <div className="mt-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Checklist completed</p>
-                      <p className="text-slate-700">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Checklist completed</p>
+                      <p className="text-brand-ink">
                         {v.checklistCompletions.map((c) => c.label).join(", ")}
                       </p>
                     </div>
@@ -814,34 +814,34 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
                   {v.techNotes ? (
                     <div className="mt-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tech notes</p>
-                      <p className="whitespace-pre-wrap text-slate-700">{v.techNotes}</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Tech notes</p>
+                      <p className="whitespace-pre-wrap text-brand-ink">{v.techNotes}</p>
                     </div>
                   ) : null}
 
-                  <Link href={`/dashboard/visits/${v.id}`} className="mt-2 inline-block text-xs font-medium text-[#0A5FA4] underline">
+                  <Link href={`/dashboard/visits/${v.id}`} className="mt-2 inline-block text-xs font-medium text-brand-primary underline">
                     View full visit
                   </Link>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-slate-500">No completed visits yet.</p>
+            <p className="mt-2 text-sm text-brand-muted">No completed visits yet.</p>
           )}
         </section>
       ) : null}
 
       {tab === "log" ? (
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Visit log</h2>
-          <p className="mt-1 text-xs text-slate-500">
+        <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <h2 className="text-base font-semibold text-brand-ink">Visit log</h2>
+          <p className="mt-1 text-xs text-brand-muted">
             When each completed stop was logged and finished, and how long the technician was on site.
           </p>
           {completedVisits.length ? (
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr className="border-b border-brand-border text-xs font-semibold uppercase tracking-wide text-brand-muted">
                     <th className="pb-2 pr-3">Property / venue</th>
                     <th className="pb-2 pr-3">Tech</th>
                     <th className="pb-2 pr-3">Logged (arrived)</th>
@@ -864,29 +864,29 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                             ? `${durationMinutes} min`
                             : `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`;
                     return (
-                      <tr key={v.id} className="border-b border-slate-100 last:border-0">
+                      <tr key={v.id} className="border-b border-brand-border last:border-0">
                         <td className="py-2 pr-3">
-                          <Link href={`/dashboard/visits/${v.id}`} className="font-medium text-[#0A5FA4] underline">
+                          <Link href={`/dashboard/visits/${v.id}`} className="font-medium text-brand-primary underline">
                             {v.property.name} — {v.bodyOfWater.name}
                           </Link>
                         </td>
-                        <td className="py-2 pr-3 text-slate-700">{v.technician?.name ?? "—"}</td>
-                        <td className="py-2 pr-3 text-slate-700">{arrivedAt ? arrivedAt.toLocaleString() : "—"}</td>
-                        <td className="py-2 pr-3 text-slate-700">{finishedAt ? finishedAt.toLocaleString() : "—"}</td>
-                        <td className="py-2 font-medium text-slate-900">{durationLabel}</td>
+                        <td className="py-2 pr-3 text-brand-ink">{v.technician?.name ?? "—"}</td>
+                        <td className="py-2 pr-3 text-brand-ink">{arrivedAt ? arrivedAt.toLocaleString() : "—"}</td>
+                        <td className="py-2 pr-3 text-brand-ink">{finishedAt ? finishedAt.toLocaleString() : "—"}</td>
+                        <td className="py-2 font-medium text-brand-ink">{durationLabel}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              <p className="mt-3 text-xs text-slate-400">
+              <p className="mt-3 text-xs text-brand-control">
                 &ldquo;Logged (arrived)&rdquo; comes from geofenced arrival detection or manual visit start — if a stop was
                 completed without ever separately marking arrival, arrival and finish times will match and time on site
                 will show as under a minute.
               </p>
             </div>
           ) : (
-            <p className="mt-2 text-sm text-slate-500">No completed visits yet.</p>
+            <p className="mt-2 text-sm text-brand-muted">No completed visits yet.</p>
           )}
         </section>
       ) : null}

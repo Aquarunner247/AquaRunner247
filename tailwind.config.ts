@@ -17,36 +17,78 @@ const config: Config = {
         display: ["var(--font-display)", "var(--font-body)", "system-ui", "sans-serif"],
       },
       colors: {
-        // Core system: deep navy + pool-water teal + coral accent, grounded in what this
-        // product actually is (technicians reading water chemistry outdoors, on phones) —
-        // not a generic SaaS palette. Every dashboard surface should draw from this set
-        // rather than one-off hex literals. `blue`/`blueDark`/`sky`/etc are kept as aliases
-        // of the teal family so existing .app-* consumers (forms, links) shift automatically.
+        // ─────────────────────────────────────────────────────────────────────────
+        // AquaRunner design system — "Sunset Water" (System B)
+        //
+        // Derived from pool water at sunset: deep turquoise below, warm salmon light
+        // on the surface. Two temperatures with two jobs:
+        //   COOL (teal/turquoise) = the product. Every dashboard, technician, and
+        //     inspector surface. Calm, legible, gets out of the way.
+        //   WARM (salmon/clay)    = marketing. The landing page and anything selling.
+        //     Also the single "act now" accent inside the product, used sparingly.
+        //
+        // Every value below is contrast-checked. Rules that are NOT optional:
+        //   • `accent` (#F6AD93) is DARK-BACKGROUND ONLY. 7.3:1 on ink, 1.6:1 on
+        //     white — it is decoration on dark, never text on light, never a fill
+        //     behind white text.
+        //   • Status colors (ok / warn / danger) are reserved for reading results.
+        //     Never use `cta` or `accent` to signal a chemical value. A failed
+        //     chlorine reading must not compete with a marketing color.
+        //   • No new hex literals in components. If a color is missing, add it here.
+        // ─────────────────────────────────────────────────────────────────────────
         brand: {
-          navy: "#0F2A3D",
-          navyLight: "#1C4257",
-          teal: "#1F8A80",
-          tealDark: "#146A62",
-          coral: "#E2775E",
-          coralDark: "#C65D46",
-          ink: "#16242B",
-          surface: "#F5F8F7",
-          foam: "#E6F3F1",
-          border: "#CFE3E0",
-          icon: "#6E8E8A",
-          // Aliases so existing usages of brand-blue/brand-sky/brand-mist/brand-alert
-          // continue to resolve, now pointed at the new teal-forward palette.
-          blue: "#1F8A80",
-          blueDark: "#146A62",
-          sky: "#9FCFC8",
-          mist: "#E6F3F1",
-          alert: "#E2775E",
+          // — Core cool (product) —
+          ink: "#06333B",         // deepest surface + primary text        13.6:1 on white
+          anchor: "#07606D",      // headers, filled dark chrome            7.2:1 on white
+          primary: "#0A6E7C",     // primary action, links, focus           5.9:1 on white
+          primaryHover: "#054E58",
+          surface: "#F4F8F8",     // product page background
+          foam: "#E4EFEF",        // subtle raised/zebra fill
+          border: "#C4D9DA",      // hairline dividers (decorative)
+          control: "#6C8F93",     // input + control outlines               3.3:1 on surface
+          muted: "#55696C",       // secondary text on cool surface         5.2:1
+
+          // — Core warm (marketing + urgent accent) —
+          cta: "#B8503E",         // warm button fill, white text           4.9:1 on white
+          ctaHover: "#9C4132",
+          accent: "#F6AD93",      // DARK BACKGROUNDS ONLY — eyebrows, tags, highlights
+          warmSurface: "#FBF6F3", // marketing page background
+          warmFoam: "#F2E5DE",
+          warmBorder: "#DCC8BE",
+          warmControl: "#9A7C68",
+          warmMuted: "#5C6F72",
+
+          // — Status: reading results only —
+          ok: "#0F6B57",          // PASS      6.4:1 on white
+          warn: "#9A6212",        // WATCH     5.1:1 on white
+          danger: "#A32E22",      // FAIL      7.1:1 on white
+          okFill: "#E2F0EA",
+          warnFill: "#F7EBD6",
+          dangerFill: "#F7E3E0",
+
+          // — Legacy aliases —
+          // Kept so existing brand-navy / brand-teal / brand-blue / brand-sky /
+          // brand-mist / brand-alert / brand-coral consumers keep compiling while
+          // screens are migrated. Do not use these in new code; they will be removed
+          // once the last consumer is converted.
+          navy: "#06333B",
+          navyLight: "#07606D",
+          teal: "#0A6E7C",
+          tealDark: "#054E58",
+          coral: "#B8503E",
+          coralDark: "#9C4132",
+          icon: "#55696C",
+          blue: "#0A6E7C",
+          blueDark: "#054E58",
+          sky: "#9CC3C6",
+          mist: "#E4EFEF",
+          alert: "#B8503E",
         },
       },
       boxShadow: {
-        soft: "0 8px 30px -12px rgba(15, 42, 61, 0.16)",
-        softLg: "0 16px 40px -16px rgba(15, 42, 61, 0.22)",
-        nav: "0 4px 24px -8px rgba(15, 42, 61, 0.10)",
+        soft: "0 8px 30px -12px rgba(6, 51, 59, 0.16)",
+        softLg: "0 16px 40px -16px rgba(6, 51, 59, 0.22)",
+        nav: "0 4px 24px -8px rgba(6, 51, 59, 0.10)",
       },
       transitionDuration: {
         DEFAULT: "180ms",

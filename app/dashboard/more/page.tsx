@@ -11,17 +11,17 @@ export default async function MorePage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-6 pb-24">
-      <h1 className="font-[family-name:var(--font-display)] text-xl font-bold uppercase tracking-wide text-[#12234A]">More</h1>
+      <h1 className="font-[family-name:var(--font-display)] text-xl font-bold uppercase tracking-wide text-brand-ink">More</h1>
 
-      <section className="mt-4 rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#4A6572]">Signed in as</p>
-        <p className="mt-1 text-base font-bold text-[#12234A]">{appUser.name ?? appUser.email}</p>
-        <p className="text-sm text-[#4A6572]">{appUser.email}</p>
-        {organization?.name ? <p className="mt-2 text-xs text-[#94A3B8]">{organization.name}</p> : null}
+      <section className="mt-4 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Signed in as</p>
+        <p className="mt-1 text-base font-bold text-brand-ink">{appUser.name ?? appUser.email}</p>
+        <p className="text-sm text-brand-muted">{appUser.email}</p>
+        {organization?.name ? <p className="mt-2 text-xs text-brand-muted">{organization.name}</p> : null}
       </section>
 
       <form action={signOut} className="mt-4">
-        <button type="submit" className="w-full rounded-lg border border-[#C9E3EC] bg-white px-4 py-2.5 text-sm font-semibold text-[#12234A] shadow-sm">
+        <button type="submit" className="w-full rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm">
           Sign out
         </button>
       </form>

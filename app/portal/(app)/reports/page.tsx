@@ -49,26 +49,26 @@ export default async function PortalReportsPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
-      <header className="border-b border-slate-200 pb-5">
-        <p className="text-sm font-medium text-[#12234A]">Customer Portal</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Service reports</h1>
+      <header className="border-b border-brand-border pb-5">
+        <p className="text-sm font-medium text-brand-ink">Customer Portal</p>
+        <h1 className="text-2xl font-semibold text-brand-ink">Service reports</h1>
       </header>
 
       <section className="mt-6 space-y-3">
         {visitsWithPhotoUrls.length === 0 ? (
-          <p className="text-sm text-slate-500">No completed service visits yet.</p>
+          <p className="text-sm text-brand-muted">No completed service visits yet.</p>
         ) : (
           visitsWithPhotoUrls.map((v) => (
-            <div key={v.id} className="rounded-lg border border-slate-200 bg-white p-4 text-sm shadow-sm">
+            <div key={v.id} className="rounded-lg border border-brand-border bg-white p-4 text-sm shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium text-slate-900">
+                <p className="font-medium text-brand-ink">
                   {v.property.name} — {v.bodyOfWater.name}
                 </p>
-                <p className="text-xs text-slate-500">{v.completedAt ? v.completedAt.toLocaleString() : "—"}</p>
+                <p className="text-xs text-brand-muted">{v.completedAt ? v.completedAt.toLocaleString() : "—"}</p>
               </div>
-              <p className="mt-0.5 text-xs text-slate-500">Technician: {v.technician?.name ?? "—"}</p>
+              <p className="mt-0.5 text-xs text-brand-muted">Technician: {v.technician?.name ?? "—"}</p>
 
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-brand-ink">
                 <span>pH: {v.reading?.ph?.toString() ?? "—"}</span>
                 <span>Free chlorine: {v.reading?.freeChlorinePpm?.toString() ?? "—"} ppm</span>
                 <span>Alkalinity: {v.reading?.alkalinityPpm?.toString() ?? "—"} ppm</span>
@@ -81,9 +81,9 @@ export default async function PortalReportsPage() {
               </div>
 
               <div className="mt-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chemicals dosed</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Chemicals dosed</p>
                 {v.doses.length ? (
-                  <ul className="mt-0.5 text-slate-700">
+                  <ul className="mt-0.5 text-brand-ink">
                     {v.doses.map((d, i) => (
                       <li key={i}>
                         {d.productName}: {d.quantity.toString()} {d.unit}
@@ -91,27 +91,27 @@ export default async function PortalReportsPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-slate-500">None logged</p>
+                  <p className="text-brand-muted">None logged</p>
                 )}
               </div>
 
               {v.checklistCompletions.length > 0 ? (
                 <div className="mt-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Checklist completed</p>
-                  <p className="text-slate-700">{v.checklistCompletions.map((c) => c.label).join(", ")}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Checklist completed</p>
+                  <p className="text-brand-ink">{v.checklistCompletions.map((c) => c.label).join(", ")}</p>
                 </div>
               ) : null}
 
               {v.techNotes ? (
                 <div className="mt-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</p>
-                  <p className="whitespace-pre-wrap text-slate-700">{v.techNotes}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Notes</p>
+                  <p className="whitespace-pre-wrap text-brand-ink">{v.techNotes}</p>
                 </div>
               ) : null}
 
               {v.photos.length ? (
                 <div className="mt-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Photos</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Photos</p>
                   <div className="mt-1 flex flex-wrap gap-2">
                     {v.photos.map((p) =>
                       p.url ? (
@@ -120,7 +120,7 @@ export default async function PortalReportsPage() {
                           key={p.id}
                           src={p.url}
                           alt="Service visit photo"
-                          className="h-24 w-24 rounded border border-[#C9E3EC] object-cover"
+                          className="h-24 w-24 rounded border border-brand-border object-cover"
                         />
                       ) : null,
                     )}
@@ -132,8 +132,8 @@ export default async function PortalReportsPage() {
         )}
       </section>
 
-      <p className="mt-6 text-xs text-slate-500">
-        <Link href="/portal" className="text-[#0A5FA4] underline">
+      <p className="mt-6 text-xs text-brand-muted">
+        <Link href="/portal" className="text-brand-primary underline">
           Back to upcoming service days
         </Link>
       </p>

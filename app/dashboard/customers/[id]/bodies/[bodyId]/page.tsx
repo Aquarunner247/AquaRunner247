@@ -49,7 +49,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
-      <div className="text-sm text-slate-500">
+      <div className="text-sm text-brand-muted">
         <Link href="/dashboard/customers" className="underline">
           Customers
         </Link>
@@ -61,14 +61,14 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         <span>{body.name}</span>
       </div>
 
-      <header className="mt-2 border-b border-slate-200 pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#12234A]">{body.property.name}</p>
-        <h1 className="text-2xl font-semibold text-slate-900">{body.name}</h1>
+      <header className="mt-2 border-b border-brand-border pb-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">{body.property.name}</p>
+        <h1 className="text-2xl font-semibold text-brand-ink">{body.name}</h1>
       </header>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         {isResidential || !dataUrl || !publicUrl ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-brand-muted">
             No public QR log for residential venues — the inspector log is a commercial-only feature.
           </p>
         ) : (
@@ -76,8 +76,8 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         )}
       </section>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Details</h2>
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-brand-ink">Details</h2>
         <form action={updateBodyOfWater} className="mt-3 space-y-2">
           <input type="hidden" name="bodyId" value={body.id} />
           <input type="hidden" name="customerId" value={customerId} />
@@ -86,9 +86,9 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               name="name"
               defaultValue={body.name}
               required
-              className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm"
             />
-            <select name="type" defaultValue={body.type} className="rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <select name="type" defaultValue={body.type} className="rounded border border-brand-control px-2 py-1.5 text-sm">
               {Object.values(BodyOfWaterType).map((type) => (
                 <option key={type} value={type}>
                   {type}
@@ -101,7 +101,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               step="1"
               defaultValue={body.volumeGallons?.toString() ?? ""}
               placeholder="Total gallons"
-              className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm"
             />
             <input
               name="maximumOccupancy"
@@ -109,7 +109,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               step="1"
               defaultValue={body.maximumOccupancy?.toString() ?? ""}
               placeholder="Max occupancy"
-              className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm"
             />
           </div>
           {body.property.propertyType === "RESIDENTIAL" ? (
@@ -125,16 +125,16 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               }}
             />
           ) : null}
-          <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+          <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
             Save
           </button>
         </form>
       </section>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Equipment</h2>
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-brand-ink">Equipment</h2>
         {body.equipment.length ? (
-          <ul className="mt-2 space-y-1 text-sm text-slate-700">
+          <ul className="mt-2 space-y-1 text-sm text-brand-ink">
             {body.equipment.map((eq) => (
               <EquipmentItem
                 key={eq.id}
@@ -151,15 +151,15 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
             ))}
           </ul>
         ) : (
-          <p className="mt-2 text-sm text-slate-500">No equipment yet.</p>
+          <p className="mt-2 text-sm text-brand-muted">No equipment yet.</p>
         )}
 
         <EquipmentForm customerId={customerId} bodyId={body.id} isSpa={body.type === "SPA"} />
       </section>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Import historical readings</h2>
-        <p className="mt-1 text-sm text-slate-500">
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-brand-ink">Import historical readings</h2>
+        <p className="mt-1 text-sm text-brand-muted">
           Upload a spreadsheet shaped like the downloadable QR-log CSV (one row per day, same columns) to backfill
           readings from before this app was in use. If a row&apos;s day cell is a full date rather than a bare day
           number, its own month/year is used, so a file spanning several months is filed under the right month
@@ -168,21 +168,21 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         </p>
 
         {sp.imported ? (
-          <div className="mt-2 text-sm font-medium text-emerald-700">
+          <div className="mt-2 text-sm font-medium text-brand-ok">
             <p>Imported {sp.imported} day(s) of readings.</p>
             {sp.importedMonths ? (
-              <p className="mt-0.5 font-normal text-emerald-600">Detected multiple months — {sp.importedMonths}.</p>
+              <p className="mt-0.5 font-normal text-brand-ok">Detected multiple months — {sp.importedMonths}.</p>
             ) : null}
           </div>
         ) : null}
-        {sp.importError ? <p className="mt-2 text-sm text-red-600">{sp.importError}</p> : null}
+        {sp.importError ? <p className="mt-2 text-sm text-brand-danger">{sp.importError}</p> : null}
 
-        <form action={importVenueReadings} className="mt-3 flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-slate-50 p-2">
+        <form action={importVenueReadings} className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2">
           <input type="hidden" name="bodyId" value={body.id} />
           <input type="hidden" name="customerId" value={customerId} />
-          <label className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="flex flex-col gap-1 text-xs text-brand-muted">
             Month
-            <select name="month" defaultValue={now.getMonth() + 1} className="rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <select name="month" defaultValue={now.getMonth() + 1} className="rounded border border-brand-control px-2 py-1.5 text-sm">
               {MONTH_NAMES.map((m, i) => (
                 <option key={m} value={i + 1}>
                   {m}
@@ -190,9 +190,9 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="flex flex-col gap-1 text-xs text-brand-muted">
             Year
-            <select name="year" defaultValue={now.getFullYear()} className="rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <select name="year" defaultValue={now.getFullYear()} className="rounded border border-brand-control px-2 py-1.5 text-sm">
               {Array.from({ length: 10 }, (_, i) => now.getFullYear() - 8 + i).map((y) => (
                 <option key={y} value={y}>
                   {y}
@@ -200,30 +200,30 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="flex flex-col gap-1 text-xs text-brand-muted">
             File (.csv)
             <input type="file" name="file" accept=".csv,text/csv" required className="text-sm" />
           </label>
-          <button className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+          <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
             Import
           </button>
         </form>
       </section>
 
-      <section className="mt-6 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">
+      <section className="mt-6 rounded-lg border border-brand-danger/30 bg-white p-4 shadow-sm">
         <form action={deleteBodyOfWater}>
           <input type="hidden" name="bodyId" value={body.id} />
           <input type="hidden" name="customerId" value={customerId} />
           <ConfirmSubmitButton
             label="Delete aquatic venue"
             confirmMessage="Delete this aquatic venue and all its equipment/history?"
-            className="rounded bg-rose-700 px-3 py-1.5 text-sm font-medium text-white"
+            className="rounded bg-brand-danger px-3 py-1.5 text-sm font-medium text-white"
           />
         </form>
       </section>
 
       <div className="mt-6">
-        <Link href={`/dashboard/customers/${customerId}?tab=bodies`} className="text-sm text-[#0A5FA4] underline">
+        <Link href={`/dashboard/customers/${customerId}?tab=bodies`} className="text-sm text-brand-primary underline">
           ← Back to {body.property.customer?.name ?? body.property.name}
         </Link>
       </div>

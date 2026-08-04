@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PropertyType } from "@/generated/prisma/enums";
 
-const inputClass = "rounded border border-slate-300 px-2 py-1.5 text-sm";
+const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
 
 export type PropertyContactDefaults = {
   managerName?: string | null;
@@ -49,7 +49,7 @@ export function PropertyContactFields({
   return (
     <>
       <div>
-        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Property type</label>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-brand-muted">Property type</label>
         <select
           name="propertyType"
           value={propertyType}
@@ -62,8 +62,8 @@ export function PropertyContactFields({
       </div>
 
       {propertyType === PropertyType.RESIDENTIAL ? (
-        <div className="mt-3 border-t border-slate-200 pt-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Owner</p>
+        <div className="mt-3 border-t border-brand-border pt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Owner</p>
           <input
             name="ownerName"
             defaultValue={defaults.ownerName ?? ""}
@@ -98,20 +98,20 @@ export function PropertyContactFields({
             rows={2}
             className={`mt-2 w-full ${inputClass}`}
           />
-          <label className="mt-2 flex items-center gap-1.5 text-sm text-slate-700">
+          <label className="mt-2 flex items-center gap-1.5 text-sm text-brand-ink">
             <input
               type="checkbox"
               name="hasDog"
               defaultChecked={defaults.hasDog ?? false}
-              className="rounded border-slate-300"
+              className="rounded border-brand-control"
             />
             Dog on property
           </label>
         </div>
       ) : (
         <>
-          <div className="mt-3 border-t border-slate-200 pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Manager</p>
+          <div className="mt-3 border-t border-brand-border pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Manager</p>
             <input
               name="managerName"
               defaultValue={defaults.managerName ?? ""}
@@ -141,8 +141,8 @@ export function PropertyContactFields({
             />
           </div>
 
-          <div className="mt-3 border-t border-slate-200 pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance contact</p>
+          <div className="mt-3 border-t border-brand-border pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Maintenance contact</p>
             <input
               name="maintenanceName"
               defaultValue={defaults.maintenanceName ?? ""}

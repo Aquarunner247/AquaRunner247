@@ -36,11 +36,11 @@ export default async function ReportIssuePage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-6 pb-24">
-      <Link href="/dashboard" className="text-sm text-[#0A5FA4] underline">
+      <Link href="/dashboard" className="text-sm text-brand-primary underline">
         Back to dashboard
       </Link>
-      <h1 className="mt-3 font-[family-name:var(--font-display)] text-xl font-bold uppercase tracking-wide text-[#12234A]">Report an issue</h1>
-      <p className="mt-1 text-sm text-[#4A6572]">Flag a problem you noticed at one of today&rsquo;s stops.</p>
+      <h1 className="mt-3 font-[family-name:var(--font-display)] text-xl font-bold uppercase tracking-wide text-brand-ink">Report an issue</h1>
+      <p className="mt-1 text-sm text-brand-muted">Flag a problem you noticed at one of today&rsquo;s stops.</p>
       <div className="mt-4">
         <ReportIssueForm visits={visitOptions} />
       </div>

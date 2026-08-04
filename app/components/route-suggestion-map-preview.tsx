@@ -3,6 +3,7 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
+import { BRAND_CTA, BRAND_PRIMARY } from "@/app/lib/chart-colors";
 
 type StopPin = { propertyId: string; propertyName: string; latitude: number; longitude: number };
 
@@ -45,7 +46,7 @@ export function RouteSuggestionMapPreview({ newLocation, stops }: Props) {
       for (const stop of stops) {
         const icon = L.divIcon({
           className: "",
-          html: `<div style="background:#0A5FA4;color:white;border-radius:9999px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);">•</div>`,
+          html: `<div style="background:${BRAND_PRIMARY};color:white;border-radius:9999px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);">•</div>`,
           iconSize: [22, 22],
           iconAnchor: [11, 11],
         });
@@ -55,7 +56,7 @@ export function RouteSuggestionMapPreview({ newLocation, stops }: Props) {
 
       const newIcon = L.divIcon({
         className: "",
-        html: `<div style="background:#FF6B5B;color:white;border-radius:9999px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.5);">★</div>`,
+        html: `<div style="background:${BRAND_CTA};color:white;border-radius:9999px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.5);">★</div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14],
       });
@@ -71,5 +72,5 @@ export function RouteSuggestionMapPreview({ newLocation, stops }: Props) {
     };
   }, [newLocation.latitude, newLocation.longitude, stops]);
 
-  return <div ref={mapDivRef} className="h-[280px] w-full rounded-lg border border-[#C9E3EC]" />;
+  return <div ref={mapDivRef} className="h-[280px] w-full rounded-lg border border-brand-border" />;
 }

@@ -72,13 +72,13 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
 
   if (!isLoggedIn) {
     return (
-      <div className="flex items-center justify-between border-b border-white/10 bg-brand-navy px-4 py-3 md:sticky md:top-0 md:z-30 md:h-screen md:w-16 md:flex-col md:justify-start md:gap-6 md:border-b-0 md:border-r md:py-6">
+      <div className="flex items-center justify-between border-b border-white/10 bg-brand-ink px-4 py-3 md:sticky md:top-0 md:z-30 md:h-screen md:w-16 md:flex-col md:justify-start md:gap-6 md:border-b-0 md:border-r md:py-6">
         <Link href="/" className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-white md:hidden">
-          AquaRunner <span className="text-brand-sky">24/7</span> Pro
+          AquaRunner <span className="text-brand-border">24/7</span> Pro
         </Link>
         <Link
           href="/"
-          className="hidden font-[family-name:var(--font-display)] text-lg font-extrabold text-brand-sky md:block"
+          className="hidden font-[family-name:var(--font-display)] text-lg font-extrabold text-brand-border md:block"
           title="AquaRunner 24/7 Pro"
         >
           A<span className="text-white">24</span>
@@ -105,12 +105,12 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
       <aside
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
-        className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col bg-brand-navy transition-[width] duration-200 ease-out md:flex ${
+        className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col bg-brand-ink transition-[width] duration-200 ease-out md:flex ${
           expanded ? "w-56" : "w-16"
         }`}
       >
         <div className="flex items-center gap-2 px-4 py-5">
-          <Link href="/dashboard" className="shrink-0 font-[family-name:var(--font-display)] text-lg font-extrabold text-brand-sky">
+          <Link href="/dashboard" className="shrink-0 font-[family-name:var(--font-display)] text-lg font-extrabold text-brand-border">
             A<span className="text-white">24</span>
           </Link>
           <span
@@ -131,7 +131,7 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
                 href={link.href}
                 title={expanded ? undefined : link.label}
                 className={`flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-colors ${
-                  active ? "bg-brand-blue text-white" : "text-brand-sky hover:bg-white/5 hover:text-white"
+                  active ? "bg-brand-primary text-white" : "text-brand-border hover:bg-white/5 hover:text-white"
                 }`}
               >
                 <NavIcon kind={link.icon} className="h-5 w-5 shrink-0" />
@@ -150,7 +150,7 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
             aria-pressed={pinned}
             title={pinned ? "Unpin sidebar" : "Keep sidebar open"}
             className={`mb-1 flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-              pinned ? "bg-white/10 text-white" : "text-brand-sky hover:bg-white/5 hover:text-white"
+              pinned ? "bg-white/10 text-white" : "text-brand-border hover:bg-white/5 hover:text-white"
             }`}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5 shrink-0">
@@ -165,7 +165,7 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
           {(userName || orgName) && expanded ? (
             <div className="mb-1 truncate rounded-md bg-white/5 px-2.5 py-2">
               {userName ? <p className="truncate text-sm font-medium text-white">{userName}</p> : null}
-              {orgName ? <p className="truncate text-xs text-brand-sky">{orgName}</p> : null}
+              {orgName ? <p className="truncate text-xs text-brand-border">{orgName}</p> : null}
             </div>
           ) : null}
 
@@ -174,7 +174,7 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
             onClick={() => void onSignOut()}
             disabled={signingOut}
             title={expanded ? undefined : "Sign out"}
-            className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-brand-coral hover:bg-white/5 disabled:opacity-60"
+            className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-brand-accent hover:bg-white/5 disabled:opacity-60"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5 shrink-0">
               <path d="M15 4H7a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h8" strokeLinecap="round" strokeLinejoin="round" />
@@ -202,7 +202,7 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
                     key={link.href}
                     href={link.href}
                     onClick={() => setSheetOpen(false)}
-                    className="flex items-center gap-3 rounded px-3 py-3 text-sm font-semibold text-brand-navy hover:bg-brand-mist"
+                    className="flex items-center gap-3 rounded px-3 py-3 text-sm font-semibold text-brand-ink hover:bg-brand-foam"
                   >
                     <NavIcon kind={link.icon} className="h-5 w-5 shrink-0" />
                     {link.label}
@@ -212,7 +212,7 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
                   type="button"
                   onClick={() => void onSignOut()}
                   disabled={signingOut}
-                  className="mt-1 flex w-full items-center gap-3 rounded px-3 py-3 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                  className="mt-1 flex w-full items-center gap-3 rounded px-3 py-3 text-left text-sm font-semibold text-brand-danger hover:bg-brand-dangerFill disabled:opacity-60"
                 >
                   {signingOut ? "Signing out..." : "Sign out"}
                 </button>
@@ -220,7 +220,7 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
             </div>
           ) : null}
 
-          <nav className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-white/10 bg-brand-navy px-2 pb-[env(safe-area-inset-bottom)] pt-1 md:hidden">
+          <nav className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-white/10 bg-brand-ink px-2 pb-[env(safe-area-inset-bottom)] pt-1 md:hidden">
             {primaryLinks.map((link) => {
               const active = isActive(pathname, link.href);
               return (

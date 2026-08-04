@@ -32,7 +32,7 @@ export function InlineAssignSelect({
         // immediately -- no controlled value / transition indirection to race against.
         e.currentTarget.form?.requestSubmit();
       }}
-      className="inline-flex rounded-full border-none bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/40 disabled:opacity-60"
+      className="inline-flex rounded-full border-none bg-brand-foam px-2.5 py-0.5 text-xs font-semibold text-brand-ink focus:outline-none focus:ring-2 focus:ring-brand-primary/40 disabled:opacity-60"
     >
       <option value="">{emptyLabel}</option>
       {options.map((o) => (

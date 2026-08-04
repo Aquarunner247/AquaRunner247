@@ -35,28 +35,28 @@ export default async function BillingPage({ searchParams }: PageProps) {
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
-      <header className="border-b border-slate-200 pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#12234A]">Admin</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Billing</h1>
+      <header className="border-b border-brand-border pb-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
+        <h1 className="text-2xl font-semibold text-brand-ink">Billing</h1>
       </header>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        {errorMessage ? <p className="mb-3 text-sm text-red-600">{errorMessage}</p> : null}
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        {errorMessage ? <p className="mb-3 text-sm text-brand-danger">{errorMessage}</p> : null}
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Status</dt>
-            <dd className="text-slate-900">{organization ? STATUS_LABELS[organization.planStatus] : "—"}</dd>
+            <dt className="text-xs uppercase tracking-wide text-brand-muted">Status</dt>
+            <dd className="text-brand-ink">{organization ? STATUS_LABELS[organization.planStatus] : "—"}</dd>
           </div>
           {organization?.trialEndsAt ? (
             <div>
-              <dt className="text-xs uppercase tracking-wide text-slate-500">Trial ends</dt>
-              <dd className="text-slate-900">{organization.trialEndsAt.toLocaleDateString()}</dd>
+              <dt className="text-xs uppercase tracking-wide text-brand-muted">Trial ends</dt>
+              <dd className="text-brand-ink">{organization.trialEndsAt.toLocaleDateString()}</dd>
             </div>
           ) : null}
           {organization?.currentPeriodEnd ? (
             <div>
-              <dt className="text-xs uppercase tracking-wide text-slate-500">Renews</dt>
-              <dd className="text-slate-900">{organization.currentPeriodEnd.toLocaleDateString()}</dd>
+              <dt className="text-xs uppercase tracking-wide text-brand-muted">Renews</dt>
+              <dd className="text-brand-ink">{organization.currentPeriodEnd.toLocaleDateString()}</dd>
             </div>
           ) : null}
         </dl>
@@ -65,13 +65,13 @@ export default async function BillingPage({ searchParams }: PageProps) {
           <form action={openBillingPortal} className="mt-4">
             <button
               type="submit"
-              className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#084A82]"
+              className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-primaryHover"
             >
               Manage billing
             </button>
           </form>
         ) : (
-          <p className="mt-4 text-sm text-slate-500">No billing account on file yet.</p>
+          <p className="mt-4 text-sm text-brand-muted">No billing account on file yet.</p>
         )}
       </section>
     </main>

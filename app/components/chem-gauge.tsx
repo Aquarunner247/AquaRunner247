@@ -1,3 +1,5 @@
+import { BRAND_DANGER, BRAND_FOAM, BRAND_OK } from "@/app/lib/chart-colors";
+
 // Signature motif, second application: a small inline dial for a chemistry reading,
 // standing in for a plain number. The fill position shows where the reading sits between
 // min/max, colored by whether it's inside the ideal range.
@@ -15,7 +17,7 @@ export function ChemGauge({ value, min, max, idealMin, idealMax, unit = "", size
   const clampedValue = Math.max(min, Math.min(max, value));
   const pct = max === min ? 0 : ((clampedValue - min) / (max - min)) * 100;
   const inRange = value >= idealMin && value <= idealMax;
-  const color = inRange ? "#1F8A80" : "#E2775E";
+  const color = inRange ? BRAND_OK : BRAND_DANGER;
   const inner = size - 9;
 
   return (
@@ -24,7 +26,7 @@ export function ChemGauge({ value, min, max, idealMin, idealMax, unit = "", size
       style={{
         width: size,
         height: size,
-        background: `conic-gradient(${color} ${pct}%, rgba(15, 42, 61, 0.1) 0)`,
+        background: `conic-gradient(${color} ${pct}%, ${BRAND_FOAM} 0)`,
       }}
       role="img"
       aria-label={`${value}${unit} — ${inRange ? "in range" : "out of range"} (ideal ${idealMin}–${idealMax}${unit})`}

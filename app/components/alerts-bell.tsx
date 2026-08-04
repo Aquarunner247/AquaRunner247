@@ -51,7 +51,7 @@ function BellIcon({ ringing }: { ringing: boolean }) {
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`h-5 w-5 ${ringing ? "text-brand-coralDark" : "text-slate-500"}`}
+      className={`h-5 w-5 ${ringing ? "text-brand-danger" : "text-brand-muted"}`}
     >
       <path
         d="M12 3a5 5 0 0 0-5 5v2.6c0 .6-.2 1.2-.6 1.7L5 14.5c-.7.9-.1 2.2 1 2.2h12c1.1 0 1.7-1.3 1-2.2l-1.4-2.2a2.7 2.7 0 0 1-.6-1.7V8a5 5 0 0 0-5-5Z"
@@ -101,7 +101,7 @@ export function AlertsBell({
         {totalCount > 0 ? (
           <span
             className={`absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white ${
-              hasHazard ? "bg-brand-coralDark" : "bg-brand-coral"
+              hasHazard ? "bg-brand-danger" : "bg-brand-danger"
             }`}
           >
             {totalCount > 99 ? "99+" : totalCount}
@@ -112,17 +112,17 @@ export function AlertsBell({
       {open ? (
         <div className="absolute right-0 z-40 mt-2 max-h-[70vh] w-[min(90vw,420px)] overflow-y-auto rounded-2xl border border-brand-border bg-white p-3 shadow-softLg">
           {totalCount === 0 ? (
-            <p className="p-3 text-sm text-slate-500">Nothing needs attention — all clear.</p>
+            <p className="p-3 text-sm text-brand-muted">Nothing needs attention — all clear.</p>
           ) : (
             <div className="space-y-3">
               {closureHazardReadings.length > 0 ? (
-                <div className="rounded-xl border-2 border-brand-coralDark bg-brand-coral/10 p-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-brand-coralDark">
+                <div className="rounded-xl border-2 border-brand-danger bg-brand-dangerFill p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-brand-danger">
                     Closure risk — imminent health hazard ($909 reopening fee)
                   </p>
                   <ul className="mt-2 space-y-1">
                     {closureHazardReadings.map((r) => (
-                      <li key={r.id} className="text-sm font-medium text-brand-coralDark">
+                      <li key={r.id} className="text-sm font-medium text-brand-danger">
                         {r.property} — {r.body}: {r.issues.join(", ")}
                         {r.completedAtLabel ? ` (${r.completedAtLabel})` : ""}
                       </li>
@@ -132,20 +132,20 @@ export function AlertsBell({
               ) : null}
 
               {reportedIssues.length > 0 ? (
-                <div className="rounded-xl border border-brand-coral/40 bg-brand-coral/10 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-coralDark">Reported issues</p>
+                <div className="rounded-xl border border-brand-danger/40 bg-brand-dangerFill p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-danger">Reported issues</p>
                   <ul className="mt-2 space-y-2">
                     {reportedIssues.map((issue) => (
                       <li
                         key={issue.id}
-                        className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-brand-coral/30 bg-white px-3 py-2 text-sm"
+                        className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-brand-danger/30 bg-white px-3 py-2 text-sm"
                       >
                         <div>
-                          <span className="text-xs font-semibold uppercase text-brand-coralDark">{issue.severity}</span>{" "}
-                          <Link href={`/dashboard/visits/${issue.visitId}`} className="font-medium text-brand-navy underline" onClick={() => setOpen(false)}>
+                          <span className="text-xs font-semibold uppercase text-brand-danger">{issue.severity}</span>{" "}
+                          <Link href={`/dashboard/visits/${issue.visitId}`} className="font-medium text-brand-ink underline" onClick={() => setOpen(false)}>
                             {issue.visitLabel}
                           </Link>
-                          <p className="mt-0.5 text-brand-navy/70">{issue.description || "No description provided"}</p>
+                          <p className="mt-0.5 text-brand-ink/70">{issue.description || "No description provided"}</p>
                           <p className="mt-0.5 text-xs text-brand-icon">
                             {issue.techLabel} · {issue.createdAtLabel}
                           </p>
@@ -163,16 +163,16 @@ export function AlertsBell({
               ) : null}
 
               {overdueVisits.length > 0 || outOfRangeReadings.length > 0 ? (
-                <div className="rounded-xl border border-brand-coral/30 bg-brand-coral/[0.06] p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-coralDark">Needs attention</p>
+                <div className="rounded-xl border border-brand-danger/30 bg-brand-dangerFill p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-danger">Needs attention</p>
                   {overdueVisits.length > 0 ? (
                     <div className="mt-2">
-                      <p className="text-sm font-medium text-brand-navy">
+                      <p className="text-sm font-medium text-brand-ink">
                         {overdueVisits.length} overdue stop{overdueVisits.length === 1 ? "" : "s"}
                       </p>
                       <ul className="mt-1 space-y-1">
                         {overdueVisits.map((v) => (
-                          <li key={v.id} className="text-sm text-brand-navy/80">
+                          <li key={v.id} className="text-sm text-brand-ink/80">
                             <Link href={`/dashboard/visits/${v.id}`} className="app-link" onClick={() => setOpen(false)}>
                               {v.property} — {v.body}
                             </Link>{" "}
@@ -184,10 +184,10 @@ export function AlertsBell({
                   ) : null}
                   {outOfRangeReadings.length > 0 ? (
                     <div className="mt-3">
-                      <p className="text-sm font-medium text-brand-navy">Out-of-range readings (last 7 days)</p>
+                      <p className="text-sm font-medium text-brand-ink">Out-of-range readings (last 7 days)</p>
                       <ul className="mt-1 space-y-1">
                         {outOfRangeReadings.map((r) => (
-                          <li key={r.id} className="text-sm text-brand-navy/80">
+                          <li key={r.id} className="text-sm text-brand-ink/80">
                             {r.property} — {r.body}: {r.issues.join(", ")}
                             {r.completedAtLabel ? ` (${r.completedAtLabel})` : ""}
                           </li>

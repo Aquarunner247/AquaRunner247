@@ -82,8 +82,8 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
         <section className="mt-6">
           <form action={createCustomer} className="app-card">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-900">Add customer + property</p>
-              <Link href="/dashboard/customers" className="text-sm text-slate-500 underline">
+              <p className="text-sm font-semibold text-brand-ink">Add customer + property</p>
+              <Link href="/dashboard/customers" className="text-sm text-brand-muted underline">
                 Cancel
               </Link>
             </div>
@@ -99,11 +99,11 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
 
       <section className="mt-6 space-y-6">
         {customers.length === 0 ? (
-          <p className="app-card-inset text-sm text-slate-500">No customers yet.</p>
+          <p className="app-card-inset text-sm text-brand-muted">No customers yet.</p>
         ) : (
           customerGroups.map((group) => (
             <div key={group.letter}>
-              <p className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-brand-blue">{group.letter}</p>
+              <p className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">{group.letter}</p>
               <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
                 {group.customers.map((customer) => {
                   const property = customer.properties[0];
@@ -112,14 +112,14 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
                     <Link
                       key={customer.id}
                       href={`/dashboard/customers/${customer.id}`}
-                      className="group flex items-center gap-3 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-blue/40 hover:shadow-soft"
+                      className="group flex items-center gap-3 rounded-xl border border-brand-border/90 bg-white p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary/40 hover:shadow-soft"
                     >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-mist font-[family-name:var(--font-display)] text-sm font-bold text-brand-blue">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-foam font-[family-name:var(--font-display)] text-sm font-bold text-brand-primary">
                         {customer.name.trim().charAt(0).toUpperCase() || "?"}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-brand-navy">{customer.name}</p>
-                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                        <p className="truncate text-sm font-semibold text-brand-ink group-hover:text-brand-ink">{customer.name}</p>
+                        <p className="mt-0.5 truncate text-xs text-brand-muted">
                           {property?.managementCompany ? `${property.managementCompany.name} · ` : ""}
                           {[property?.city, property?.region].filter(Boolean).join(", ") || "No address on file"}
                         </p>

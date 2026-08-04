@@ -64,52 +64,52 @@ export async function TechnicianHome({
   const firstName = (appUser.name ?? appUser.email).split(" ")[0];
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl pb-24">
-      <header className="bg-[#12234A] px-4 pb-6 pt-6">
-        <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-[#A9D3E0]">AquaRunner 24/7 Pro</p>
-        <h1 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-white">Welcome back, {firstName}!</h1>
+    <main className="mx-auto min-h-screen max-w-2xl pb-24 lg:max-w-4xl">
+      <header className="bg-brand-ink px-4 pb-6 pt-6 lg:px-8 lg:pb-8 lg:pt-8">
+        <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-brand-border">AquaRunner 24/7 Pro</p>
+        <h1 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-white lg:text-3xl">Welcome back, {firstName}!</h1>
       </header>
 
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 px-4 py-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 lg:px-8 lg:py-6">
         <Link
           href="/dashboard/schedule"
-          className="flex items-center justify-between rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm"
+          className="app-card flex items-center justify-between lg:col-span-2"
         >
           <div>
-            <p className="text-sm font-semibold text-[#12234A]">View today&rsquo;s schedule</p>
-            <p className="text-xs text-[#4A6572]">See your route, map, and stop list</p>
+            <p className="text-sm font-semibold text-brand-ink">View today&rsquo;s schedule</p>
+            <p className="text-xs text-brand-muted">See your route, map, and stop list</p>
           </div>
-          <span className="text-xl text-[#0A5FA4]">›</span>
+          <span className="text-xl text-brand-primary">›</span>
         </Link>
 
-        <section className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#4A6572]">This week</p>
-          <p className="text-xs text-[#94A3B8]">
+        <section className="app-card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">This week</p>
+          <p className="text-xs text-brand-muted">
             {weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })} –{" "}
             {new Date(weekEnd.getTime() - 86400000).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-3 text-center">
             <div>
-              <p className="font-[family-name:var(--font-display)] text-3xl font-bold text-[#16A34A]">{weekStats.completed}</p>
-              <p className="text-xs text-[#4A6572]">Stops made</p>
+              <p className="font-[family-name:var(--font-display)] text-3xl font-bold text-brand-ok">{weekStats.completed}</p>
+              <p className="text-xs text-brand-muted">Stops made</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-display)] text-3xl font-bold text-[#FF6B5B]">{weekStats.skipped}</p>
-              <p className="text-xs text-[#4A6572]">Skipped</p>
+              <p className="font-[family-name:var(--font-display)] text-3xl font-bold text-brand-danger">{weekStats.skipped}</p>
+              <p className="text-xs text-brand-muted">Skipped</p>
             </div>
           </div>
         </section>
 
-        <section className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+        <section className="app-card">
           <div className="flex items-center justify-between">
-            <Link href={`/dashboard?month=${toMonthParam(prevMonth)}`} className="rounded px-2 py-1 text-lg text-[#0A5FA4]" aria-label="Previous month">
+            <Link href={`/dashboard?month=${toMonthParam(prevMonth)}`} className="rounded px-2 py-1 text-lg text-brand-primary" aria-label="Previous month">
               ‹
             </Link>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#4A6572]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
               {monthStart.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
             </p>
             {!isCurrentMonth ? (
-              <Link href={`/dashboard?month=${toMonthParam(nextMonth)}`} className="rounded px-2 py-1 text-lg text-[#0A5FA4]" aria-label="Next month">
+              <Link href={`/dashboard?month=${toMonthParam(nextMonth)}`} className="rounded px-2 py-1 text-lg text-brand-primary" aria-label="Next month">
                 ›
               </Link>
             ) : (
@@ -118,12 +118,12 @@ export async function TechnicianHome({
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-center">
             <div>
-              <p className="font-[family-name:var(--font-display)] text-3xl font-bold text-[#16A34A]">{monthStats.completed}</p>
-              <p className="text-xs text-[#4A6572]">Stops made</p>
+              <p className="font-[family-name:var(--font-display)] text-3xl font-bold text-brand-ok">{monthStats.completed}</p>
+              <p className="text-xs text-brand-muted">Stops made</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-display)] text-3xl font-bold text-[#FF6B5B]">{monthStats.skipped}</p>
-              <p className="text-xs text-[#4A6572]">Skipped</p>
+              <p className="font-[family-name:var(--font-display)] text-3xl font-bold text-brand-danger">{monthStats.skipped}</p>
+              <p className="text-xs text-brand-muted">Skipped</p>
             </div>
           </div>
         </section>
