@@ -39,7 +39,19 @@ function buildPoolConfig(): PoolConfig {
     /@(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\//i.test(raw) && !lower.includes("sslmode=");
 
   let connectionString = raw;
-  const config: PoolConfig = { connectionString: raw };
+  const config: PoolConfig = {
+    connectionString: raw,
+    /**
+     * Supabase's Session pooler caps total clients at 15 (see pool_size in the Supabase
+     * dashboard). Fluid Compute can run several function instances concurrently, each
+     * holding its own Pool (cached per-instance, not shared) — node-pg's unconfigured
+     * default of max=10 per Pool means as few as 2 concurrent instances exhaust the
+     * server-side cap (EMAXCONNSESSION). Keep this well below 15 so several instances
+     * can coexist, and release idle connections quickly so they don't sit held.
+     */
+    max: 3,
+    idleTimeoutMillis: 10_000,
+  };
 
   if (relaxed) {
     config.ssl = { rejectUnauthorized: false };
