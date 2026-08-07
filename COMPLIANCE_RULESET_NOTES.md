@@ -13,11 +13,22 @@ build order): Nevada, Connecticut, Alabama, Alaska, Arizona, Arkansas, Californi
 Colorado, Florida, Maryland, New Mexico, New York, Georgia, Hawaii. Every other state
 (all 50 + DC) has a bare stub row from `prisma/seed-compliance-rulesets.ts`.
 
-**Live (`isSupported: true`): Nevada, Arkansas, Arizona.** Everyone else stays off,
-including the 5 states added in this pass (Maryland, New Mexico, New York, Georgia,
-Hawaii) -- flipping a state live is a deliberate rollout decision made separately from
-seeding its data (see the "Flip Arkansas and Arizona live" commit), not something this
-pass changes on its own.
+**Live (`isSupported: true`): Nevada, Arkansas, Arizona, Alabama, Connecticut,
+California, Colorado, Maryland, New Mexico, New York, Georgia, Hawaii — 12 states.**
+Only Alaska and Florida remain `isSupported: false`. Flipping a state live is a
+deliberate rollout decision made separately from seeding its data (see the "Flip
+Arkansas and Arizona live" commit) -- the 9 states flipped in this pass were only
+flipped after ground-truthing exactly what `activeChemistryThresholds()` resolves for
+each one (see "Verifying isSupported readiness" below), not from eyeballing the seed
+data or trusting `state-compliance-data.md`'s own "no remaining open items" claims at
+face value.
+
+Florida stays off because its own source data explicitly leaves an open product
+decision unresolved (the DH 921 form's 3x/day cadence vs. the regulation's stated
+24-hour floor -- "a genuine product decision for AquaRunner... not a data gap that more
+sourcing would resolve," per `state-compliance-data.md`) -- not something to silently
+pick a default for. Alaska wasn't re-verified in this pass (it predates it) and is left
+as `isSupported: false` pending the same ground-truthing the other 9 states got.
 
 ### This pass: re-checking already-seeded states against updated source data
 
@@ -64,14 +75,63 @@ unconditional default) — the app doesn't track that per account/property yet, 
 still fully seeded and visible in the platform-admin compliance preview; only the
 *live* dashboard's alkalinity target picks one until the app tracks sanitizer/CYA use.
 
-Connecticut, Alabama, Alaska, California, Colorado, and Florida remain
-`isSupported: false` — each has at least one genuine gap in the four parameters the
-dashboard actually gates on (no closure threshold at all, an unresolved conflict, a
-curve with no extractable data points, etc.), documented as `ComplianceNote` rows and
-summarized in each state's section of `state-compliance-data.md`. Every state's real
-data is fully seeded and queryable today regardless of `isSupported` — that only gates
-what the *live* customer-facing UI does with it. The read-only preview at
+Alaska and Florida remain `isSupported: false` — see above. Every state's real data is
+fully seeded and queryable today regardless of `isSupported` — that only gates what the
+*live* customer-facing UI does with it. The read-only preview at
 `/platform-admin/compliance` shows any state's data regardless of this flag, for review.
+
+### Verifying isSupported readiness -- don't trust the seed data alone
+
+A state having real, sourced numbers in `ChemistryThreshold` rows is necessary but not
+sufficient for `isSupported: true` to be safe. `activeChemistryThresholds()` in
+`lib/compliance.ts` has its own lookup rules (`FREE_CHLORINE` always scoped by
+`bodyOfWaterCategory`; `PH`/`TOTAL_ALKALINITY`/`CYANURIC_ACID` always looked up
+unconditionally, `bodyOfWaterCategory: null`) that a state's seed data can silently fail
+to satisfy even when the underlying numbers are correct. Before flipping any state live,
+simulate `activeChemistryThresholds()` against that state's actual seeded rows (not just
+read the seed file) and confirm every one of the four gated parameters resolves to what
+you expect -- three real bugs surfaced exactly this way in this pass, none of which were
+visible from reading the seed data or `state-compliance-data.md` alone:
+
+- **Connecticut and Hawaii's pool chlorine rows were seeded without
+  `bodyOfWaterCategory: "POOL"`.** Since `FREE_CHLORINE` is always looked up per body
+  type, both states would have shown **no chlorine floor at all** on the dashboard
+  despite the real number sitting in the table. Fixed by tagging the rows explicitly
+  (Hawaii's single number, which the source doesn't split by body type, is now
+  duplicated across an explicit `POOL` and `SPA` row rather than left unscoped).
+- **Alabama's `PH`/`TOTAL_ALKALINITY`/`CYANURIC_ACID` were seeded scoped to
+  `POOL`/`SPA`** (faithfully mirroring Appendix A vs. B's layout), but those three
+  parameters are looked up unconditionally -- so all three resolved to `null` on the
+  dashboard even though real numbers existed for both body types. Since Alabama's
+  Appendix A and B give the *same* numbers for pool and spa on these three parameters,
+  the fix was to collapse to one unconditional row per parameter rather than duplicate
+  scoped rows (no number changed, just where it's structurally visible from).
+- **California, Georgia, New Mexico, and Colorado each have two `FREE_CHLORINE` rows
+  for the same body type with no unconditional default** (CYA-present vs. not; oxidizer
+  vs. not) -- `findThreshold()`'s old fallback (`matches[0]`) picked whichever row
+  Postgres happened to return first, an order Postgres doesn't guarantee. In a live
+  simulation this picked a *different* variant per state with no logic behind it --
+  once even landing on Colorado's 0.25 ppm oxidizer-only floor as the general default,
+  dangerously low for the majority of facilities that don't run a supplemental
+  oxidizer. Fixed with `DEFAULT_CONDITION_PRIORITY`, an ordered list of documented
+  default condition strings (`findThreshold()`'s `preferredAppliesWhen` now accepts a
+  string or string array) that `activeChemistryThresholds()` passes to both
+  `FREE_CHLORINE` lookups. Every state sharing a condition family needs matching
+  `appliesWhen` wording for this to work -- California's "no CYA present"/"with CYA
+  present" phrasing was standardized onto Georgia's and New Mexico's rows (previously
+  "without CYA"/"with CYA" and "no CYA in use"/"CYA in use" respectively), renaming
+  only, no numbers changed.
+
+**New York is the one case this mechanism papers over rather than cleanly resolves.**
+Its free-chlorine minimum is genuinely pH-dependent (0.6 mg/L below pH 7.8, 1.5 mg/L
+from 7.8-8.2) -- a two-band version of the same curve/lookup pattern Alaska's Table E
+has, which this app's one-flat-target-per-body-type model can't represent natively.
+`DEFAULT_CONDITION_PRIORITY` defaults to the lower, far more common band (`"pH <= 7.8"`),
+but a reading whose actual pH sits in the 7.8-8.2 band gets compared against the wrong
+(lower) floor -- a real accuracy tradeoff, not a clean missing-data null. Flagged via a
+`ComplianceNote` on New York's record. Properly fixing this means looking up the
+chlorine threshold per-reading based on that reading's own measured pH, not one static
+target per ruleset -- a real code change, not attempted this pass.
 
 ## Scope of this pass
 

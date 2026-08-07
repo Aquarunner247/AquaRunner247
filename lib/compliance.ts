@@ -103,18 +103,43 @@ function findThreshold(
   thresholds: ChemistryThreshold[],
   parameter: string,
   bodyOfWaterCategory: string | null,
-  preferredAppliesWhen?: string,
+  preferredAppliesWhen?: string | string[],
 ): ChemistryThreshold | undefined {
   const matches = thresholds.filter((t) => t.parameter === parameter && t.bodyOfWaterCategory === bodyOfWaterCategory);
   if (matches.length <= 1) return matches[0];
   const unconditional = matches.find((t) => t.appliesWhen == null);
   if (unconditional) return unconditional;
-  if (preferredAppliesWhen) {
-    const preferred = matches.find((t) => t.appliesWhen === preferredAppliesWhen);
-    if (preferred) return preferred;
+  const preferredList = preferredAppliesWhen == null ? [] : Array.isArray(preferredAppliesWhen) ? preferredAppliesWhen : [preferredAppliesWhen];
+  for (const preferred of preferredList) {
+    const match = matches.find((t) => t.appliesWhen === preferred);
+    if (match) return match;
   }
   return matches[0];
 }
+
+/**
+ * Ordered tie-break priority for FREE_CHLORINE lookups when a state has more than one
+ * conditional row and no unconditional default (findThreshold tries these in order,
+ * first match wins, before ever falling back to array order). Each entry is the
+ * documented default variant for one state's specific condition family -- picking the
+ * more common/permissive real-world case, same convention as alkalinity's
+ * "unstabilized sanitizer (no CYA present)" default below:
+ * - "no CYA present" (California, Georgia, New Mexico): defaults to the non-CYA chlorine
+ *   floor when the app doesn't yet track per-account CYA use.
+ * - "without a supplemental oxidizer" (Colorado): defaults to the floor most facilities
+ *   actually operate under, since supplemental oxidizers aren't universal equipment.
+ * - "pH <= 7.8" (New York): New York's chlorine minimum is genuinely pH-dependent
+ *   (0.6 mg/L below pH 7.8, 1.5 mg/L from 7.8-8.2) -- a two-band version of the same
+ *   curve/table-lookup pattern Alaska's Table E has, which this app's one-flat-target
+ *   model can't represent natively. Defaulting to the lower, far-more-common band is a
+ *   real simplification, not just a missing-data null: a reading whose actual pH sits in
+ *   the 7.8-8.2 band gets compared against the LOWER band's 0.6 mg/L floor instead of the
+ *   correct 1.5 mg/L floor, so a reading between 0.6-1.5 mg/L at high pH could be
+ *   under-flagged as compliant when New York's own rule requires 1.5 mg/L at that pH.
+ *   Flagged via a ComplianceNote on New York's seed record -- do not treat this the same
+ *   as a clean "the state just doesn't have this rule" null.
+ */
+const DEFAULT_CONDITION_PRIORITY = ["no CYA present", "without a supplemental oxidizer", "pH <= 7.8"];
 
 /**
  * Chemistry target/hazard thresholds as plain numbers or null (Prisma Decimals aren't
@@ -134,8 +159,8 @@ function findThreshold(
  * this state's own data.
  */
 export function activeChemistryThresholds(ruleset: ComplianceRulesetWithRules) {
-  const chlorinePool = findThreshold(ruleset.chemistryThresholds, "FREE_CHLORINE", "POOL");
-  const chlorineSpa = findThreshold(ruleset.chemistryThresholds, "FREE_CHLORINE", "SPA");
+  const chlorinePool = findThreshold(ruleset.chemistryThresholds, "FREE_CHLORINE", "POOL", DEFAULT_CONDITION_PRIORITY);
+  const chlorineSpa = findThreshold(ruleset.chemistryThresholds, "FREE_CHLORINE", "SPA", DEFAULT_CONDITION_PRIORITY);
   const ph = findThreshold(ruleset.chemistryThresholds, "PH", null);
   // Arkansas's alkalinity always depends on sanitizer/CYA use with no unconditional
   // default -- the app doesn't track that per account yet, so "unstabilized (no CYA)"

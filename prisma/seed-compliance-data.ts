@@ -153,7 +153,7 @@ const CONNECTICUT: StateSeed = {
   ruleset: {
     stateName: "Connecticut",
     healthDepartmentName: "Connecticut Department of Public Health",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "STATE",
     officialCitation: "CT Public Health Code § 19-13-B33b",
     sourceDocument:
@@ -161,10 +161,16 @@ const CONNECTICUT: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
   },
   chemistryThresholds: [
-    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", minValue: 0.8, unit: "ppm", sourceConfidence: "confirmed", notes: "standard minimum residual" },
+    // bodyOfWaterCategory: "POOL" is required on both rows below, not left unscoped --
+    // lib/compliance.ts's activeChemistryThresholds always looks FREE_CHLORINE up per body
+    // type (POOL/SPA), unlike PH/ALKALINITY/CYA which it looks up unconditionally. Leaving
+    // these unscoped (as an earlier pass of this seed did) meant the app's pool-chlorine
+    // lookup found zero rows despite the real 0.8 ppm minimum sitting in the table.
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 0.8, unit: "ppm", sourceConfidence: "confirmed", notes: "standard minimum residual" },
     {
       parameter: "FREE_CHLORINE",
       disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
       minValue: 1.5,
       unit: "ppm",
       appliesWhen: "if chlorinated cyanurates used",
@@ -253,7 +259,7 @@ const ALABAMA: StateSeed = {
   ruleset: {
     stateName: "Alabama",
     healthDepartmentName: "Alabama Department of Public Health",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "COUNTY",
     countyName: "Baldwin County",
     officialCitation: "Alabama pool rules — General Provisions (Sections 5–6); Appendix A (Public Swimming Pool); Appendix B (Public Spa)",
@@ -268,11 +274,18 @@ const ALABAMA: StateSeed = {
     // Public Pool -- Appendix A
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.0, idealMin: 1.0, idealMax: 3.0, maxValue: 3.0, unit: "ppm", sourceConfidence: "confirmed" },
     { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", appliesWhen: "if used", minValue: 2.0, idealMin: 2.0, idealMax: 4.0, maxValue: 4.0, unit: "ppm", sourceConfidence: "confirmed" },
-    { parameter: "PH", bodyOfWaterCategory: "POOL", minValue: 7.2, idealMin: 7.4, idealMax: 7.6, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
-    { parameter: "TOTAL_ALKALINITY", bodyOfWaterCategory: "POOL", minValue: 60, idealMin: 80, idealMax: 120, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed" },
+    // PH/TOTAL_ALKALINITY/CYANURIC_ACID are unscoped (no bodyOfWaterCategory) rather than
+    // duplicated per POOL/SPA -- Alabama's Appendix A and B give the SAME numbers for both,
+    // and lib/compliance.ts's activeChemistryThresholds looks these three parameters up
+    // unconditionally (bodyOfWaterCategory: null), unlike FREE_CHLORINE which is always
+    // looked up per body type. Scoping these to POOL/SPA (as an earlier pass of this seed
+    // did) faithfully mirrored Appendix A/B's layout but meant the app's lookup found zero
+    // rows for any of the three -- collapsing to one unconditional row per parameter fixes
+    // that without changing any actual number.
+    { parameter: "PH", minValue: 7.2, idealMin: 7.4, idealMax: 7.6, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "TOTAL_ALKALINITY", minValue: 60, idealMin: 80, idealMax: 120, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed" },
     {
       parameter: "CYANURIC_ACID",
-      bodyOfWaterCategory: "POOL",
       appliesWhen: "if used",
       minValue: 10,
       idealMin: 30,
@@ -290,20 +303,8 @@ const ALABAMA: StateSeed = {
     // Public Spa -- Appendix B (notably stricter and more frequent than the pool table)
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 2.0, idealMin: 3.0, idealMax: 5.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
     { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "SPA", appliesWhen: "if used", minValue: 2.0, idealMin: 4.0, idealMax: 6.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
-    { parameter: "PH", bodyOfWaterCategory: "SPA", minValue: 7.2, idealMin: 7.4, idealMax: 7.6, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
-    { parameter: "TOTAL_ALKALINITY", bodyOfWaterCategory: "SPA", minValue: 60, idealMin: 80, idealMax: 120, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed" },
-    {
-      parameter: "CYANURIC_ACID",
-      bodyOfWaterCategory: "SPA",
-      appliesWhen: "if used",
-      minValue: 10,
-      idealMin: 30,
-      idealMax: 50,
-      maxValue: 150,
-      unit: "ppm",
-      sourceConfidence: "confirmed",
-      notes: "No indoor/outdoor split -- see ComplianceNote for the resolved indoor-ban question.",
-    },
+    // PH/TOTAL_ALKALINITY/CYANURIC_ACID: same unconditional rows as the pool section above
+    // cover spas too (Appendix B gives identical numbers) -- not duplicated here.
     { parameter: "CALCIUM_HARDNESS", bodyOfWaterCategory: "SPA", minValue: 100, idealMin: 150, idealMax: 250, maxValue: 800, unit: "ppm", sourceConfidence: "confirmed" },
     { parameter: "TEMPERATURE", bodyOfWaterCategory: "SPA", maxValue: 104, unit: "°F", sourceConfidence: "confirmed" },
     { parameter: "TDS", bodyOfWaterCategory: "SPA", maxValue: 1550, unit: "ppm", sourceConfidence: "confirmed" },
@@ -663,7 +664,7 @@ const CALIFORNIA: StateSeed = {
   ruleset: {
     stateName: "California",
     healthDepartmentName: "California Department of Public Health",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "COUNTY_DISTRIBUTED_STATE_DERIVED",
     countyName: "Sacramento County",
     officialCitation:
@@ -806,7 +807,7 @@ const COLORADO: StateSeed = {
   ruleset: {
     stateName: "Colorado",
     healthDepartmentName: "Colorado Department of Public Health and Environment (CDPHE), Water Quality Control Division",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "STATE",
     officialCitation: "5 CCR 1003-5 (Swimming Pools and Mineral Baths), Section 4.7 Table 1 (chemistry), Section 4.9 (record-keeping frequency)",
     logSheetSource: "BUILT_FROM_CODE",
@@ -1228,7 +1229,7 @@ const MARYLAND: StateSeed = {
   ruleset: {
     stateName: "Maryland",
     healthDepartmentName: "Maryland Department of Health (MDH)",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "COUNTY_DISTRIBUTED_STATE_DERIVED",
     countyName: "Queen Anne's County",
     officialCitation: "COMAR 10.17.01 (Public Swimming Pools and Spas) — §.44 (Disinfection), §.45 (Water Chemistry), §.46 (Operating Records)",
@@ -1386,9 +1387,9 @@ const MARYLAND: StateSeed = {
       detail: "Revisit if PHMB (or another disinfectant type outside CHLORINE/BROMINE/HYDROGEN_PEROXIDE/COPPER_ION/SILVER_ION/OZONE) shows up in another state's data -- at that point a real enum value (or switching the field to free text like ChemistryThreshold.parameter) would be worth the migration.",
     },
     {
-      kind: "GAP",
+      kind: "ASSUMPTION",
       summary: "Jurisdiction level seeded as COUNTY_DISTRIBUTED_STATE_DERIVED: COMAR 10.17.01 is genuinely state-level, but the sourced log form is Queen Anne's County's rendering of the Secretary-provided standard form.",
-      detail: "Same ambiguous-jurisdiction shape as California's Sacramento-County-branded form. Local health departments commonly distribute their own standardized versions covering both recreational and semipublic pools, with only the frequency columns differing.",
+      detail: "Same ambiguous-jurisdiction shape as California's Sacramento-County-branded form (labeled the same way there); local health departments commonly distribute their own standardized versions covering both recreational and semipublic pools, with only the frequency columns differing.",
     },
   ],
 };
@@ -1410,7 +1411,7 @@ const NEW_MEXICO: StateSeed = {
   ruleset: {
     stateName: "New Mexico",
     healthDepartmentName: "New Mexico Environment Department (NMED)",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "STATE",
     officialCitation: "7.18.1 NMAC (New Mexico Administrative Code, aquatic venue rules), especially 7.18.1.26 (water-quality provisions)",
     logSheetSource: "STATE_PROVIDED",
@@ -1420,9 +1421,11 @@ const NEW_MEXICO: StateSeed = {
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
-    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "no CYA in use", minValue: 1.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also applies to spray pads." },
-    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", appliesWhen: "no CYA in use", minValue: 3.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
-    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "CYA in use", minValue: 2.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also applies to spray pads." },
+    // appliesWhen wording standardized to "no CYA present"/"CYA present" (matching
+    // California's phrasing) -- see the matching note on Georgia's chlorine rows.
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "no CYA present", minValue: 1.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also applies to spray pads." },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", appliesWhen: "no CYA present", minValue: 3.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "CYA present", minValue: 2.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also applies to spray pads." },
     { parameter: "BROMINE", disinfectionMethod: "BROMINE", maxValue: 8.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Total available bromine -- no minimum commonly listed alongside the 8.0 ppm max." },
     {
       parameter: "ORP",
@@ -1524,7 +1527,7 @@ const NEW_YORK: StateSeed = {
   ruleset: {
     stateName: "New York",
     healthDepartmentName: "New York State Department of Health, Bureau of Community Environmental Health and Food Protection",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "STATE",
     officialCitation: "10 NYCRR Subpart 6-1, §6-1.11(c) (pool chemistry), §6-1.25(c) (spa chemistry), §6-1.11(c)(4) (chlorine stabilizer ban)",
     sourceDocument:
@@ -1638,6 +1641,13 @@ const NEW_YORK: StateSeed = {
   complianceNotes: [
     {
       kind: "ASSUMPTION",
+      summary:
+        "New York's free-chlorine minimum is genuinely pH-dependent (0.6 mg/L below pH 7.8, 1.5 mg/L from 7.8-8.2) -- the dashboard's one-flat-target-per-body-type model defaults to the lower, far more common band, per lib/compliance.ts's DEFAULT_CONDITION_PRIORITY tie-break.",
+      detail:
+        "This is a real accuracy tradeoff, not a clean missing-data null: a reading whose actual pH sits in the 7.8-8.2 band gets compared against the lower band's 0.6 mg/L floor instead of the correct 1.5 mg/L floor, so a chlorine reading between 0.6-1.5 mg/L at high pH could be under-flagged as compliant when New York's own rule requires 1.5 mg/L at that pH. Properly fixing this would mean looking up the chlorine threshold per-reading based on that reading's own measured pH, rather than one static target per ruleset -- a real code change, out of scope for this pass. Worth revisiting before treating New York's chlorine numbers as fully precise.",
+    },
+    {
+      kind: "ASSUMPTION",
       summary: "Closure cascades across shared/linked filtration systems: both the formed-fecal and diarrheal procedures require closing every venue sharing one filtration system, not just the affected body of water.",
       detail: "Relevant if a property has multiple bodies of water on shared equipment -- modeled via EventProtocol.cascadesToSharedFiltration=true on the relevant rows rather than a separate table this pass.",
     },
@@ -1659,7 +1669,7 @@ const GEORGIA: StateSeed = {
   ruleset: {
     stateName: "Georgia",
     healthDepartmentName: "Georgia Department of Public Health (DPH), Environmental Health Section",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "STATE",
     countyName: null,
     officialCitation: "Rules and Regulations for Public Swimming Pools, Chapter 511-3-5, §511-3-5-.17 (water chemistry compliance), §511-3-5-.22 (Operation and Management)",
@@ -1671,8 +1681,13 @@ const GEORGIA: StateSeed = {
       "FC/Br and pH for both pool and spa (separate columns), Daily Water Temperature (spa, <104°F), Daily Self-Checks, Weekly Total Alkalinity (60-180 ppm printed range), Flowmeter Reading (gpm), Current Occupancy Load, Pressure Gauge Reading, a reference to the Addendum for corrections/chemicals/backwashing detail, and Trained Operator or Responsible Person signature. Separate end-of-form fields for Cyanuric Acid and Calcium Hardness. Form explicitly notes pH/disinfectant/temperature monitoring frequencies differ for heated spas vs. pools.",
   },
   chemistryThresholds: [
-    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "with CYA", minValue: 2.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
-    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "without CYA", minValue: 1.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    // appliesWhen wording standardized to "CYA present"/"no CYA present" (matching
+    // California's phrasing) rather than "with CYA"/"without CYA" -- neither row is
+    // unconditional, so lib/compliance.ts's shared DEFAULT_CONDITION_PRIORITY tie-break
+    // list needs an exact string match across every state that has this same condition
+    // family, not a per-state synonym.
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "CYA present", minValue: 2.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "no CYA present", minValue: 1.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 3.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
     { parameter: "COMBINED_CHLORINE", maxValue: 0.4, unit: "ppm", sourceConfidence: "confirmed", notes: "Matches New Mexico's Combined Chlorine max exactly." },
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
@@ -1763,7 +1778,7 @@ const HAWAII: StateSeed = {
   ruleset: {
     stateName: "Hawaii",
     healthDepartmentName: "Hawaii Department of Health",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "STATE",
     officialCitation: "Hawaii Administrative Rules (HAR) Title 11, Chapter 10 — §11-10-15 (water quality), §11-10-21 (records), §11-10-22 (rules/incident response)",
     recordRetentionMonths: 12,
@@ -1774,14 +1789,28 @@ const HAWAII: StateSeed = {
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    // Duplicated across POOL and SPA (same 0.6 ppm number, source doesn't distinguish by
+    // body type) rather than left unscoped -- lib/compliance.ts's FREE_CHLORINE lookup is
+    // always per body type, so an unscoped row is invisible to it even though the number
+    // is real.
     {
       parameter: "FREE_CHLORINE",
       disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
       minValue: 0.6,
       unit: "ppm",
       sourceConfidence: "confirmed",
       notes:
         "The enforceable HAR legal minimum. Secondary guidance and industry practice in Hawaii commonly target 1.0 ppm or higher for operational safety, specifically because of high UV exposure -- the same regulatory-number-vs.-practically-enforced-number shape as Colorado's non-oxidizer chlorine floor, but here the gap is between the LAW and common PRACTICE, not between state code and local enforcement.",
+    },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "SPA",
+      minValue: 0.6,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "Same 0.6 ppm HAR minimum as pools -- the source doesn't give a separate spa figure.",
     },
     {
       parameter: "OTHER_DISINFECTANT",
