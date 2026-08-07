@@ -139,12 +139,14 @@ published code. Verify against the authoritative source for anything compliance-
 };
 
 // ---------------------------------------------------------------------------
-// Connecticut -- real thresholds are high-confidence (DPH guideline), but the source
-// document has no closure-risk trigger at all and the CYA cadence is explicitly a
-// business-decision assumption, not a sourced requirement. isSupported stays false: the
-// app's Nevada-shaped consumption code would otherwise silently fall back to Nevada's
-// hazard numbers for CT's missing hazard tier, which is exactly wrong (see design note
-// above and COMPLIANCE_RULESET_NOTES.md).
+// Connecticut -- real code text (§19-13-B33b) is now confirmed, not just the earlier DPH
+// guideline summary. The closure-risk gap is resolved: the code frames closure as a
+// two-tier discretionary/mandatory health-director authority rather than a flat
+// threshold, unlike every other state's closure logic collected so far. Alkalinity and
+// CYA cadence are real local-health-district conventions (Newtown, Franklin, Meriden,
+// etc.), not business-decision placeholders, though still not *state*-code numbers --
+// isSupported stays false since the state code itself still leaves alkalinity range and
+// CYA cadence genuinely unstated at the state level (see COMPLIANCE_RULESET_NOTES.md).
 // ---------------------------------------------------------------------------
 const CONNECTICUT: StateSeed = {
   state: "CT",
@@ -155,7 +157,7 @@ const CONNECTICUT: StateSeed = {
     jurisdictionLevel: "STATE",
     officialCitation: "CT Public Health Code § 19-13-B33b",
     sourceDocument:
-      "Sanitation Guidelines from the Connecticut Department of Public Health — Inspection of Public Swimming Pools (DPH guideline summary, not full code text)",
+      "CT Public Health Code § 19-13-B33b (actual code text, portal.ct.gov) and the Connecticut Public Swimming Pool Manual/Design Guide (April 2021), which reprints it",
     logSheetSource: "BUILT_FROM_CODE",
   },
   chemistryThresholds: [
@@ -168,40 +170,70 @@ const CONNECTICUT: StateSeed = {
       appliesWhen: "if chlorinated cyanurates used",
       sourceConfidence: "confirmed",
     },
-    { parameter: "PH", idealMin: 7.2, idealMax: 7.8, unit: "", sourceConfidence: "confirmed", notes: "no separate closure-risk hazard tier stated" },
-    { parameter: "TOTAL_ALKALINITY", idealMin: 80, idealMax: 120, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 1.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "PH", idealMin: 7.2, idealMax: 7.8, unit: "", sourceConfidence: "confirmed", notes: "Code also states 'caustic alkalinity shall not be present'. No separate numeric closure-risk hazard tier -- see the two-tier discretionary/mandatory EventProtocol rows instead." },
+    {
+      parameter: "TOTAL_ALKALINITY",
+      idealMin: 80,
+      idealMax: 150,
+      unit: "ppm",
+      sourceConfidence: "assumption",
+      notes:
+        "The state code itself specifies no alkalinity range at all. 80-150 ppm is the range commonly adopted by local health districts that enforce the state code (Newtown, Franklin, Meriden, and others) -- a real, sourced local-district convention, not a state requirement. Replaces an earlier 80-120 ppm placeholder that wasn't sourced from anywhere.",
+    },
     { parameter: "CYANURIC_ACID", maxValue: 100, unit: "ppm", sourceConfidence: "confirmed" },
   ],
   frequencyRules: [
     {
       parameter: "ALL",
-      cadence: "minimum daily; DPH recommends 3x/day",
+      cadence: "immediately prior to daily opening, then at sufficient frequency during bather use to keep levels adequate",
       intervalMinutes: 1440,
-      notes: "Bundled chlorine + pH reading. 1440 min reflects the required minimum; the 3x/day recommendation isn't a hard requirement.",
+      notes: "Bundled disinfectant residual + pH per §19-13-B33b(b)(6)-(7). Not a fixed count like '3x/day' -- an adequacy-based standard with immediate corrective action required if levels are found inadequate. 1440 min reflects the required daily floor (pre-opening check).",
+    },
+    {
+      parameter: "TOTAL_ALKALINITY",
+      cadence: "weekly, and within 3 hours of adding make-up water (local-district convention)",
+      intervalMinutes: 10080,
+      appliesWhen: "per commonly-adopted local health district requirements (Newtown, Franklin, Meriden, etc.)",
+      notes: "State code doesn't prescribe a cadence at all -- see ComplianceNote. This is the real, sourced local-district convention, not a business-decision placeholder.",
     },
     {
       parameter: "CYANURIC_ACID",
-      cadence: "monthly (business decision, not a sourced CT requirement)",
-      intervalMinutes: 43200,
-      notes: "See ComplianceNote -- no official CT source specifies a CYA cadence; this matches Nevada's existing 30-day cycle as a placeholder.",
+      cadence: "weekly, and within 3 hours of adding make-up water (local-district convention)",
+      intervalMinutes: 10080,
+      appliesWhen: "per commonly-adopted local health district requirements",
+      notes: "Replaces the earlier 'business decision matching Nevada's cadence' placeholder. Still not a *state*-code number, but now a real, sourced local-district convention (same districts as the alkalinity cadence above) rather than an arbitrary assumption.",
     },
   ],
-  eventProtocols: [],
+  eventProtocols: [
+    {
+      triggerType: "CHEMISTRY_HAZARD_THRESHOLD",
+      triggerLabel: "Discretionary closure authority",
+      closureKind: "AUTHORITY_DISCRETIONARY",
+      reopeningCondition: "The Director of Health MAY order a pool closed for any failure to meet the regulations, or any condition constituting a public health/safety hazard or nuisance -- discretionary, not automatic.",
+      sourceConfidence: "confirmed",
+      notes: "§19-13-B33b(g). Every other state's closure logic collected reads as a flat threshold trigger; Connecticut's actual code frames this as a health director's authority instead, with a broader discretionary tier and the narrower mandatory tier below.",
+    },
+    {
+      triggerType: "CHEMISTRY_HAZARD_THRESHOLD",
+      triggerLabel: "Mandatory closure authority",
+      closureKind: "AUTHORITY_MANDATORY",
+      reopeningCondition:
+        "The Director of Health SHALL order a pool closed specifically for significant evidence of communicable disease transmission through the pool, operation constituting a significant health nuisance, or imminent safety hazards. The numeric minima above (0.8 ppm FC, pH 7.2-7.8, clarity) function as the practical triggers for this mandatory tier -- falling below them is functionally 'significant health nuisance' territory, even though the code states it as an authority/duty structure rather than a flat threshold rule.",
+      sourceConfidence: "confirmed",
+      notes: "§19-13-B33b(g). Resolves the earlier-flagged 'no closure trigger stated' gap -- the trigger exists, it's just authority-shaped rather than a flat number.",
+    },
+  ],
   complianceNotes: [
     {
       kind: "GAP",
-      summary: "No explicit numeric closure-risk threshold stated in the source document.",
-      detail: "Unlike Nevada's SNHD rules, this guideline document doesn't define closure triggers for out-of-range chemistry readings.",
-    },
-    {
-      kind: "ASSUMPTION",
-      summary: "CYA 30-day testing cadence is a business decision matching Nevada's cadence, not a sourced CT requirement.",
-      detail: "No official CT source specifying a CYA testing frequency was found in the guideline document.",
+      summary: "The state code specifies no alkalinity range and no CYA testing cadence at all -- both are filled by commonly-adopted local health district conventions, not state requirements.",
+      detail: "Newtown, Franklin, Meriden, and other districts that adopt/enforce the state code commonly add 80-150 ppm alkalinity and weekly (within 3 hours of make-up water) CYA/alkalinity testing. Which district applies determines the actual enforced number for a given AquaRunner customer -- a two-layer regulatory structure (state floor + local addition), distinct from Nevada/Alabama/Arizona's simpler 'the county document just is the rule' pattern.",
     },
     {
       kind: "GAP",
-      summary: "Alkalinity testing frequency isn't explicitly stated beyond 'should be recorded in the log'.",
-      detail: "No full code text was found to confirm a cadence; treat as periodic/non-daily until clarified further.",
+      summary: "Alkalinity testing frequency beyond the local-district weekly convention above isn't stated anywhere in the state code itself -- confirmed as a genuine gap in the code, not a missing excerpt.",
+      detail: "§19-13-B33b(b)(6)-(7) covers disinfectant residual and pH cadence explicitly but is silent on alkalinity frequency at the state level.",
     },
   ],
 };
