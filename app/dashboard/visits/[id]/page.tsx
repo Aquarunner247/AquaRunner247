@@ -6,7 +6,7 @@ import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VisitForm } from "./visit-form";
 import { ResidentialVisitForm } from "./residential-visit-form";
-import { getOrganizationRuleset, cyaTestFrequencyDays } from "@/lib/compliance";
+import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -28,6 +28,7 @@ export default async function VisitPage({ params }: PageProps) {
           id: true,
           name: true,
           type: true,
+          disinfectionMethod: true,
           requiresFC: true,
           requiresPH: true,
           requiresAlkalinity: true,
@@ -65,6 +66,12 @@ export default async function VisitPage({ params }: PageProps) {
     select: { id: true },
   });
   const cyaRequired = !recentCya;
+
+  // Which chemistry fields this commercial visit's log sheet shows/requires, derived
+  // entirely from the org's own linked state and this body of water's own disinfection
+  // method -- see activeReadingFields's doc comment. Not used by the residential form,
+  // which keeps its own simpler per-body requiresFC/PH/Alkalinity/CYA toggle system.
+  const readingFields = activeReadingFields(ruleset, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod, cyaRequired);
 
   const chemicalProducts = await prisma.chemicalProduct.findMany({
     where: { organizationId: appUser.organizationId, active: true },
@@ -144,8 +151,7 @@ export default async function VisitPage({ params }: PageProps) {
         <VisitForm
           visitId={visit.id}
           visitStatus={visit.status}
-          bodyOfWaterType={visit.bodyOfWater.type}
-          cyaRequired={cyaRequired}
+          readingFields={readingFields}
           chemicalProducts={chemicalProducts}
           checklistItems={checklistItems}
           initialIssues={visit.issues.map((i) => ({

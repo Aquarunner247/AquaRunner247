@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { ComplianceRuleset, ChemistryThreshold, FrequencyRule, EventProtocol } from "@/generated/prisma/client";
+import type { ComplianceRuleset, ChemistryThreshold, FrequencyRule, EventProtocol, DisinfectionMethod } from "@/generated/prisma/client";
 
 /** Shown wherever no state-specific department name is known/configured yet. */
 export const GENERIC_HEALTH_DEPARTMENT_LABEL = "your state/local health department";
@@ -160,4 +160,151 @@ export function activeChemistryThresholds(ruleset: ComplianceRulesetWithRules) {
     closureFeeAmount: feeProtocol?.feeAmount != null ? Number(feeProtocol.feeAmount) : null,
     closureFeeNote: feeProtocol?.feeNote ?? null,
   };
+}
+
+export type ReadingFieldKey = "freeChlorinePpm" | "brominePpm" | "ph" | "alkalinityPpm" | "cyanuricAcidPpm" | "temperatureF";
+
+export type ReadingFieldSpec = {
+  key: ReadingFieldKey;
+  label: string;
+  unitLabel: string;
+  required: boolean;
+  /** Ideal/target range for the visit form's zone gauge -- null means this state's data
+   * doesn't define one (still shown/required if applicable, just without a colored zone). */
+  zoneMin: number | null;
+  zoneMax: number | null;
+};
+
+/** The field set every commercial visit form showed before per-state field lists existed
+ * (Free Chlorine, pH, Total Alkalinity, Cyanuric Acid, Temperature) -- used only when
+ * compliance isn't active for this account (unsupported state, or none linked yet), so
+ * those accounts see no behavior change. Never used for a live/supported state; those
+ * always derive their own list from their own ChemistryThreshold rows below. */
+function fallbackReadingFields(bodyOfWaterType: string): ReadingFieldSpec[] {
+  return [
+    { key: "freeChlorinePpm", label: "Free Chlorine", unitLabel: "ppm", required: true, zoneMin: bodyOfWaterType === "SPA" ? 3 : 2, zoneMax: 10 },
+    { key: "ph", label: "pH", unitLabel: "", required: true, zoneMin: 7.2, zoneMax: 7.6 },
+    { key: "alkalinityPpm", label: "Total Alkalinity", unitLabel: "ppm", required: true, zoneMin: 60, zoneMax: 120 },
+    { key: "cyanuricAcidPpm", label: "Cyanuric Acid", unitLabel: "ppm", required: true, zoneMin: 0, zoneMax: 40 },
+    { key: "temperatureF", label: "Water Temperature", unitLabel: "°F", required: true, zoneMin: 80, zoneMax: 104 },
+  ];
+}
+
+/**
+ * The actual field list a technician's visit form should show for THIS body of water --
+ * derived entirely from the org's own linked ComplianceRuleset, per state, per body
+ * type, per this body's own configured disinfectionMethod. A parameter shows at all only
+ * when this state's own data defines a threshold for it (never a generic pool-industry
+ * checklist) -- e.g. California/New Mexico/New York have no TOTAL_ALKALINITY row at all,
+ * so their technicians don't see an Alkalinity field; Hawaii has no CYANURIC_ACID row, so
+ * no CYA field. Falls back to the old fixed field set when compliance isn't active for
+ * this account, so unsupported-state/no-state accounts see no behavior change.
+ *
+ * Free Chlorine and Bromine are mutually exclusive, not both shown -- a body of water
+ * uses one disinfectant at a time (see BodyOfWater.disinfectionMethod's doc comment).
+ * If this body's disinfectionMethod is BROMINE but the state's data has no BROMINE row
+ * for this body type, no chlorine-family field shows at all -- a real, visible signal
+ * that this state doesn't actually support bromine for this body type, worth the admin
+ * correcting the body's disinfectionMethod rather than silently guessing.
+ */
+export function activeReadingFields(
+  ruleset: ComplianceRulesetWithRules | null,
+  bodyOfWaterType: string,
+  disinfectionMethod: DisinfectionMethod,
+  cyaRequired: boolean,
+): ReadingFieldSpec[] {
+  if (!isComplianceActive(ruleset)) {
+    return fallbackReadingFields(bodyOfWaterType);
+  }
+
+  const bodyCategory = bodyOfWaterType === "SPA" ? "SPA" : "POOL";
+  const fields: ReadingFieldSpec[] = [];
+
+  const chlorineFamilyParameter = disinfectionMethod === "BROMINE" ? "BROMINE" : "FREE_CHLORINE";
+  const chlorineFamily = findThreshold(ruleset.chemistryThresholds, chlorineFamilyParameter, bodyCategory, DEFAULT_CONDITION_PRIORITY);
+  if (chlorineFamily) {
+    const zoneMin = toNumOrNull(chlorineFamily.idealMin ?? chlorineFamily.minValue);
+    const zoneMax = toNumOrNull(chlorineFamily.idealMax ?? chlorineFamily.maxValue);
+    fields.push({
+      key: chlorineFamilyParameter === "BROMINE" ? "brominePpm" : "freeChlorinePpm",
+      label: chlorineFamilyParameter === "BROMINE" ? "Bromine" : "Free Chlorine",
+      unitLabel: chlorineFamily.unit || "ppm",
+      required: zoneMin != null || zoneMax != null,
+      zoneMin,
+      zoneMax,
+    });
+  }
+
+  const ph = findThreshold(ruleset.chemistryThresholds, "PH", null);
+  if (ph) {
+    const zoneMin = toNumOrNull(ph.idealMin ?? ph.minValue);
+    const zoneMax = toNumOrNull(ph.idealMax ?? ph.maxValue);
+    fields.push({
+      key: "ph",
+      label: "pH",
+      unitLabel: "",
+      required: zoneMin != null || zoneMax != null,
+      zoneMin,
+      zoneMax,
+    });
+  }
+
+  // Same documented default tie-break as activeChemistryThresholds above.
+  const alkalinity = findThreshold(ruleset.chemistryThresholds, "TOTAL_ALKALINITY", null, "unstabilized sanitizer (no CYA present)");
+  if (alkalinity) {
+    const zoneMin = toNumOrNull(alkalinity.idealMin ?? alkalinity.minValue);
+    const zoneMax = toNumOrNull(alkalinity.idealMax ?? alkalinity.maxValue);
+    fields.push({
+      key: "alkalinityPpm",
+      label: "Total Alkalinity",
+      unitLabel: alkalinity.unit || "ppm",
+      // Hawaii has a TOTAL_ALKALINITY row (monthly testing is required) but no numeric
+      // target at all -- a confirmed, permanent gap in the actual regulation, not missing
+      // data (see state-compliance-data.md). Requiring a value here with nothing to
+      // validate it against would block visit completion for no real reason, so this
+      // stays optional whenever the row itself has no bounds, same principle as
+      // Temperature below.
+      required: zoneMin != null || zoneMax != null,
+      zoneMin,
+      zoneMax,
+    });
+  }
+
+  const cya = findThreshold(ruleset.chemistryThresholds, "CYANURIC_ACID", null);
+  if (cya) {
+    const zoneMin = toNumOrNull(cya.idealMin ?? cya.minValue);
+    const zoneMax = toNumOrNull(cya.idealMax ?? cya.maxValue);
+    const unit = cya.unit || "ppm";
+    // New Mexico's unconditional CYA row (matched here) is a "banned indoors" marker
+    // with no bounds of its own -- its real numeric range is scoped to "outdoor pools/
+    // spray pads only", a body-subtype distinction (indoor/outdoor) this app doesn't
+    // track per body of water yet, same limitation class as Maryland's wading-pool FC
+    // floor. Falling back to not-required/no-zone here is a safe default (never blocks
+    // completion on an unverifiable number), not a precise rendering of NM's actual rule.
+    const hasBounds = zoneMin != null || zoneMax != null;
+    fields.push({
+      key: "cyanuricAcidPpm",
+      label: "Cyanuric Acid",
+      unitLabel: cyaRequired && hasBounds ? unit : `${unit}, checked in the last ${cyaTestFrequencyDays(ruleset)} days`,
+      required: hasBounds && cyaRequired,
+      zoneMin,
+      zoneMax,
+    });
+  }
+
+  const temperature = findThreshold(ruleset.chemistryThresholds, "TEMPERATURE", null);
+  if (temperature) {
+    fields.push({
+      key: "temperatureF",
+      label: "Water Temperature",
+      unitLabel: temperature.unit || "°F",
+      // No state's source data frames temperature as a pass/fail requirement, just an
+      // operating range -- shown when the state tracks it at all, never blocking.
+      required: false,
+      zoneMin: toNumOrNull(temperature.idealMin ?? temperature.minValue),
+      zoneMax: toNumOrNull(temperature.idealMax ?? temperature.maxValue),
+    });
+  }
+
+  return fields;
 }

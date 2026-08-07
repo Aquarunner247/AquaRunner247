@@ -5,6 +5,7 @@ import { CameraCapture } from "@/app/components/camera-capture";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 import { queuedSubmitJson } from "@/lib/client/offline-queue";
 import { useOfflineSync } from "@/lib/client/use-offline-sync";
+import type { ReadingFieldSpec } from "@/lib/compliance";
 
 type Dose = {
   id: string;
@@ -17,6 +18,7 @@ type Dose = {
 type Reading = {
   ph: string;
   freeChlorinePpm: string;
+  brominePpm: string;
   alkalinityPpm: string;
   cyanuricAcidPpm: string;
   temperatureF: string;
@@ -38,43 +40,34 @@ type FieldConfig = {
   zoneMax?: number;
 };
 
-const CHEMISTRY_FIELDS = (bodyOfWaterType: string, cyaRequired: boolean): FieldConfig[] => [
-  {
-    key: "freeChlorinePpm",
-    label: "Free Chlorine",
-    unitLabel: "ppm",
-    required: true,
-    min: 0,
-    max: 30,
-    step: 0.5,
-    zoneMin: bodyOfWaterType === "SPA" ? 3 : 2,
-    zoneMax: 10,
-  },
-  { key: "ph", label: "pH", unitLabel: "", required: true, min: 6, max: 15, step: 0.1, zoneMin: 7.2, zoneMax: 7.6 },
-  {
-    key: "alkalinityPpm",
-    label: "Total Alkalinity",
-    unitLabel: "ppm",
-    required: true,
-    min: 0,
-    max: 300,
-    step: 1,
-    zoneMin: 60,
-    zoneMax: 120,
-  },
-  {
-    key: "cyanuricAcidPpm",
-    label: "Cyanuric Acid",
-    unitLabel: cyaRequired ? "ppm" : "ppm, checked in the last 30 days",
-    required: cyaRequired,
-    min: 0,
-    max: 100,
-    step: 1,
-    zoneMin: 0,
-    zoneMax: 40,
-  },
-  { key: "temperatureF", label: "Water Temperature", unitLabel: "°F", required: true, min: 50, max: 110, step: 1, zoneMin: 80, zoneMax: 104 },
-];
+/** Sanity bounds and step size for the numeric slider input -- deliberately NOT
+ * state-derived (they're just input guards against absurd values, wide enough to cover
+ * every state's actual regulatory range for that parameter), unlike everything else
+ * about a chemistry field, which comes from the org's own ComplianceRuleset via
+ * activeReadingFields (see lib/compliance.ts) and is passed in as `readingFields`. */
+const CHEMISTRY_INPUT_BOUNDS: Record<string, { min: number; max: number; step: number }> = {
+  freeChlorinePpm: { min: 0, max: 30, step: 0.5 },
+  brominePpm: { min: 0, max: 30, step: 0.5 },
+  ph: { min: 6, max: 15, step: 0.1 },
+  alkalinityPpm: { min: 0, max: 300, step: 1 },
+  cyanuricAcidPpm: { min: 0, max: 150, step: 1 },
+  temperatureF: { min: 50, max: 110, step: 1 },
+};
+
+function toFieldConfig(spec: ReadingFieldSpec): FieldConfig {
+  const bounds = CHEMISTRY_INPUT_BOUNDS[spec.key] ?? { min: 0, max: 100, step: 1 };
+  return {
+    key: spec.key,
+    label: spec.label,
+    unitLabel: spec.unitLabel,
+    required: spec.required,
+    min: bounds.min,
+    max: bounds.max,
+    step: bounds.step,
+    zoneMin: spec.zoneMin ?? undefined,
+    zoneMax: spec.zoneMax ?? undefined,
+  };
+}
 
 const EQUIPMENT_FIELDS: FieldConfig[] = [
   { key: "pumpPressurePsi", label: "Pump Pressure", unitLabel: "psi", required: true, min: 0, max: 60, step: 1 },
@@ -95,8 +88,7 @@ type PhotoOption = { id: string; url: string | null; takenAt: string | null };
 type Props = {
   visitId: string;
   visitStatus: string;
-  bodyOfWaterType: string;
-  cyaRequired: boolean;
+  readingFields: ReadingFieldSpec[];
   chemicalProducts: ChemicalProductOption[];
   checklistItems: ChecklistItemOption[];
   initialIssues: IssueOption[];
@@ -132,7 +124,7 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt }: Props) {
+export function VisitForm({ visitId, visitStatus, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt }: Props) {
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
   const [arrivalSaving, setArrivalSaving] = useState(false);
   const [arrivalError, setArrivalError] = useState("");
@@ -143,6 +135,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
   const [reading, setReading] = useState<Reading>({
     ph: toInput(initialReading?.ph),
     freeChlorinePpm: toInput(initialReading?.freeChlorinePpm),
+    brominePpm: toInput(initialReading?.brominePpm),
     alkalinityPpm: toInput(initialReading?.alkalinityPpm),
     cyanuricAcidPpm: toInput(initialReading?.cyanuricAcidPpm),
     temperatureF: toInput(initialReading?.temperatureF),
@@ -179,7 +172,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
       setArrivalSaving(false);
     }
   }
-  const chemistryFields = CHEMISTRY_FIELDS(bodyOfWaterType, cyaRequired);
+  const chemistryFields = useMemo(() => readingFields.map(toFieldConfig), [readingFields]);
   const allFields = [...chemistryFields, ...EQUIPMENT_FIELDS];
 
   const requiredMissing = useMemo(() => {
@@ -197,6 +190,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
       body: {
         ph: reading.ph || null,
         freeChlorinePpm: reading.freeChlorinePpm || null,
+        brominePpm: reading.brominePpm || null,
         alkalinityPpm: reading.alkalinityPpm || null,
         cyanuricAcidPpm: reading.cyanuricAcidPpm || null,
         temperatureF: reading.temperatureF || null,
