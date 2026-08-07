@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { getOrganizationRuleset, isComplianceActive, organizationHasCommercialPools } from "@/lib/compliance";
 import { SimpleMarkdown } from "@/lib/simple-markdown";
+import { ComplianceStateSelect } from "@/app/components/compliance-state-select";
+import { updateComplianceState } from "@/app/dashboard/settings/actions";
 
 export default async function CompliancePage() {
   const appUser = await getCurrentAppUser();
@@ -24,32 +26,35 @@ export default async function CompliancePage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
-      <header className="border-b border-slate-200 pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#12234A]">Admin</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Compliance reference</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          How AquaRunner applies your state&rsquo;s health department rules to closure-risk banners and the public
-          inspector log.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-brand-border pb-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
+          <h1 className="text-2xl font-semibold text-brand-ink">Compliance reference</h1>
+          <p className="mt-1 text-sm text-brand-muted">
+            How AquaRunner applies your state&rsquo;s health department rules to closure-risk banners and the public
+            inspector log.
+          </p>
+        </div>
+        {hasCommercialPools ? <ComplianceStateSelect selected={organization?.state ?? null} action={updateComplianceState} /> : null}
       </header>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         {!hasCommercialPools ? (
-          <div className="text-sm text-slate-600">
-            <p className="font-medium text-slate-900">Not applicable for this account</p>
+          <div className="text-sm text-brand-muted">
+            <p className="font-medium text-brand-ink">Not applicable for this account</p>
             <p className="mt-1">
               Compliance rules only apply to commercial pools. This account is set up for residential service, so
               there&rsquo;s no state rule engine to show here.
             </p>
           </div>
         ) : !organization?.state ? (
-          <div className="text-sm text-slate-600">
-            <p className="font-medium text-slate-900">Set your state to enable compliance tracking</p>
+          <div className="text-sm text-brand-muted">
+            <p className="font-medium text-brand-ink">Set your state to enable compliance tracking</p>
             <p className="mt-1">
               This account has commercial properties, but no state is set yet, so AquaRunner doesn&rsquo;t know which
-              health department&rsquo;s rules to apply.{" "}
-              <Link href="/dashboard/settings" className="text-[#0A5FA4] underline">
-                Set it in Settings
+              health department&rsquo;s rules to apply. Pick one above, or{" "}
+              <Link href="/dashboard/settings" className="app-link">
+                set it in Settings
               </Link>
               .
             </p>
@@ -57,26 +62,24 @@ export default async function CompliancePage() {
         ) : active ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-medium text-slate-900">
+              <p className="text-sm font-medium text-brand-ink">
                 {ruleset.stateName}
                 {ruleset.healthDepartmentName ? ` — ${ruleset.healthDepartmentName}` : ""}
               </p>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-                Fully supported
-              </span>
+              <span className="app-pill-good">Fully supported</span>
             </div>
             {ruleset.referenceContent ? (
               <SimpleMarkdown content={ruleset.referenceContent} className="mt-3" />
             ) : (
-              <p className="mt-3 text-sm text-slate-500">No reference content written yet for this state.</p>
+              <p className="mt-3 text-sm text-brand-muted">No reference content written yet for this state.</p>
             )}
             {ruleset.codeReferenceLabel || ruleset.logSheetSourceLabel ? (
-              <div className="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-500">
+              <div className="mt-6 border-t border-brand-border pt-4 text-xs text-brand-muted">
                 {ruleset.codeReferenceLabel ? (
                   <p>
                     Code reference:{" "}
                     {ruleset.codeReferenceUrl ? (
-                      <a href={ruleset.codeReferenceUrl} target="_blank" rel="noreferrer" className="text-[#0A5FA4] underline">
+                      <a href={ruleset.codeReferenceUrl} target="_blank" rel="noreferrer" className="app-link">
                         {ruleset.codeReferenceLabel}
                       </a>
                     ) : (
@@ -94,8 +97,8 @@ export default async function CompliancePage() {
             ) : null}
           </>
         ) : (
-          <div className="text-sm text-slate-600">
-            <p className="font-medium text-slate-900">
+          <div className="text-sm text-brand-muted">
+            <p className="font-medium text-brand-ink">
               Compliance tracking for {rulesetStateName ?? organization?.state ?? "your state"} is coming soon
             </p>
             <p className="mt-1">
