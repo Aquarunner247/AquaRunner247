@@ -18,6 +18,7 @@ export type ImportedReadingRow = {
   month: number | null;
   year: number | null;
   freeChlorinePpm: number | null;
+  brominePpm: number | null;
   ph: number | null;
   alkalinityPpm: number | null;
   cyanuricAcidPpm: number | null;
@@ -67,6 +68,7 @@ function matchColumn(header: string): ColumnField | null {
   if (h.includes("backwash") && h.includes("time")) return "backwashTime";
   if (h.includes("backwash")) return "backwashed";
   if (h.includes("chlorine")) return "freeChlorinePpm";
+  if (h.includes("bromine")) return "brominePpm";
   if (h.includes("alkalinity")) return "alkalinityPpm";
   if (h.includes("cyanuric") || h === "cya" || h.includes("cya ")) return "cyanuricAcidPpm";
   if (h.includes("temp")) return "temperatureF";
@@ -177,6 +179,7 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
     let month: number | null = null;
     let year: number | null = null;
     let freeChlorinePpm: number | null = null;
+    let brominePpm: number | null = null;
     let ph: number | null = null;
     let alkalinityPpm: number | null = null;
     let cyanuricAcidPpm: number | null = null;
@@ -210,6 +213,9 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
           break;
         case "freeChlorinePpm":
           freeChlorinePpm = numOrNull(raw);
+          break;
+        case "brominePpm":
+          brominePpm = numOrNull(raw);
           break;
         case "ph":
           ph = numOrNull(raw);
@@ -245,6 +251,7 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
       month,
       year,
       freeChlorinePpm,
+      brominePpm,
       ph,
       alkalinityPpm,
       cyanuricAcidPpm,

@@ -7,30 +7,32 @@ type RouteCtx = {
   params: Promise<{ slug: string }>;
 };
 
-const CSV_HEADER = [
-  "Day",
-  "Free Chlorine (ppm)",
-  "pH",
-  "Total Alkalinity (ppm)",
-  "Cyanuric Acid (ppm)",
-  "Temperature (F)",
-  "Pump Pressure (psi)",
-  "Vacuum Gauge (inHg)",
-  "Filter Pressure (psi)",
-  "Flow Rate (gpm)",
-  "Backwashed",
-  "Backwash Time",
-];
+function csvHeader(chlorineFamilyLabel: string) {
+  return [
+    "Day",
+    `${chlorineFamilyLabel} (ppm)`,
+    "pH",
+    "Total Alkalinity (ppm)",
+    "Cyanuric Acid (ppm)",
+    "Temperature (F)",
+    "Pump Pressure (psi)",
+    "Vacuum Gauge (inHg)",
+    "Filter Pressure (psi)",
+    "Flow Rate (gpm)",
+    "Backwashed",
+    "Backwash Time",
+  ];
+}
 
 function csvCell(value: string | number) {
   const str = String(value);
   return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
-function csvRow(row: MonthlyReadingRow) {
+function csvRow(row: MonthlyReadingRow, usesBromine: boolean) {
   return [
     row.day,
-    row.freeChlorinePpm ?? "",
+    (usesBromine ? row.brominePpm : row.freeChlorinePpm) ?? "",
     row.ph ?? "",
     row.alkalinityPpm ?? "",
     row.cyanuricAcidPpm ?? "",
@@ -64,6 +66,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
     select: {
       id: true,
       name: true,
+      disinfectionMethod: true,
       volumeGallons: true,
       minimumRequiredFlowGpm: true,
       maximumFilterFlowGpm: true,
@@ -80,6 +83,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
   }
 
   const { rows } = await getMonthlyReadingRows(body.id, year, monthIndex);
+  const usesBromine = body.disinfectionMethod === "BROMINE";
 
   const monthLabel = new Date(year, monthIndex, 1).toLocaleString(undefined, { month: "long", year: "numeric" });
 
@@ -94,7 +98,12 @@ export async function GET(req: Request, ctx: RouteCtx) {
     ["Month", monthLabel],
   ].map((cells) => cells.map(csvCell).join(","));
 
-  const csv = [...infoLines, "", CSV_HEADER.join(","), ...rows.map(csvRow)].join("\n");
+  const csv = [
+    ...infoLines,
+    "",
+    csvHeader(usesBromine ? "Bromine" : "Free Chlorine").join(","),
+    ...rows.map((row) => csvRow(row, usesBromine)),
+  ].join("\n");
   const fileSafeName = `${body.property.name}-${body.name}-${monthLabel}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   return new NextResponse(csv, {
