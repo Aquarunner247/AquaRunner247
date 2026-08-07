@@ -1644,6 +1644,206 @@ const NEW_YORK: StateSeed = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// Georgia -- Chapter 511-3-5. The most complete official form package collected across
+// any state (four separate named forms), a formal two-tier operator/responsible-person
+// staffing structure with its own visit cadence (pattern 33), a rotating sample-location
+// protocol (pattern 34), closure logic unified into one flat enumerated checklist spanning
+// chemistry/equipment/safety/events (pattern 35, a second implementation of the same idea
+// as New Mexico's GREEN/RED model), and a six-point incident monitoring grid with an
+// explicit Total Contact Time start/end definition (pattern 36) -- the same underlying
+// motivation as this pass's new ContaminationIncident.contactTimeEndedAt field.
+// ---------------------------------------------------------------------------
+const GEORGIA: StateSeed = {
+  state: "GA",
+  ruleset: {
+    stateName: "Georgia",
+    healthDepartmentName: "Georgia Department of Public Health (DPH), Environmental Health Section",
+    isSupported: false,
+    jurisdictionLevel: "STATE",
+    countyName: null,
+    officialCitation: "Rules and Regulations for Public Swimming Pools, Chapter 511-3-5, §511-3-5-.17 (water chemistry compliance), §511-3-5-.22 (Operation and Management)",
+    sourceDocument:
+      "Chapter 511-3-5, co-regulated with local county boards of health; 'Public Swimming Pool Operator Record' + Addendum, 'Public Pool Operator Assessment Record', 'Public Pool Operation Daily Self-Checks', and a dedicated 'Fecal Contamination Response Record'.",
+    logSheetSource: "STATE_PROVIDED",
+    logSheetSourceLabel: "Public Swimming Pool Operator Record + Addendum",
+    logSheetSourceNotes:
+      "FC/Br and pH for both pool and spa (separate columns), Daily Water Temperature (spa, <104°F), Daily Self-Checks, Weekly Total Alkalinity (60-180 ppm printed range), Flowmeter Reading (gpm), Current Occupancy Load, Pressure Gauge Reading, a reference to the Addendum for corrections/chemicals/backwashing detail, and Trained Operator or Responsible Person signature. Separate end-of-form fields for Cyanuric Acid and Calcium Hardness. Form explicitly notes pH/disinfectant/temperature monitoring frequencies differ for heated spas vs. pools.",
+  },
+  chemistryThresholds: [
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "with CYA", minValue: 2.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "without CYA", minValue: 1.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 3.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "COMBINED_CHLORINE", maxValue: 0.4, unit: "ppm", sourceConfidence: "confirmed", notes: "Matches New Mexico's Combined Chlorine max exactly." },
+    { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    {
+      parameter: "CYANURIC_ACID",
+      maxValue: 90,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "The first state whose own regulatory cap matches the CDC Model Aquatic Health Code's recommended maximum exactly -- every other state collected either sets a higher cap (Maryland: 100 ppm) or doesn't reference MAHC at all.",
+    },
+    { parameter: "TOTAL_ALKALINITY", minValue: 60, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed", notes: "Printed directly on the log form." },
+    { parameter: "TEMPERATURE", bodyOfWaterCategory: "SPA", maxValue: 104, unit: "°F", sourceConfidence: "confirmed" },
+  ],
+  frequencyRules: [
+    { parameter: "FREE_CHLORINE_PH", bodyOfWaterCategory: "POOL", cadence: "minimum 2x/day during hours of operation", intervalMinutes: 720 },
+    { parameter: "TOTAL_ALKALINITY", cadence: "weekly", intervalMinutes: 10080 },
+    { parameter: "CALCIUM_HARDNESS", cadence: "monthly", intervalMinutes: 43200 },
+    {
+      parameter: "CYANURIC_ACID",
+      appliesWhen: "stabilized chlorine is the primary disinfectant",
+      cadence: "every 2 weeks, tested 24 hours after addition to the water",
+      intervalMinutes: 20160,
+      notes: "The 24-hour post-addition timing requirement is a precision not seen in any other state's CYA cadence collected so far.",
+    },
+    { parameter: "CYANURIC_ACID", appliesWhen: "stabilized chlorine is NOT the primary disinfectant", cadence: "monthly", intervalMinutes: 43200 },
+    {
+      parameter: "FREE_CHLORINE_BROMINE_PH_TEMPERATURE",
+      bodyOfWaterCategory: "SPA",
+      cadence: "prior to opening, then every 4 hours",
+      intervalMinutes: 240,
+      notes: "Exactly matches New Mexico's every-4-hours spa/venue cadence -- good cross-state confirmation this specific interval is a real recurring standard, not one state's one-off choice.",
+    },
+    { parameter: "ORP", appliesWhen: "in-line readings, if applicable", cadence: "recorded at the same time as the FAC/bromine and pH tests, not on a separate schedule" },
+    { parameter: "SALT", appliesWhen: "in-line electrolytic chlorinators", cadence: "at least weekly, or per manufacturer's instructions, whichever governs", intervalMinutes: 10080 },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "UNIFIED_CLOSURE_CHECKLIST",
+      triggerLabel: "Any of ten named conditions from the Daily Self-Checks form",
+      closureKind: "ENUMERATED_CHECKLIST",
+      reopeningCondition: "Correct the specific condition(s) that triggered closure, then reopen.",
+      remediationSteps:
+        "THE POOL WILL BE CLOSED IF ANY OF THE FOLLOWING EXIST: (1) free chlorine residual below minimum, (2) pH below 7.2 or above 7.8, (3) recirculation system not in continuous operation, (4) main drain not clearly visible from the deck, (5) broken glass on the deck or in the water, (6) broken/unsecured/missing main drain cover(s), (7) fence/barrier broken or gate not self-closing/self-latching, (8) absence of lifesaving equipment, (9) fecal incident reported in the pool water, (10) any other condition that can't be immediately corrected and could threaten public health/safety (examples given: unapproved water source, power outage, inclement weather).",
+      sourceConfidence: "confirmed",
+      notes:
+        "Closure logic unified into one flat enumerated checklist spanning chemistry, physical equipment, safety infrastructure, AND events -- a second implementation of the same underlying idea as New Mexico's unified GREEN/RED status model, done differently (a flat checklist rather than per-reading color-coding).",
+    },
+    {
+      triggerType: "FECAL_OR_VOMIT_OR_BLOOD",
+      triggerLabel: "Fecal (formed or diarrheal), vomitus, or blood contamination -- water or adjacent deck",
+      closureKind: "UNTIL_RETEST_PASSES",
+      externalReferenceLabel: "CDC — most recent Fecal Incident Response Recommendations",
+      reopeningCondition:
+        "Georgia's own regulation defers the exact CT (concentration x time) target to 'the most recent recommendations published by the CDC' -- same externally-deferred structure as Florida, so exact ppm/hold-time numbers aren't independently specified in Georgia's own code. Reopen once the applicable CDC-sourced target is met and the six-point monitoring grid confirms compliance at the End checkpoint.",
+      remediationSteps:
+        "Facility must maintain a written contamination response plan covering formed-stool, diarrheal-stool, and vomitus contamination. Required incident-log fields: date/time reported, person responding, number of people in the pool water at the time, contamination type, pool type/volume (gallons), whether CYA is present and its ppm if so (directly informs which CDC CT approach applies), time pool was closed, time/date pool reopened. A six-point monitoring grid -- Start (at closure), 1st, 2nd, 3rd, 4th intervals, and End (prior to reopening) -- each checkpoint capturing monitoring time, free residual chlorine, and pH, at evenly spaced intervals throughout the closure period.",
+      sourceConfidence: "confirmed",
+      notes:
+        "Total Contact Time is explicitly defined: starts when the disinfectant reaches the desired concentration, and ends when the disinfectant concentration begins being reduced for reopening -- resolves a boundary most other states leave implicit, and is the direct model for this pass's ContaminationIncident.targetConcentrationReachedAt/contactTimeEndedAt fields. The six-point grid is more granular than California's three snapshots (discovery, post-disinfection, reopening) -- see IncidentMonitoringReading.",
+    },
+  ],
+  complianceNotes: [
+    {
+      kind: "ASSUMPTION",
+      summary: "A formal two-tier operator/responsible-person staffing structure: a DPH-certified trained operator must personally visit at least twice weekly with a written assessment each time; a responsible person can stand in but must themselves be trained by the operator or a local health department course.",
+      detail: "Deeper than Colorado's CPO/AFO/NSPI certification requirement, which doesn't specify a visit cadence or delegation structure. Not modeled as a ChemistryThreshold/FrequencyRule/EventProtocol row since it's a staffing requirement, not a reading or closure trigger -- kept as a note for now; worth a dedicated field if a future pass tracks operator visit compliance.",
+    },
+    {
+      kind: "ASSUMPTION",
+      summary: "Water sample collection location rotates: at least 18 inches below the surface, between the inlets, from a 3-4 ft depth section when available, rotating around the shallower end for each test with the deepest area swept in once per week.",
+      detail: "Every other state's sampling-location note collected specifies one fixed point (e.g. New York's 'between inlet/outlet, ~12 inches'). Not modeled as a schema field this pass -- noted here for a future pass if AquaRunner ever tracks where a reading was taken, not just the reading itself.",
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Hawaii -- HAR Title 11, Chapter 10. Two confirmed-permanent gaps handled per the
+// handoff's explicit instruction: total alkalinity has no numeric range anywhere in the
+// actual rule text (seeded null, industry range noted as non-binding context only), and
+// the legal 0.6 ppm chlorine floor is notably lower than common practice (1.0+ ppm, due
+// to high UV exposure). A proactive quarterly submission duty on top of standard
+// retain-and-produce recordkeeping (pattern 37), and a fecal-incident reopening rule that
+// branches on pool SYSTEM ARCHITECTURE (closed/recirculating vs. open/flow-through)
+// rather than contamination type or facility type (pattern 38).
+// ---------------------------------------------------------------------------
+const HAWAII: StateSeed = {
+  state: "HI",
+  ruleset: {
+    stateName: "Hawaii",
+    healthDepartmentName: "Hawaii Department of Health",
+    isSupported: false,
+    jurisdictionLevel: "STATE",
+    officialCitation: "Hawaii Administrative Rules (HAR) Title 11, Chapter 10 — §11-10-15 (water quality), §11-10-21 (records), §11-10-22 (rules/incident response)",
+    recordRetentionMonths: 12,
+    logSheetSource: "STATE_PROVIDED",
+    logSheetSourceLabel: "Public Freshwater Swimming Pool Daily Operation Report",
+    logSheetSourceNotes:
+      "Date, pH, Disinfectant Type and Residual (ppm), Rate of Flow Meter (gal/min), Pool Operating Hours, Recirculation Pump/Filter Operating Hours, Chemicals Added (name/amount) with Operator's Initials, Accidents (fecal or vomitus) and Actions Taken with Operator's Initials, Malfunctioning of Equipment, and a monthly Total Alkalinity field. Form explicitly states 'Keep on file for twelve months.'",
+  },
+  chemistryThresholds: [
+    { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      minValue: 0.6,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes:
+        "The enforceable HAR legal minimum. Secondary guidance and industry practice in Hawaii commonly target 1.0 ppm or higher for operational safety, specifically because of high UV exposure -- the same regulatory-number-vs.-practically-enforced-number shape as Colorado's non-oxidizer chlorine floor, but here the gap is between the LAW and common PRACTICE, not between state code and local enforcement.",
+    },
+    {
+      parameter: "OTHER_DISINFECTANT",
+      disinfectionMethod: "NOT_APPLICABLE",
+      unit: "",
+      sourceConfidence: "confirmed",
+      notes: "EPA-registered alternatives permitted if they provide an easily measured residual that's equally effective -- a director-approved, performance-based standard rather than a per-chemical table (same shape as Colorado's 'other disinfecting equipment' clause).",
+    },
+    {
+      parameter: "TOTAL_ALKALINITY",
+      unit: "ppm",
+      sourceConfidence: "gap",
+      notes:
+        "Confirmed genuine regulatory gap, not an oversight in sourcing -- total alkalinity has a stated testing frequency (monthly) but NO numeric target range anywhere in HAR Chapter 11-10. Unlike Connecticut's alkalinity gap (filled by a real local-district convention), no equivalent Hawaii-specific local/practice range has any regulatory or quasi-regulatory status. Generic industry practice (commonly 80-120 ppm, or the broader 60-180 ppm norm used elsewhere) is followed voluntarily but has no enforceable standing under HAR -- seeded here as range:null (no min/max/ideal set) rather than treating the generic industry figures as Hawaii's actual rule. If DOH ever amends Chapter 11-10 to add a numeric standard, this needs revisiting, but as of the current text this is a permanent gap, not unfinished research.",
+    },
+    {
+      parameter: "CLARITY",
+      unit: "",
+      sourceConfidence: "confirmed",
+      notes: "Either a 6-inch high-contrast disc clearly visible from outside the pool at the deepest point, OR the main drain grate clearly visible from the deck -- two alternative verification methods, either one satisfies the requirement.",
+    },
+  ],
+  frequencyRules: [
+    { parameter: "TOTAL_ALKALINITY", cadence: "monthly", intervalMinutes: 43200, notes: "Frequency is stated even though the numeric range is not -- see the TOTAL_ALKALINITY ChemistryThreshold's gap note." },
+    {
+      parameter: "WATER_QUALITY_MONITORING_DATA",
+      cadence: "quarterly submission to the department",
+      intervalMinutes: 129600,
+      notes: "A proactive push obligation, not just retain-on-site-and-produce-on-request like every other state's records requirement collected so far -- on top of the standard 12-month on-site retention.",
+    },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "FECAL_OR_VOMIT",
+      triggerLabel: "Accidental fecal or vomitus discharge -- closed-system pool",
+      appliesWhen: "closed system (standard recirculating, chlorinated)",
+      closureKind: "UNTIL_RETEST_PASSES",
+      reopeningCondition: "The pool shall be immediately closed for cleaning; all bathers ordered to leave until the substance is removed. A closed-system pool must be actively disinfected before reopening.",
+      externalReferenceLabel: "CDC — Fecal Incident Response Recommendations",
+      sourceConfidence: "confirmed",
+      notes: "§11-10-22. Also references the CDC's Fecal Incident Response Recommendations for detailed disinfection guidance -- same externally-deferred structure already seen in Florida and Georgia.",
+    },
+    {
+      triggerType: "FECAL_OR_VOMIT",
+      triggerLabel: "Accidental fecal or vomitus discharge -- open-system pool",
+      appliesWhen: "open system (flow-through/once-through water)",
+      closureKind: "UNTIL_RETEST_PASSES",
+      reopeningCondition: "The pool shall be immediately closed for cleaning; all bathers ordered to leave until the substance is removed. An open-system pool instead just stays closed until water quality testing confirms it meets HAR Chapter 11-10 standards -- no separate disinfection step is specified.",
+      sourceConfidence: "confirmed",
+      notes:
+        "Reopening logic bifurcated by pool SYSTEM ARCHITECTURE (closed vs. open), not by contamination type (Arkansas/Florida/California/Georgia) or facility type (Alabama/Maryland) -- a genuinely different axis of variation. Worth confirming whether AquaRunner's customer base includes any open-system facilities at all; may be low-relevance in practice but is architecturally distinct if it comes up.",
+    },
+  ],
+  complianceNotes: [
+    {
+      kind: "GAP",
+      summary: "Total alkalinity has no numeric target range anywhere in HAR Chapter 11-10 -- a confirmed, permanent gap, not something more sourcing would resolve.",
+      detail: "Seeded as range:null on the ChemistryThreshold row with the generic industry-practice figures (80-120 or 60-180 ppm) noted as non-binding context only, per the explicit instruction not to treat this as unfinished research.",
+    },
+  ],
+};
+
 const ALL_STATES: StateSeed[] = [
   NEVADA,
   CONNECTICUT,
@@ -1657,6 +1857,8 @@ const ALL_STATES: StateSeed[] = [
   MARYLAND,
   NEW_MEXICO,
   NEW_YORK,
+  GEORGIA,
+  HAWAII,
 ];
 
 async function main() {
