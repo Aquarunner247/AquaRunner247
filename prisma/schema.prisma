@@ -281,6 +281,11 @@ model FrequencyRule {
   /// compliance," not a stated number -- cadence/intervalMinutes hold the closest
   /// stated approximation (if any); this flag says don't treat that as a hard interval.
   isPerformanceBased Boolean @default(false)
+  /// Free-text condition this cadence is scoped to -- e.g. "fed continuously via
+  /// stabilized chlorine" vs. "manually dosed" (New Mexico's CYA cadence depends on
+  /// delivery method, not just whether the chemical is used at all). Null = unconditional.
+  /// Same descriptive-not-evaluated convention as ChemistryThreshold.appliesWhen.
+  appliesWhen String?
 
   notes String? @db.Text
 
@@ -310,6 +315,22 @@ model EventProtocol {
 
   minimumDurationMinutes      Int?
   consecutiveFailuresRequired Int?
+  /// Free-text condition this protocol variant is scoped to -- e.g. "if CYA present",
+  /// "brominated facility", "blood". Lets a state have multiple EventProtocol rows for
+  /// the same triggerType (New York's CYA-present row doubles the standard row's
+  /// treatment time; California's CYA-present row is an entirely separate target).
+  /// Null = the unconditional/baseline variant. Same convention as
+  /// ChemistryThreshold.appliesWhen -- descriptive, not evaluated.
+  appliesWhen String?
+  /// Concentration x time inactivation target, when the source states one explicitly
+  /// (New York's CT=15,300 for Crypto) -- lets multiple stated concentration/time pairs
+  /// be cross-checked against the same number rather than only storing one hardcoded
+  /// pair in reopeningCondition's prose. Null where a state doesn't state a CT value.
+  ctValue     Decimal? @db.Decimal(12, 2)
+  ctValueUnit String?
+  /// True when this protocol requires closing every body of water sharing the same
+  /// filtration system, not just the specifically affected one (New York, California).
+  cascadesToSharedFiltration Boolean @default(false)
   /// Described precisely enough to eventually encode (target chemical, direction,
   /// value, hold time) but kept as text this pass -- e.g. "Free chlorine >= 2.0 ppm AND
   /// pH <= 7.5, maintained 30 minutes", or Florida's descend-below-ceiling mirror case:
@@ -398,6 +419,7 @@ model User {
   sentAlerts     CustomerAlert[]
   adHocStops        AdHocStop[] @relation("AdHocStopTechnician")
   createdAdHocStops AdHocStop[] @relation("AdHocStopCreatedBy")
+  recordedContaminationIncidents ContaminationIncident[]
 
   @@index([organizationId])
 }
@@ -519,10 +541,11 @@ model Property {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bodiesOfWater  BodyOfWater[]
-  visits         ServiceVisit[]
-  recurringStops RecurringStop[]
-  adHocStops     AdHocStop[]
+  bodiesOfWater          BodyOfWater[]
+  visits                 ServiceVisit[]
+  recurringStops         RecurringStop[]
+  adHocStops             AdHocStop[]
+  contaminationIncidents ContaminationIncident[]
 
   @@index([organizationId])
   @@index([customerId])
@@ -568,12 +591,115 @@ model BodyOfWater {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  equipment       Equipment[]
-  serviceWeekdays BodyOfWaterServiceWeekday[]
-  visits          ServiceVisit[]
-  recurringStops  RecurringStop[]
+  equipment              Equipment[]
+  serviceWeekdays        BodyOfWaterServiceWeekday[]
+  visits                 ServiceVisit[]
+  recurringStops         RecurringStop[]
+  contaminationIncidents ContaminationIncident[]
+  /// Other bodies of water closed as part of an incident cascade because they share this
+  /// body's filtration system, without being the body where the incident was discovered.
+  cascadedIncidents      ContaminationIncident[] @relation("CascadedFiltrationClosure")
 
   @@index([propertyId])
+}
+
+/// Open -> under remediation -> verified clean -> reopened. A real lifecycle, unlike a
+/// routine ChemistryReading which is a single timestamped data point -- see
+/// COMPLIANCE_RULESET_NOTES.md for why this is deliberately its own table rather than
+/// extra columns on VisitWaterReading.
+enum ContaminationIncidentStatus {
+  OPEN
+  UNDER_REMEDIATION
+  VERIFIED_CLEAN
+  REOPENED
+}
+
+/// A fecal/vomit/blood/other contamination event and its remediation, kept separate from
+/// routine VisitWaterReading rows on purpose: different shape (lifecycle vs. single data
+/// point), different rule category (an EventProtocol, not a ChemistryThreshold), and a
+/// closure that can cascade across every body of water sharing one filtration system
+/// (New York, California) -- none of which fits as nullable columns on a reading table.
+/// Schema only this pass -- no UI/forms; see COMPLIANCE_RULESET_NOTES.md.
+model ContaminationIncident {
+  id            String      @id @default(cuid())
+  propertyId    String
+  property      Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  bodyOfWaterId String
+  /// The body of water where the incident was discovered/reported.
+  bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+  /// Every body of water actually closed by this incident, including the discovery body
+  /// above -- populate this even for a single-body incident, since "which bodies were
+  /// closed" should never require inferring from bodyOfWaterId alone once cascade rules
+  /// (New York, California: close every venue sharing one filtration system) apply.
+  affectedBodiesOfWater BodyOfWater[] @relation("CascadedFiltrationClosure")
+
+  recordedByUserId String?
+  recordedByUser   User?   @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  status ContaminationIncidentStatus @default(OPEN)
+
+  /// Free-text, same data-entry-extensible convention as EventProtocol.triggerType --
+  /// e.g. "FECAL_FORMED", "FECAL_DIARRHEAL", "VOMIT", "BLOOD", "OTHER".
+  contaminationType String
+  discoveredAt      DateTime
+  batherCountAtTime Int?
+  /// Whether cyanuric acid was present at the time, and its measured ppm if so --
+  /// directly determines which state's CYA-present protocol variant applies (see
+  /// EventProtocol.appliesWhen="if CYA present" rows).
+  cyaPresentPpm Decimal? @db.Decimal(10, 3)
+
+  /// When the disinfectant first reached target concentration -- NOT necessarily when
+  /// the CT/hold clock starts (see verifiedEvenDistributionAt below, Maryland's pattern).
+  targetConcentrationReachedAt DateTime?
+  /// Multi-point perimeter sampling (Maryland: every 15 ft) confirming the disinfectant
+  /// is evenly distributed throughout the body of water -- some states' hold-time clock
+  /// starts here, not at targetConcentrationReachedAt.
+  verifiedEvenDistributionAt DateTime?
+  /// Georgia's explicit definition: Total Contact Time ends when the disinfectant
+  /// concentration begins being reduced for reopening, not at reopenedAt itself.
+  contactTimeEndedAt DateTime?
+  reopenedAt         DateTime?
+
+  remediationSteps String? @db.Text
+  notes            String? @db.Text
+
+  monitoringReadings IncidentMonitoringReading[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([bodyOfWaterId])
+  @@index([status])
+}
+
+/// One row per checkpoint in an incident's monitoring grid -- California requires 3
+/// (discovery, post-disinfection, reopening), Georgia requires 6 (start, 4 evenly-spaced
+/// intervals, end). checkpointLabel stays free text for the same reason
+/// ChemistryThreshold.parameter does: the grid shape varies by state.
+model IncidentMonitoringReading {
+  id                      String                @id @default(cuid())
+  contaminationIncidentId String
+  contaminationIncident   ContaminationIncident @relation(fields: [contaminationIncidentId], references: [id], onDelete: Cascade)
+
+  /// e.g. "DISCOVERY", "POST_DISINFECTION", "REOPENING" (California's 3) or "START",
+  /// "INTERVAL_1".."INTERVAL_4", "END" (Georgia's 6).
+  checkpointLabel  String
+  sequence         Int?
+  recordedAt       DateTime
+  freeChlorinePpm  Decimal? @db.Decimal(10, 3)
+  totalChlorinePpm Decimal? @db.Decimal(10, 3)
+  ph               Decimal? @db.Decimal(10, 3)
+  temperature      Decimal? @db.Decimal(10, 3)
+  /// Maryland's every-15-ft perimeter check confirming even distribution at this
+  /// checkpoint specifically, distinct from ContaminationIncident.verifiedEvenDistributionAt
+  /// (the single moment the overall hold clock started).
+  distributionVerified Boolean @default(false)
+  notes                String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([contaminationIncidentId])
 }
 
 /// Which weekdays this body is serviced (1=Mon … 7=Sun). Enforce 1–7 distinct rows in application layer.
