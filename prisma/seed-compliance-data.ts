@@ -727,17 +727,68 @@ const CALIFORNIA: StateSeed = {
       reopeningCondition: "Restore continuous UV dosage to at least 40 mJ/cm² before reopening the spray ground/water feature to bathers.",
       sourceConfidence: "confirmed",
     },
+    {
+      triggerType: "FECAL_FORMED",
+      triggerLabel: "Formed fecal stool or vomit",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 25,
+      cascadesToSharedFiltration: true,
+      reopeningCondition: "Free chlorine >= 2 ppm maintained for at least 25 minutes, pH <= 7.5, water temperature >= 77°F (25°C); reopen once disinfection is complete and free chlorine/pH are back within §65529/§65530's normal operating ranges.",
+      remediationSteps:
+        "Per §65546(a): immediately close the affected pool AND all interconnected pools sharing the same filtration system -> remove contaminating material, dispose to sanitary sewer/approved wastewater process, clean and disinfect removal tools -> ensure pH <= 7.5 -> maintain water temp >= 77°F -> keep filtration running throughout -> test free chlorine at multiple points throughout the pool, not just one location -> after disinfection, replace affected cartridge filters or backwash non-cartridge filters (discharge to sanitary sewer/approved disposal, never back into the pool).",
+      notes:
+        "§65546(b) also requires three separate documented chemistry snapshots per incident (discovery, immediately after disinfection completes, and again at reopening) plus incident type, procedures followed, user count, and elapsed time -- a recordkeeping shape richer than a single incident record, not modeled as separate rows this pass. Retention 2 years, matching California's routine-log retention.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "FECAL_DIARRHEAL",
+      triggerLabel: "Diarrheal stool, no CYA present",
+      appliesWhen: "no cyanuric acid present",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 765,
+      ctValue: 15300,
+      ctValueUnit: "ppm·min",
+      cascadesToSharedFiltration: true,
+      reopeningCondition: "Free chlorine raised to 20 ppm, pH <= 7.5, maintained >= 12.75 hours (CT ~15,300); reopen once disinfection is complete and free chlorine/pH are back within normal operating ranges.",
+      remediationSteps: "Same closure/removal/filtration steps as the formed-stool row above, held for the longer diarrheal duration.",
+      sourceConfidence: "confirmed",
+      notes: "Matches the same CDC/MAHC CT=15,300 standard already confirmed across Arkansas, New York, and Florida.",
+    },
+    {
+      triggerType: "FECAL_DIARRHEAL",
+      triggerLabel: "Diarrheal stool, cyanuric acid present",
+      appliesWhen: "cyanuric acid present",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 1800,
+      ctValue: 72000,
+      ctValueUnit: "ppm·min",
+      cascadesToSharedFiltration: true,
+      reopeningCondition: "pH lowered to 6.5, free chlorine raised to 40 ppm, maintained >= 30 hours (CT ~72,000); reopen once disinfection is complete and free chlorine/pH are back within normal operating ranges.",
+      remediationSteps: "Same closure/removal/filtration steps as the no-CYA diarrheal row, at the stricter CYA-specific target.",
+      sourceConfidence: "confirmed",
+      notes:
+        "California is the only state collected that defines an entirely separate target for CYA-present diarrheal incidents (different pH, higher chlorine ceiling, longer hold) rather than a time multiplier -- contrast New York (exactly doubles the standard treatment time) and Florida (offers removing the CYA itself as the first option). Don't assume any one state's CYA-during-incident mechanism generalizes to another.",
+    },
+    {
+      triggerType: "BLOOD",
+      triggerLabel: "Blood contamination",
+      closureKind: "UNTIL_RETEST_PASSES",
+      reopeningCondition:
+        "Check free chlorine at the time of the incident; if below the required minimum, close until the minimum is restored. If already at or above the minimum, no closure is required.",
+      sourceConfidence: "confirmed",
+      notes: "Matches Florida's and Maryland's 'check the current level, don't assume elevated risk' approach -- notably less lenient than New York's blanket blood-closure exemption, since California still requires closure if chlorine is already out of range.",
+    },
   ],
   complianceNotes: [
-    {
-      kind: "GAP",
-      summary: "Incident recording (fecal, vomit, blood, near-drowning, drowning) is required per §65546, but that section's actual text wasn't in the source excerpt.",
-      detail: "California requires this recordkeeping, but the specific decontamination protocol/numbers aren't available the way they are for Arkansas or Arizona.",
-    },
     {
       kind: "ASSUMPTION",
       summary: "Jurisdiction level seeded as COUNTY_DISTRIBUTED_STATE_DERIVED rather than picking STATE or COUNTY outright.",
       detail: "The regulation itself (CCR Title 22) is genuinely state-level, but the log sheet form is Sacramento-County-branded even though its numbers mirror the state code.",
+    },
+    {
+      kind: "ASSUMPTION",
+      summary: "Near-drowning/drowning triggers the same documentation and full response protocol as a contamination incident; many local health departments default to the stricter diarrheal-tier disinfection target when fecal/vomit/blood contamination can't be ruled out.",
+      detail: "A local-district judgment call layered on the state's baseline rule (same state-floor/local-addition shape as Connecticut's pattern, though here it's a stricter default rather than a numeric addition) -- not modeled as a separate EventProtocol row since it reuses the existing FECAL_DIARRHEAL rows rather than defining new numbers.",
     },
   ],
 };
