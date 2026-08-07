@@ -208,9 +208,13 @@ const CONNECTICUT: StateSeed = {
 
 // ---------------------------------------------------------------------------
 // Alabama -- pool-vs-spa threshold AND frequency both differ (pattern 8: spa is hourly,
-// pool is twice-daily), not just the numeric range. Has an unresolved conflict between
-// an indoor-CYA-ban provision and a flat numeric CYA range with no indoor/outdoor split
-// -- seeded as-flagged per the handoff's explicit instruction, not resolved here.
+// pool is twice-daily), not just the numeric range. The indoor-CYA-ban conflict flagged
+// in the original pass is resolved: checking the core General Provisions and Appendix A/B
+// text across Mobile, Jefferson, and Baldwin counties, none contain a written indoor CYA
+// ban -- the flat 10-150 ppm Appendix A/B range (no indoor/outdoor split) is the actual
+// enforceable rule. The earlier "banned indoors" claim likely came from informal inspector
+// guidance (no UV protection needed indoors, reduced chlorine efficacy) rather than
+// written code -- kept below as a soft advisory note, not a compliance threshold.
 // ---------------------------------------------------------------------------
 const ALABAMA: StateSeed = {
   state: "AL",
@@ -243,8 +247,8 @@ const ALABAMA: StateSeed = {
       idealMax: 50,
       maxValue: 150,
       unit: "ppm",
-      sourceConfidence: "conflict",
-      notes: "See ComplianceNote -- conflicts with an earlier indoor-CYA-ban provision; this Appendix A range is seeded as the primary rule per the handoff's explicit instruction, not a resolution of the conflict.",
+      sourceConfidence: "confirmed",
+      notes: "No indoor/outdoor split -- see ComplianceNote for the resolved indoor-ban question (informal inspector guidance discourages indoor use in practice, but it's not a written county-code prohibition).",
     },
     { parameter: "CALCIUM_HARDNESS", bodyOfWaterCategory: "POOL", minValue: 100, maxValue: 200, unit: "ppm", sourceConfidence: "confirmed", notes: "recommended, not a hard requirement" },
     { parameter: "TEMPERATURE", bodyOfWaterCategory: "POOL", idealMin: 78, idealMax: 82, unit: "°F", sourceConfidence: "confirmed" },
@@ -265,8 +269,8 @@ const ALABAMA: StateSeed = {
       idealMax: 50,
       maxValue: 150,
       unit: "ppm",
-      sourceConfidence: "conflict",
-      notes: "Same indoor-CYA-ban conflict as the pool threshold above -- see ComplianceNote.",
+      sourceConfidence: "confirmed",
+      notes: "No indoor/outdoor split -- see ComplianceNote for the resolved indoor-ban question.",
     },
     { parameter: "CALCIUM_HARDNESS", bodyOfWaterCategory: "SPA", minValue: 100, idealMin: 150, idealMax: 250, maxValue: 800, unit: "ppm", sourceConfidence: "confirmed" },
     { parameter: "TEMPERATURE", bodyOfWaterCategory: "SPA", maxValue: 104, unit: "°F", sourceConfidence: "confirmed" },
@@ -285,10 +289,10 @@ const ALABAMA: StateSeed = {
   eventProtocols: [],
   complianceNotes: [
     {
-      kind: "CONFLICT",
-      summary: "General Provisions text states CYA is prohibited indoors entirely, but Appendix A/B gives a flat 10–150 ppm range with no indoor/outdoor distinction at all.",
+      kind: "ASSUMPTION",
+      summary: "The earlier-flagged 'CYA banned indoors' conflict is resolved: no such ban exists in the actual county rules. The flat 10-150 ppm Appendix A/B range applies with no indoor/outdoor branch.",
       detail:
-        "Unclear whether the appendix range only applies outdoors (with indoor pools defaulting to CYA=0/not used), or whether the indoor ban is from an older/different provision than this appendix. The Appendix A/B numeric range is seeded as the primary rule per explicit instruction, but this conflict is not resolved -- recommend surfacing to Alabama/Baldwin County directly rather than guessing.",
+        "Checked against Mobile, Jefferson, and Baldwin County General Provisions/Appendix A-B text -- none contain a written indoor CYA prohibition. The earlier claim likely traced to informal inspector/training guidance that discourages indoor CYA use on practical grounds (no UV protection needed indoors, reduced chlorine efficacy, higher combined-chlorine risk) rather than enforceable code. If AquaRunner wants to surface that guidance as an in-app tip, it should be a soft advisory layer, not a compliance threshold -- it must not block or fail a reading the way the numeric appendix range does.",
     },
     {
       kind: "GAP",
