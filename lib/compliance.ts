@@ -117,25 +117,89 @@ function findThreshold(
 }
 
 /**
+ * Ordered tie-break priority for FREE_CHLORINE lookups when a state has more than one
+ * conditional row and no unconditional default (findThreshold tries these in order,
+ * first match wins, before ever falling back to array order). Each entry is the
+ * documented default variant for one state's specific condition family -- picking the
+ * more common/permissive real-world case, same convention as alkalinity's
+ * "unstabilized sanitizer (no CYA present)" default below:
+ * - "no CYA present" (California, Georgia, New Mexico): defaults to the non-CYA chlorine
+ *   floor when the app doesn't yet track per-account CYA use.
+ * - "without a supplemental oxidizer" (Colorado): defaults to the floor most facilities
+ *   actually operate under, since supplemental oxidizers aren't universal equipment.
+ * - "pH <= 7.8" (New York): New York's chlorine minimum is genuinely pH-dependent
+ *   (0.6 mg/L below pH 7.8, 1.5 mg/L from 7.8-8.2) -- a two-band version of the same
+ *   curve/table-lookup pattern Alaska's Table E has, which this app's one-flat-target
+ *   model can't represent natively. Defaulting to the lower, far-more-common band is a
+ *   real simplification, not just a missing-data null: a reading whose actual pH sits in
+ *   the 7.8-8.2 band gets compared against the LOWER band's 0.6 mg/L floor instead of the
+ *   correct 1.5 mg/L floor, so a reading between 0.6-1.5 mg/L at high pH could be
+ *   under-flagged as compliant when New York's own rule requires 1.5 mg/L at that pH.
+ *   Flagged via a ComplianceNote on New York's seed record -- do not treat this the same
+ *   as a clean "the state just doesn't have this rule" null.
+ */
+const DEFAULT_CONDITION_PRIORITY = ["no CYA present", "without a supplemental oxidizer", "pH <= 7.8"];
+
+export type ChlorineFamilyThreshold = {
+  /** Which VisitWaterReading column this threshold actually validates -- freeChlorinePpm
+   * for chlorine, brominePpm for bromine. Never both; see BodyOfWater.disinfectionMethod's
+   * doc comment for why a body of water only ever uses one at a time. */
+  key: "freeChlorinePpm" | "brominePpm";
+  label: string;
+  unit: string;
+  min: number | null;
+  max: number | null;
+};
+
+/**
+ * The hard floor/ceiling for whichever disinfectant this SPECIFIC body of water actually
+ * uses -- disinfectionMethod is set per body of water, not per organization (one account
+ * can have a chlorine pool and a bromine spa at the same property), so this must be
+ * called per body/per reading, never precomputed once for a whole account the way
+ * activeChemistryThresholds's other fields safely are. Returns null when this state's
+ * data has no row at all for the selected method/body-type combination (e.g. Georgia has
+ * no BROMINE row -- a body of water there configured for bromine gets no chlorine-family
+ * threshold at all, a real signal the disinfectionMethod is probably misconfigured for
+ * that state, not a fallback to chlorine's numbers).
+ */
+export function chlorineFamilyThreshold(
+  ruleset: ComplianceRulesetWithRules,
+  bodyOfWaterType: string,
+  disinfectionMethod: DisinfectionMethod,
+): ChlorineFamilyThreshold | null {
+  const bodyCategory = bodyOfWaterType === "SPA" ? "SPA" : "POOL";
+  const parameter = disinfectionMethod === "BROMINE" ? "BROMINE" : "FREE_CHLORINE";
+  const threshold = findThreshold(ruleset.chemistryThresholds, parameter, bodyCategory, DEFAULT_CONDITION_PRIORITY);
+  if (!threshold) return null;
+  return {
+    key: parameter === "BROMINE" ? "brominePpm" : "freeChlorinePpm",
+    label: parameter === "BROMINE" ? "Bromine" : "Free Chlorine",
+    unit: threshold.unit || "ppm",
+    min: toNumOrNull(threshold.minValue),
+    max: toNumOrNull(threshold.maxValue),
+  };
+}
+
+/**
  * Chemistry target/hazard thresholds as plain numbers or null (Prisma Decimals aren't
  * directly comparable). Only call this once isComplianceActive(ruleset) is true --
  * callers gate on that first, so this never runs for an unsupported/unlinked account.
  *
- * Derives the app's four consumed parameters (chlorine pool/spa, pH, alkalinity, CYA)
- * from this state's OWN ChemistryThreshold rows -- see COMPLIANCE_RULESET_NOTES.md's
- * "Migrating Nevada off the flat fields" section. Every field can genuinely be `null`:
- * a state's regulation may simply not define a hazard tier, a minimum, or a target sub-
- * range for a given parameter (Arizona has no hazard tier on anything; Arkansas's CYA
- * has no hazard cap at all). `null` here means "this state doesn't have this rule," and
- * callers must treat it that way -- never fall back to a hardcoded number (that would
- * silently apply one state's numbers to another, exactly what this schema exists to
- * avoid). Falling back to this SAME row's outer min/max when there's no separate ideal
- * sub-range (most non-Nevada states don't distinguish the two) is safe, since it's still
- * this state's own data.
+ * Derives pH/alkalinity/CYA from this state's OWN ChemistryThreshold rows -- see
+ * COMPLIANCE_RULESET_NOTES.md's "Migrating Nevada off the flat fields" section. Every
+ * field can genuinely be `null`: a state's regulation may simply not define a hazard
+ * tier, a minimum, or a target sub-range for a given parameter (Arizona has no hazard
+ * tier on anything; Arkansas's CYA has no hazard cap at all). `null` here means "this
+ * state doesn't have this rule," and callers must treat it that way -- never fall back to
+ * a hardcoded number. Falling back to this SAME row's outer min/max when there's no
+ * separate ideal sub-range (most non-Nevada states don't distinguish the two) is safe,
+ * since it's still this state's own data.
+ *
+ * Does NOT include chlorine/bromine -- that's disinfectionMethod-dependent per body of
+ * water, not a single per-account value the way pH/alkalinity/CYA are. Call
+ * chlorineFamilyThreshold separately, per body of water, per reading.
  */
 export function activeChemistryThresholds(ruleset: ComplianceRulesetWithRules) {
-  const chlorinePool = findThreshold(ruleset.chemistryThresholds, "FREE_CHLORINE", "POOL");
-  const chlorineSpa = findThreshold(ruleset.chemistryThresholds, "FREE_CHLORINE", "SPA");
   const ph = findThreshold(ruleset.chemistryThresholds, "PH", null);
   // Arkansas's alkalinity always depends on sanitizer/CYA use with no unconditional
   // default -- the app doesn't track that per account yet, so "unstabilized (no CYA)"
@@ -145,9 +209,6 @@ export function activeChemistryThresholds(ruleset: ComplianceRulesetWithRules) {
   const feeProtocol = ruleset.eventProtocols.find((e) => e.feeAmount != null);
 
   return {
-    freeChlorineMinPoolPpm: toNumOrNull(chlorinePool?.minValue),
-    freeChlorineMinSpaPpm: toNumOrNull(chlorineSpa?.minValue),
-    freeChlorineMaxPpm: toNumOrNull(chlorinePool?.maxValue ?? chlorineSpa?.maxValue),
     phTargetMin: toNumOrNull(ph?.idealMin ?? ph?.minValue),
     phTargetMax: toNumOrNull(ph?.idealMax ?? ph?.maxValue),
     phHazardMin: toNumOrNull(ph?.hazardMin),

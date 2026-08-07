@@ -148,9 +148,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
     take: 50,
     include: {
       property: { select: { name: true } },
-      bodyOfWater: { select: { name: true } },
+      bodyOfWater: { select: { name: true, disinfectionMethod: true } },
       technician: { select: { name: true } },
-      reading: { select: { ph: true, freeChlorinePpm: true, alkalinityPpm: true, backwashAt: true } },
+      reading: { select: { ph: true, freeChlorinePpm: true, brominePpm: true, alkalinityPpm: true, backwashAt: true } },
       doses: { select: { productName: true, quantity: true, unit: true } },
       _count: { select: { photos: true } },
       checklistCompletions: {
@@ -777,7 +777,10 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-brand-ink">
                     <span>pH: {v.reading?.ph?.toString() ?? "—"}</span>
-                    <span>FC: {v.reading?.freeChlorinePpm?.toString() ?? "—"} ppm</span>
+                    <span>
+                      {v.bodyOfWater.disinfectionMethod === "BROMINE" ? "Br" : "FC"}:{" "}
+                      {(v.bodyOfWater.disinfectionMethod === "BROMINE" ? v.reading?.brominePpm : v.reading?.freeChlorinePpm)?.toString() ?? "—"} ppm
+                    </span>
                     <span>Alk: {v.reading?.alkalinityPpm?.toString() ?? "—"} ppm</span>
                     <span>
                       Backwash:{" "}

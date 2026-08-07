@@ -34,6 +34,7 @@ export async function sendWaitlistNotificationEmail(signupEmail: string): Promis
 type ReadingSummary = {
   ph: number | null;
   freeChlorinePpm: number | null;
+  brominePpm: number | null;
   alkalinityPpm: number | null;
   cyanuricAcidPpm: number | null;
   temperatureF: number | null;
@@ -49,6 +50,10 @@ type ServiceSummaryEmailInput = {
   technicianName: string | null;
   completedAt: Date;
   reading: ReadingSummary | null;
+  /** Which disinfectant this body of water uses (BodyOfWater.disinfectionMethod) --
+   * decides whether the summary shows Free Chlorine or Bromine, since a reading only
+   * ever has one of the two filled in. */
+  usesBromine: boolean;
   doses: DoseSummary[];
   checklistLabels: string[];
   techNotes: string | null;
@@ -81,7 +86,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
         <p style="font-size:14px; margin:0 0 12px;">Technician: <strong>${input.technicianName ?? "—"}</strong></p>
 
         <table style="width:100%; border-collapse:collapse; font-size:14px; margin-bottom:16px;">
-          <tr><td style="padding:4px 0; color:#55696C;">Free Chlorine</td><td style="text-align:right;">${fmt(input.reading?.freeChlorinePpm ?? null)} ppm</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">${input.usesBromine ? "Bromine" : "Free Chlorine"}</td><td style="text-align:right;">${fmt(input.usesBromine ? (input.reading?.brominePpm ?? null) : (input.reading?.freeChlorinePpm ?? null))} ppm</td></tr>
           <tr><td style="padding:4px 0; color:#55696C;">pH</td><td style="text-align:right;">${fmt(input.reading?.ph ?? null)}</td></tr>
           <tr><td style="padding:4px 0; color:#55696C;">Total Alkalinity</td><td style="text-align:right;">${fmt(input.reading?.alkalinityPpm ?? null, 0)} ppm</td></tr>
           <tr><td style="padding:4px 0; color:#55696C;">Cyanuric Acid</td><td style="text-align:right;">${fmt(input.reading?.cyanuricAcidPpm ?? null, 0)} ppm</td></tr>

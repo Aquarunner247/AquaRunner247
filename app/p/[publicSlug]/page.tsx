@@ -3,7 +3,7 @@ import { ReadingChart } from "@/app/components/reading-chart";
 import { BackwashCalendar } from "@/app/components/backwash-calendar";
 import { getMonthlyReadingRows } from "@/lib/reading-rows";
 import { DEFAULT_BUSINESS_NAME, DEFAULT_BUSINESS_PHONE } from "@/lib/service-company";
-import { isComplianceActive, activeChemistryThresholds, healthDepartmentLabel } from "@/lib/compliance";
+import { isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, healthDepartmentLabel } from "@/lib/compliance";
 
 type PageProps = {
   params: Promise<{ publicSlug: string }>;
@@ -44,6 +44,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
       id: true,
       name: true,
       type: true,
+      disinfectionMethod: true,
       volumeGallons: true,
       minimumRequiredFlowGpm: true,
       maximumFilterFlowGpm: true,
@@ -105,7 +106,11 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
   // ruleset is guaranteed non-null and isSupported here -- the gate above already
   // returned early otherwise.
   const thresholds = activeChemistryThresholds(ruleset);
-  const chlorineMin = body.type === "SPA" ? thresholds.freeChlorineMinSpaPpm : thresholds.freeChlorineMinPoolPpm;
+  // disinfectionMethod is per body of water -- this body's own configured method decides
+  // whether the log shows Free Chlorine or Bromine, and against which state numbers.
+  const chlorineFamily = chlorineFamilyThreshold(ruleset, body.type, body.disinfectionMethod);
+  const chlorineFamilyLabel = chlorineFamily?.label ?? "Free Chlorine";
+  const chlorineFamilyUnit = chlorineFamily?.unit ?? "ppm";
 
   const prevDate = new Date(year, monthIndex - 1, 1);
   const nextDate = new Date(year, monthIndex + 1, 1);
@@ -208,7 +213,9 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
           <thead>
             <tr className="border-b border-brand-border bg-brand-foam text-left">
               <th className="px-2 py-2 font-medium text-brand-ink">Day</th>
-              <th className="px-2 py-2 font-medium text-brand-ink">Cl (ppm)</th>
+              <th className="px-2 py-2 font-medium text-brand-ink">
+                {chlorineFamily?.key === "brominePpm" ? "Br" : "Cl"} ({chlorineFamilyUnit})
+              </th>
               <th className="px-2 py-2 font-medium text-brand-ink">pH</th>
               <th className="px-2 py-2 font-medium text-brand-ink">Alk (ppm)</th>
               <th className="px-2 py-2 font-medium text-brand-ink">CYA (ppm)</th>
@@ -224,7 +231,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
             {rows.map((row) => (
               <tr key={row.day} className={`border-b border-brand-border last:border-0 ${row.visited ? "" : "text-brand-muted"}`}>
                 <td className="px-2 py-1.5 font-sans font-medium text-brand-ink">{row.day}</td>
-                <td className="px-2 py-1.5">{fmt(row.freeChlorinePpm)}</td>
+                <td className="px-2 py-1.5">{fmt(chlorineFamily?.key === "brominePpm" ? row.brominePpm : row.freeChlorinePpm)}</td>
                 <td className="px-2 py-1.5">{fmt(row.ph)}</td>
                 <td className="px-2 py-1.5">{fmt(row.alkalinityPpm, 0)}</td>
                 <td className="px-2 py-1.5">{fmt(row.cyanuricAcidPpm, 0)}</td>
@@ -258,12 +265,12 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
       {section === "chemistry" ? (
         <section className="mt-4 grid gap-4 md:grid-cols-2">
           <ReadingChart
-            label="Free chlorine"
-            unit="ppm"
+            label={chlorineFamilyLabel}
+            unit={chlorineFamilyUnit}
             daysInMonth={totalDays}
-            points={seriesFor((r) => r.freeChlorinePpm)}
-            targetMin={chlorineMin ?? undefined}
-            targetMax={thresholds.freeChlorineMaxPpm ?? undefined}
+            points={seriesFor((r) => (chlorineFamily?.key === "brominePpm" ? r.brominePpm : r.freeChlorinePpm))}
+            targetMin={chlorineFamily?.min ?? undefined}
+            targetMax={chlorineFamily?.max ?? undefined}
             domainMin={0}
             domainMax={10}
           />

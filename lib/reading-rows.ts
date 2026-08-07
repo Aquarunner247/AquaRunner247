@@ -4,6 +4,7 @@ export type MonthlyReadingRow = {
   day: number;
   visited: boolean;
   freeChlorinePpm: number | null;
+  brominePpm: number | null;
   ph: number | null;
   alkalinityPpm: number | null;
   cyanuricAcidPpm: number | null;
@@ -53,6 +54,7 @@ export async function getMonthlyReadingRows(bodyId: string, year: number, monthI
       day,
       visited: Boolean(v),
       freeChlorinePpm: num(r?.freeChlorinePpm),
+      brominePpm: num(r?.brominePpm),
       ph: num(r?.ph),
       alkalinityPpm: num(r?.alkalinityPpm),
       cyanuricAcidPpm: num(r?.cyanuricAcidPpm),

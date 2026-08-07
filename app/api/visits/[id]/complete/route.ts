@@ -120,12 +120,14 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
           ? {
               ph: visit.reading.ph != null ? Number(visit.reading.ph) : null,
               freeChlorinePpm: visit.reading.freeChlorinePpm != null ? Number(visit.reading.freeChlorinePpm) : null,
+              brominePpm: visit.reading.brominePpm != null ? Number(visit.reading.brominePpm) : null,
               alkalinityPpm: visit.reading.alkalinityPpm != null ? Number(visit.reading.alkalinityPpm) : null,
               cyanuricAcidPpm: visit.reading.cyanuricAcidPpm != null ? Number(visit.reading.cyanuricAcidPpm) : null,
               temperatureF: visit.reading.temperatureF != null ? Number(visit.reading.temperatureF) : null,
               backwashAt: visit.reading.backwashAt,
             }
           : null,
+        usesBromine: visit.bodyOfWater.disinfectionMethod === "BROMINE",
         doses: visit.doses.map((d) => ({ productName: d.productName, quantity: Number(d.quantity), unit: d.unit })),
         checklistLabels: visit.checklistCompletions.map((c) => c.label).filter(Boolean),
         techNotes: visit.techNotes,

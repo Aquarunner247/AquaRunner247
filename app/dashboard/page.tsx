@@ -6,7 +6,7 @@ import { AlertsBell } from "@/app/components/alerts-bell";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
 import { WaveProgress } from "@/app/components/wave-progress";
 import { ChemGauge } from "@/app/components/chem-gauge";
-import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, organizationHasCommercialPools } from "@/lib/compliance";
+import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, organizationHasCommercialPools } from "@/lib/compliance";
 import { resolveIssue } from "./actions";
 import { TechnicianHome } from "./technician-home";
 
@@ -14,6 +14,7 @@ type ReadingParam = { key: string; label: string; value: number; unit: string; m
 
 const READING_GAUGE_RANGES: Record<string, { min: number; max: number; unit: string; label: string }> = {
   freeChlorine: { min: 0, max: 12, unit: " ppm", label: "Free Cl" },
+  bromine: { min: 0, max: 12, unit: " ppm", label: "Bromine" },
   ph: { min: 6, max: 8.5, unit: "", label: "pH" },
   alkalinity: { min: 0, max: 220, unit: " ppm", label: "Alkalinity" },
   cya: { min: 0, max: 110, unit: " ppm", label: "CYA" },
@@ -186,6 +187,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             take: 30,
             select: {
               freeChlorinePpm: true,
+              brominePpm: true,
               ph: true,
               alkalinityPpm: true,
               cyanuricAcidPpm: true,
@@ -194,7 +196,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   id: true,
                   completedAt: true,
                   property: { select: { name: true } },
-                  bodyOfWater: { select: { name: true, type: true } },
+                  bodyOfWater: { select: { name: true, type: true, disinfectionMethod: true } },
                 },
               },
             },
@@ -211,12 +213,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const issues: string[] = [];
       const hazards: string[] = [];
       const params: ReadingParam[] = [];
-      const fc = r.freeChlorinePpm != null ? Number(r.freeChlorinePpm) : null;
       const ph = r.ph != null ? Number(r.ph) : null;
       const alk = r.alkalinityPpm != null ? Number(r.alkalinityPpm) : null;
       const cya = r.cyanuricAcidPpm != null ? Number(r.cyanuricAcidPpm) : null;
       const t = thresholds!;
-      const fcMin = r.visit.bodyOfWater.type === "SPA" ? t.freeChlorineMinSpaPpm : t.freeChlorineMinPoolPpm;
+
+      // disinfectionMethod is set per body of water, not per account -- one account can
+      // have a chlorine pool and a bromine spa at once -- so this is looked up fresh per
+      // reading rather than reused from a single precomputed value the way pH/alkalinity/
+      // CYA safely are (see chlorineFamilyThreshold's doc comment in lib/compliance.ts).
+      const chlorineFamily = complianceActive
+        ? chlorineFamilyThreshold(ruleset!, r.visit.bodyOfWater.type, r.visit.bodyOfWater.disinfectionMethod)
+        : null;
+      const chlorineFamilyValue =
+        chlorineFamily?.key === "brominePpm"
+          ? r.brominePpm != null
+            ? Number(r.brominePpm)
+            : null
+          : r.freeChlorinePpm != null
+            ? Number(r.freeChlorinePpm)
+            : null;
 
       // Every bound below is checked independently and only when this state's data
       // actually defines it -- a null bound means this state's regulation doesn't have
@@ -225,24 +241,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       // lib/compliance.ts's activeChemistryThresholds doc comment. The gauge shown for a
       // flagged reading falls back to that gauge's own outer range for whichever bound
       // this state doesn't define, so it renders sensibly without asserting a false edge.
-      if (fc != null) {
-        if (fcMin != null && fc < fcMin) {
-          issues.push(`Free chlorine ${fc} ppm`);
+      if (chlorineFamily && chlorineFamilyValue != null) {
+        const label = chlorineFamily.label;
+        const gaugeKey = chlorineFamily.key === "brominePpm" ? "bromine" : "freeChlorine";
+        const gaugeRange = READING_GAUGE_RANGES[gaugeKey];
+        if (chlorineFamily.min != null && chlorineFamilyValue < chlorineFamily.min) {
+          issues.push(`${label} ${chlorineFamilyValue} ${chlorineFamily.unit}`);
           params.push({
-            key: "freeChlorine",
-            ...READING_GAUGE_RANGES.freeChlorine,
-            value: fc,
-            idealMin: fcMin,
-            idealMax: t.freeChlorineMaxPpm ?? READING_GAUGE_RANGES.freeChlorine.max,
+            key: gaugeKey,
+            ...gaugeRange,
+            value: chlorineFamilyValue,
+            idealMin: chlorineFamily.min,
+            idealMax: chlorineFamily.max ?? gaugeRange.max,
           });
-        } else if (t.freeChlorineMaxPpm != null && fc > t.freeChlorineMaxPpm) {
-          issues.push(`Free chlorine ${fc} ppm`);
+        } else if (chlorineFamily.max != null && chlorineFamilyValue > chlorineFamily.max) {
+          issues.push(`${label} ${chlorineFamilyValue} ${chlorineFamily.unit}`);
           params.push({
-            key: "freeChlorine",
-            ...READING_GAUGE_RANGES.freeChlorine,
-            value: fc,
-            idealMin: fcMin ?? READING_GAUGE_RANGES.freeChlorine.min,
-            idealMax: t.freeChlorineMaxPpm,
+            key: gaugeKey,
+            ...gaugeRange,
+            value: chlorineFamilyValue,
+            idealMin: chlorineFamily.min ?? gaugeRange.min,
+            idealMax: chlorineFamily.max,
           });
         }
       }

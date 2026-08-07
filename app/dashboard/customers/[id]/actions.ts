@@ -439,6 +439,7 @@ export async function importVenueReadings(formData: FormData) {
 
       const hasData =
         row.freeChlorinePpm != null ||
+        row.brominePpm != null ||
         row.ph != null ||
         row.alkalinityPpm != null ||
         row.cyanuricAcidPpm != null ||
@@ -487,6 +488,7 @@ export async function importVenueReadings(formData: FormData) {
           visitId: visit.id,
           ph: row.ph,
           freeChlorinePpm: row.freeChlorinePpm,
+          brominePpm: row.brominePpm,
           alkalinityPpm: row.alkalinityPpm,
           cyanuricAcidPpm: row.cyanuricAcidPpm,
           temperatureF: row.temperatureF,
@@ -500,6 +502,7 @@ export async function importVenueReadings(formData: FormData) {
         update: {
           ph: row.ph,
           freeChlorinePpm: row.freeChlorinePpm,
+          brominePpm: row.brominePpm,
           alkalinityPpm: row.alkalinityPpm,
           cyanuricAcidPpm: row.cyanuricAcidPpm,
           temperatureF: row.temperatureF,
