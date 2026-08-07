@@ -578,12 +578,21 @@ model BodyOfWater {
   cartridgeCleaningFrequencyPerMonth Int?
 
   /// Residential-only per-reading requirement toggles, set at customer creation/edit.
-  /// Default true (full tracking) — commercial visits never read these, they hardcode
-  /// their own required-reading list independent of these toggles.
+  /// Default true (full tracking) — commercial visits don't read these; they now derive
+  /// their required-reading list from the org's linked ComplianceRuleset instead (see
+  /// lib/compliance.ts's activeReadingFields), scoped further by this body's own
+  /// disinfectionMethod below.
   requiresFC         Boolean @default(true)
   requiresPH         Boolean @default(true)
   requiresAlkalinity Boolean @default(true)
   requiresCYA        Boolean @default(true)
+
+  /// Commercial only. Which disinfectant this specific body of water actually uses --
+  /// most states' regulations give chlorine and bromine as alternatives (never both at
+  /// once for the same body of water), and the app has no other way to know which one a
+  /// technician should be logging a reading for. Defaults to CHLORINE (the common case,
+  /// and what every commercial body already implicitly used before this field existed).
+  disinfectionMethod DisinfectionMethod @default(CHLORINE)
 
   /// Public, unguessable slug used for this body of water's QR code / inspector log page
   publicSlug String @unique @default(cuid())
@@ -921,6 +930,9 @@ model VisitWaterReading {
   ph               Decimal? @db.Decimal(4, 2)
   freeChlorinePpm  Decimal? @db.Decimal(6, 2)
   totalChlorinePpm Decimal? @db.Decimal(6, 2)
+  /// Alternative to freeChlorinePpm -- which one applies is determined by this body of
+  /// water's own disinfectionMethod (BodyOfWater.disinfectionMethod), not both at once.
+  brominePpm       Decimal? @db.Decimal(6, 2)
   alkalinityPpm    Decimal? @db.Decimal(8, 2)
   cyanuricAcidPpm  Decimal? @db.Decimal(8, 2)
   /// Optional — not required for your SNHD workflow

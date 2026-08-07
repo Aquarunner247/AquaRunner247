@@ -124,7 +124,24 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
                 requiresCYA: body.requiresCYA,
               }}
             />
-          ) : null}
+          ) : (
+            <label className="block text-sm">
+              <span className="text-brand-ink">Disinfectant</span>
+              <select
+                name="disinfectionMethod"
+                defaultValue={body.disinfectionMethod}
+                className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-56"
+              >
+                <option value="CHLORINE">Chlorine</option>
+                <option value="BROMINE">Bromine</option>
+              </select>
+              <span className="mt-1 block text-xs text-brand-muted">
+                Determines which reading (Free Chlorine or Bromine) the visit log sheet asks for. If your state
+                doesn&rsquo;t have a Bromine rule on file, choosing it here will show no chlorine-family field at
+                all — switch back to Chlorine.
+              </span>
+            </label>
+          )}
           <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
             Save
           </button>

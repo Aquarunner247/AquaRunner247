@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose, PropertyType } from "@/generated/prisma/client";
+import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose, PropertyType, DisinfectionMethod } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
@@ -314,6 +314,7 @@ export async function updateBodyOfWater(formData: FormData) {
   const occupancy = occupancyRaw ? Number(occupancyRaw) : null;
 
   let residentialFields = {};
+  let commercialFields = {};
   if (body.property.propertyType === PropertyType.RESIDENTIAL) {
     const filterTypeRaw = String(formData.get("filterType") ?? "").trim();
     const filterType = (Object.values(FilterMedia) as string[]).includes(filterTypeRaw) ? (filterTypeRaw as FilterMedia) : null;
@@ -329,6 +330,12 @@ export async function updateBodyOfWater(formData: FormData) {
       requiresAlkalinity: formData.get("requiresAlkalinity") != null,
       requiresCYA: formData.get("requiresCYA") != null,
     };
+  } else {
+    const disinfectionMethodRaw = String(formData.get("disinfectionMethod") ?? "").trim();
+    const disinfectionMethod = (Object.values(DisinfectionMethod) as string[]).includes(disinfectionMethodRaw)
+      ? (disinfectionMethodRaw as DisinfectionMethod)
+      : DisinfectionMethod.CHLORINE;
+    commercialFields = { disinfectionMethod };
   }
 
   await prisma.bodyOfWater.update({
@@ -339,6 +346,7 @@ export async function updateBodyOfWater(formData: FormData) {
       volumeGallons: Number.isFinite(volume) ? volume : null,
       maximumOccupancy: Number.isFinite(occupancy) ? occupancy : null,
       ...residentialFields,
+      ...commercialFields,
     },
   });
 

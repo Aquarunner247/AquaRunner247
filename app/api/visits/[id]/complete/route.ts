@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { sendServiceSummaryEmail } from "@/lib/email";
-import { getOrganizationRuleset, cyaTestFrequencyDays } from "@/lib/compliance";
+import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
@@ -19,6 +19,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         select: {
           id: true,
           name: true,
+          type: true,
+          disinfectionMethod: true,
           requiresFC: true,
           requiresPH: true,
           requiresAlkalinity: true,
@@ -65,14 +67,17 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         ...(visit.bodyOfWater.requiresCYA && cyaRequired ? [visit.reading?.cyanuricAcidPpm] : []),
       ]
     : [
-        visit.reading?.ph,
-        visit.reading?.freeChlorinePpm,
-        visit.reading?.alkalinityPpm,
+        // Chemistry fields are state-driven -- must match exactly what the visit form
+        // itself showed as required (see activeReadingFields), or completion could block
+        // on a field the technician was never shown, or silently accept a visit missing
+        // a reading this state actually requires.
+        ...activeReadingFields(ruleset, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod, cyaRequired)
+          .filter((f) => f.required)
+          .map((f) => visit.reading?.[f.key]),
         visit.reading?.pumpPressurePsi,
         visit.reading?.vacGaugeReading,
         visit.reading?.flowMeterGpm,
         visit.reading?.filterPressurePsi,
-        ...(cyaRequired ? [visit.reading?.cyanuricAcidPpm] : []),
       ];
   const missingReadings = requiredReadings.some((v) => v == null);
   if (missingReadings) {

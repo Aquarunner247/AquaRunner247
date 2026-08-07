@@ -5,6 +5,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 type ReadingPayload = {
   ph?: number | null;
   freeChlorinePpm?: number | null;
+  brominePpm?: number | null;
   alkalinityPpm?: number | null;
   cyanuricAcidPpm?: number | null;
   temperatureF?: number | null;
@@ -59,6 +60,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const data = {
     ph: numOrNull(raw.ph),
     freeChlorinePpm: numOrNull(raw.freeChlorinePpm),
+    brominePpm: numOrNull(raw.brominePpm),
     alkalinityPpm: numOrNull(raw.alkalinityPpm),
     cyanuricAcidPpm: numOrNull(raw.cyanuricAcidPpm),
     temperatureF: numOrNull(raw.temperatureF),
