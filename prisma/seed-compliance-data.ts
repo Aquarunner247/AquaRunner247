@@ -159,6 +159,35 @@ const CONNECTICUT: StateSeed = {
     sourceDocument:
       "CT Public Health Code § 19-13-B33b (actual code text, portal.ct.gov) and the Connecticut Public Swimming Pool Manual/Design Guide (April 2021), which reprints it",
     logSheetSource: "BUILT_FROM_CODE",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under CT Public Health Code
+§ 19-13-B33b.
+
+### Chemistry targets
+- **Free chlorine:** 0.8 ppm minimum (pools), 1.5 ppm minimum if chlorinated cyanurates
+  are used, 1.0 ppm minimum (spas)
+- **pH:** 7.2 – 7.8 (caustic alkalinity must not be present)
+- **Total alkalinity:** 80 – 150 ppm — the state code itself specifies no range; this is
+  the figure commonly adopted by local health districts (Newtown, Franklin, Meriden, and
+  others) that enforce the state code, tested weekly and within 3 hours of adding
+  make-up water
+- **Cyanuric acid:** max 100 ppm, same weekly/post-make-up-water testing convention
+
+### Testing frequency
+Disinfectant residual and pH tested immediately prior to daily opening, then at
+sufficient frequency during bather use to keep levels adequate — not a fixed count, an
+adequacy standard requiring immediate correction if levels fall short.
+
+### Closure authority
+Connecticut's code frames closure as the health director's authority rather than a flat
+threshold: **discretionary** for any failure to meet the regulations or any condition
+constituting a public health/safety hazard or nuisance, and **mandatory** specifically
+for evidence of communicable disease transmission, a significant health nuisance, or an
+imminent safety hazard. The numeric minima above function as the practical triggers for
+the mandatory tier.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the
+Connecticut Department of Public Health's own published code. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     // bodyOfWaterCategory: "POOL" is required on both rows below, not left unscoped --
@@ -269,6 +298,27 @@ const ALABAMA: StateSeed = {
     logSheetSourceLabel: "Baldwin County Health Dept 'Operational Report' form (monthly, one row per day)",
     logSheetSourceNotes:
       "Fields: Date, Filter Rate (GPM), Free Chlorine, pH, Alkalinity, Water Temp, Filter Backwash, Pump Strainer Cleaned, Super Chlorination, Cyanuric Acid, Calcium Hardness, Initials, Notes. Pool type captured via checkboxes: Outdoor Pool, Indoor Pool, Wading Pool, Water Attraction Pool, Spa, Therapy Pool, Exercise Pool, Other.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Baldwin County Health
+Department's General Provisions and Appendix A (Pool) / Appendix B (Spa).
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 3.0 ppm (pools), 2.0 – 10.0 ppm minimum-to-max, 3.0 – 5.0 ppm
+  ideal (spas)
+- **Bromine (if used):** 2.0 – 4.0 ppm (pools), 2.0 – 10.0 ppm minimum-to-max, 4.0 – 6.0
+  ppm ideal (spas)
+- **pH:** 7.2 – 7.8, ideal 7.4 – 7.6
+- **Total alkalinity:** 60 – 180 ppm, ideal 80 – 120 ppm
+- **Cyanuric acid (if used):** 10 – 150 ppm, ideal 30 – 50 ppm — no indoor/outdoor
+  restriction in the actual county rules, just this numeric range
+
+### Testing frequency
+Pool chlorine and pH are tested **twice daily**; spa chlorine and pH are tested
+**hourly** — a notably different pool-vs-spa cadence than most states, not just a
+different numeric range. Turbidity is checked hourly for both.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Alabama
+Department of Public Health's own published code. Verify against the authoritative
+source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     // Public Pool -- Appendix A
@@ -673,6 +723,37 @@ const CALIFORNIA: StateSeed = {
     logSheetSource: "STATE_PROVIDED",
     logSheetSourceLabel: "Pool/Spa Daily Maintenance Log",
     logSheetSourceNotes: "Branded Sacramento County Environmental Health, but its numbers directly mirror the state code -- functionally a state-standard form even though county-distributed.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under California Code of
+Regulations, Title 22, Division 4, Chapter 20.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 10.0 ppm (pools, no CYA present), 2.0 – 10.0 ppm (pools, with
+  CYA present), 3.0 – 10.0 ppm (spas, same range regardless of CYA)
+- **Bromine:** 2.0 ppm minimum (pools), 4.0 ppm minimum (spas), no stated maximum
+- **pH:** 7.2 – 7.8, ideal 7.4 – 7.6
+- **Cyanuric acid:** 0 – 100 ppm, ideal 20 – 50 ppm
+- **Combined chlorine:** max 0.4 ppm, tested at whatever frequency is required to
+  maintain that ceiling
+- **Temperature:** max 104°F
+
+### Testing frequency
+Disinfectant residual and pH minimum once per day; cyanuric acid minimum once per
+month. Pools in common-interest developments under 25 units get a reduced schedule:
+twice per week, no more than 4 days apart, instead of daily.
+
+### Contamination incident protocol
+Formed stool/vomit: free chlorine ≥ 2 ppm for at least 25 minutes, pH ≤ 7.5. Diarrheal
+incidents (no CYA present): 20 ppm for at least 12.75 hours. Diarrheal incidents with
+CYA present: pH lowered to 6.5, chlorine raised to 40 ppm, held at least 30 hours — a
+distinct, stricter target rather than just a longer hold time. All three close every
+pool sharing the same filtration system, not just the affected one. Blood: check free
+chlorine at the time of the incident; close only if it's already below the required
+minimum. Spray grounds using UV disinfection must maintain at least 40 mJ/cm² dosage or
+close.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the
+California Department of Public Health's own published code. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "no CYA present", minValue: 1.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
@@ -811,6 +892,35 @@ const COLORADO: StateSeed = {
     jurisdictionLevel: "STATE",
     officialCitation: "5 CCR 1003-5 (Swimming Pools and Mineral Baths), Section 4.7 Table 1 (chemistry), Section 4.9 (record-keeping frequency)",
     logSheetSource: "BUILT_FROM_CODE",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 5 CCR 1003-5, Section
+4.7 Table 1.
+
+### Chemistry targets
+- **Free chlorine (no supplemental oxidizer — the common case):** 1.0 – 5.0 ppm (pools),
+  3.0 – 5.0 ppm (spas). Table 1 states a lower 0.25 ppm floor, but only for facilities
+  running an approved supplemental oxidizer; without one, this ideal-range floor is the
+  practically-enforced minimum per local Colorado health departments.
+- **Bromine:** 1.5 – 5.0 ppm (pools), 2.0 – 10.0 ppm (spas)
+- **pH:** 7.2 – 8.0, ideal 7.4 – 7.6
+- **Total alkalinity:** 70 – 180 ppm
+- **Calcium hardness:** 150 – 600 ppm, ideal 200 – 400 ppm
+- **Cyanuric acid:** 20 – 100 ppm, ideal 20 – 40 ppm
+- **ORP (optional, supplements DPD testing):** 250 – 900 mV, ideal 650 – 850 mV
+
+### Testing frequency
+Pools: disinfectant level and pH 3x/day; temperature, ORP, calcium hardness, total
+alkalinity daily; cyanuric acid weekly. Spas/hot tubs: disinfectant, pH, **and**
+temperature bundled into a 2-hour interval; everything else follows the pool schedule.
+
+### Closure protocol
+Bacterial exceedance requires **two consecutive** failed samples before closure, not a
+single reading. Solid feces: closed a minimum of 60 minutes if disinfection was already
+compliant, or 60 minutes after restoring it if not. Diarrheal contamination:
+superchlorinate, remain closed 24 hours, reopen only once disinfection is back in range.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for CDPHE's own
+published code. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -1240,6 +1350,38 @@ const MARYLAND: StateSeed = {
     logSheetSourceLabel: "Secretary-provided standard operating-record form (Queen Anne's County rendering, labeled 'Semi-Public Pool')",
     logSheetSourceNotes:
       "Testing structured around three named operational windows (see FrequencyRule notes below). Each window captures free chlorine/total bromine, combined chlorine, pH, clarity, water temperature (if heated), flow rate, filter influent/effluent pressure, pump vacuum, total bathers. Daily: filter backwash time, chemicals added, equipment issues, injuries/accidents. Weekly: total alkalinity, calcium hardness, cyanuric acid if used -- accurate for pools per the real regulation, though spas require daily per FrequencyRule below; the county form itself is labeled 'Semi-Public Pool' and may not reflect the spa-specific daily cadence. Disinfectant-used checkboxes: gas chlorine, sodium/calcium/lithium hypochlorite, ozone, bromine, other. Facility categories driving frequency: Recreational pool (general public, swim clubs, municipalities, larger apartment complexes), Semipublic pool (hotels/motels, smaller apartment complexes <=10 units, health clubs, condominiums), Limited public-use pool.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under COMAR 10.17.01
+(Public Swimming Pools and Spas).
+
+### Chemistry targets
+- **Free chlorine:** 1.5 – 10.0 ppm (swim/diving pools), 3.0 – 10.0 ppm (wading/therapy
+  pools), 4.0 – 10.0 ppm (spas). If a copper/silver ion system is in active use, these
+  floors drop to 0.5 – 10.0 ppm (pools) or 3.0 – 8.0 ppm (spas).
+- **Bromine:** 3.0 – 8.0 ppm (pools), 4.0 – 8.0 ppm (wading/therapy pools and spas)
+- **Combined chlorine:** max 0.2 ppm across all body types
+- **pH:** 7.2 – 7.8
+- **Total alkalinity:** 60 – 180 ppm
+- **Calcium hardness:** 150 – 400 ppm
+- **Cyanuric acid:** no numeric range in COMAR — instead, use is restricted: **not
+  allowed indoors, and not allowed with bromine** (either condition applies)
+
+### Testing frequency
+Recreational pools and public spas: disinfectant, combined chlorine, and pH every 2
+hours. Semipublic and limited-public-use pools: the same three readings 3x/day. Total
+alkalinity, calcium hardness, and cyanuric acid: weekly for pools, but **daily** for
+spas.
+
+### Fecal/vomit/blood incident protocol
+Formed stool/vomit: raise free chlorine to at least 10 ppm throughout the entire pool,
+pH 7.2 – 7.5, and hold for 30 minutes — but that 30-minute clock only starts once
+multi-point sampling (every 15 ft around the perimeter) confirms the chemical is evenly
+distributed, not at the moment chlorine is raised. Blood: no requirement to remove it
+from the water; check the current chlorine level and close only if it's already below
+the required minimum.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the
+Maryland Department of Health's own published code. Verify against the authoritative
+source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.5, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Swim/diving and water-recreation pools." },
@@ -1418,6 +1560,32 @@ const NEW_MEXICO: StateSeed = {
     logSheetSourceLabel: "Aquatic Venue Log Sheet",
     logSheetSourceNotes:
       "Fields: Day, Time, Initials, pH, ORP (mV/pH), FAC/Bromine, Total Chlorine, CAC (Combined Chlorine -- calculated, not directly tested), Temp, Flow Rate, Alkalinity, Cyanuric Acid, Disinfectant/Chemicals and Amount Added, and a Comments field for closures/injuries/clarity issues. The form itself is colour-coded GREEN (compliant) / RED (non-compliant) per reading -- 'RED readings mean your pool DOES NOT MEET REQUIREMENTS. Take immediate action, retest, then reopen your pool when readings are GREEN.'",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 7.18.1 NMAC.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 10.0 ppm (pools/spray pads, no CYA), 2.0 – 10.0 ppm (pools/
+  spray pads, CYA in use), 3.0 – 10.0 ppm (spas)
+- **Bromine:** max 8.0 ppm total available, no stated minimum
+- **ORP:** minimum 650 mV — a floor only, no numeric ceiling
+- **Combined chlorine (CAC):** max 0.4 ppm
+- **pH:** 7.2 – 7.8
+- **Cyanuric acid:** prohibited indoors and in outdoor spas/therapy pools; permitted
+  only in outdoor pools/spray pads, max 100 ppm, ideal ~30 ppm
+
+### Testing frequency
+pH, ORP, free chlorine/bromine: prior to opening, then every 4 hours. Total chlorine,
+CAC, temperature, flow rate, alkalinity: daily, prior to opening. Cyanuric acid: every
+2 weeks if fed continuously via stabilized chlorine, monthly if manually dosed.
+
+### Closure protocol
+NMED's own log sheet presents every parameter — chemistry, clarity, main drain
+condition, and filtration system status alike — as a single GREEN/RED status: any RED
+reading means immediate corrective action and a retest, and the venue reopens once
+every reading is back to GREEN.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for NMED's own
+published code. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
@@ -1536,6 +1704,40 @@ const NEW_YORK: StateSeed = {
     logSheetSourceLabel: "Report on Operation of Swimming Pool (DOH-1323)",
     logSheetSourceNotes:
       "Fields: Date, Filter Washed, Pool Cleaned, Total Number of Bathers, Chlorine Used, Alkalinity, pH, Pool Drain Visible, Acid Added, Soda Ash Added, Other chemicals, three timestamped Free/Total residual test columns per day (1st/2nd/3rd Test), Remarks, Operator Signature/Date, Source of Water, and pints of % chlorine per gallons of water used.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 10 NYCRR Subpart 6-1.
+
+### Chemistry targets
+- **Free chlorine (pools):** 0.6 mg/L minimum while pH is at or below 7.8; 1.5 mg/L
+  minimum if pH rises into the 7.8 – 8.2 band. One flat 5.0 mg/L ceiling applies across
+  the whole range — this dashboard defaults to the lower, far more common pH band's
+  0.6 mg/L floor, so a reading taken while pH is actually in the 7.8–8.2 band should be
+  compared against 1.5 mg/L by hand, not this page's displayed target.
+- **Free chlorine (spas):** 1.5 mg/L minimum
+- **Bromine:** 1.5 – 6.0 mg/L (pools), 3.0 – 6.0 mg/L (spas)
+- **pH:** 7.2 – 7.8 routine range; **8.2 is a hard ceiling that must never be exceeded**
+  during use, stated with the same weight as the chlorine maximum
+- **Cyanuric acid / chlorine stabilizers:** full ban — cyanuric acid, dichlor, and
+  trichlor are all named as prohibited
+
+### Testing frequency
+Disinfectant residual tested at least 3x/day, especially before and after periods of
+heavy bathing.
+
+### Notification duty
+New York requires **immediate** notification to the county/district health department
+for any equipment change, treatment interruption, loss of water clarity, or serious
+injury — a proactive reporting duty separate from whether closure itself is required.
+
+### Contamination incident protocol
+Formed fecal matter/vomit: raise free chlorine to 2 ppm, hold 25–30 minutes; if
+cyanuric acid is present, the disinfection time is exactly doubled. Diarrheal
+incidents: 20 ppm held at least 12.75 hours. Both close every venue sharing the same
+filtration system. Blood is explicitly exempted from closure — chlorine readily kills
+bloodborne pathogens in properly maintained water.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the New
+York State Department of Health's own published code. Verify against the authoritative
+source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 8.2, idealMin: 7.2, idealMax: 7.8, unit: "", sourceConfidence: "confirmed", notes: "7.2-7.8 is the routine band (ideal ~7.5); 8.2 is a hard ceiling never to be exceeded during use, in the same breath as the chlorine maximum -- both treated as equally strict 'never exceed' limits." },
@@ -1679,6 +1881,37 @@ const GEORGIA: StateSeed = {
     logSheetSourceLabel: "Public Swimming Pool Operator Record + Addendum",
     logSheetSourceNotes:
       "FC/Br and pH for both pool and spa (separate columns), Daily Water Temperature (spa, <104°F), Daily Self-Checks, Weekly Total Alkalinity (60-180 ppm printed range), Flowmeter Reading (gpm), Current Occupancy Load, Pressure Gauge Reading, a reference to the Addendum for corrections/chemicals/backwashing detail, and Trained Operator or Responsible Person signature. Separate end-of-form fields for Cyanuric Acid and Calcium Hardness. Form explicitly notes pH/disinfectant/temperature monitoring frequencies differ for heated spas vs. pools.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Georgia's Rules and
+Regulations for Public Swimming Pools, Chapter 511-3-5.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 10.0 ppm (pools, no CYA), 2.0 – 10.0 ppm (pools, CYA
+  present), 3.0 – 10.0 ppm (spas)
+- **Combined chlorine:** max 0.4 ppm
+- **pH:** 7.2 – 7.8
+- **Cyanuric acid:** max 90 ppm — matches the CDC Model Aquatic Health Code's
+  recommended maximum exactly
+- **Total alkalinity:** 60 – 180 ppm
+- **Spa water temperature:** max 104°F
+
+### Testing frequency
+Pools: free chlorine/bromine and pH minimum 2x/day. Total alkalinity weekly, calcium
+hardness monthly. Cyanuric acid every 2 weeks if stabilized chlorine is the primary
+disinfectant (tested 24 hours after addition), otherwise monthly. Spas: free chlorine/
+bromine, pH, and temperature prior to opening, then every 4 hours.
+
+### Closure protocol
+Georgia lists ten conditions on one flat closure checklist spanning chemistry,
+equipment, safety infrastructure, and events — free chlorine below minimum, pH out of
+range, recirculation not running, main drain not visible or its cover damaged, broken
+glass, missing lifesaving equipment, a fecal incident, a broken barrier/gate, and any
+other uncorrectable public-health condition. Any one triggers closure. Fecal/vomit/
+blood incidents defer to current CDC guidance for the exact hold time and are tracked
+through a six-point monitoring grid across the closure window.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the
+Georgia Department of Public Health's own published code. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     // appliesWhen wording standardized to "CYA present"/"no CYA present" (matching
@@ -1786,6 +2019,37 @@ const HAWAII: StateSeed = {
     logSheetSourceLabel: "Public Freshwater Swimming Pool Daily Operation Report",
     logSheetSourceNotes:
       "Date, pH, Disinfectant Type and Residual (ppm), Rate of Flow Meter (gal/min), Pool Operating Hours, Recirculation Pump/Filter Operating Hours, Chemicals Added (name/amount) with Operator's Initials, Accidents (fecal or vomitus) and Actions Taken with Operator's Initials, Malfunctioning of Equipment, and a monthly Total Alkalinity field. Form explicitly states 'Keep on file for twelve months.'",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Hawaii Administrative
+Rules (HAR) Title 11, Chapter 10.
+
+### Chemistry targets
+- **Chlorine residual:** 0.6 ppm minimum — the enforceable legal floor. Secondary
+  guidance and common practice in Hawaii target 1.0 ppm or higher given the state's high
+  UV exposure; treat 0.6 ppm as the compliance floor, not the recommended operating
+  level.
+- **pH:** 7.2 – 7.8
+- **Total alkalinity:** tested monthly, but HAR Chapter 11-10 gives **no numeric target
+  range at all** — a genuine, permanent gap in the actual rule text, not a sourcing gap.
+  Generic industry practice (commonly 80–120 ppm) is followed voluntarily but carries no
+  regulatory backing in Hawaii specifically.
+- **Clarity:** either a 6" high-contrast disc visible from outside the pool at the
+  deepest point, or the main drain grate visible from the deck
+
+### Records
+Water quality monitoring data must be **submitted to the department quarterly**, on top
+of the standard 12-month on-site retention — a proactive push requirement, not just
+retain-and-produce-on-request.
+
+### Fecal/vomit incident protocol
+The pool must be immediately closed for cleaning and all bathers ordered out. What
+happens next depends on the pool's plumbing, not the contamination type: a **closed
+system** (standard recirculating, chlorinated) pool must be actively disinfected before
+reopening; an **open system** (flow-through) pool instead just stays closed until water
+quality testing confirms it meets standards, with no separate disinfection step.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Hawaii
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },

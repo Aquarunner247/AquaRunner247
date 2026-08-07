@@ -415,9 +415,13 @@ has to exist, it can't just be forgotten in a paragraph).
   looks like" — it lists representing the patterns, not evaluating all of them.
 - **No admin UI to edit these records** — seed script only, per the handoff's explicit
   non-goals list.
-- **No in-app state-code reference page changes** for the 8 new states — the existing
-  `/dashboard/compliance` page still only renders Nevada's `referenceContent`; extending it
-  to the other 8 states is a separate pass (also listed as a non-goal here).
+- **`referenceContent` is now written for every `isSupported: true` state** (12, as of
+  this pass), not just Nevada/Arizona/Arkansas — the original plan deferred this as a
+  separate pass, but shipping a state live with the reference page showing "No reference
+  content written yet" the moment closure banners go active isn't a real option, so
+  each of the 9 newly-flipped states got a page in the same commit that flipped it.
+  States that stay `isSupported: false` (Alaska, Florida) don't have `referenceContent`
+  yet — write it whenever a state gets flipped live, not before.
 - **No fabricated data.** Alaska's Table E and Colorado's Graph #1 curve points, Colorado's
   no-supplemental-oxidizer FC minimum, and Florida/California's externally-deferred
   protocols are all seeded as `null` + a `ComplianceNote`/`isCurveBased` flag, never a
@@ -459,5 +463,7 @@ so call sites don't change, only where the numbers come from.
    Never resolve one by picking a number — seed `null` and a note instead, and leave
    `isSupported: false` if the gaps are significant enough that showing this state's rules
    live would be misleading.
-6. Leave `referenceContent` for a follow-up pass (out of scope here) unless it's trivial to
-   write from the seeded data.
+6. Before flipping `isSupported: true`, simulate `activeChemistryThresholds()` against
+   the state's actual seeded rows (see "Verifying isSupported readiness" above) and
+   write `referenceContent` — both are part of "ready to go live," not a follow-up.
+   `referenceContent` can stay unwritten while a state is seeded-but-unsupported.
