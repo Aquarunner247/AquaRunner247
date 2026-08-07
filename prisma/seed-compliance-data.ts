@@ -1211,7 +1211,200 @@ const FLORIDA: StateSeed = {
   ],
 };
 
-const ALL_STATES: StateSeed[] = [NEVADA, CONNECTICUT, ALABAMA, ALASKA, ARIZONA, ARKANSAS, CALIFORNIA, COLORADO, FLORIDA];
+// ---------------------------------------------------------------------------
+// Maryland -- built from scratch against the correct citation (COMAR 10.17.01, not the
+// earlier secondary source's wrong 10.17.04). Facility category (recreational/semipublic/
+// limited-public-use) drives testing frequency (2-hour vs. 3x/day bundle), not just
+// pool-vs-spa. First state where a secondary disinfection method (copper/silver ions)
+// REDUCES the primary chlorine floor rather than adding a companion-reading requirement
+// (contrast Colorado's ion generators, which require a 0.4ppm chlorine residual
+// alongside). First state where a fecal-incident hold clock starts at VERIFIED EVEN
+// DISTRIBUTION (every-15-ft perimeter sampling), not at the moment target concentration
+// is reached. CYA restriction is conditional (banned indoors OR with bromine -- either
+// condition, not a numeric cap), a different shape than every other state's CYA handling.
+// ---------------------------------------------------------------------------
+const MARYLAND: StateSeed = {
+  state: "MD",
+  ruleset: {
+    stateName: "Maryland",
+    healthDepartmentName: "Maryland Department of Health (MDH)",
+    isSupported: false,
+    jurisdictionLevel: "COUNTY_DISTRIBUTED_STATE_DERIVED",
+    countyName: "Queen Anne's County",
+    officialCitation: "COMAR 10.17.01 (Public Swimming Pools and Spas) — §.44 (Disinfection), §.45 (Water Chemistry), §.46 (Operating Records)",
+    sourceDocument:
+      "COMAR 10.17.01, Maryland Department of Health; Queen Anne's County's rendering of the Secretary-provided standard operating-record form. The 'Fecal, Vomit and Blood Contamination Policy' is a separate statewide MDH policy package, not part of COMAR itself.",
+    recordRetentionMonths: 36,
+    logSheetSource: "STATE_PROVIDED",
+    logSheetSourceLabel: "Secretary-provided standard operating-record form (Queen Anne's County rendering, labeled 'Semi-Public Pool')",
+    logSheetSourceNotes:
+      "Testing structured around three named operational windows (see FrequencyRule notes below). Each window captures free chlorine/total bromine, combined chlorine, pH, clarity, water temperature (if heated), flow rate, filter influent/effluent pressure, pump vacuum, total bathers. Daily: filter backwash time, chemicals added, equipment issues, injuries/accidents. Weekly: total alkalinity, calcium hardness, cyanuric acid if used -- accurate for pools per the real regulation, though spas require daily per FrequencyRule below; the county form itself is labeled 'Semi-Public Pool' and may not reflect the spa-specific daily cadence. Disinfectant-used checkboxes: gas chlorine, sodium/calcium/lithium hypochlorite, ozone, bromine, other. Facility categories driving frequency: Recreational pool (general public, swim clubs, municipalities, larger apartment complexes), Semipublic pool (hotels/motels, smaller apartment complexes <=10 units, health clubs, condominiums), Limited public-use pool.",
+  },
+  chemistryThresholds: [
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.5, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Swim/diving and water-recreation pools." },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "WADING_POOL", minValue: 3.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also covers therapy pools." },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 4.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
+      appliesWhen: "if a copper/silver ion system is in use",
+      minValue: 0.5,
+      maxValue: 10.0,
+      unit: "ppm",
+      relationalRule:
+        "Using a copper/silver ion secondary disinfection system REDUCES the required free chlorine floor while active -- the opposite direction of Colorado's ion generators, which instead REQUIRE a 0.4 ppm chlorine residual as a companion reading.",
+      sourceConfidence: "confirmed",
+      notes: "Swim/diving pools.",
+    },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "SPA",
+      appliesWhen: "if a copper/silver ion system is in use",
+      minValue: 3.0,
+      maxValue: 8.0,
+      unit: "ppm",
+      relationalRule: "Same threshold-reducing secondary-disinfection effect as the pool row above.",
+      sourceConfidence: "confirmed",
+      notes: "Spas/wading/therapy pools.",
+    },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", minValue: 3.0, maxValue: 8.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "WADING_POOL", minValue: 4.0, maxValue: 8.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also covers therapy pools." },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "SPA", minValue: 4.0, maxValue: 8.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "COMBINED_CHLORINE", maxValue: 0.2, unit: "ppm", sourceConfidence: "confirmed", notes: "Same 0.2 ppm max across pools, wading/therapy pools, and spas -- one row, not duplicated per body type." },
+    { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "TOTAL_ALKALINITY", minValue: 60, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "CALCIUM_HARDNESS", minValue: 150, maxValue: 400, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "SATURATION_INDEX", minValue: -0.5, maxValue: 0.5, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "TDS", maxValue: 1500, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "TDS", appliesWhen: "salt-water pools", maxValue: 3000, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "IRON", maxValue: 0.3, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "MANGANESE", maxValue: 0.3, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "COPPER", maxValue: 1.3, unit: "ppm", sourceConfidence: "confirmed", notes: "Dissolved copper ceiling for standard chemistry -- distinct from the copper ion generator's own 0.2-1.0 ppm operating range below." },
+    { parameter: "CLARITY", unit: "", sourceConfidence: "confirmed", notes: "Main drain or a 6-inch Secchi disc clearly visible from the side." },
+    { parameter: "COPPER_ION", disinfectionMethod: "COPPER_ION", minValue: 0.2, maxValue: 1.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "SILVER_ION", disinfectionMethod: "SILVER_ION", maxValue: 0.05, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "OZONE", disinfectionMethod: "OZONE", maxValue: 0.1, unit: "ppm", sourceConfidence: "confirmed", notes: "Measured specifically 2 inches above the water surface -- a specific measurement location, not just a threshold." },
+    {
+      parameter: "PHMB",
+      disinfectionMethod: "NOT_APPLICABLE",
+      minValue: 30,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes:
+        "First PHMB (polyhexamethylene biguanide) disinfectant collected across any state so far. Incompatible with jets/sprays, halogens, or ozone -- an equipment/chemical incompatibility rule, not just a threshold. Stored with disinfectionMethod=NOT_APPLICABLE since the DisinfectionMethod enum doesn't yet have a PHMB value; not worth a schema migration for a single state's single reading -- see COMPLIANCE_RULESET_NOTES.md.",
+    },
+    {
+      parameter: "CYANURIC_ACID",
+      unit: "",
+      relationalRule:
+        "Not allowed indoors, AND not allowed with bromine -- two independent restriction conditions (either one applies), not a numeric cap. A genuinely different rule shape than every other state's CYA handling collected so far (Alabama: no ban, just a numeric range; Alaska: full ban; New York: full ban naming specific products).",
+      sourceConfidence: "confirmed",
+      notes: "No numeric range exists in COMAR -- the earlier (wrong-citation) entry's 100 ppm max/30-50 ideal range doesn't appear in the real regulation at all.",
+    },
+  ],
+  frequencyRules: [
+    {
+      parameter: "DISINFECTANT_COMBINED_CHLORINE_PH",
+      facilityAttribute: "recreational_pool_or_public_spa",
+      cadence: "every 2 hours",
+      intervalMinutes: 120,
+    },
+    {
+      parameter: "DISINFECTANT_COMBINED_CHLORINE_PH",
+      facilityAttribute: "semipublic_or_limited_public_use_pool",
+      cadence: "3x/day",
+      intervalMinutes: 480,
+    },
+    {
+      parameter: "ALL",
+      cadence: "at least 3x/day",
+      intervalMinutes: 480,
+      notes: "Clarity, temperature (if heated), flow rate, filter pressures, pump vacuum, bather load -- applies to all public pools/spas regardless of facility category.",
+    },
+    {
+      parameter: "ALL",
+      appliesWhen: "with an approved automatic controller",
+      cadence: "3x/day on a fixed schedule: 1/2 hour before opening, between 12-2 PM, and 2 hours before closing",
+      notes: "Exactly matches the Queen Anne's County form's three named operational windows -- cross-validates the county form's accuracy even though the citation originally attached to it (COMAR 10.17.04) was wrong.",
+    },
+    { parameter: "TOTAL_ALKALINITY", bodyOfWaterCategory: "POOL", cadence: "weekly", intervalMinutes: 10080 },
+    { parameter: "TOTAL_ALKALINITY", bodyOfWaterCategory: "SPA", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "CALCIUM_HARDNESS", bodyOfWaterCategory: "POOL", cadence: "weekly", intervalMinutes: 10080 },
+    { parameter: "CALCIUM_HARDNESS", bodyOfWaterCategory: "SPA", cadence: "daily", intervalMinutes: 1440 },
+    { parameter: "CYANURIC_ACID", bodyOfWaterCategory: "POOL", appliesWhen: "if used", cadence: "weekly", intervalMinutes: 10080 },
+    { parameter: "CYANURIC_ACID", bodyOfWaterCategory: "SPA", appliesWhen: "if used", cadence: "daily", intervalMinutes: 1440 },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "FECAL_FORMED",
+      triggerLabel: "Solid (formed) stool or vomit",
+      closureKind: "HOLD_AFTER_VERIFIED_DISTRIBUTION",
+      minimumDurationMinutes: 30,
+      reopeningCondition:
+        "Free chlorine raised to at least 10 ppm throughout the entire pool, pH 7.2-7.5, held 30 minutes AFTER even distribution is verified (readings taken every 15 feet around the perimeter) -- the hold clock starts at verified distribution, not at the moment chlorine is raised. Backwash filters afterward and disinfect filter media with a 1:20 bleach solution. Reduce free chlorine back to normal operating range before reopening.",
+      remediationSteps:
+        "Immediately close the pool/spa, clear all bathers, post 'temporarily closed' signs -> remove solid material with a scoop/net (never vacuum into the filter), dispose in sanitary sewer/toilet, clean and disinfect the scoop -> keep filtration running throughout -> raise free chlorine to >= 10 ppm, pH 7.2-7.5 -> verify even distribution via readings every 15 ft around the perimeter -> hold 30 minutes from that verification -> backwash filters, disinfect filter media with 1:20 bleach solution -> reduce FC to normal range -> document the incident, closure times, and all chlorine/pH readings.",
+      notes:
+        "Notably higher FC target (10 ppm) than every other state's formed-fecal target collected so far (Arkansas/New York/California all use ~2 ppm for a similar-length hold). The hold clock's dependency on verified even distribution rather than just reaching target concentration at one point is a genuinely new mechanic -- see ComplianceNote.",
+      sourceConfidence: "confirmed",
+    },
+    {
+      triggerType: "FECAL_DIARRHEAL",
+      triggerLabel: "Loose/diarrheal stool",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 960,
+      ctValue: 9600,
+      ctValueUnit: "ppm·min",
+      reopeningCondition: "Policy cites 10 ppm free chlorine for 16 hours as the reference CT value.",
+      remediationSteps: "Same general closure/removal/filtration steps as the formed-stool row above, held for the longer diarrheal duration.",
+      sourceConfidence: "confirmed",
+      notes:
+        "This cited figure (10ppm x 16hr x 60 = 9,600 ppm·min) is meaningfully LOWER than the CT=15,300 ppm·min standard Arkansas/New York/California all converge on independently -- seeded as Maryland's actual cited figure, not corrected toward the other states' number. See ComplianceNote.",
+    },
+    {
+      triggerType: "BLOOD",
+      triggerLabel: "Blood contamination",
+      closureKind: "UNTIL_RETEST_PASSES",
+      reopeningCondition:
+        "No requirement to remove blood from the water. Check current free chlorine level; if below the facility's required minimum, close until restored. Clean/disinfect deck or surface contamination with a bloodborne pathogen kit.",
+      sourceConfidence: "confirmed",
+      notes: "Matches California's approach (check current level, don't assume elevated risk), not New York's blanket blood-closure exemption.",
+    },
+  ],
+  complianceNotes: [
+    {
+      kind: "ASSUMPTION",
+      summary: "Cross-state CT-value discrepancy: Maryland's diarrheal-incident policy cites a CT of ~9,600 ppm·min (10 ppm/16hr), meaningfully lower than the 15,300 ppm·min standard Arkansas, New York, and California all converge on independently.",
+      detail:
+        "This could mean Maryland's policy draws on a different/older reference standard, that this is a simplified summary rather than the precise MDH fact sheet language, or a genuine state-to-state difference in required rigor. Seeded as Maryland's actual cited figure rather than 'corrected' toward the other states' number -- worth verifying against the full MDH fact sheet if exact precision ever matters.",
+    },
+    {
+      kind: "GAP",
+      summary: "PHMB doesn't have a DisinfectionMethod enum value -- seeded with disinfectionMethod=NOT_APPLICABLE on the PHMB ChemistryThreshold row instead of adding an enum value for a single state's single reading.",
+      detail: "Revisit if PHMB (or another disinfectant type outside CHLORINE/BROMINE/HYDROGEN_PEROXIDE/COPPER_ION/SILVER_ION/OZONE) shows up in another state's data -- at that point a real enum value (or switching the field to free text like ChemistryThreshold.parameter) would be worth the migration.",
+    },
+    {
+      kind: "GAP",
+      summary: "Jurisdiction level seeded as COUNTY_DISTRIBUTED_STATE_DERIVED: COMAR 10.17.01 is genuinely state-level, but the sourced log form is Queen Anne's County's rendering of the Secretary-provided standard form.",
+      detail: "Same ambiguous-jurisdiction shape as California's Sacramento-County-branded form. Local health departments commonly distribute their own standardized versions covering both recreational and semipublic pools, with only the frequency columns differing.",
+    },
+  ],
+};
+
+const ALL_STATES: StateSeed[] = [
+  NEVADA,
+  CONNECTICUT,
+  ALABAMA,
+  ALASKA,
+  ARIZONA,
+  ARKANSAS,
+  CALIFORNIA,
+  COLORADO,
+  FLORIDA,
+  MARYLAND,
+];
 
 async function main() {
   const arg = process.argv[2]?.toUpperCase();
