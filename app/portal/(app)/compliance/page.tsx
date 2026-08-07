@@ -1,38 +1,35 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { getOrganizationRuleset, isComplianceActive, organizationHasCommercialPools } from "@/lib/compliance";
+import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
+import { getOrganizationRuleset, isComplianceActive } from "@/lib/compliance";
 import { SimpleMarkdown } from "@/lib/simple-markdown";
 
-const STAFF_ROLES_WITH_ACCESS = new Set(["ADMIN", "OFFICE", "TECHNICIAN"]);
+export default async function PortalCompliancePage() {
+  const customerUser = await getCurrentCustomerUser();
+  if (!customerUser) redirect("/portal/login");
 
-export default async function CompliancePage() {
-  const appUser = await getCurrentAppUser();
-  if (!appUser) redirect("/login");
-  if (!STAFF_ROLES_WITH_ACCESS.has(appUser.role)) redirect("/dashboard");
-  const isAdmin = appUser.role === "ADMIN";
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerUser.customerId },
+    select: {
+      organizationId: true,
+      properties: { select: { propertyType: true }, take: 1, where: { propertyType: "COMMERCIAL" } },
+    },
+  });
+  if (!customer) redirect("/portal/login");
 
-  const [organization, ruleset] = await Promise.all([
-    prisma.organization.findUnique({
-      where: { id: appUser.organizationId },
-      select: { state: true, hasCommercialPools: true },
-    }),
-    getOrganizationRuleset(appUser.organizationId),
-  ]);
-
+  const hasCommercialPools = customer.properties.length > 0;
+  const ruleset = await getOrganizationRuleset(customer.organizationId);
   const rulesetStateName = ruleset?.stateName ?? null;
   const active = isComplianceActive(ruleset);
-  const hasCommercialPools = await organizationHasCommercialPools(appUser.organizationId, organization?.hasCommercialPools ?? null);
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
       <header className="border-b border-brand-border pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Compliance</p>
+        <p className="text-sm font-medium text-brand-ink">Customer Portal</p>
         <h1 className="text-2xl font-semibold text-brand-ink">Compliance reference</h1>
         <p className="mt-1 text-sm text-brand-muted">
-          How AquaRunner applies your state&rsquo;s health department rules to closure-risk banners and the public
-          inspector log.
+          How your service company applies your state&rsquo;s health department rules to your pool/spa.
         </p>
       </header>
 
@@ -40,30 +37,21 @@ export default async function CompliancePage() {
         {!hasCommercialPools ? (
           <div className="text-sm text-brand-muted">
             <p className="font-medium text-brand-ink">Not applicable for this account</p>
-            <p className="mt-1">
-              Compliance rules only apply to commercial pools. This account is set up for residential service, so
-              there&rsquo;s no state rule engine to show here.
-            </p>
+            <p className="mt-1">Compliance rules only apply to commercial pools/spas.</p>
           </div>
-        ) : !organization?.state ? (
+        ) : !active ? (
           <div className="text-sm text-brand-muted">
-            <p className="font-medium text-brand-ink">Set your state to enable compliance tracking</p>
+            <p className="font-medium text-brand-ink">
+              {rulesetStateName
+                ? `Compliance tracking for ${rulesetStateName} is coming soon`
+                : "Your service company hasn't set a state yet"}
+            </p>
             <p className="mt-1">
-              This account has commercial properties, but no state is set yet, so AquaRunner doesn&rsquo;t know which
-              health department&rsquo;s rules to apply.{" "}
-              {isAdmin ? (
-                <>
-                  <Link href="/dashboard/settings" className="app-link">
-                    Set it in Settings
-                  </Link>
-                  .
-                </>
-              ) : (
-                "Ask an admin to set it in Settings."
-              )}
+              Your service data is still being logged normally in the meantime. This page will populate once your
+              service company&rsquo;s state rules are available.
             </p>
           </div>
-        ) : active ? (
+        ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-medium text-brand-ink">
@@ -100,19 +88,14 @@ export default async function CompliancePage() {
               </div>
             ) : null}
           </>
-        ) : (
-          <div className="text-sm text-brand-muted">
-            <p className="font-medium text-brand-ink">
-              Compliance tracking for {rulesetStateName ?? organization?.state ?? "your state"} is coming soon
-            </p>
-            <p className="mt-1">
-              Your service data is still being logged normally in the meantime. Closure-risk banners, the public QR
-              inspector log, and this reference page will populate automatically once we&rsquo;ve built out your
-              state&rsquo;s rules.
-            </p>
-          </div>
         )}
       </section>
+
+      <p className="mt-6 text-xs text-brand-muted">
+        <Link href="/portal" className="text-brand-primary underline">
+          Back to upcoming service days
+        </Link>
+      </p>
     </main>
   );
 }

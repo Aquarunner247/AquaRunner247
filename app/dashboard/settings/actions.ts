@@ -57,30 +57,3 @@ export async function updateComplianceProfile(formData: FormData) {
   // rather than leaving them on Settings to navigate there themselves.
   redirect("/dashboard/compliance");
 }
-
-/**
- * Narrower than updateComplianceProfile -- only touches `state`, leaving
- * hasCommercialPools untouched. Used by the state selector on the Compliance page itself
- * (ComplianceStateSelect), which has no hasCommercialPools field on it; reusing
- * updateComplianceProfile there would silently null out hasCommercialPools on every
- * state change since FormData.get("hasCommercialPools") would come back empty.
- */
-export async function updateComplianceState(formData: FormData) {
-  const appUser = await requireAdmin();
-
-  const stateRaw = String(formData.get("state") ?? "").trim().toUpperCase();
-  const state = isValidStateCode(stateRaw) ? stateRaw : null;
-  const ruleset = state ? await prisma.complianceRuleset.findUnique({ where: { state }, select: { id: true } }) : null;
-
-  await prisma.organization.update({
-    where: { id: appUser.organizationId },
-    data: {
-      state,
-      complianceRulesetId: ruleset?.id ?? null,
-    },
-  });
-
-  revalidatePath("/dashboard/settings");
-  revalidatePath("/dashboard/compliance");
-  revalidatePath("/dashboard");
-}
