@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FilterMedia } from "@/generated/prisma/enums";
 
-const inputClass = "rounded border border-slate-300 px-2 py-1.5 text-sm";
+const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
 
 export type FilterTypeDefaults = {
   filterType?: string | null;
@@ -25,8 +25,8 @@ export function FilterTypeFields({ defaults = {} }: { defaults?: FilterTypeDefau
   const [filterType, setFilterType] = useState(defaults.filterType ?? "");
 
   return (
-    <div className="mt-3 rounded border border-slate-200 bg-white p-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Residential venue settings</p>
+    <div className="mt-3 rounded border border-brand-border bg-white p-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Residential venue settings</p>
 
       <select
         name="filterType"
@@ -62,27 +62,27 @@ export function FilterTypeFields({ defaults = {} }: { defaults?: FilterTypeDefau
         </div>
       ) : null}
 
-      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Required readings</p>
+      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-brand-muted">Required readings</p>
       <div className="mt-1 grid grid-cols-2 gap-1.5">
-        <label className="flex items-center gap-1.5 text-sm text-slate-700">
-          <input type="checkbox" name="requiresFC" defaultChecked={defaults.requiresFC ?? true} className="rounded border-slate-300" />
+        <label className="flex items-center gap-1.5 text-sm text-brand-ink">
+          <input type="checkbox" name="requiresFC" defaultChecked={defaults.requiresFC ?? true} className="rounded border-brand-control" />
           Free Chlorine
         </label>
-        <label className="flex items-center gap-1.5 text-sm text-slate-700">
-          <input type="checkbox" name="requiresPH" defaultChecked={defaults.requiresPH ?? true} className="rounded border-slate-300" />
+        <label className="flex items-center gap-1.5 text-sm text-brand-ink">
+          <input type="checkbox" name="requiresPH" defaultChecked={defaults.requiresPH ?? true} className="rounded border-brand-control" />
           pH
         </label>
-        <label className="flex items-center gap-1.5 text-sm text-slate-700">
+        <label className="flex items-center gap-1.5 text-sm text-brand-ink">
           <input
             type="checkbox"
             name="requiresAlkalinity"
             defaultChecked={defaults.requiresAlkalinity ?? true}
-            className="rounded border-slate-300"
+            className="rounded border-brand-control"
           />
           Alkalinity
         </label>
-        <label className="flex items-center gap-1.5 text-sm text-slate-700">
-          <input type="checkbox" name="requiresCYA" defaultChecked={defaults.requiresCYA ?? true} className="rounded border-slate-300" />
+        <label className="flex items-center gap-1.5 text-sm text-brand-ink">
+          <input type="checkbox" name="requiresCYA" defaultChecked={defaults.requiresCYA ?? true} className="rounded border-brand-control" />
           Cyanuric Acid (monthly)
         </label>
       </div>

@@ -59,23 +59,20 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-5">
+    <main className="app-page-wide">
+      <header className="app-page-head flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-[#12234A]">Admin</p>
-          <h1 className="text-2xl font-semibold text-slate-900">Customers</h1>
-          <p className="mt-1 text-sm text-slate-600">Click a customer to manage their property, aquatic venues, and history.</p>
+          <p className="app-kicker">Admin</p>
+          <h1 className="app-h1">Customers</h1>
+          <p className="app-subhead">Click a customer to manage their property, aquatic venues, and history.</p>
         </div>
         <div className="flex items-center gap-3">
           {!showAddForm ? (
-            <Link
-              href="/dashboard/customers?new=1"
-              className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#12234A]"
-            >
+            <Link href="/dashboard/customers?new=1" className="app-btn-primary-sm">
               + Add customer
             </Link>
           ) : null}
-          <Link href="/dashboard" className="text-sm text-[#0A5FA4] underline">
+          <Link href="/dashboard" className="app-link">
             Back to dashboard
           </Link>
         </div>
@@ -83,33 +80,31 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
 
       {showAddForm ? (
         <section className="mt-6">
-          <form action={createCustomer} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <form action={createCustomer} className="app-card">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-900">Add customer + property</p>
-              <Link href="/dashboard/customers" className="text-sm text-slate-500 underline">
+              <p className="text-sm font-semibold text-brand-ink">Add customer + property</p>
+              <Link href="/dashboard/customers" className="text-sm text-brand-muted underline">
                 Cancel
               </Link>
             </div>
             <div className="mt-3">
               <NewCustomerFormFields managementCompanies={managementCompanies} />
             </div>
-            <button className="mt-3 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+            <button className="app-btn-primary-sm mt-3" type="submit">
               Create customer/property
             </button>
           </form>
         </section>
       ) : null}
 
-      <section className="mt-6 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white shadow-sm">
+      <section className="mt-6 space-y-6">
         {customers.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">No customers yet.</p>
+          <p className="app-card-inset text-sm text-brand-muted">No customers yet.</p>
         ) : (
           customerGroups.map((group) => (
-            <div key={group.letter} className="flex">
-              <div className="flex w-10 shrink-0 justify-center border-r border-slate-200 bg-slate-50 pt-4">
-                <span className="text-xs font-semibold uppercase text-slate-400">{group.letter}</span>
-              </div>
-              <div className="min-w-0 flex-1 divide-y divide-slate-200">
+            <div key={group.letter}>
+              <p className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">{group.letter}</p>
+              <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
                 {group.customers.map((customer) => {
                   const property = customer.properties[0];
                   const venueCount = customer.properties.reduce((sum, p) => sum + p.bodiesOfWater.length, 0);
@@ -117,18 +112,21 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
                     <Link
                       key={customer.id}
                       href={`/dashboard/customers/${customer.id}`}
-                      className="flex items-center justify-between gap-3 p-4 hover:bg-slate-50"
+                      className="group flex items-center gap-3 rounded-xl border border-brand-border/90 bg-white p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary/40 hover:shadow-soft"
                     >
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">{customer.name}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-foam font-[family-name:var(--font-display)] text-sm font-bold text-brand-primary">
+                        {customer.name.trim().charAt(0).toUpperCase() || "?"}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-brand-ink group-hover:text-brand-ink">{customer.name}</p>
+                        <p className="mt-0.5 truncate text-xs text-brand-muted">
                           {property?.managementCompany ? `${property.managementCompany.name} · ` : ""}
                           {[property?.city, property?.region].filter(Boolean).join(", ") || "No address on file"}
                         </p>
                       </div>
-                      <p className="shrink-0 text-xs text-slate-400">
-                        {venueCount} aquatic venue{venueCount === 1 ? "" : "s"}
-                      </p>
+                      <span className="app-badge shrink-0">
+                        {venueCount} venue{venueCount === 1 ? "" : "s"}
+                      </span>
                     </Link>
                   );
                 })}

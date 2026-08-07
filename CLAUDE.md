@@ -1,5 +1,43 @@
 # Working conventions for this project
 
+## Design — read DESIGN-SYSTEM.md before touching any UI
+
+`DESIGN-SYSTEM.md` at the repo root is the single source of truth for color and type.
+Read it before writing UI code. It exists because this repo previously accumulated five
+competing palettes — the Tailwind config declared one thing, components used another, the
+landing page CSS module defined a third, and a stale patch file carried a fourth. Every
+agent and human working here follows the same document so that cannot happen again.
+
+The short version, so it is impossible to miss:
+
+- **One palette**, in `tailwind.config.ts` under `theme.extend.colors.brand`. Need a color
+  that isn't there? Add it there. **Never inline a hex** in `className`, inline `style`, or
+  a CSS module.
+- **Cool teal = the product** (dashboard, technician screens, inspector record, portal).
+  **Warm clay = marketing** plus the single "act now" accent inside the product.
+- **`brand-accent` (`#F6AD93`) is dark-background only.** It is 1.6:1 on white. Never text
+  on light, never a fill behind white text.
+- **Status colors are reserved.** `ok`/`warn`/`danger` mean a water-reading result. Never
+  use `cta` or `accent` to signal a chemical value, and never restyle a status chip to match
+  a brand color. A failed chlorine reading must not compete visually with a marketing button.
+- **Never use `slate-*`, `gray-*`, `zinc-*`, `emerald-*`, `rose-*`, `amber-*`, `sky-*`,
+  `blue-*`.** Use `brand-ink`, `brand-muted`, `brand-foam`, `brand-border`, status tokens.
+- **Reach for the `.app-*` classes in `globals.css` first.** Cards, fields, buttons, links,
+  badges, pills, and tabs are already defined on tokens. Needing to restyle one inline means
+  the shared class should change instead.
+- **Legacy aliases** (`brand-navy`, `brand-teal`, `brand-coral`, `brand-blue`, `brand-sky`,
+  `brand-mist`, `brand-alert`) still resolve so old screens compile. **Do not use them in
+  new code.**
+- **Type is fixed**: Big Shoulders Display (`font-display`), Inter (`font-sans`), IBM Plex
+  Mono (`.app-metric` for readings, permit numbers, timestamps, route IDs). Add no families.
+- **Outdoor legibility is a functional requirement, not polish.** Technicians use this on
+  phones in direct Nevada sun. Text at or below 14px sits on `white` or `brand-surface`,
+  never `brand-muted` on `brand-foam`. Touch targets 44px minimum. Prefer solid fills over
+  translucency for anything a tech taps while working.
+
+Before claiming a UI change is done, grep your own diff for hex literals and for the banned
+utility prefixes above.
+
 ## Credentials and secrets
 - Never ask the user to paste a real credential (DATABASE_URL, API keys, passwords)
   into chat, even to run a script for them. Instead: confirm the script/command is

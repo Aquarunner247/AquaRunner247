@@ -75,9 +75,9 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-[#0A5FA4]">AquaRunner 24/7 Pro</p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">Almost done</h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="text-sm font-medium uppercase tracking-wide text-brand-primary">AquaRunner 24/7 Pro</p>
+        <h1 className="mt-2 text-2xl font-semibold text-brand-ink">Almost done</h1>
+        <p className="mt-2 text-sm text-brand-muted">
           {isResume
             ? "Welcome back — your card was already confirmed."
             : params.session_id
@@ -86,7 +86,7 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
           Set a password for <span className="font-medium">{email}</span> to finish setting up{" "}
           <span className="font-medium">{businessName}</span>.
         </p>
-        {errorMessage ? <p className="mt-3 text-sm text-red-600">{errorMessage}</p> : null}
+        {errorMessage ? <p className="mt-3 text-sm text-brand-danger">{errorMessage}</p> : null}
       </div>
 
       <form action={completeSignup} className="mt-8 flex flex-col gap-4">
@@ -106,22 +106,22 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
         )}
         {isResume ? (
           <>
-            <label className="flex flex-col gap-1 text-sm text-slate-700">
+            <label className="flex flex-col gap-1 text-sm text-brand-ink">
               Your name
               <input
                 name="name"
                 required
                 defaultValue={params.name ?? ""}
-                className="rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-[#0A5FA4] focus:outline-none focus:ring-1 focus:ring-[#0A5FA4]"
+                className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-700">
+            <label className="flex flex-col gap-1 text-sm text-brand-ink">
               State
               <select
                 name="state"
                 required
                 defaultValue={params.state ?? ""}
-                className="rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-[#0A5FA4] focus:outline-none focus:ring-1 focus:ring-[#0A5FA4]"
+                className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
               >
                 <option value="" disabled>
                   Select your state
@@ -133,7 +133,7 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
                 ))}
               </select>
             </label>
-            <fieldset className="flex flex-col gap-1 text-sm text-slate-700">
+            <fieldset className="flex flex-col gap-1 text-sm text-brand-ink">
               <legend className="mb-1">Do you have commercial pools?</legend>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
@@ -148,7 +148,7 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
             </fieldset>
           </>
         ) : null}
-        <label className="flex flex-col gap-1 text-sm text-slate-700">
+        <label className="flex flex-col gap-1 text-sm text-brand-ink">
           Password
           <input
             type="password"
@@ -156,20 +156,20 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
             autoComplete="new-password"
             required
             minLength={8}
-            className="rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-[#0A5FA4] focus:outline-none focus:ring-1 focus:ring-[#0A5FA4]"
+            className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
           />
         </label>
         <button
           type="submit"
-          className="rounded-md bg-[#0A5FA4] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#12234A]"
+          className="rounded-md bg-brand-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-ink"
         >
           Finish setup
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-500">
+      <p className="mt-6 text-center text-sm text-brand-muted">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium text-[#0A5FA4] underline">
+        <Link href="/login" className="font-medium text-brand-primary underline">
           Sign in
         </Link>
       </p>

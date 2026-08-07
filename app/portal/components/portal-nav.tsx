@@ -11,8 +11,8 @@ function isActive(currentPath: string, href: string) {
 
 function navClass(active: boolean) {
   return active
-    ? "flex items-center rounded-md bg-[#0A5FA4] px-3 py-2 text-sm font-medium text-white"
-    : "flex items-center rounded-md px-3 py-2 text-sm font-medium text-[#A9D3E0] hover:bg-white/5 hover:text-white";
+    ? "flex items-center rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white"
+    : "flex items-center rounded-md px-3 py-2 text-sm font-medium text-brand-border hover:bg-white/5 hover:text-white";
 }
 
 const LINKS = [
@@ -36,9 +36,9 @@ export function PortalNav() {
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-white/10 bg-[#12234A] px-4 py-3 md:hidden">
+      <div className="flex items-center justify-between border-b border-white/10 bg-brand-ink px-4 py-3 md:hidden">
         <Link href="/portal" className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-white">
-          AquaRunner <span className="text-[#0A5FA4]">24/7</span> Portal
+          AquaRunner <span className="text-brand-primary">24/7</span> Portal
         </Link>
         <button
           type="button"
@@ -54,11 +54,11 @@ export function PortalNav() {
       <aside
         className={`${
           menuOpen ? "block" : "hidden"
-        } w-full shrink-0 bg-[#12234A] md:flex md:h-screen md:w-60 md:flex-col md:sticky md:top-0`}
+        } w-full shrink-0 bg-brand-ink md:flex md:h-screen md:w-60 md:flex-col md:sticky md:top-0`}
       >
         <div className="hidden px-5 py-6 md:block">
           <Link href="/portal" className="font-[family-name:var(--font-display)] text-lg font-bold uppercase leading-tight tracking-wide text-white">
-            AquaRunner <span className="text-[#0A5FA4]">24/7</span>
+            AquaRunner <span className="text-brand-primary">24/7</span>
             <br />
             Portal
           </Link>
@@ -77,7 +77,7 @@ export function PortalNav() {
             type="button"
             onClick={() => void onSignOut()}
             disabled={signingOut}
-            className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-[#E29B8F] hover:bg-white/5 disabled:opacity-60"
+            className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-brand-accent hover:bg-white/5 disabled:opacity-60"
           >
             {signingOut ? "Signing out..." : "Sign out"}
           </button>

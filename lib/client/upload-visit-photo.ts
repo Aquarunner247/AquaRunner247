@@ -9,7 +9,12 @@ const PHOTO_ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "Visit not found.",
 };
 
-export type UploadVisitPhotoResult = { ok: true; photoId: string } | { ok: false; error: string };
+import { queuedSubmitFormData } from "./offline-queue";
+
+export type UploadVisitPhotoResult =
+  | { ok: true; photoId: string }
+  | { ok: true; queued: true }
+  | { ok: false; error: string };
 
 /**
  * Uploads a single photo to a specific visit's photo log. Grabs the device's current
@@ -37,12 +42,22 @@ export async function uploadVisitPhoto(visitId: string, file: File): Promise<Upl
     });
   }
 
-  const response = await fetch(`/api/visits/${visitId}/photos`, { method: "POST", body: formData });
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
+  const result = await queuedSubmitFormData({
+    url: `/api/visits/${visitId}/photos`,
+    method: "POST",
+    label: "Visit photo",
+    visitId,
+    formData,
+  });
+
+  if (result.status === "queued") {
+    return { ok: true, queued: true };
+  }
+  if (result.status === "failed") {
+    const body = await result.response.json().catch(() => null);
     const error = (body?.error && PHOTO_ERROR_MESSAGES[body.error]) || "Photo upload failed";
     return { ok: false, error };
   }
-  const data = (await response.json()) as { photoId: string };
+  const data = (await result.response.json()) as { photoId: string };
   return { ok: true, photoId: data.photoId };
 }

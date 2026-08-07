@@ -5,8 +5,19 @@ import { prisma } from "@/lib/prisma";
 import { AlertsBell } from "@/app/components/alerts-bell";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
 import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, organizationHasCommercialPools } from "@/lib/compliance";
+import { WaveProgress } from "@/app/components/wave-progress";
+import { ChemGauge } from "@/app/components/chem-gauge";
 import { resolveIssue } from "./actions";
 import { TechnicianHome } from "./technician-home";
+
+type ReadingParam = { key: string; label: string; value: number; unit: string; min: number; max: number; idealMin: number; idealMax: number };
+
+const READING_GAUGE_RANGES: Record<string, { min: number; max: number; unit: string; label: string }> = {
+  freeChlorine: { min: 0, max: 12, unit: " ppm", label: "Free Cl" },
+  ph: { min: 6, max: 8.5, unit: "", label: "pH" },
+  alkalinity: { min: 0, max: 220, unit: " ppm", label: "Alkalinity" },
+  cya: { min: 0, max: 110, unit: " ppm", label: "CYA" },
+};
 
 type DashboardPageProps = {
   searchParams?: Promise<{ month?: string; type?: string }>;
@@ -42,11 +53,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     sp.type === "RESIDENTIAL" || sp.type === "COMMERCIAL" ? sp.type : null;
 
   // ---- Admin overview data ----
-  let stats: { customers: number; managementCompanies: number; bodiesOfWater: number; upcomingThisWeek: number } | null = null;
+  let stats: { customers: number; managementCompanies: number; bodiesOfWater: number; upcomingThisWeek: number; weekTotal: number; weekCompleted: number } | null = null;
   let activity: Array<{ id: string; label: string; detail: string; at: Date }> = [];
   let overdueVisits: Array<{ id: string; property: string; body: string; tech: string; scheduledStart: Date }> = [];
-  let outOfRangeReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[] }> = [];
-  let closureHazardReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[] }> = [];
+  let outOfRangeReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[]; params: ReadingParam[] }> = [];
+  let closureHazardReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[]; params: ReadingParam[] }> = [];
 
   let complianceComingSoon: { hasCommercialPools: boolean; stateName: string | null } | null = null;
   let closureFeeLabel: string | null = null;
@@ -75,7 +86,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const bodyPropertyFilter = selectedPropertyType ? { propertyType: selectedPropertyType } : {};
     const visitPropertyFilter = selectedPropertyType ? { property: { propertyType: selectedPropertyType } } : {};
 
-    const [customersCount, managementCompaniesCount, bodiesCount, upcomingCount] = await Promise.all([
+    const [customersCount, managementCompaniesCount, bodiesCount, upcomingCount, weekTotalCount, weekCompletedCount] = await Promise.all([
       prisma.customer.count({ where: { organizationId: orgId, ...customerPropertyFilter } }),
       prisma.managementCompany.count({ where: { organizationId: orgId } }),
       prisma.bodyOfWater.count({ where: { property: { organizationId: orgId, ...bodyPropertyFilter } } }),
@@ -87,8 +98,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           ...visitPropertyFilter,
         },
       }),
+      prisma.serviceVisit.count({
+        where: { organizationId: orgId, scheduledStart: { gte: weekStart, lt: weekEnd }, ...visitPropertyFilter },
+      }),
+      prisma.serviceVisit.count({
+        where: { organizationId: orgId, scheduledStart: { gte: weekStart, lt: weekEnd }, status: "COMPLETED", ...visitPropertyFilter },
+      }),
     ]);
-    stats = { customers: customersCount, managementCompanies: managementCompaniesCount, bodiesOfWater: bodiesCount, upcomingThisWeek: upcomingCount };
+    stats = {
+      customers: customersCount,
+      managementCompanies: managementCompaniesCount,
+      bodiesOfWater: bodiesCount,
+      upcomingThisWeek: upcomingCount,
+      weekTotal: weekTotalCount,
+      weekCompleted: weekCompletedCount,
+    };
 
     const [recentVisits, recentCustomers] = await Promise.all([
       prisma.serviceVisit.findMany({
@@ -186,6 +210,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     for (const r of readings) {
       const issues: string[] = [];
       const hazards: string[] = [];
+      const params: ReadingParam[] = [];
       const fc = r.freeChlorinePpm != null ? Number(r.freeChlorinePpm) : null;
       const ph = r.ph != null ? Number(r.ph) : null;
       const alk = r.alkalinityPpm != null ? Number(r.alkalinityPpm) : null;
@@ -197,22 +222,36 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       // actually defines it -- a null bound means this state's regulation doesn't have
       // one (e.g. Arizona has no hazard tier on anything; Arkansas's CYA has no hazard
       // cap), never a fallback to another state's number. See
-      // lib/compliance.ts's activeChemistryThresholds doc comment.
+      // lib/compliance.ts's activeChemistryThresholds doc comment. Gauges (params) only
+      // render when this state defines BOTH ideal bounds for a parameter -- same
+      // skip-when-null rule, not a fallback to a default range.
       if (fc != null) {
         if (fcMin != null && fc < fcMin) issues.push(`Free chlorine ${fc} ppm`);
         else if (t.freeChlorineMaxPpm != null && fc > t.freeChlorineMaxPpm) issues.push(`Free chlorine ${fc} ppm`);
+        if (fcMin != null && t.freeChlorineMaxPpm != null) {
+          params.push({ key: "freeChlorine", ...READING_GAUGE_RANGES.freeChlorine, value: fc, idealMin: fcMin, idealMax: t.freeChlorineMaxPpm });
+        }
       }
       if (ph != null) {
         if (t.phTargetMin != null && ph < t.phTargetMin) issues.push(`pH ${ph}`);
         else if (t.phTargetMax != null && ph > t.phTargetMax) issues.push(`pH ${ph}`);
+        if (t.phTargetMin != null && t.phTargetMax != null) {
+          params.push({ key: "ph", ...READING_GAUGE_RANGES.ph, value: ph, idealMin: t.phTargetMin, idealMax: t.phTargetMax });
+        }
       }
       if (alk != null) {
         if (t.alkalinityTargetMinPpm != null && alk < t.alkalinityTargetMinPpm) issues.push(`Alkalinity ${alk} ppm`);
         else if (t.alkalinityTargetMaxPpm != null && alk > t.alkalinityTargetMaxPpm) issues.push(`Alkalinity ${alk} ppm`);
+        if (t.alkalinityTargetMinPpm != null && t.alkalinityTargetMaxPpm != null) {
+          params.push({ key: "alkalinity", ...READING_GAUGE_RANGES.alkalinity, value: alk, idealMin: t.alkalinityTargetMinPpm, idealMax: t.alkalinityTargetMaxPpm });
+        }
       }
       if (cya != null) {
         if (t.cyaTargetMinPpm != null && cya < t.cyaTargetMinPpm) issues.push(`Cyanuric acid ${cya} ppm`);
         else if (t.cyaTargetMaxPpm != null && cya > t.cyaTargetMaxPpm) issues.push(`Cyanuric acid ${cya} ppm`);
+        if (t.cyaTargetMinPpm != null && t.cyaTargetMaxPpm != null) {
+          params.push({ key: "cya", ...READING_GAUGE_RANGES.cya, value: cya, idealMin: t.cyaTargetMinPpm, idealMax: t.cyaTargetMaxPpm });
+        }
       }
 
       // Imminent health hazard — closure risk (fee, if this department charges one)
@@ -230,6 +269,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           body: r.visit.bodyOfWater.name,
           completedAt: r.visit.completedAt,
           issues: hazards,
+          params,
         });
       } else if (issues.length) {
         outOfRangeReadings.push({
@@ -238,6 +278,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           body: r.visit.bodyOfWater.name,
           completedAt: r.visit.completedAt,
           issues,
+          params,
         });
       }
     }
@@ -308,13 +349,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     issues: r.issues,
   }));
 
+  const weekPercent = stats && stats.weekTotal > 0 ? (stats.weekCompleted / stats.weekTotal) * 100 : 0;
+
   return (
-    <main className="mx-auto min-h-screen max-w-5xl px-6 py-12">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
+    <main className="app-page-wide">
+      <header className="app-page-head flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-[#12234A]">Dashboard</p>
-          <h1 className="text-2xl font-semibold text-slate-900">Welcome back</h1>
-          <p className="mt-1 text-sm text-slate-600">{user.email}</p>
+          <p className="app-kicker">Dashboard</p>
+          <h1 className="app-h1">Welcome back</h1>
+          <p className="app-subhead">{user.email}</p>
         </div>
         {appUser?.role === "ADMIN" ? (
           <div className="flex items-center gap-4">
@@ -331,73 +374,174 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ) : null}
       </header>
 
-      <section className="mt-8 space-y-4">
+      <section className="mt-6 space-y-5">
         {complianceComingSoon && !complianceComingSoon.stateName ? (
-          <div className="rounded-lg border border-[#0A5FA4]/30 bg-[#EAF6FA] p-4 text-sm text-[#12234A]">
+          <div className="rounded-lg border border-brand-border bg-brand-foam p-4 text-sm text-brand-ink">
             <p className="font-medium">Set your state to enable compliance tracking</p>
-            <p className="mt-1 text-[#4A6572]">
+            <p className="mt-1 text-brand-muted">
               This account has commercial properties, but no state is set yet.{" "}
-              <Link href="/dashboard/settings" className="underline">
+              <Link href="/dashboard/settings" className="app-link">
                 Set it in Settings
               </Link>{" "}
               so closure-risk banners and the QR inspector log can turn on.
             </p>
           </div>
         ) : complianceComingSoon ? (
-          <div className="rounded-lg border border-[#0A5FA4]/30 bg-[#EAF6FA] p-4 text-sm text-[#12234A]">
+          <div className="rounded-lg border border-brand-border bg-brand-foam p-4 text-sm text-brand-ink">
             <p className="font-medium">Compliance tracking for {complianceComingSoon.stateName} is coming soon</p>
-            <p className="mt-1 text-[#4A6572]">
+            <p className="mt-1 text-brand-muted">
               Your service data is still being logged normally in the meantime — closure-risk banners and the QR
               inspector log will turn on automatically once we&rsquo;ve built out your state&rsquo;s rules.
             </p>
           </div>
         ) : null}
         {!appUser ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <div className="rounded-2xl border border-brand-warn/30 bg-brand-warnFill p-4 text-sm text-brand-warn">
             <p className="font-medium">No AquaRunner profile linked</p>
-            <p className="mt-2 text-amber-900">
-              Your Supabase login works, but there is no matching row in the <code className="rounded bg-amber-100 px-1">User</code> table
-              (or <code className="rounded bg-amber-100 px-1">authUserId</code> is not set). Run{" "}
-              <code className="rounded bg-amber-100 px-1">npm run db:seed</code> with{" "}
-              <code className="rounded bg-amber-100 px-1">SUPABASE_SERVICE_ROLE_KEY</code> and{" "}
-              <code className="rounded bg-amber-100 px-1">SEED_DEV_PASSWORD</code>, then sign in with a seeded email.
+            <p className="mt-2 text-brand-warn">
+              Your Supabase login works, but there is no matching row in the <code className="rounded bg-brand-warnFill px-1">User</code> table
+              (or <code className="rounded bg-brand-warnFill px-1">authUserId</code> is not set). Run{" "}
+              <code className="rounded bg-brand-warnFill px-1">npm run db:seed</code> with{" "}
+              <code className="rounded bg-brand-warnFill px-1">SUPABASE_SERVICE_ROLE_KEY</code> and{" "}
+              <code className="rounded bg-brand-warnFill px-1">SEED_DEV_PASSWORD</code>, then sign in with a seeded email.
             </p>
           </div>
         ) : appUser.role === "ADMIN" && stats ? (
           <>
-            {/* Quick stats */}
-            <div className="grid gap-4 sm:grid-cols-4">
-              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Customers</p>
-                <p className="mt-1 text-2xl font-semibold text-[#FF6B5B]">{stats.customers}</p>
+            {/* Quick stats — card grid */}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="app-card app-card-hover">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Customers</p>
+                <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.customers}</p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property Management Cos.</p>
-                <p className="mt-1 text-2xl font-semibold text-[#FF6B5B]">{stats.managementCompanies}</p>
+              <div className="app-card app-card-hover">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Property mgmt. cos.</p>
+                <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.managementCompanies}</p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Aquatic venues</p>
-                <p className="mt-1 text-2xl font-semibold text-[#FF6B5B]">{stats.bodiesOfWater}</p>
+              <div className="app-card app-card-hover">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Aquatic venues</p>
+                <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.bodiesOfWater}</p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Visits this week</p>
-                <p className="mt-1 text-2xl font-semibold text-[#FF6B5B]">{stats.upcomingThisWeek}</p>
+              <div className="app-card app-card-hover">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Scheduled this week</p>
+                <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.upcomingThisWeek}</p>
+              </div>
+            </div>
+
+            {stats.customers === 0 ? (
+              <div className="app-card flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-brand-ink">Add your first customer to get started</p>
+                  <p className="mt-1 text-sm text-brand-muted">Customers, properties, and aquatic venues will show up here once added.</p>
+                </div>
+                <Link href="/dashboard/customers?new=1" className="app-btn-primary-sm shrink-0">
+                  + Add customer
+                </Link>
+              </div>
+            ) : null}
+
+            {/* Week progress — the signature water-level motif, doing real work: share of this week's stops completed */}
+            <div className="app-card">
+              <WaveProgress
+                percent={weekPercent}
+                label="This week's stops"
+                sublabel={stats.weekTotal > 0 ? `${stats.weekCompleted} of ${stats.weekTotal} complete` : "Nothing scheduled yet"}
+              />
+            </div>
+
+            {closureHazardReadings.length > 0 ? (
+              <div className="rounded-2xl border-2 border-brand-danger bg-brand-dangerFill p-4 shadow-soft md:p-5">
+                <p className="text-xs font-bold uppercase tracking-wide text-brand-danger">
+                  ⚠ Imminent health hazard — closure risk{closureFeeLabel ? ` (${closureFeeLabel})` : ""}
+                </p>
+                <ul className="mt-3 space-y-3">
+                  {closureHazardReadings.map((r) => (
+                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-danger/30 bg-white/70 p-3">
+                      <div>
+                        <p className="text-sm font-semibold text-brand-ink">
+                          {r.property} — {r.body}
+                        </p>
+                        {r.completedAt ? <p className="text-xs text-brand-icon">{r.completedAt.toLocaleDateString()}</p> : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {r.params.map((p) => (
+                          <span key={p.key} className="flex items-center gap-1.5">
+                            <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
+                            <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {/* Out-of-range readings — signature chemistry gauge instead of a plain number */}
+              <div className="app-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Out-of-range readings (last 7 days)</p>
+                {outOfRangeReadings.length === 0 ? (
+                  <p className="mt-2 text-sm text-brand-ink/60">Every commercial reading this week is in range.</p>
+                ) : (
+                  <ul className="mt-3 space-y-3">
+                    {outOfRangeReadings.map((r) => (
+                      <li key={r.id} className="app-card-inset flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-brand-ink">
+                            {r.property} — {r.body}
+                          </p>
+                          {r.completedAt ? <p className="text-xs text-brand-icon">{r.completedAt.toLocaleDateString()}</p> : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {r.params.map((p) => (
+                            <span key={p.key} className="flex items-center gap-1.5">
+                              <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
+                              <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Overdue stops */}
+              <div className="app-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Overdue stops</p>
+                {overdueVisits.length === 0 ? (
+                  <p className="mt-2 text-sm text-brand-ink/60">Nothing overdue — every stop is on schedule.</p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {overdueVisits.map((v) => (
+                      <li key={v.id} className="app-card-inset flex items-center justify-between gap-2 text-sm">
+                        <span className="min-w-0 truncate text-brand-ink">
+                          {v.property} — {v.body} <span className="text-brand-ink/60">· {v.tech}</span>
+                        </span>
+                        <span className="app-pill-attention shrink-0">
+                          Due {v.scheduledStart.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
 
             {/* Recent activity */}
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recent activity</p>
+            <div className="app-card">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Recent activity</p>
               {activity.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">No recent activity yet.</p>
+                <p className="mt-2 text-sm text-brand-ink/60">No recent activity yet — completed visits and new customers will show up here.</p>
               ) : (
-                <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                <ul className="mt-2 space-y-2 text-sm">
                   {activity.map((a) => (
-                    <li key={a.id} className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-                      <span>
-                        <span className="font-medium text-slate-900">{a.label}</span> — {a.detail}
+                    <li key={a.id} className="flex items-center justify-between gap-2 border-b border-brand-border pb-2 last:border-0 last:pb-0">
+                      <span className="text-brand-ink/80">
+                        <span className="font-medium text-brand-ink">{a.label}</span> — {a.detail}
                       </span>
-                      <span className="shrink-0 text-xs text-slate-400">
+                      <span className="app-metric shrink-0 text-xs text-brand-icon">
                         {a.at.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                       </span>
                     </li>
@@ -408,11 +552,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </>
         ) : (
           <>
-            <div className="rounded-lg border border-[#12234A] bg-[#12234A] p-4 shadow-sm">
-              <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-[#FF6B5B]">
-                {appUser.role}
-              </p>
-              {appUser.name ? <p className="mt-1 font-[family-name:var(--font-display)] text-lg font-bold text-white">{appUser.name}</p> : null}
+            <div className="rounded-2xl border border-brand-ink bg-brand-ink p-4 shadow-soft">
+              <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-accent">{appUser.role}</p>
+              {appUser.name ? <p className="mt-1 font-display text-lg font-bold text-white">{appUser.name}</p> : null}
             </div>
           </>
         )}

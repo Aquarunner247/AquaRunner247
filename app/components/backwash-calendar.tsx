@@ -13,19 +13,19 @@ export function BackwashCalendar({ days }: BackwashCalendarProps) {
   const backwashCount = days.filter((d) => d.backwashed).length;
 
   return (
-    <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 md:col-span-2">
+    <div className="rounded-lg border border-brand-border bg-white p-4 md:col-span-2">
       <div className="flex items-baseline justify-between">
-        <h3 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">
+        <h3 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
           Backwash performed
         </h3>
-        <span className="font-[family-name:var(--font-mono)] text-xs text-[#4A6572]">
+        <span className="font-[family-name:var(--font-mono)] text-xs text-brand-muted">
           {backwashCount} day{backwashCount === 1 ? "" : "s"} this month
         </span>
       </div>
 
       <div className="mt-3 grid grid-cols-7 gap-1.5 sm:grid-cols-10 md:grid-cols-[repeat(15,minmax(0,1fr))] lg:grid-cols-[repeat(31,minmax(0,1fr))]">
         {days.map((d) => {
-          const bg = !d.visited ? "bg-[#EAF6FA] text-[#7FA0AC]" : d.backwashed ? "bg-[#0A5FA4] text-white" : "bg-[#FFD9D3] text-[#4A6572]";
+          const bg = !d.visited ? "bg-brand-surface text-brand-muted" : d.backwashed ? "bg-brand-primary text-white" : "bg-brand-warnFill text-brand-warn";
           const label = !d.visited ? "–" : d.backwashed ? "Y" : "N";
           const title = !d.visited
             ? `Day ${d.day}: no service visit`
@@ -45,7 +45,7 @@ export function BackwashCalendar({ days }: BackwashCalendarProps) {
         })}
       </div>
 
-      <p className="mt-2 text-[11px] text-[#4A6572]">
+      <p className="mt-2 text-[11px] text-brand-muted">
         Y = backwash performed · N = serviced, no backwash · – = no visit that day
       </p>
     </div>

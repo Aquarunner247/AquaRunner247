@@ -41,23 +41,23 @@ export default async function PlatformAdminPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-5">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-brand-border pb-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#12234A]">Platform</p>
-          <h1 className="text-2xl font-semibold text-slate-900">Companies</h1>
-          <p className="mt-1 text-sm text-slate-500">Every company that has signed up, across all organizations.</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Platform</p>
+          <h1 className="text-2xl font-semibold text-brand-ink">Companies</h1>
+          <p className="mt-1 text-sm text-brand-muted">Every company that has signed up, across all organizations.</p>
         </div>
-        <Link href="/platform-admin/compliance" className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/platform-admin/compliance" className="rounded border border-brand-border px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-foam">
           Compliance data preview →
         </Link>
       </header>
 
       {waitingList.length > 0 ? (
-        <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+        <section className="mt-6 rounded-lg border border-brand-warn/30 bg-brand-warnFill p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-warn">
             Accounts waiting on compliance support
           </p>
-          <ul className="mt-2 space-y-1 text-sm text-amber-900">
+          <ul className="mt-2 space-y-1 text-sm text-brand-warn">
             {waitingList.map((w) => (
               <li key={w.code}>
                 <span className="font-medium">{w.stateName}</span> — {w.count} account{w.count === 1 ? "" : "s"} waiting
@@ -67,42 +67,42 @@ export default async function PlatformAdminPage() {
         </section>
       ) : null}
 
-      <section className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+      <section className="mt-6 overflow-x-auto rounded-lg border border-brand-border bg-white shadow-sm">
         <table className="w-full min-w-[800px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left">
-              <th className="px-3 py-2 font-medium text-slate-500">Company</th>
-              <th className="px-3 py-2 font-medium text-slate-500">Admin</th>
-              <th className="px-3 py-2 font-medium text-slate-500">State</th>
-              <th className="px-3 py-2 font-medium text-slate-500">Status</th>
-              <th className="px-3 py-2 font-medium text-slate-500">Trial ends</th>
-              <th className="px-3 py-2 font-medium text-slate-500">Stripe</th>
-              <th className="px-3 py-2 font-medium text-slate-500">Signed up</th>
-              <th className="px-3 py-2 font-medium text-slate-500"></th>
+            <tr className="border-b border-brand-border bg-brand-surface text-left">
+              <th className="px-3 py-2 font-medium text-brand-muted">Company</th>
+              <th className="px-3 py-2 font-medium text-brand-muted">Admin</th>
+              <th className="px-3 py-2 font-medium text-brand-muted">State</th>
+              <th className="px-3 py-2 font-medium text-brand-muted">Status</th>
+              <th className="px-3 py-2 font-medium text-brand-muted">Trial ends</th>
+              <th className="px-3 py-2 font-medium text-brand-muted">Stripe</th>
+              <th className="px-3 py-2 font-medium text-brand-muted">Signed up</th>
+              <th className="px-3 py-2 font-medium text-brand-muted"></th>
             </tr>
           </thead>
           <tbody>
             {organizations.map((org) => {
               const admin = org.users[0];
               return (
-                <tr key={org.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-3 py-2 font-medium text-slate-900">{org.businessName || org.name}</td>
-                  <td className="px-3 py-2 text-slate-700">{admin ? admin.name ?? admin.email : "—"}</td>
-                  <td className="px-3 py-2 text-slate-700">
+                <tr key={org.id} className="border-b border-brand-border last:border-0">
+                  <td className="px-3 py-2 font-medium text-brand-ink">{org.businessName || org.name}</td>
+                  <td className="px-3 py-2 text-brand-ink">{admin ? admin.name ?? admin.email : "—"}</td>
+                  <td className="px-3 py-2 text-brand-ink">
                     {org.state ?? "—"}
                     {org.hasCommercialPools && org.complianceRuleset && !org.complianceRuleset.isSupported ? (
-                      <span className="ml-1 text-xs text-amber-700">(waiting)</span>
+                      <span className="ml-1 text-xs text-brand-warn">(waiting)</span>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2 text-slate-700">{STATUS_LABELS[org.planStatus] ?? org.planStatus}</td>
-                  <td className="px-3 py-2 text-slate-700">{org.trialEndsAt ? org.trialEndsAt.toLocaleDateString() : "—"}</td>
-                  <td className="px-3 py-2 text-slate-700">
+                  <td className="px-3 py-2 text-brand-ink">{STATUS_LABELS[org.planStatus] ?? org.planStatus}</td>
+                  <td className="px-3 py-2 text-brand-ink">{org.trialEndsAt ? org.trialEndsAt.toLocaleDateString() : "—"}</td>
+                  <td className="px-3 py-2 text-brand-ink">
                     {org.stripeCustomerId ? (
                       <a
                         href={`https://dashboard.stripe.com/test/customers/${org.stripeCustomerId}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[#0A5FA4] underline"
+                        className="text-brand-primary underline"
                       >
                         View
                       </a>
@@ -110,14 +110,14 @@ export default async function PlatformAdminPage() {
                       "—"
                     )}
                   </td>
-                  <td className="px-3 py-2 text-slate-700">{org.createdAt.toLocaleDateString()}</td>
+                  <td className="px-3 py-2 text-brand-ink">{org.createdAt.toLocaleDateString()}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-end gap-2">
                       <form action={compOrganization}>
                         <input type="hidden" name="organizationId" value={org.id} />
                         <button
                           type="submit"
-                          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                          className="rounded border border-brand-control bg-white px-2 py-1 text-xs font-medium text-brand-ink hover:bg-brand-foam"
                         >
                           Comp
                         </button>
@@ -127,7 +127,7 @@ export default async function PlatformAdminPage() {
                         <ConfirmSubmitButton
                           label="Cancel"
                           confirmMessage={`Cancel ${org.businessName || org.name}'s subscription and block their access?`}
-                          className="rounded bg-rose-700 px-2 py-1 text-xs font-medium text-white"
+                          className="rounded bg-brand-danger px-2 py-1 text-xs font-medium text-white"
                         />
                       </form>
                     </div>
@@ -137,7 +137,7 @@ export default async function PlatformAdminPage() {
             })}
             {organizations.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={8} className="px-3 py-6 text-center text-brand-muted">
                   No companies yet.
                 </td>
               </tr>

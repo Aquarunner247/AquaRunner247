@@ -169,7 +169,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl pb-24">
-      <header className="bg-[#12234A] px-4 pb-4 pt-6">
+      <header className="bg-brand-ink px-4 pb-4 pt-6">
         <h1 className="font-[family-name:var(--font-display)] text-xl font-bold uppercase tracking-wide text-white">Schedule</h1>
 
         <div className="mt-4 grid grid-cols-4 gap-1 rounded-lg bg-white/10 p-1">
@@ -178,7 +178,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               key={t}
               href={tabHref(t)}
               className={`rounded-md py-1.5 text-center text-xs font-semibold uppercase tracking-wide ${
-                tab === t ? "bg-[#0A5FA4] text-white" : "text-[#A9D3E0]"
+                tab === t ? "bg-brand-primary text-white" : "text-brand-border"
               }`}
             >
               {t}
@@ -204,19 +204,19 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           <div className="mt-4 grid grid-cols-4 gap-2 rounded-lg bg-white/5 p-3 text-center text-white">
             <div>
               <p className="font-[family-name:var(--font-display)] text-2xl font-bold">{stats.total}</p>
-              <p className="text-[10px] uppercase tracking-wide text-[#A9D3E0]">Total Jobs</p>
+              <p className="text-[10px] uppercase tracking-wide text-brand-border">Total Jobs</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-[#4ADE80]">{stats.completed}</p>
-              <p className="text-[10px] uppercase tracking-wide text-[#A9D3E0]">Completed</p>
+              <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-brand-okFill">{stats.completed}</p>
+              <p className="text-[10px] uppercase tracking-wide text-brand-border">Completed</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-[#0A5FA4]">{stats.inProgress}</p>
-              <p className="text-[10px] uppercase tracking-wide text-[#A9D3E0]">In Progress</p>
+              <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-white">{stats.inProgress}</p>
+              <p className="text-[10px] uppercase tracking-wide text-brand-border">In Progress</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-[#FBBF24]">{stats.pending}</p>
-              <p className="text-[10px] uppercase tracking-wide text-[#A9D3E0]">Pending</p>
+              <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-brand-warnFill">{stats.pending}</p>
+              <p className="text-[10px] uppercase tracking-wide text-brand-border">Pending</p>
             </div>
           </div>
         ) : null}
@@ -230,22 +230,22 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                 key={d.ymd}
                 href={dayHref(d.ymd)}
                 className={`flex items-center justify-between rounded-lg border p-3 ${
-                  d.ymd === todayYmd ? "border-[#0A5FA4] bg-[#EAF6FA]" : "border-[#C9E3EC] bg-white"
+                  d.ymd === todayYmd ? "border-brand-primary bg-brand-foam" : "border-brand-border bg-white"
                 }`}
               >
                 <div>
-                  <p className="text-sm font-semibold text-[#12234A]">{d.label}</p>
-                  <p className="text-xs text-[#4A6572]">{new Date(`${d.ymd}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</p>
+                  <p className="text-sm font-semibold text-brand-ink">{d.label}</p>
+                  <p className="text-xs text-brand-muted">{new Date(`${d.ymd}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</p>
                 </div>
                 <div className="flex gap-3 text-right text-xs">
-                  <span className="text-[#12234A]">
+                  <span className="text-brand-ink">
                     <span className="font-semibold">{d.total}</span> jobs
                   </span>
-                  <span className="text-[#16A34A]">
+                  <span className="text-brand-ok">
                     <span className="font-semibold">{d.completed}</span> done
                   </span>
                   {d.skipped > 0 ? (
-                    <span className="text-[#FF6B5B]">
+                    <span className="text-brand-danger">
                       <span className="font-semibold">{d.skipped}</span> skipped
                     </span>
                   ) : null}
@@ -264,28 +264,28 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             />
 
             {tab !== "map" ? (
-              <div className="mt-4 rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-                <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-[#0A5FA4]">Extra stops</p>
+              <div className="app-card mt-4">
+                <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-brand-primary">Extra stops</p>
                 {adHocStops.length === 0 ? (
-                  <p className="mt-2 text-sm text-[#4A6572]">No extra stops for this day.</p>
+                  <p className="mt-2 text-sm text-brand-muted">No extra stops for this day.</p>
                 ) : (
                   <ul className="mt-2 space-y-1.5">
                     {adHocStops.map((s) => (
-                      <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-[#C9E3EC] bg-[#EAF6FA] px-3 py-2 text-sm">
-                        <span className={s.completed ? "text-[#7FA0AC] line-through" : "text-[#16324A]"}>
+                      <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-border bg-brand-surface px-3 py-2 text-sm">
+                        <span className={s.completed ? "text-brand-muted line-through" : "text-brand-ink"}>
                           {s.description}
                           {s.property ? ` — ${s.property.name}` : ""}
                         </span>
                         <span className="flex items-center gap-2">
                           <form action={toggleAdHocStop}>
                             <input type="hidden" name="stopId" value={s.id} />
-                            <button type="submit" className="rounded border border-[#C9E3EC] bg-white px-2 py-1 text-xs font-medium text-[#12234A]">
+                            <button type="submit" className="app-btn-ghost-sm">
                               {s.completed ? "Undo" : "Done"}
                             </button>
                           </form>
                           <form action={deleteAdHocStop}>
                             <input type="hidden" name="stopId" value={s.id} />
-                            <button type="submit" className="rounded border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-800">
+                            <button type="submit" className="app-btn-danger-sm">
                               Delete
                             </button>
                           </form>
@@ -294,15 +294,15 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                     ))}
                   </ul>
                 )}
-                <form id="add-stop-form" action={addAdHocStop} className="mt-3 flex flex-wrap items-center gap-2 rounded border border-[#C9E3EC] bg-[#EAF6FA] p-2">
+                <form id="add-stop-form" action={addAdHocStop} className="mt-3 flex flex-wrap items-center gap-2 rounded border border-brand-border bg-brand-foam p-2">
                   <input type="hidden" name="scheduledDate" value={selectedYmd} />
                   <input
                     name="description"
                     required
                     placeholder="e.g. Pool store, drop off filter…"
-                    className="min-w-[180px] flex-1 rounded border border-[#C9E3EC] bg-white px-2 py-1.5 text-sm"
+                    className="min-w-[180px] flex-1 rounded border border-brand-control bg-white px-2 py-1.5 text-sm"
                   />
-                  <select name="propertyId" defaultValue="" className="rounded border border-[#C9E3EC] bg-white px-2 py-1.5 text-sm">
+                  <select name="propertyId" defaultValue="" className="rounded border border-brand-control bg-white px-2 py-1.5 text-sm">
                     <option value="">No property</option>
                     {adHocProperties.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -310,7 +310,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                       </option>
                     ))}
                   </select>
-                  <button type="submit" className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white">
+                  <button type="submit" className="app-btn-primary-sm">
                     Add stop
                   </button>
                 </form>

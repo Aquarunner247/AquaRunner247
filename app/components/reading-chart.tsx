@@ -1,3 +1,5 @@
+import { BRAND_BORDER, BRAND_DANGER, BRAND_MUTED, BRAND_PRIMARY, BRAND_WARN } from "@/app/lib/chart-colors";
+
 type ChartPoint = {
   day: number;
   value: number | null;
@@ -70,12 +72,12 @@ export function ReadingChart({
   const readingCount = values.length;
 
   return (
-    <div className="rounded-lg border border-[#C9E3EC] bg-white p-4">
+    <div className="rounded-lg border border-brand-border bg-white p-4">
       <div className="flex items-baseline justify-between">
-        <h3 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">
+        <h3 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
           {label}
         </h3>
-        <span className="font-[family-name:var(--font-mono)] text-xs text-[#4A6572]">
+        <span className="font-[family-name:var(--font-mono)] text-xs text-brand-muted">
           {readingCount} reading{readingCount === 1 ? "" : "s"}
         </span>
       </div>
@@ -88,7 +90,7 @@ export function ReadingChart({
             y={PAD_TOP}
             width={plotW}
             height={Math.max(clampY(yForVal(hazardMax)) - PAD_TOP, 0)}
-            fill="#C1483B"
+            fill={BRAND_DANGER}
             fillOpacity={0.08}
           />
         ) : null}
@@ -98,14 +100,14 @@ export function ReadingChart({
             y={clampY(yForVal(hazardMin))}
             width={plotW}
             height={Math.max(HEIGHT - PAD_BOTTOM - clampY(yForVal(hazardMin)), 0)}
-            fill="#C1483B"
+            fill={BRAND_DANGER}
             fillOpacity={0.08}
           />
         ) : null}
 
         {/* target zone band */}
         {hasTarget ? (
-          <rect x={PAD_LEFT} y={zoneY} width={plotW} height={zoneH} fill="#0A5FA4" fillOpacity={0.12} />
+          <rect x={PAD_LEFT} y={zoneY} width={plotW} height={zoneH} fill={BRAND_PRIMARY} fillOpacity={0.12} />
         ) : null}
 
         {/* baseline axis */}
@@ -114,7 +116,7 @@ export function ReadingChart({
           y1={HEIGHT - PAD_BOTTOM}
           x2={WIDTH - PAD_RIGHT}
           y2={HEIGHT - PAD_BOTTOM}
-          stroke="#C9E3EC"
+          stroke={BRAND_BORDER}
           strokeWidth={1}
         />
 
@@ -127,7 +129,7 @@ export function ReadingChart({
             textAnchor="middle"
             fontSize={9}
             fontFamily="var(--font-mono)"
-            fill="#4A6572"
+            fill={BRAND_MUTED}
           >
             {d}
           </text>
@@ -135,7 +137,7 @@ export function ReadingChart({
 
         {/* connecting line */}
         {linePoints ? (
-          <polyline points={linePoints} fill="none" stroke="#0A5FA4" strokeWidth={1.75} />
+          <polyline points={linePoints} fill="none" stroke={BRAND_PRIMARY} strokeWidth={1.75} />
         ) : null}
 
         {/* dots: red = health hazard, amber = outside typical target, teal = normal */}
@@ -143,7 +145,7 @@ export function ReadingChart({
           if (p.value == null) return null;
           const isHazard = (hazardMin != null && p.value < hazardMin) || (hazardMax != null && p.value > hazardMax);
           const outOfRange = hasTarget && (p.value < targetMin! || p.value > targetMax!);
-          const fill = isHazard ? "#C1483B" : outOfRange ? "#FF6B5B" : "#0A5FA4";
+          const fill = isHazard ? BRAND_DANGER : outOfRange ? BRAND_WARN : BRAND_PRIMARY;
           return (
             <circle
               key={p.day}
@@ -151,24 +153,24 @@ export function ReadingChart({
               cy={yForVal(p.value)}
               r={isHazard ? 3.5 : 3}
               fill={fill}
-              stroke="#fff"
+              stroke="white"
               strokeWidth={1}
             />
           );
         })}
 
         {readingCount === 0 ? (
-          <text x={WIDTH / 2} y={HEIGHT / 2} textAnchor="middle" fontSize={11} fill="#7FA0AC">
+          <text x={WIDTH / 2} y={HEIGHT / 2} textAnchor="middle" fontSize={11} fill={BRAND_MUTED}>
             No readings this month
           </text>
         ) : null}
       </svg>
 
-      <p className="mt-1 text-[11px] text-[#4A6572]">
+      <p className="mt-1 text-[11px] text-brand-muted">
         {unit ? `Unit: ${unit}. ` : ""}
         {hasTarget ? `${targetLabel}: ${targetMin}–${targetMax}${unit ? ` ${unit}` : ""}. ` : ""}
         {hasHazard ? (
-          <span className="font-medium text-[#C1483B]">
+          <span className="font-medium text-brand-danger">
             Health hazard (closure risk){hazardMin != null ? ` below ${hazardMin}` : ""}
             {hazardMin != null && hazardMax != null ? " or" : ""}
             {hazardMax != null ? ` above ${hazardMax}` : ""}

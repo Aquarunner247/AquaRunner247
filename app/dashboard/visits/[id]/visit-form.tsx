@@ -3,12 +3,15 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CameraCapture } from "@/app/components/camera-capture";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
+import { queuedSubmitJson } from "@/lib/client/offline-queue";
+import { useOfflineSync } from "@/lib/client/use-offline-sync";
 
 type Dose = {
   id: string;
   productName: string;
   quantity: string;
   unit: string;
+  pending?: boolean;
 };
 
 type Reading = {
@@ -158,6 +161,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const timerRef = useRef<number | null>(null);
   const isFirstRender = useRef(true);
+  const { pendingCount, syncNow } = useOfflineSync();
 
   const isCompleted = visitStatus === "COMPLETED";
 
@@ -184,29 +188,33 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
   }, [reading]);
 
   async function saveReading(source: "auto" | "manual") {
-    try {
-      setSaveState("saving");
-      const response = await fetch(`/api/visits/${visitId}/reading`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ph: reading.ph || null,
-          freeChlorinePpm: reading.freeChlorinePpm || null,
-          alkalinityPpm: reading.alkalinityPpm || null,
-          cyanuricAcidPpm: reading.cyanuricAcidPpm || null,
-          temperatureF: reading.temperatureF || null,
-          pumpPressurePsi: reading.pumpPressurePsi || null,
-          vacGaugeReading: reading.vacGaugeReading || null,
-          flowMeterGpm: reading.flowMeterGpm || null,
-          filterPressurePsi: reading.filterPressurePsi || null,
-          backwashPerformed,
-          backwashAt: backwashPerformed && backwashTime ? `${new Date().toISOString().slice(0, 10)}T${backwashTime}:00` : null,
-        }),
-      });
-      if (!response.ok) throw new Error("Save failed");
+    setSaveState("saving");
+    const result = await queuedSubmitJson({
+      url: `/api/visits/${visitId}/reading`,
+      method: "PATCH",
+      label: "Water reading",
+      visitId,
+      body: {
+        ph: reading.ph || null,
+        freeChlorinePpm: reading.freeChlorinePpm || null,
+        alkalinityPpm: reading.alkalinityPpm || null,
+        cyanuricAcidPpm: reading.cyanuricAcidPpm || null,
+        temperatureF: reading.temperatureF || null,
+        pumpPressurePsi: reading.pumpPressurePsi || null,
+        vacGaugeReading: reading.vacGaugeReading || null,
+        flowMeterGpm: reading.flowMeterGpm || null,
+        filterPressurePsi: reading.filterPressurePsi || null,
+        backwashPerformed,
+        backwashAt: backwashPerformed && backwashTime ? `${new Date().toISOString().slice(0, 10)}T${backwashTime}:00` : null,
+      },
+    });
+    if (result.status === "queued") {
+      setSaveState("saved");
+      setSaveMsg("Saved offline — will sync");
+    } else if (result.status === "sent") {
       setSaveState("saved");
       setSaveMsg(source === "auto" ? "Autosaved" : "Saved");
-    } catch {
+    } else {
       setSaveState("error");
       setSaveMsg("Save failed");
     }
@@ -230,20 +238,33 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
 
   async function addDose(e: FormEvent) {
     e.preventDefault();
-    const response = await fetch(`/api/visits/${visitId}/doses`, {
+    const result = await queuedSubmitJson({
+      url: `/api/visits/${visitId}/doses`,
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      label: "Chemical dose",
+      visitId,
+      body: {
         chemicalProductId: doseForm.chemicalProductId,
         quantity: Number(doseForm.quantity),
-      }),
+      },
     });
-    if (!response.ok) {
+    if (result.status === "failed") {
       setSaveState("error");
       setSaveMsg("Dose add failed");
       return;
     }
-    const data = (await response.json()) as { dose: Dose };
+    if (result.status === "queued") {
+      const product = chemicalProducts.find((p) => p.id === doseForm.chemicalProductId);
+      setDoses((prev) => [
+        { id: `pending-${Date.now()}`, productName: product?.name ?? "Chemical", quantity: doseForm.quantity, unit: product?.unit ?? "", pending: true },
+        ...prev,
+      ]);
+      setSaveState("saved");
+      setSaveMsg("Saved offline — will sync");
+      setDoseForm({ chemicalProductId: "", quantity: "" });
+      return;
+    }
+    const data = (await result.response.json()) as { dose: Dose };
     setDoses((prev) => [data.dose, ...prev]);
     setDoseForm({ chemicalProductId: "", quantity: "" });
   }
@@ -254,6 +275,10 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
       const result = await uploadVisitPhoto(visitId, file);
       if (!result.ok) throw new Error(result.error);
       setPhotoCount((n) => n + 1);
+      if ("queued" in result && result.queued) {
+        setSaveState("saved");
+        setSaveMsg("Photo saved offline — will upload when back online");
+      }
     } catch (err) {
       setSaveState("error");
       setSaveMsg(err instanceof Error ? err.message : "Photo upload failed");
@@ -264,15 +289,20 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
 
   async function toggleChecklistItem(itemId: string, completed: boolean) {
     setChecklistItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, completed } : it)));
-    try {
-      const response = await fetch(`/api/visits/${visitId}/checklist`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checklistItemId: itemId, completed }),
-      });
-      if (!response.ok) throw new Error("Checklist save failed");
-    } catch {
-      // revert on failure
+    const result = await queuedSubmitJson({
+      url: `/api/visits/${visitId}/checklist`,
+      method: "PATCH",
+      label: "Checklist item",
+      visitId,
+      body: { checklistItemId: itemId, completed },
+    });
+    if (result.status === "queued") {
+      setSaveState("saved");
+      setSaveMsg("Saved offline — will sync");
+      return;
+    }
+    if (result.status === "failed") {
+      // revert on a real (non-network) failure — the server rejected it, not just offline
       setChecklistItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, completed: !completed } : it)));
       setSaveState("error");
       setSaveMsg("Checklist save failed");
@@ -331,13 +361,13 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
     const markerLeft = pct(value, f.min, f.max);
 
     return (
-      <div key={f.key} className="rounded-lg border border-[#C9E3EC] bg-white p-3">
+      <div key={f.key} className="rounded-lg border border-brand-border bg-white p-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-[#4A6572]">
+          <span className="text-xs font-medium uppercase tracking-wide text-brand-muted">
             {f.label}
-            {f.required ? <span className="text-[#C1483B]"> *</span> : null}
+            {f.required ? <span className="text-brand-danger"> *</span> : null}
             {f.zoneMin !== undefined && f.zoneMax !== undefined ? (
-              <span className="ml-2 normal-case text-[#7FA0AC]">
+              <span className="ml-2 normal-case text-brand-muted">
                 Ideal {f.zoneMin}–{f.zoneMax}
                 {f.unitLabel ? ` ${f.unitLabel}` : ""}
               </span>
@@ -355,23 +385,23 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
                 const val = raw !== "" && Number.isInteger(f.step) ? String(roundToStep(Number(raw), f.step)) : raw;
                 setReading((prev) => ({ ...prev, [f.key]: val }));
               }}
-              className="w-16 rounded border border-[#C9E3EC] px-1.5 py-0.5 text-right font-[family-name:var(--font-mono)] text-sm text-[#12234A] disabled:bg-[#EAF6FA]"
+              className="w-16 rounded border border-brand-control px-1.5 py-0.5 text-right font-[family-name:var(--font-mono)] text-sm text-brand-ink disabled:bg-brand-foam"
             />
-            {f.unitLabel ? <span className="text-xs text-[#7FA0AC]">{f.unitLabel}</span> : null}
+            {f.unitLabel ? <span className="text-xs text-brand-muted">{f.unitLabel}</span> : null}
           </span>
         </div>
 
         <div className="relative mt-3 h-6">
-          <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-[#EAF6FA]" />
+          <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-brand-foam" />
           {zoneLeft !== null && zoneWidth !== null ? (
             <div
-              className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-[#0A5FA4]/25"
+              className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-brand-primary/25"
               style={{ left: `${zoneLeft}%`, width: `${zoneWidth}%` }}
             />
           ) : null}
           <div
-            className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-[#12234A] shadow"
-            style={{ left: `${markerLeft}%`, background: isSet ? "#0A5FA4" : "#C9E3EC" }}
+            className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-brand-ink shadow ${isSet ? "bg-brand-primary" : "bg-brand-border"}`}
+            style={{ left: `${markerLeft}%` }}
           />
           <input
             type="range"
@@ -390,7 +420,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
             className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
           />
         </div>
-        <div className="mt-1 flex justify-between font-[family-name:var(--font-mono)] text-[10px] text-[#7FA0AC]">
+        <div className="mt-1 flex justify-between font-[family-name:var(--font-mono)] text-[10px] text-brand-muted">
           <span>{f.min}</span>
           <span>{f.max}</span>
         </div>
@@ -401,16 +431,16 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
   return (
     <section className="mt-6 space-y-4">
       {!isCompleted ? (
-        <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+        <div className="app-card">
           {startedAt ? (
-            <p className="text-sm font-medium text-[#0A5FA4]">
+            <p className="text-sm font-medium text-brand-primary">
               Arrived at {new Date(startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
             </p>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-[#12234A]">Not logged as arrived yet</p>
-                <p className="text-xs text-[#4A6572]">
+                <p className="text-sm font-medium text-brand-ink">Not logged as arrived yet</p>
+                <p className="text-xs text-brand-muted">
                   This usually happens automatically when your phone&apos;s location enters the property. Tap this if
                   location isn&apos;t available or hasn&apos;t caught up yet.
                 </p>
@@ -419,38 +449,48 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
                 type="button"
                 onClick={() => void markArrived()}
                 disabled={arrivalSaving}
-                className="shrink-0 rounded bg-[#FF6B5B] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="app-btn-accent-sm shrink-0"
               >
                 {arrivalSaving ? "Logging..." : "I've arrived"}
               </button>
             </div>
           )}
-          {arrivalError ? <p className="mt-1 text-sm text-[#C1483B]">{arrivalError}</p> : null}
+          {arrivalError ? <p className="mt-1 text-sm text-brand-danger">{arrivalError}</p> : null}
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+      <div className="app-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-[#12234A]">
-            Save status:{" "}
-            <span className="font-semibold">
-              {saveState === "saving" ? "Saving..." : saveState === "saved" ? saveMsg || "Saved" : saveState === "error" ? saveMsg || "Error" : "Idle"}
-            </span>
-          </p>
+          <div>
+            <p className="text-sm font-medium text-brand-ink">
+              Save status:{" "}
+              <span className="font-semibold">
+                {saveState === "saving" ? "Saving..." : saveState === "saved" ? saveMsg || "Saved" : saveState === "error" ? saveMsg || "Error" : "Idle"}
+              </span>
+            </p>
+            {pendingCount > 0 ? (
+              <p className="mt-1 text-xs font-medium text-brand-warn">
+                {pendingCount} {pendingCount === 1 ? "item" : "items"} saved offline, waiting to sync
+              </p>
+            ) : null}
+          </div>
           <button
             type="button"
-            onClick={() => void saveReading("manual")}
+            onClick={() => {
+              void saveReading("manual");
+              void syncNow();
+            }}
             disabled={isCompleted}
-            className="rounded border border-[#C9E3EC] px-3 py-1.5 text-sm font-medium text-[#12234A] disabled:opacity-50"
+            className="app-btn-secondary-sm disabled:opacity-50"
           >
-            Save / Sync now
+            {pendingCount > 0 ? `Sync now (${pendingCount})` : "Save / Sync now"}
           </button>
         </div>
       </div>
 
       {checklistItems.length > 0 ? (
-        <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-          <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">
+        <div className="app-card">
+          <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
             Service Checklist
           </h2>
           <ul className="mt-3 space-y-2">
@@ -462,18 +502,18 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
                   onClick={() => void toggleChecklistItem(item.id, !item.completed)}
                   className={`flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm font-medium transition disabled:opacity-60 ${
                     item.completed
-                      ? "border-[#0A5FA4] bg-[#0A5FA4]/10 text-[#12234A]"
-                      : "border-[#C9E3EC] bg-white text-[#12234A] hover:bg-[#EAF6FA]"
+                      ? "border-brand-primary bg-brand-primary/10 text-brand-ink"
+                      : "border-brand-border bg-white text-brand-ink hover:bg-brand-foam"
                   }`}
                 >
                   <span
                     className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
-                      item.completed ? "border-[#0A5FA4] bg-[#0A5FA4] text-white" : "border-[#C9E3EC] text-transparent"
+                      item.completed ? "border-brand-primary bg-brand-primary text-white" : "border-brand-control text-transparent"
                     }`}
                   >
                     ✓
                   </span>
-                  <span className={item.completed ? "line-through decoration-[#0A5FA4]/60" : ""}>{item.label}</span>
+                  <span className={item.completed ? "line-through decoration-brand-primary/60" : ""}>{item.label}</span>
                 </button>
               </li>
             ))}
@@ -481,20 +521,20 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Chemistry</h2>
+      <div className="app-card">
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
         <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
       </div>
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Gauges</h2>
+      <div className="app-card">
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Gauges</h2>
         <div className="mt-3 space-y-3">{EQUIPMENT_FIELDS.map(renderSlider)}</div>
       </div>
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Backwash</h2>
+      <div className="app-card">
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Backwash</h2>
         <div className="mt-3 flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-[#12234A]">
+          <label className="flex items-center gap-2 text-sm text-brand-ink">
             <input
               type="radio"
               name="backwash"
@@ -504,7 +544,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
             />
             No
           </label>
-          <label className="flex items-center gap-2 text-sm text-[#12234A]">
+          <label className="flex items-center gap-2 text-sm text-brand-ink">
             <input
               type="radio"
               name="backwash"
@@ -520,24 +560,24 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
             Yes
           </label>
           {backwashPerformed ? (
-            <label className="flex items-center gap-2 text-sm text-[#12234A]">
+            <label className="flex items-center gap-2 text-sm text-brand-ink">
               Time
               <input
                 type="time"
                 value={backwashTime}
                 disabled={isCompleted}
                 onChange={(e) => setBackwashTime(e.target.value)}
-                className="rounded border border-[#C9E3EC] px-2 py-1 font-[family-name:var(--font-mono)] text-sm"
+                className="rounded border border-brand-control px-2 py-1 font-[family-name:var(--font-mono)] text-sm"
               />
             </label>
           ) : null}
         </div>
       </div>
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Chemical Doses</h2>
+      <div className="app-card">
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemical Doses</h2>
         {chemicalProducts.length === 0 ? (
-          <p className="mt-2 text-sm text-[#7FA0AC]">
+          <p className="mt-2 text-sm text-brand-muted">
             No chemical products set up yet. An admin can add them under Chemicals in the sidebar.
           </p>
         ) : (
@@ -546,7 +586,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
               value={doseForm.chemicalProductId}
               disabled={isCompleted}
               onChange={(e) => setDoseForm((d) => ({ ...d, chemicalProductId: e.target.value }))}
-              className="rounded border border-[#C9E3EC] px-2 py-1.5 text-sm disabled:bg-[#EAF6FA]"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
             >
               <option value="">Select chemical…</option>
               {chemicalProducts.map((p) => (
@@ -568,40 +608,43 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
                 const value = raw !== "" ? String(roundToStep(Number(raw), step)) : raw;
                 setDoseForm((d) => ({ ...d, quantity: value }));
               }}
-              className="rounded border border-[#C9E3EC] px-2 py-1.5 text-sm disabled:bg-[#EAF6FA]"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
             />
             <button
               type="submit"
               disabled={isCompleted || !doseForm.chemicalProductId || !doseForm.quantity}
-              className="rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              className="app-btn-primary-sm"
             >
               Add dose
             </button>
           </form>
         )}
-        <ul className="mt-3 space-y-1 text-sm text-[#16324A]">
+        <ul className="mt-3 space-y-1 text-sm text-brand-ink">
           {doses.map((d) => (
-            <li key={d.id}>
-              {d.productName}: {d.quantity} {d.unit}
+            <li key={d.id} className="flex items-center gap-2">
+              <span>
+                {d.productName}: {d.quantity} {d.unit}
+              </span>
+              {d.pending ? <span className="app-pill-attention">Pending sync</span> : null}
             </li>
           ))}
-          {doses.length === 0 ? <li className="text-[#7FA0AC]">No doses added yet.</li> : null}
+          {doses.length === 0 ? <li className="text-brand-muted">No doses added yet.</li> : null}
         </ul>
       </div>
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">
+      <div className="app-card">
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
           Report an Issue
         </h2>
-        <p className="mt-1 text-sm text-[#4A6572]">
+        <p className="mt-1 text-sm text-brand-muted">
           Anything wrong or needing repair? Report it here — it shows up on the admin dashboard right away.
         </p>
 
         {issues.length > 0 ? (
           <ul className="mt-3 space-y-2">
             {issues.map((issue) => (
-              <li key={issue.id} className="rounded border border-[#FF6B5B]/40 bg-[#FF6B5B]/10 px-3 py-2 text-sm text-[#12234A]">
-                <span className="font-semibold uppercase text-xs text-[#FF6B5B]">{issue.severity}</span> — {issue.description}
+              <li key={issue.id} className="rounded border border-brand-danger/40 bg-brand-dangerFill px-3 py-2 text-sm text-brand-ink">
+                <span className="font-semibold uppercase text-xs text-brand-danger">{issue.severity}</span> — {issue.description}
               </li>
             ))}
           </ul>
@@ -614,14 +657,14 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
             onChange={(e) => setIssueForm((f) => ({ ...f, description: e.target.value }))}
             placeholder="Describe what's wrong or needs repair..."
             rows={2}
-            className="w-full rounded border border-[#C9E3EC] px-2 py-1.5 text-sm disabled:bg-[#EAF6FA]"
+            className="app-field"
           />
           <div className="flex items-center gap-2">
             <select
               value={issueForm.severity}
               disabled={isCompleted || reportingIssue}
               onChange={(e) => setIssueForm((f) => ({ ...f, severity: e.target.value }))}
-              className="rounded border border-[#C9E3EC] px-2 py-1.5 text-sm disabled:bg-[#EAF6FA]"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
             >
               <option value="LOW">Low</option>
               <option value="MEDIUM">Medium</option>
@@ -630,7 +673,7 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
             <button
               type="submit"
               disabled={isCompleted || reportingIssue || !issueForm.description.trim()}
-              className="rounded bg-[#FF6B5B] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="app-btn-accent-sm"
             >
               {reportingIssue ? "Reporting..." : "Report issue"}
             </button>
@@ -638,12 +681,12 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
         </form>
       </div>
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-[#12234A]">Photo Capture</h2>
-        <p className="mt-1 text-sm text-[#4A6572]">
+      <div className="app-card">
+        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Photo Capture</h2>
+        <p className="mt-1 text-sm text-brand-muted">
           At least 1 photo is required to complete this visit. Photos must be taken live with the camera — uploading an existing image isn&rsquo;t allowed.
         </p>
-        <p className="mt-1 text-sm font-medium text-[#12234A]">Photos on file: {photoCount}</p>
+        <p className="mt-1 text-sm font-medium text-brand-ink">Photos on file: {photoCount}</p>
         {initialPhotos.length ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {initialPhotos.map((p) =>
@@ -653,27 +696,27 @@ export function VisitForm({ visitId, visitStatus, bodyOfWaterType, cyaRequired, 
                   key={p.id}
                   src={p.url}
                   alt="Service visit photo"
-                  className="h-20 w-20 rounded border border-[#C9E3EC] object-cover"
+                  className="h-20 w-20 rounded border border-brand-border object-cover"
                 />
               ) : null,
             )}
           </div>
         ) : null}
         <CameraCapture onCapture={uploadPhoto} disabled={isCompleted || uploadingPhoto} />
-        {uploadingPhoto ? <p className="mt-2 text-sm text-[#4A6572]">Uploading photo...</p> : null}
+        {uploadingPhoto ? <p className="mt-2 text-sm text-brand-muted">Uploading photo...</p> : null}
       </div>
 
-      <div className="rounded-lg border border-[#C9E3EC] bg-white p-4 shadow-sm">
+      <div className="app-card">
         <button
           type="button"
           onClick={() => void completeVisit()}
           disabled={isCompleted || requiredMissing || photoCount < 1}
-          className="rounded bg-[#0A5FA4] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#7FA0AC]"
+          className="rounded bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primaryHover disabled:cursor-not-allowed disabled:bg-brand-control"
         >
           {isCompleted ? "Visit completed" : "Complete service visit"}
         </button>
         {!isCompleted && (requiredMissing || photoCount < 1) ? (
-          <p className="mt-2 text-sm text-[#B5793D]">Completion requires all required (*) readings and at least one photo.</p>
+          <p className="mt-2 text-sm text-brand-warn">Completion requires all required (*) readings and at least one photo.</p>
         ) : null}
       </div>
     </section>

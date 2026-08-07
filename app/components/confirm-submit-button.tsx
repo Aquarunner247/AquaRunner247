@@ -22,14 +22,14 @@ export function ConfirmSubmitButton({ label, confirmMessage, className }: Confir
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-ink/50 px-4 backdrop-blur-[2px]">
           <div
-            className="w-full max-w-sm rounded-2xl border border-slate-200/90 bg-white p-5 shadow-soft"
+            className="w-full max-w-sm rounded-2xl border border-brand-border/90 bg-white p-5 shadow-soft"
             role="dialog"
             aria-modal="true"
           >
-            <p className="font-display text-base font-semibold text-slate-900">Please confirm</p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">{confirmMessage}</p>
+            <p className="font-display text-base font-semibold text-brand-ink">Please confirm</p>
+            <p className="mt-2 text-sm leading-relaxed text-brand-muted">{confirmMessage}</p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
@@ -44,7 +44,7 @@ export function ConfirmSubmitButton({ label, confirmMessage, className }: Confir
                   setOpen(false);
                   submitRef.current?.click();
                 }}
-                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-400/50"
+                className="rounded-lg bg-brand-danger px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-danger focus:outline-none focus:ring-2 focus:ring-brand-danger/50"
               >
                 Confirm
               </button>

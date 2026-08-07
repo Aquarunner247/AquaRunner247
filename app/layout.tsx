@@ -7,11 +7,16 @@ import { ServiceWorkerRegister } from "./components/service-worker-register";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
+import { BRAND_INK } from "@/app/lib/chart-colors";
 
 const display = Big_Shoulders({
   subsets: ["latin"],
   weight: ["600", "700", "800"],
   variable: "--font-display",
+  // Next's curated font-metrics database doesn't include Big Shoulders, so automatic
+  // fallback-metric adjustment always fails with a console warning. Disabling it trades
+  // away that auto CLS-mitigation for this one font in exchange for a clean build/dev log.
+  adjustFontFallback: false,
 });
 const body = Inter({
   subsets: ["latin"],
@@ -34,7 +39,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#12234A",
+  themeColor: BRAND_INK,
 };
 
 export default async function RootLayout({
@@ -56,11 +61,11 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
-      <body className="min-h-screen bg-[#EAF6FA] font-[family-name:var(--font-body)] antialiased md:flex">
+      <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased md:flex">
         <ServiceWorkerRegister />
         <SideNav
           isLoggedIn={Boolean(user)}
-          isAdmin={appUser?.role === "ADMIN"}
+          role={appUser?.role ?? null}
           userName={appUser?.name ?? appUser?.email ?? null}
           orgName={organization?.name ?? null}
         />

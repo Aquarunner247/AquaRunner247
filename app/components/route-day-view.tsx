@@ -4,7 +4,8 @@ import "leaflet/dist/leaflet.css";
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
-import { getTechnicianInitial } from "@/lib/technician-colors";
+import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
+import { BRAND_PRIMARY } from "@/app/lib/chart-colors";
 
 export type RouteStop = {
   id: string;
@@ -98,7 +99,7 @@ function computeAutoArrivalEligibleIds(visits: RouteStop[]): Set<string> {
 function StatusBadge({ status }: { status: string }) {
   if (status === "COMPLETED") {
     return (
-      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#16A34A]">
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-brand-ok">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="9" />
           <path d="M8 12.5l2.5 2.5L16 9.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -109,7 +110,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (status === "IN_PROGRESS") {
     return (
-      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#D97706]">
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-brand-ink">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
@@ -120,7 +121,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (status === "CANCELLED") {
     return (
-      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#FF6B5B]">
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-brand-danger">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="9" />
           <path d="M9 9l6 6M15 9l-6 6" strokeLinecap="round" />
@@ -130,7 +131,7 @@ function StatusBadge({ status }: { status: string }) {
     );
   }
   return (
-    <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-[#94A3B8]">
+    <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-brand-muted">
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="9" />
       </svg>
@@ -250,7 +251,7 @@ export function RouteDayView({
     let currentTechId: string | null | undefined = undefined;
     const flushTechPolyline = () => {
       if (isMultiTech && currentTechPolyline.length > 1 && currentTechId !== undefined) {
-        const color = technicianColors?.[currentTechId ?? ""] ?? "#94A3B8";
+        const color = technicianColors?.[currentTechId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR;
         L.polyline(currentTechPolyline, { color, weight: 3, opacity: 0.45 }).addTo(layerRef.current!);
       }
       currentTechPolyline = [];
@@ -259,7 +260,7 @@ export function RouteDayView({
     visits.forEach((v, idx) => {
       if (v.latitude == null || v.longitude == null) return;
       const isSkipped = v.status === "CANCELLED";
-      const color = isMultiTech ? technicianColors?.[v.technicianId ?? ""] ?? "#94A3B8" : "#0A5FA4";
+      const color = isMultiTech ? technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR : BRAND_PRIMARY;
       const glyph = isSkipped ? "×" : isMultiTech ? getTechnicianInitial(v.technicianLabel) : String(idx + 1);
       const icon = L.divIcon({
         className: "",
@@ -286,7 +287,7 @@ export function RouteDayView({
 
     if (points.length) {
       if (!isMultiTech) {
-        L.polyline(points, { color: "#0A5FA4", weight: 3, opacity: 0.6 }).addTo(layerRef.current!);
+        L.polyline(points, { color: BRAND_PRIMARY, weight: 3, opacity: 0.6 }).addTo(layerRef.current!);
       }
       mapRef.current.fitBounds(points, { padding: [30, 30] });
     }
@@ -398,7 +399,7 @@ export function RouteDayView({
     let current: { label: string; color: string; count: number } | null = null;
     for (const v of visits) {
       if (v.technicianId !== prevTechId) {
-        current = { label: v.technicianLabel ?? "Unassigned", color: technicianColors?.[v.technicianId ?? ""] ?? "#94A3B8", count: 0 };
+        current = { label: v.technicianLabel ?? "Unassigned", color: technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR, count: 0 };
         technicianGroupStarts.set(v.id, current);
         prevTechId = v.technicianId;
       }
@@ -409,18 +410,18 @@ export function RouteDayView({
   return (
     <div>
       {missingCoords ? (
-        <p className="mb-2 text-xs text-[#B5793D]">
+        <p className="mb-2 text-xs text-brand-warn">
           Some stops don&rsquo;t have map coordinates yet — an admin can geocode addresses from the Routes page.
         </p>
       ) : null}
       {locationState === "denied" ? (
-        <p className="mb-2 text-xs text-[#B5793D]">
+        <p className="mb-2 text-xs text-brand-warn">
           Location access is off, so arrival times won&rsquo;t log automatically — enable location for this site in your browser
           settings to turn it back on.
         </p>
       ) : null}
       {locationState === "watching" ? (
-        <p className="mb-2 text-xs text-[#7FA0AC]">Location on — arrival time logs automatically when you reach a stop.</p>
+        <p className="mb-2 text-xs text-brand-muted">Location on — arrival time logs automatically when you reach a stop.</p>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         <div className={layout === "mapOnly" ? "hidden" : ""}>
@@ -429,7 +430,7 @@ export function RouteDayView({
               type="button"
               onClick={optimizeRoute}
               disabled={saving}
-              className="mb-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="app-btn-primary-sm mb-2"
             >
               Optimize route (straight-line)
             </button>
@@ -441,7 +442,7 @@ export function RouteDayView({
               return (
                 <Fragment key={v.id}>
                   {techGroup ? (
-                    <li className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wide text-[#4A6572] first:pt-0">
+                    <li className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wide text-brand-muted first:pt-0">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: techGroup.color }} />
                       {techGroup.label} ({techGroup.count} stop{techGroup.count === 1 ? "" : "s"})
                     </li>
@@ -454,24 +455,24 @@ export function RouteDayView({
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => onDrop(idx)}
                     className={`flex items-center gap-3 rounded border p-2 ${
-                      isSkipped ? "border-[#FF6B5B] bg-[#FF6B5B]/10" : "border-[#C9E3EC] bg-white"
+                      isSkipped ? "border-brand-danger bg-brand-dangerFill" : "border-brand-border bg-white"
                     } ${!effectiveReadOnly ? "cursor-move" : ""}`}
                   >
                     <span
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
-                        isSkipped ? "bg-[#FF6B5B]" : isMultiTech ? "" : "bg-[#0A5FA4]"
+                        isSkipped ? "bg-brand-danger" : isMultiTech ? "" : "bg-brand-primary"
                       }`}
-                      style={!isSkipped && isMultiTech ? { backgroundColor: technicianColors?.[v.technicianId ?? ""] ?? "#94A3B8" } : undefined}
+                      style={!isSkipped && isMultiTech ? { backgroundColor: technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR } : undefined}
                     >
                       {isSkipped ? "Skip" : idx + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <Link href={`/dashboard/visits/${v.id}`} className="block truncate text-sm font-medium text-[#12234A] underline">
+                      <Link href={`/dashboard/visits/${v.id}`} className="block truncate text-sm font-medium text-brand-ink underline">
                         {v.propertyName} — {v.bodyName}
                       </Link>
-                      <p className="truncate text-xs text-[#4A6572]">{v.address || "No address on file"}</p>
+                      <p className="truncate text-xs text-brand-muted">{v.address || "No address on file"}</p>
                       {v.startedAt ? (
-                        <p className="text-xs font-medium text-[#0A5FA4]">
+                        <p className="text-xs font-medium text-brand-ok">
                           Arrived {new Date(v.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                         </p>
                       ) : null}
@@ -488,7 +489,7 @@ export function RouteDayView({
                             return (
                               <Link
                                 href={`/dashboard/stops/${v.propertyId}?${params.toString()}`}
-                                className="mt-1 inline-block text-xs font-medium text-[#FF6B5B] underline"
+                                className="mt-1 inline-block text-xs font-medium text-brand-cta underline"
                               >
                                 Capture photos for all {count} stops here
                               </Link>
@@ -502,7 +503,7 @@ export function RouteDayView({
                         <button
                           type="button"
                           onClick={() => void toggleSkip(v)}
-                          className="rounded border border-[#C9E3EC] px-2 py-1 text-xs font-medium text-[#12234A]"
+                          className="app-btn-ghost-sm"
                         >
                           {isSkipped ? "Unskip" : "Skip"}
                         </button>
@@ -514,12 +515,12 @@ export function RouteDayView({
                 </Fragment>
               );
             })}
-            {visits.length === 0 ? <p className="text-sm text-[#4A6572]">No stops for this day.</p> : null}
+            {visits.length === 0 ? <p className="text-sm text-brand-muted">No stops for this day.</p> : null}
           </ul>
         </div>
         <div className={layout === "listOnly" ? "hidden" : ""}>
           {technicianLegend && technicianLegend.length > 0 ? (
-            <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#4A6572]">
+            <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-brand-muted">
               {technicianLegend.map((t) => (
                 <span key={t.id} className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
@@ -528,7 +529,7 @@ export function RouteDayView({
               ))}
             </div>
           ) : null}
-          <div ref={mapDivRef} className={`${layout === "mapOnly" ? "h-[70vh]" : "h-[420px]"} w-full rounded-lg border border-[#C9E3EC]`} />
+          <div ref={mapDivRef} className={`${layout === "mapOnly" ? "h-[70vh]" : "h-[420px]"} w-full rounded-lg border border-brand-border`} />
         </div>
       </div>
     </div>

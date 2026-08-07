@@ -10,7 +10,7 @@ type Props = {
   isSpa: boolean;
 };
 
-export const inputClass = "rounded border border-slate-300 px-2 py-1.5 text-sm";
+export const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
 
 export type EquipmentDefaults = {
   serialNumber?: string;
@@ -124,8 +124,8 @@ export function EquipmentKindFields({
       {kind === EquipmentKind.HEATER ? (
         <div className="mt-2 grid gap-2 md:grid-cols-4">
           <input name="btu" type="number" step="1000" placeholder="BTU" defaultValue={defaults.btu} className={inputClass} />
-          <label className="flex items-center gap-1.5 text-sm text-slate-700">
-            <input type="checkbox" name="asmeCertified" defaultChecked={defaults.asmeCertified} className="rounded border-slate-300" />
+          <label className="flex items-center gap-1.5 text-sm text-brand-ink">
+            <input type="checkbox" name="asmeCertified" defaultChecked={defaults.asmeCertified} className="rounded border-brand-control" />
             ASME certified
           </label>
         </div>
@@ -150,8 +150,8 @@ export function EquipmentKindFields({
             defaultValue={defaults.numberOfPorts}
             className={inputClass}
           />
-          <label className="flex items-center gap-1.5 text-sm text-slate-700">
-            <input type="checkbox" name="manufacturedSump" defaultChecked={defaults.manufacturedSump} className="rounded border-slate-300" />
+          <label className="flex items-center gap-1.5 text-sm text-brand-ink">
+            <input type="checkbox" name="manufacturedSump" defaultChecked={defaults.manufacturedSump} className="rounded border-brand-control" />
             Manufactured sump
           </label>
           <input
@@ -176,12 +176,12 @@ export function EquipmentKindFields({
             ))}
           </select>
           <input name="pipeSize" placeholder="Pipe size (e.g. 2 in)" defaultValue={defaults.pipeSize} className={inputClass} />
-          <label className="flex items-center gap-1.5 text-sm text-slate-700">
+          <label className="flex items-center gap-1.5 text-sm text-brand-ink">
             <input
               type="checkbox"
               name="equalizerAbandoned"
               defaultChecked={defaults.equalizerAbandoned}
-              className="rounded border-slate-300"
+              className="rounded border-brand-control"
             />
             Equalizer line abandoned
           </label>
@@ -246,7 +246,7 @@ export function EquipmentForm({ customerId, bodyId, isSpa }: Props) {
   const [kind, setKind] = useState<EquipmentKind>(EquipmentKind.PUMP);
 
   return (
-    <form action={createEquipment} className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
+    <form action={createEquipment} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
       <input type="hidden" name="customerId" value={customerId} />
       <input type="hidden" name="bodyId" value={bodyId} />
 
@@ -271,11 +271,11 @@ export function EquipmentForm({ customerId, bodyId, isSpa }: Props) {
       <EquipmentKindFields kind={kind} isSpa={isSpa} />
 
       <div className="mt-2">
-        <label className="block text-xs text-slate-500">Last changed / fixed</label>
+        <label className="block text-xs text-brand-muted">Last changed / fixed</label>
         <input name="lastServicedAt" type="date" className={`mt-0.5 w-full max-w-xs ${inputClass}`} />
       </div>
 
-      <button className="mt-2 rounded bg-[#0A5FA4] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+      <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
         Add equipment
       </button>
     </form>

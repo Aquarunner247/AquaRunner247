@@ -253,7 +253,10 @@ export function parseReadingsCsv(text: string): { rows: ImportedReadingRow[]; er
       vacGaugeReading,
       filterPressurePsi,
       flowMeterGpm,
-      backwashed: backwashedRaw === "yes" || backwashedRaw === "y" || backwashedRaw === "true",
+      // Some hand-edited spreadsheets use "1"/"2" instead of yes/no for this column
+      // (1 = backwashed, 2 = not) -- "2" already falls through to false below, so
+      // only "1" needs to be added as a truthy value.
+      backwashed: backwashedRaw === "yes" || backwashedRaw === "y" || backwashedRaw === "true" || backwashedRaw === "1",
       backwashTime,
     });
   }

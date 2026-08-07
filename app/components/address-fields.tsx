@@ -110,13 +110,13 @@ export function AddressFields({
           onFocus={() => setOpen(suggestions.length > 0)}
           placeholder="Start typing an address…"
           autoComplete="off"
-          className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+          className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
         />
         {loading ? (
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">Searching…</span>
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-brand-control">Searching…</span>
         ) : null}
         {open && suggestions.length > 0 ? (
-          <ul className="absolute z-10 mt-1 w-full rounded border border-slate-300 bg-white text-sm shadow-lg">
+          <ul className="absolute z-10 mt-1 w-full rounded border border-brand-control bg-white text-sm shadow-lg">
             {suggestions.map((s, i) => (
               <li key={i}>
                 <button
@@ -129,7 +129,7 @@ export function AddressFields({
                     e.preventDefault();
                     pickSuggestion(s);
                   }}
-                  className="block w-full px-2 py-1.5 text-left hover:bg-slate-100"
+                  className="block w-full px-2 py-1.5 text-left hover:bg-brand-foam"
                 >
                   {s.label}
                 </button>
@@ -143,7 +143,7 @@ export function AddressFields({
         name="addressLine2"
         defaultValue={initialAddressLine2 ?? ""}
         placeholder="Address line 2 (apt, suite, etc.)"
-        className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+        className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
       />
       <div className="grid grid-cols-3 gap-2">
         <input
@@ -151,21 +151,21 @@ export function AddressFields({
           name="city"
           defaultValue={initialCity ?? ""}
           placeholder="City"
-          className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+          className="rounded border border-brand-control px-2 py-1.5 text-sm"
         />
         <input
           ref={regionRef}
           name="region"
           defaultValue={initialRegion ?? ""}
           placeholder="State"
-          className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+          className="rounded border border-brand-control px-2 py-1.5 text-sm"
         />
         <input
           ref={postalRef}
           name="postalCode"
           defaultValue={initialPostalCode ?? ""}
           placeholder="ZIP"
-          className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+          className="rounded border border-brand-control px-2 py-1.5 text-sm"
         />
       </div>
     </div>

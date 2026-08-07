@@ -24,7 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <>
       {pastDue ? (
-        <div className="border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">
+        <div className="border-b border-brand-warn/40 bg-brand-warnFill px-4 py-2 text-center text-sm text-brand-warn">
           Your last payment failed.{" "}
           <a href="/dashboard/billing" className="font-medium underline">
             Update your billing info
@@ -32,7 +32,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
           to avoid an interruption.
         </div>
       ) : null}
-      {children}
+      {/* Technician pages already reserve their own space for TechBottomNav (pb-24 per
+          page); admin/office get the equivalent bottom nav from SideNav on mobile, which
+          those pages were never built to leave room for, so pad it here instead of
+          touching every page individually. */}
+      {appUser.role === "TECHNICIAN" ? children : <div className="pb-20 md:pb-0">{children}</div>}
       {appUser.role === "TECHNICIAN" ? <TechBottomNav dateYmd={toYmd(new Date())} /> : null}
     </>
   );
