@@ -1393,6 +1393,257 @@ const MARYLAND: StateSeed = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// New Mexico -- the source form is colour-coded GREEN/RED per reading rather than a
+// min/ideal/max table, and uniquely applies that SAME binary status to chemistry AND
+// physical/equipment conditions (clarity, main drain, filtration system) under one
+// unified "reopen when GREEN again" rule (pattern 16) -- modeled as ChemistryThreshold
+// rows for the non-numeric physical conditions too, plus one umbrella EventProtocol row
+// for the shared reopen-on-GREEN logic. ORP is a floor-only requirement (pattern 31,
+// contrast Colorado's full 250-900mV range). CYA splits three ways by facility subtype
+// (pattern 32): banned indoors, banned in outdoor spas/therapy pools, permitted only in
+// outdoor pools/spray pads. CYA testing frequency is conditional on delivery method
+// (pattern 17), not just whether it's used.
+// ---------------------------------------------------------------------------
+const NEW_MEXICO: StateSeed = {
+  state: "NM",
+  ruleset: {
+    stateName: "New Mexico",
+    healthDepartmentName: "New Mexico Environment Department (NMED)",
+    isSupported: false,
+    jurisdictionLevel: "STATE",
+    officialCitation: "7.18.1 NMAC (New Mexico Administrative Code, aquatic venue rules), especially 7.18.1.26 (water-quality provisions)",
+    logSheetSource: "STATE_PROVIDED",
+    logSheetSourceLabel: "Aquatic Venue Log Sheet",
+    logSheetSourceNotes:
+      "Fields: Day, Time, Initials, pH, ORP (mV/pH), FAC/Bromine, Total Chlorine, CAC (Combined Chlorine -- calculated, not directly tested), Temp, Flow Rate, Alkalinity, Cyanuric Acid, Disinfectant/Chemicals and Amount Added, and a Comments field for closures/injuries/clarity issues. The form itself is colour-coded GREEN (compliant) / RED (non-compliant) per reading -- 'RED readings mean your pool DOES NOT MEET REQUIREMENTS. Take immediate action, retest, then reopen your pool when readings are GREEN.'",
+  },
+  chemistryThresholds: [
+    { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "no CYA in use", minValue: 1.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also applies to spray pads." },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", appliesWhen: "no CYA in use", minValue: 3.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed" },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", appliesWhen: "CYA in use", minValue: 2.0, maxValue: 10.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Also applies to spray pads." },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", maxValue: 8.0, unit: "ppm", sourceConfidence: "confirmed", notes: "Total available bromine -- no minimum commonly listed alongside the 8.0 ppm max." },
+    {
+      parameter: "ORP",
+      minValue: 650,
+      unit: "mV",
+      sourceConfidence: "confirmed",
+      notes:
+        "Automated disinfectant/pH controllers (ORP) are required on essentially all New Mexico aquatic venues. Floor-only requirement -- no numeric ceiling is commonly listed the way Colorado's 900 mV upper bound is; properly functioning systems simply read higher than the floor. Worth not assuming every state's ORP requirement is a two-sided range.",
+    },
+    {
+      parameter: "COMBINED_CHLORINE",
+      maxValue: 0.4,
+      unit: "ppm",
+      relationalRule: "CAC (Combined Available Chlorine) = Total Chlorine - Free Chlorine, calculated rather than directly tested -- same formula structure as Arkansas, but double Arkansas's 0.2 ppm threshold. Above 0.4 ppm requires corrective action (breakpoint chlorination or equivalent).",
+      sourceConfidence: "confirmed",
+    },
+    { parameter: "TEMPERATURE", maxValue: 104, unit: "°F", sourceConfidence: "confirmed" },
+    {
+      parameter: "CYANURIC_ACID",
+      bodyOfWaterCategory: "POOL",
+      indoorOutdoor: "OUTDOOR",
+      appliesWhen: "outdoor pools/spray pads only",
+      maxValue: 100,
+      idealMax: 30,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "The only body-of-water/indoor-outdoor combination where CYA is permitted at all in New Mexico -- see the two ban rows below and ComplianceNote.",
+    },
+    {
+      parameter: "CYANURIC_ACID",
+      indoorOutdoor: "INDOOR",
+      relationalRule: "Prohibited indoors entirely, regardless of body-of-water type.",
+      unit: "",
+      sourceConfidence: "confirmed",
+    },
+    {
+      parameter: "CYANURIC_ACID",
+      bodyOfWaterCategory: "SPA",
+      indoorOutdoor: "OUTDOOR",
+      appliesWhen: "outdoor spas/therapy pools",
+      relationalRule: "Prohibited in outdoor spas and therapy pools specifically, as of August 1, 2020 -- a facility-subtype-aware ban more granular than a simple indoor/outdoor binary. Contrast Florida, which still permits CYA in spas at a lower cap rather than banning it outright.",
+      unit: "",
+      sourceConfidence: "confirmed",
+    },
+    { parameter: "CLARITY", unit: "", sourceConfidence: "confirmed", notes: "GREEN: clear. RED: hazy, cloudy, or main drain/bottom not visible." },
+    { parameter: "MAIN_DRAIN_CONDITION", unit: "", sourceConfidence: "confirmed", notes: "GREEN: covers secured, good condition. RED: covers cracked, missing, or loose." },
+    { parameter: "FILTRATION_SYSTEM_STATUS", unit: "", sourceConfidence: "confirmed", notes: "GREEN: filtration system/automatic controllers operating properly. RED: not operating, or operating poorly." },
+  ],
+  frequencyRules: [
+    { parameter: "PH_ORP_FAC_BROMINE", cadence: "prior to opening, then every 4 hours", intervalMinutes: 240 },
+    { parameter: "TOTAL_CHLORINE_CAC_TEMP_FLOW_ALKALINITY", cadence: "daily, prior to opening", intervalMinutes: 1440 },
+    {
+      parameter: "CYANURIC_ACID",
+      appliesWhen: "fed continuously via stabilized chlorine",
+      cadence: "every 2 weeks",
+      intervalMinutes: 20160,
+      notes: "Same chemical, cadence depends on HOW it enters the water, not just whether it's used -- contrast Alabama/Arkansas/California's flat weekly-or-monthly CYA cadence.",
+    },
+    {
+      parameter: "CYANURIC_ACID",
+      appliesWhen: "manually dosed (outdoor use only)",
+      cadence: "monthly",
+      intervalMinutes: 43200,
+    },
+    { parameter: "CYANURIC_ACID", cadence: "weekly (default, if delivery method isn't otherwise specified)", intervalMinutes: 10080 },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "RED_STATUS_ANY_PARAMETER",
+      triggerLabel: "Any parameter -- chemistry or physical/equipment -- reads RED",
+      closureKind: "UNTIL_GREEN_STATUS_RESTORED",
+      reopeningCondition: "Take immediate action, retest, then reopen the pool once readings are GREEN again -- applies uniformly across chemistry, clarity, main-drain condition, and filtration/controller status, not a separate protocol per category.",
+      sourceConfidence: "confirmed",
+      notes:
+        "New Mexico's source document presents every parameter -- chemistry and physical/equipment alike -- as one shared binary GREEN/RED band with one reopen rule, unlike Arizona/Arkansas/Colorado's separate written protocols per category. The cleanest state collected to model a generic 'status = GREEN | RED, reopen when GREEN again' rule type against.",
+    },
+  ],
+  complianceNotes: [
+    {
+      kind: "ASSUMPTION",
+      summary: "CYA's permitted-use scope splits three ways by facility subtype: banned indoors, banned in outdoor spas/therapy pools (as of Aug 1, 2020), permitted only in outdoor pools/spray pads.",
+      detail: "More granular than Alabama's/Alaska's simple indoor/outdoor distinction. Modeled as three separate ChemistryThreshold rows (one permitted-with-range, two ban rows) rather than one row with a conditional range, since two of the three combinations are outright prohibitions with no numeric range at all.",
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// New York -- 10 NYCRR Subpart 6-1. A stepped (two-tier) pH-conditional free-chlorine
+// minimum (pattern 6's simpler cousin), a full stabilizer ban naming specific product
+// classes (cyanuric acid, dichlor, trichlor), and a proactive notification duty distinct
+// from a closure trigger. The separate June 2023 "Contamination Response Recommendations"
+// document is the most detailed event-protocol source collected across any state --
+// substitutable CT concentration/time pairs (pattern 18), an exact CYA-doubles-time rule
+// (pattern 19), closure cascades across shared filtration (pattern 20), and blood as the
+// first state to exempt a contamination type from closure entirely (pattern 21).
+// ---------------------------------------------------------------------------
+const NEW_YORK: StateSeed = {
+  state: "NY",
+  ruleset: {
+    stateName: "New York",
+    healthDepartmentName: "New York State Department of Health, Bureau of Community Environmental Health and Food Protection",
+    isSupported: false,
+    jurisdictionLevel: "STATE",
+    officialCitation: "10 NYCRR Subpart 6-1, §6-1.11(c) (pool chemistry), §6-1.25(c) (spa chemistry), §6-1.11(c)(4) (chlorine stabilizer ban)",
+    sourceDocument:
+      "10 NYCRR Subpart 6-1 actual code text; 'Report on Operation of Swimming Pool' form DOH-1323; and a separate, much more detailed 'Contamination Response Recommendations for Pool and Spray Ground Staff' (June 2023), explicitly aligned with CDC Healthy Swimming guidance.",
+    logSheetSource: "STATE_PROVIDED",
+    logSheetSourceLabel: "Report on Operation of Swimming Pool (DOH-1323)",
+    logSheetSourceNotes:
+      "Fields: Date, Filter Washed, Pool Cleaned, Total Number of Bathers, Chlorine Used, Alkalinity, pH, Pool Drain Visible, Acid Added, Soda Ash Added, Other chemicals, three timestamped Free/Total residual test columns per day (1st/2nd/3rd Test), Remarks, Operator Signature/Date, Source of Water, and pints of % chlorine per gallons of water used.",
+  },
+  chemistryThresholds: [
+    { parameter: "PH", minValue: 7.2, maxValue: 8.2, idealMin: 7.2, idealMax: 7.8, unit: "", sourceConfidence: "confirmed", notes: "7.2-7.8 is the routine band (ideal ~7.5); 8.2 is a hard ceiling never to be exceeded during use, in the same breath as the chlorine maximum -- both treated as equally strict 'never exceed' limits." },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
+      appliesWhen: "pH <= 7.8",
+      minValue: 0.6,
+      maxValue: 5.0,
+      unit: "mg/L",
+      sourceConfidence: "confirmed",
+    },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
+      appliesWhen: "pH 7.8-8.2",
+      minValue: 1.5,
+      maxValue: 5.0,
+      unit: "mg/L",
+      sourceConfidence: "confirmed",
+      notes: "The 5.0 mg/L maximum is the SAME flat ceiling that applies at the lower pH band, not a separate higher-band number -- one ceiling governs the whole 7.2-8.2 range regardless of which minimum band applies.",
+    },
+    { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", appliesWhen: "pH <= 7.8", minValue: 1.5, unit: "mg/L", sourceConfidence: "confirmed" },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "POOL", minValue: 1.5, maxValue: 6.0, unit: "mg/L", sourceConfidence: "confirmed" },
+    { parameter: "BROMINE", disinfectionMethod: "BROMINE", bodyOfWaterCategory: "SPA", minValue: 3.0, maxValue: 6.0, unit: "mg/L", sourceConfidence: "confirmed" },
+    {
+      parameter: "CYANURIC_ACID",
+      unit: "",
+      relationalRule: "Not acceptable -- a full ban naming specific banned product classes: cyanuric acid, dichlor, and trichlor. Unlike Alaska's or Alabama's CYA-specific restrictions, this bans a category of chlorine products by name, not just a single additive.",
+      sourceConfidence: "confirmed",
+    },
+  ],
+  frequencyRules: [
+    {
+      parameter: "DISINFECTANT_RESIDUAL",
+      cadence: "at least 3x/day, especially before and after periods of heavy bathing",
+      intervalMinutes: 480,
+      notes: "Matches the DOH-1323 form's 1st/2nd/3rd Test columns exactly. Sample location: between pool inlet and outlet, at approximately 12 inches depth. Test method: DPD, explicit.",
+    },
+  ],
+  eventProtocols: [
+    {
+      triggerType: "NOTIFICATION_DUTY",
+      triggerLabel: "Mandatory immediate notification duty",
+      closureKind: "NOTIFICATION_OBLIGATION",
+      reopeningCondition: "N/A -- not a closure trigger. The county/district health department must be notified IMMEDIATELY of any equipment change, treatment interruption, loss of water clarity, or serious injury -- a proactive reporting duty independent of whether the facility is currently in compliance.",
+      sourceConfidence: "confirmed",
+      notes: "Distinct from every closure trigger collected so far -- most states define when a facility must close; New York separately requires notifying the health department for a wider set of events regardless of whether closure is also required.",
+    },
+    {
+      triggerType: "FECAL_FORMED",
+      triggerLabel: "Formed fecal matter or vomit in pool water/spray pad",
+      appliesWhen: "unstabilized chlorine, no CYA present",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 25,
+      ctValue: 50,
+      ctValueUnit: "ppm·min",
+      cascadesToSharedFiltration: true,
+      reopeningCondition:
+        "Raise free chlorine to 2 ppm (if below), maintain FC >= 2 ppm and pH <= 7.5 for 25-30 minutes; ideal water temp >= 77°F. Table 1 gives substitutable concentration/time pairs achieving equivalent Giardia inactivation: 1.0 ppm for 45 min, 2.0 ppm for 25-30 min, or 3.0 ppm for 19 min. Reopen once free chlorine/bromine and pH return to normal operating ranges for the facility type (pools: 0.6-5 ppm FC or 1.5-6 ppm bromine, pH 7.2-7.8; spas: 1.5-5 ppm FC or 3-6 ppm bromine, pH 7.2-7.8; spray grounds: 2-10 ppm FC or >=4.4 ppm bromine, pH 7.2-7.8).",
+      remediationSteps:
+        "Close immediately -- if multiple venues share one filtration system, ALL connected venues close together, not just the affected one -> remove matter with net/bucket, never vacuum -> disinfect removal tools by leaving them immersed during disinfection -> using unstabilized chlorine, raise/maintain FC and hold time above -> brominated facilities must switch to a chlorine-based disinfectant (bromine can't be distinguished from chlorine by most test kits) -- minimum disinfection level needed is the current bromine level PLUS the minimum free chlorine level for the selected closure time, an additive requirement, not a substitution.",
+      sourceConfidence: "confirmed",
+      notes: "Most detailed event-protocol document collected across any state -- a full CDC-aligned response guide, not just a regulation excerpt.",
+    },
+    {
+      triggerType: "FECAL_FORMED",
+      triggerLabel: "Formed fecal matter or vomit, cyanuric acid present",
+      appliesWhen: "if cyanuric acid present",
+      closureKind: "FIXED_DURATION",
+      cascadesToSharedFiltration: true,
+      reopeningCondition:
+        "Stop using CYA products, contact the local health department, and EXACTLY DOUBLE the disinfection time for the chosen concentration: 1 ppm -> 90 min (instead of 45), 2 ppm -> 50-60 min (instead of 25-30), 3 ppm -> 38 min (instead of 19).",
+      sourceConfidence: "confirmed",
+      notes: "Stated as an exact doubling rule with worked examples for each concentration tier -- contrast Arkansas's softer 'CYA roughly doubles treatment time' caveat for the same underlying effect.",
+    },
+    {
+      triggerType: "FECAL_DIARRHEAL",
+      triggerLabel: "Diarrheal incident",
+      closureKind: "FIXED_DURATION",
+      minimumDurationMinutes: 765,
+      ctValue: 15300,
+      ctValueUnit: "ppm·min",
+      cascadesToSharedFiltration: true,
+      reopeningCondition:
+        "Same initial closure/removal steps as the formed-fecal protocol (including the shared-filtration cascade). Raise free chlorine to 20 ppm, pH <= 7.5, maintain for at least 12.75 hours to reach CT ~15,300 -- matches Arkansas's numbers almost exactly. Table 2 gives an alternative substitutable pair: 10 ppm for 25 hours 30 minutes achieves the same CT value as 20 ppm for 12h45m, confirming this is a genuine formula (concentration x time = target), not just a fixed lookup. Backwash filter (or replace cartridge/DE media) after reaching the CT value; for sand filters, direct filtered water to waste for 5 minutes after restart. Same three-tier reopening ranges as the formed-fecal protocol above.",
+      sourceConfidence: "confirmed",
+      notes:
+        "Alternative remediation for venues not combined with another venue's water: Draining & Cleaning (small-volume venues -- drain completely, scrub contacted surfaces, replace/backwash filter media, refill from an approved source) or UV Light Disinfection (spray grounds only -- confirm disinfectant residual >=2.0 ppm chlorine/>=4.4 ppm bromine and pH 7.2-7.8, confirm UV reactor achieving >=40 mJ/cm² -- same UV dosage number as California's spray-ground closure trigger, cross-validating it as a real industry standard, not a one-off; recirculate the full system for at least 30 minutes with the venue closed).",
+    },
+    {
+      triggerType: "BLOOD",
+      triggerLabel: "Blood on surfaces (excluding spray pad) or in water",
+      closureKind: "NO_CLOSURE_REQUIRED",
+      reopeningCondition:
+        "No closure required -- explicitly exempted, stated as 'no public health reason to recommend closing the pool' since chlorine readily kills bloodborne pathogens (Hepatitis B, HIV) in properly maintained water, though staff may still choose to close temporarily. Clean surfaces with a 9-parts-water-to-1-part-household-bleach solution, 20 minute contact time, then wipe up and dispose properly. Exception: if the spill happens ON the spray pad itself (not just an adjacent deck), it's treated as water contamination and routed through the formed-fecal/diarrheal protocols instead, since spray pad drainage feeds back into the treatment tank.",
+      sourceConfidence: "confirmed",
+      notes: "First state collected to make contamination type change whether closure is required AT ALL, not just which remediation steps apply -- notably more lenient than California's or Maryland's 'check the current chlorine level' approach, and Florida's similar check-current-level rule.",
+    },
+  ],
+  complianceNotes: [
+    {
+      kind: "ASSUMPTION",
+      summary: "Closure cascades across shared/linked filtration systems: both the formed-fecal and diarrheal procedures require closing every venue sharing one filtration system, not just the affected body of water.",
+      detail: "Relevant if a property has multiple bodies of water on shared equipment -- modeled via EventProtocol.cascadesToSharedFiltration=true on the relevant rows rather than a separate table this pass.",
+    },
+  ],
+};
+
 const ALL_STATES: StateSeed[] = [
   NEVADA,
   CONNECTICUT,
@@ -1404,6 +1655,8 @@ const ALL_STATES: StateSeed[] = [
   COLORADO,
   FLORIDA,
   MARYLAND,
+  NEW_MEXICO,
+  NEW_YORK,
 ];
 
 async function main() {
