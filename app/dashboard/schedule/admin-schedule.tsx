@@ -284,6 +284,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             tab={tab}
             date={selectedYmd}
             propertyType={selectedPropertyType}
+            onDark
           />
           <PropertyTypeFilterSelect
             selected={selectedPropertyType}
@@ -291,6 +292,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             technicianId={selectedTechnicianId}
             tab={tab}
             date={selectedYmd}
+            onDark
           />
         </div>
 
