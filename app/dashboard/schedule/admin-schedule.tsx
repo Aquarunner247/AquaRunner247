@@ -11,7 +11,7 @@ import { WaveProgress } from "@/app/components/wave-progress";
 
 type Props = {
   appUser: { id: string; organizationId: string };
-  searchParams: Promise<{ tab?: string; date?: string; tech?: string; type?: string }>;
+  searchParams: Promise<{ tab?: string; date?: string; tech?: string; type?: string; status?: string }>;
 };
 
 function parseDateParam(raw: string | undefined): Date {
@@ -37,17 +37,31 @@ function startOfWeek(d: Date) {
 const TABS = ["day", "week", "map", "list"] as const;
 type Tab = (typeof TABS)[number];
 
+// The four stat tiles double as filters -- "all" (Total Jobs) is the unfiltered default.
+// Skipped/cancelled stops aren't one of the four tiles, so there's no filter value for
+// them; they still show up under "all". Actual filtering happens inside RouteDayView
+// (its statusFilter prop), not here -- see that component's doc comment for why.
+const STATUS_FILTERS = ["all", "completed", "in_progress", "pending"] as const;
+type StatusFilterValue = (typeof STATUS_FILTERS)[number];
+
 /**
  * Admin/office-facing counterpart to the technician SchedulePage — same tabbed Day/Week/
  * Map/List structure and status badges, plus a technician filter (default "All
  * Technicians" combined view, or narrow to one technician's own route). Reuses
- * RouteDayView's multi-technician mode for the combined view; a single selected
- * technician renders identically to that technician's own page, minus interactivity —
- * every view here is read-only (see route-day-view.tsx's `readOnly`/`effectiveReadOnly`).
+ * RouteDayView's multi-technician mode for the combined view, which stays read-only (see
+ * route-day-view.tsx's own isMultiTech reasoning — reordering an interleaved combined
+ * route isn't coherent). Narrowing to a single technician via the filter drops into full
+ * interactivity — drag-to-reorder, skip/unskip, "Optimize route" — same as that
+ * technician's own page. The reorder/status API routes already authorize ADMIN/OFFICE to
+ * edit any technician's visits (see api/visits/reorder/route.ts's canEditAll), so this is
+ * purely a client-side gate matching what the server already allows.
  */
 export async function AdminSchedule({ appUser, searchParams }: Props) {
   const sp = await searchParams;
   const tab: Tab = TABS.includes((sp.tab ?? "") as Tab) ? ((sp.tab ?? "day") as Tab) : "day";
+  const statusFilter: StatusFilterValue = STATUS_FILTERS.includes((sp.status ?? "") as StatusFilterValue)
+    ? ((sp.status ?? "all") as StatusFilterValue)
+    : "all";
 
   const selectedDate = parseDateParam(sp.date);
   const startOfDay = new Date(selectedDate);
@@ -65,11 +79,32 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
   // Fetched once, reused for: the filter dropdown, the technician-color assignment, and
   // validating `sp.tech` (a non-matching id — wrong org, stale id — silently falls back to
   // "All" rather than erroring, avoiding leaking existence info).
-  const roster = await prisma.user.findMany({
-    where: { organizationId: appUser.organizationId, role: "TECHNICIAN", active: true },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-    select: { id: true, name: true, email: true },
-  });
+  //
+  // Two queries, not one: active TECHNICIAN-role users, plus anyone else (in practice, an
+  // Admin) who's currently the default technician on at least one active recurring route.
+  // Admins can be assigned stops on a route "like a technician" (see the Roles copy on the
+  // Users page) — a route's technicianId has no role restriction at the schema level — so
+  // an Admin carrying a route needs to show up in this filter too, not just literal
+  // TECHNICIAN-role users. Role-agnostic (role: { not: "TECHNICIAN" }) rather than
+  // Admin-only, since RecurringRoute.technicianId doesn't restrict by role either.
+  const [technicianRoster, nonTechnicianRouteOwners] = await Promise.all([
+    prisma.user.findMany({
+      where: { organizationId: appUser.organizationId, role: "TECHNICIAN", active: true },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, email: true },
+    }),
+    prisma.user.findMany({
+      where: {
+        organizationId: appUser.organizationId,
+        role: { not: "TECHNICIAN" },
+        active: true,
+        assignedRoutes: { some: { active: true } },
+      },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, email: true },
+    }),
+  ]);
+  const roster = [...technicianRoster, ...nonTechnicianRouteOwners];
   const selectedTechnicianId = roster.find((t) => t.id === sp.tech)?.id ?? null;
   const selectedPropertyType: "RESIDENTIAL" | "COMMERCIAL" | null =
     sp.type === "RESIDENTIAL" || sp.type === "COMMERCIAL" ? sp.type : null;
@@ -91,6 +126,22 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     if (selectedTechnicianId) params.set("tech", selectedTechnicianId);
     if (selectedPropertyType) params.set("type", selectedPropertyType);
     return `/dashboard/schedule?${params.toString()}`;
+  }
+  // Deliberately doesn't preserve `status` across tab/day navigation (see tabHref/
+  // dayHref above, neither sets it either) -- same reasoning as the technician page's
+  // own statusHref: a filter carried over to a newly-navigated day could silently show
+  // "no stops" with no visible reason.
+  function statusHref(s: StatusFilterValue) {
+    const params = new URLSearchParams();
+    params.set("tab", tab);
+    if (sp.date) params.set("date", sp.date);
+    if (selectedTechnicianId) params.set("tech", selectedTechnicianId);
+    if (selectedPropertyType) params.set("type", selectedPropertyType);
+    if (s !== "all") params.set("status", s);
+    return `/dashboard/schedule?${params.toString()}`;
+  }
+  function statTileClass(active: boolean) {
+    return `rounded-md px-1 py-1 transition ${active ? "bg-white/15 ring-1 ring-white/40" : "hover:bg-white/5"}`;
   }
 
   let weekData: { ymd: string; label: string; total: number; completed: number; skipped: number }[] = [];
@@ -260,22 +311,22 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
         {tab !== "week" ? (
           <div className="mt-4 rounded-xl bg-white/5 p-3 text-white">
             <div className="grid grid-cols-4 gap-2 text-center">
-              <div>
+              <Link href={statusHref("all")} className={statTileClass(statusFilter === "all")}>
                 <p className="app-metric text-2xl font-bold">{stats.total}</p>
                 <p className="text-[10px] uppercase tracking-wide text-brand-border">Total jobs</p>
-              </div>
-              <div>
+              </Link>
+              <Link href={statusHref("completed")} className={statTileClass(statusFilter === "completed")}>
                 <p className="app-metric text-2xl font-bold text-brand-primary">{stats.completed}</p>
                 <p className="text-[10px] uppercase tracking-wide text-brand-border">Completed</p>
-              </div>
-              <div>
+              </Link>
+              <Link href={statusHref("in_progress")} className={statTileClass(statusFilter === "in_progress")}>
                 <p className="app-metric text-2xl font-bold text-white">{stats.inProgress}</p>
                 <p className="text-[10px] uppercase tracking-wide text-brand-border">In progress</p>
-              </div>
-              <div>
+              </Link>
+              <Link href={statusHref("pending")} className={statTileClass(statusFilter === "pending")}>
                 <p className="app-metric text-2xl font-bold text-brand-warnFill">{stats.pending}</p>
                 <p className="text-[10px] uppercase tracking-wide text-brand-border">Pending</p>
-              </div>
+              </Link>
             </div>
             {stats.total > 0 ? (
               <div className="mt-3">
@@ -323,12 +374,18 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
           <>
             <RouteDayView
               visits={routeStops}
-              readOnly
+              statusFilter={statusFilter}
+              // Read-only whenever viewing "All Technicians" (unchanged reasoning), AND
+              // whenever a status filter is active -- reordering a filtered subset
+              // doesn't have coherent semantics against the day's real underlying
+              // sequence (same rationale as the technician page's own gate).
+              readOnly={!selectedTechnicianId || statusFilter !== "all"}
               isToday={isToday}
               dateYmd={selectedYmd}
               layout={tab === "map" ? "mapOnly" : tab === "list" ? "listOnly" : "both"}
               technicianColors={selectedTechnicianId ? undefined : technicianColorsRecord}
               technicianLegend={selectedTechnicianId ? undefined : technicianLegend}
+              allowGpsAutoArrival={false}
             />
 
             {tab !== "map" ? (

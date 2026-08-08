@@ -40,7 +40,31 @@ type Props = {
   technicianColors?: Record<string, string>;
   /// Legend strip shown above the map when technicianColors is set.
   technicianLegend?: { id: string; label: string; color: string }[];
+  /// Whether THIS device's GPS should drive arrival auto-stamping. Deliberately separate
+  /// from readOnly/effectiveReadOnly: those control whether the ROUTE is editable
+  /// (reorder/skip/optimize), not whose location it's safe to trust. An admin viewing (and
+  /// now, for a single selected technician, editing) a route from the office must never
+  /// have their own device's location silently used to auto-stamp a technician's arrival
+  /// times -- defaults to true so the technician's own page (the only caller that should
+  /// ever watch GPS) doesn't need to opt in explicitly.
+  allowGpsAutoArrival?: boolean;
+  /// Purely a display filter for the list/map -- GPS auto-arrival eligibility,
+  /// drag-reorder, and multi-stop-property grouping all still operate on the FULL
+  /// `visits` array regardless of this, so e.g. a technician filtered to "Completed"
+  /// while walking toward their next *pending* stop still gets that stop auto-stamped on
+  /// arrival even though it isn't currently rendered. Callers are expected to also pass
+  /// `readOnly` whenever this isn't "all" -- reordering a filtered subset against the
+  /// full day's real underlying sequence isn't coherent (same reasoning as the existing
+  /// multi-tech read-only gate).
+  statusFilter?: "all" | "completed" | "in_progress" | "pending";
 };
+
+function matchesStatusFilter(status: string, filter: NonNullable<Props["statusFilter"]>): boolean {
+  if (filter === "all") return true;
+  if (filter === "completed") return status === "COMPLETED";
+  if (filter === "in_progress") return status === "IN_PROGRESS";
+  return status === "SCHEDULED"; // "pending"
+}
 
 const ARRIVAL_RADIUS_METERS = 150;
 
@@ -148,6 +172,8 @@ export function RouteDayView({
   layout = "both",
   technicianColors,
   technicianLegend,
+  allowGpsAutoArrival = true,
+  statusFilter = "all",
 }: Props) {
   const isMultiTech = Boolean(technicianColors);
   // Multi-technician mode is always read-only, regardless of the readOnly prop: reordering
@@ -188,9 +214,10 @@ export function RouteDayView({
   }
 
   // Watch device location while this is today's route and the tab stays open; auto-stamp
-  // arrival time on any stop the tech gets within ARRIVAL_RADIUS_METERS of.
+  // arrival time on any stop the tech gets within ARRIVAL_RADIUS_METERS of. Gated on
+  // allowGpsAutoArrival separately from effectiveReadOnly -- see that prop's doc comment.
   useEffect(() => {
-    if (effectiveReadOnly || !isToday) return;
+    if (effectiveReadOnly || !isToday || !allowGpsAutoArrival) return;
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       setLocationState("unsupported");
       return;
@@ -217,7 +244,7 @@ export function RouteDayView({
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [effectiveReadOnly, isToday]);
+  }, [effectiveReadOnly, isToday, allowGpsAutoArrival]);
 
   // Initialize the map once
   useEffect(() => {
@@ -257,11 +284,11 @@ export function RouteDayView({
       currentTechPolyline = [];
     };
 
-    visits.forEach((v, idx) => {
+    displayedVisits.forEach((v) => {
       if (v.latitude == null || v.longitude == null) return;
       const isSkipped = v.status === "CANCELLED";
       const color = isMultiTech ? technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR : BRAND_PRIMARY;
-      const glyph = isSkipped ? "×" : isMultiTech ? getTechnicianInitial(v.technicianLabel) : String(idx + 1);
+      const glyph = isSkipped ? "×" : isMultiTech ? getTechnicianInitial(v.technicianLabel) : String((trueIndexById.get(v.id) ?? 0) + 1);
       const icon = L.divIcon({
         className: "",
         html: `<div style="background:${color};color:white;border-radius:9999px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);">${glyph}</div>`,
@@ -303,7 +330,7 @@ export function RouteDayView({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visits]);
+  }, [visits, statusFilter]);
 
   async function persistOrder(next: RouteStop[]) {
     setVisits(next);
@@ -364,6 +391,13 @@ export function RouteDayView({
 
   const missingCoords = visits.some((v) => v.latitude == null || v.longitude == null);
 
+  // The subset actually rendered in the list/map -- everything else (GPS eligibility,
+  // drag-reorder, grouping below) stays keyed off the full `visits` array. trueIndexById
+  // preserves each stop's real day-sequence position (badge number, marker glyph, drag
+  // index) even though displayedVisits may skip over some of them.
+  const displayedVisits = statusFilter === "all" ? visits : visits.filter((v) => matchesStatusFilter(v.status, statusFilter));
+  const trueIndexById = new Map(visits.map((v, i) => [v.id, i]));
+
   const activeVisits = visits.filter((v) => v.status !== "CANCELLED");
   // Group visits into contiguous same-property runs, in actual route-sequence order.
   // A property with a split layout (front pool/spa now, back pool/spa later, with other
@@ -392,12 +426,15 @@ export function RouteDayView({
   const capturePromptShown = new Set<string>();
 
   // Technician sub-headers for the list, multi-tech mode only — keyed by the id of the
-  // first visit in each contiguous technician run (visits are pre-ordered by technicianId).
+  // first VISIBLE visit in each contiguous technician run (visits are pre-ordered by
+  // technicianId). Built from displayedVisits, not the full visits array, so a status
+  // filter that happens to filter out a run's first stop doesn't make that technician's
+  // header vanish entirely, and the "(N stops)" count matches what's actually shown.
   const technicianGroupStarts = new Map<string, { label: string; color: string; count: number }>();
   if (isMultiTech) {
     let prevTechId: string | null | undefined = undefined;
     let current: { label: string; color: string; count: number } | null = null;
-    for (const v of visits) {
+    for (const v of displayedVisits) {
       if (v.technicianId !== prevTechId) {
         current = { label: v.technicianLabel ?? "Unassigned", color: technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR, count: 0 };
         technicianGroupStarts.set(v.id, current);
@@ -436,7 +473,8 @@ export function RouteDayView({
             </button>
           ) : null}
           <ul className="space-y-2">
-            {visits.map((v, idx) => {
+            {displayedVisits.map((v) => {
+              const idx = trueIndexById.get(v.id) ?? 0;
               const isSkipped = v.status === "CANCELLED";
               const techGroup = technicianGroupStarts.get(v.id);
               return (
@@ -515,7 +553,17 @@ export function RouteDayView({
                 </Fragment>
               );
             })}
-            {visits.length === 0 ? <p className="text-sm text-brand-muted">No stops for this day.</p> : null}
+            {displayedVisits.length === 0 ? (
+              <p className="text-sm text-brand-muted">
+                {visits.length === 0
+                  ? "No stops for this day."
+                  : statusFilter === "completed"
+                    ? "No completed stops yet."
+                    : statusFilter === "in_progress"
+                      ? "No stops in progress."
+                      : "No pending stops."}
+              </p>
+            ) : null}
           </ul>
         </div>
         <div className={layout === "listOnly" ? "hidden" : ""}>
