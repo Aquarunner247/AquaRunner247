@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { UserRole } from "@/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/enums";
 
 /** Same UI-only value as CUSTOMER_ROLE_VALUE in app/dashboard/users/actions.ts -- not a
  * real UserRole, kept as a plain string constant here since this is a client component
