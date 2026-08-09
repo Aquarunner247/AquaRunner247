@@ -6135,6 +6135,25 @@ freestanding spas may fall under the older, stricter Chapter 5 rule instead.
 | Water clarity | Black disc (6" diameter) visible at deepest point, or main drain/hot-tub bottom clearly visible (§18.5.4) |
 | Max hot tub temperature | 104°F (§18.5.7) |
 
+**CYA/alkalinity/hardness confirmed absent from the Children's Camp rule
+too, not just Lodging** (resolving open item (2) below): per direct
+correspondence with VDH's Food & Lodging program, none of the three are
+listed in either rule's required daily tests or closure criteria.
+Operators are expected to follow manufacturer specs and general good
+practice; VDH points operators to **CDC's Model Aquatic Health Code
+(MAHC)** for additional guidance rather than setting its own numbers.
+**Do not seed a `ChemistryThreshold` row for Vermont using MAHC/industry
+figures as if they were a Vermont requirement** — they aren't. For
+reference only, industry/MAHC-typical targets are roughly CYA 30–50 ppm
+(≤100 ppm max, lower during Crypto/diarrheal response), total alkalinity
+60–180 ppm (ideal ~80–120), and calcium hardness 150–400 ppm (varies by
+surface) — non-regulatory guidance values, not enforceable Vermont
+thresholds.
+
+**Test kit / equipment requirements:** test kits must be able to measure
+disinfectant across a 0.5–20 ppm range and pH in 0.2-unit increments;
+hot tubs additionally require a thermometer accurate to ±2°F.
+
 **Chemistry thresholds — older standalone Spas/Hot Tubs rule (Ch. 5, Subch.
 17, 1988), for comparison — do not merge these into the Lodging figures
 above, they're a different regulatory instrument:**
@@ -6212,22 +6231,36 @@ pools/RWFs vs. hot tubs, kept separate per this file's architecture:**
   way it is for pools/RWFs.
 - **Log requirement:** every fecal/vomiting accident logged with time, date,
   and disinfection measures taken (§18.10.2).
+- **Written response plan required:** beyond the incident log itself,
+  operators must maintain a **written fecal/vomit contamination response
+  plan** on file — a standing-document requirement layered on top of the
+  per-incident log, not just a record of what happened after the fact.
 
 **Open items for Vermont:** (1) confirm whether the 1988 Chapter 5/Subchapter
 17 spa rule has been formally superseded for lodging-establishment spas, or
 genuinely still governs freestanding ones in parallel — Cornell LII lists it
 as current but the two rules were not cross-referenced against each other in
-primary source text; (2) Children's Camp regulation (Ch. 6, Subch. 2) not
-reviewed — may contain a third, camp-specific pool standard; (3) no
+primary source text; (2) ~~Children's Camp regulation (Ch. 6, Subch. 2) not
+reviewed~~ — **resolved**: confirmed via direct correspondence with VDH's
+Food & Lodging program that CYA/alkalinity/hardness are absent from the
+Children's Camp rule too, same as Lodging; the camp rule's chemistry table
+otherwise still hasn't been fully transcribed into this file; (3) no
 chemistry-specific closure trigger exists in the Lodging rule (confirmed
 absent, not unresearched) — only the generic Imminent Health Hazard catch-all;
-(4) CYA, alkalinity, and calcium hardness are confirmed absent from the
-Lodging rule's chemistry table entirely.
+(4) CYA, alkalinity, and calcium hardness are confirmed absent from both the
+Lodging and Children's Camp rules' chemistry tables entirely — not a gap,
+per VDH; (5) **non-lodging, non-camp public pools** (e.g. municipal,
+HOA-owned-and-operated, standalone commercial pools not part of a lodging
+establishment) aren't clearly covered by either rule reviewed here — check
+local ordinances and confirm current interpretation directly with VDH Food
+& Lodging (FoodLodging@vermont.gov, 802-863-7220) before seeding a
+`ComplianceRuleset` for that facility type.
 
 **Sources used:**
 - [Regulation for Licensed Lodging Establishments, effective 1/1/2018 (Vermont Department of Health, official PDF)](https://www.healthvermont.gov/sites/default/files/document/reg-lodging-establishment.pdf) — read via direct PDF text extraction; source of every §18.x citation above, including the fecal/vomit/hot-tub protocol and the daily-log requirement
 - [13-027 Code Vt. R. 13-140-027-X — Vermont Health Regulations Chapter 5, Subchapter 17, Public Spas and Hot Tubs (Cornell LII)](https://www.law.cornell.edu/regulations/vermont/13-027-Code-Vt-R-13-140-027-X) — source of the older standalone-spa figures shown for comparison
 - [13-023 Code Vt. R. 13-140-023-X — Licensed Lodging Establishment Rule (Cornell LII, citation record)](https://www.law.cornell.edu/regulations/vermont/13-023-Code-Vt-R-13-140-023-X) — confirms the official code citation for the Lodging Establishment regulation
+- Direct correspondence with the Vermont Department of Health Food & Lodging program (FoodLodging@vermont.gov, 802-863-7220) — confirmed CYA/alkalinity/hardness are unregulated (no numeric limits, no closure trigger) in both the Lodging and Children's Camp rules, that VDH points operators to CDC's Model Aquatic Health Code (MAHC) for non-binding guidance on those parameters, the test-kit accuracy requirements, the written response-plan requirement, and that non-lodging/non-camp public pools fall outside this file's two reviewed rules — not independently cross-checked against primary regulation text this pass
 
 ---
 ## Texas
