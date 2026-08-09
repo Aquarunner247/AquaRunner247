@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { ScheduleFrequency } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
 import { WaveProgress } from "@/app/components/wave-progress";
@@ -55,6 +56,15 @@ export default async function RoutesPage() {
   // serviced twice in one day. Ad-hoc "Extra stops" are a separate system entirely
   // (not tied to RecurringStop/weekday routes) and are deliberately unaffected by this,
   // since those exist specifically for same-day repairs/one-offs.
+  //
+  // That assumption doesn't hold for states requiring sub-daily testing (Rhode Island
+  // every 2 hours, Georgia 3x/day, etc.) — a property there legitimately needs more than
+  // one same-day visit. requiresMultipleDailyVisits reads this org's own compliance
+  // frequency data to decide whether to skip the exclusion entirely, rather than hardcode
+  // an exception list of states.
+  const orgRuleset = await getOrganizationRuleset(appUser.organizationId);
+  const allowMultipleDailyVisits = requiresMultipleDailyVisits(orgRuleset);
+
   const scheduledBodyIdsByDay = new Map<number, Set<string>>();
   for (const route of routes) {
     const day = route.dayOfWeek ?? 0;
@@ -67,6 +77,10 @@ export default async function RoutesPage() {
 
   const availableBodiesByRoute = new Map<string, typeof allBodiesOfWater>();
   for (const route of routes) {
+    if (allowMultipleDailyVisits) {
+      availableBodiesByRoute.set(route.id, allBodiesOfWater);
+      continue;
+    }
     const scheduledIds = scheduledBodyIdsByDay.get(route.dayOfWeek ?? 0) ?? new Set<string>();
     availableBodiesByRoute.set(
       route.id,

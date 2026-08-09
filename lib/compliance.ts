@@ -67,6 +67,20 @@ export function isComplianceActive(ruleset: ComplianceRulesetWithRules | null): 
   return ruleset != null && ruleset.isSupported;
 }
 
+/** True when this state's own frequency rules require testing more than once per day for
+ * at least one parameter (any FrequencyRule with intervalMinutes under a day) -- the
+ * signal the weekly route scheduler uses to decide whether a property can legitimately be
+ * booked on more than one stop for the same weekday. A property in a state like Rhode
+ * Island (every 2 hours) or Georgia (3x/day) genuinely needs multiple same-day visits;
+ * the route scheduler's default "already scheduled this weekday" exclusion assumed that
+ * never happens, which doesn't hold for those states. Gated behind isComplianceActive the
+ * same as every other compliance-derived check -- an unsupported/unlinked account never
+ * unlocks this based on incomplete data. */
+export function requiresMultipleDailyVisits(ruleset: ComplianceRulesetWithRules | null): boolean {
+  if (!isComplianceActive(ruleset)) return false;
+  return ruleset.frequencyRules.some((r) => r.intervalMinutes != null && r.intervalMinutes > 0 && r.intervalMinutes < 1440);
+}
+
 /** The name to show in UI copy -- the real department name once known, otherwise a
  * generic label. Never hardcode "SNHD" or a department name directly in a component. */
 export function healthDepartmentLabel(ruleset: ComplianceRulesetWithRules | null): string {
