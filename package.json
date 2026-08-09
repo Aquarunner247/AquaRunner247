@@ -16,6 +16,7 @@
     "db:migrate": "prisma migrate dev && prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "db:verify-compliance-seed": "node --env-file=.env node_modules/.bin/tsx prisma/verify-compliance-seed.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
