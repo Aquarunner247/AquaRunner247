@@ -370,6 +370,74 @@ pass. **Read this section before finalizing the schema.**
       fecal-incident branching collected splits on contamination type
       or facility type — this is a structurally different axis.
 
+39. **Incorporation-by-reference to CDC/MAHC guidance instead of
+    codifying own CT values** — a third distinct fecal/vomit/blood-
+    protocol shape, alongside states that transcribe a full CT table
+    (Delaware, Oregon, New York, California, Arkansas) and states with
+    no protocol at all (Pennsylvania, Wyoming, South Dakota):
+    - Texas, Utah, Wisconsin, and DC's rule doesn't state its own
+      concentration×time numbers — it requires operators to follow a
+      named external document (CDC's "Fecal Incident Response
+      Recommendations for Aquatic Staff," or MAHC by section number) by
+      reference. The model may need a `protocolSource: "codified" |
+      "incorporated-by-reference" | "none"` distinction — an
+      incorporated-by-reference state still has a real, enforceable
+      protocol, just not one that can be seeded as a static ppm/time
+      pair without also tracking the referenced external document.
+
+40. **A single reading has two different governing thresholds — routine
+    operating range vs. closure/violation trigger — and the two numbers
+    aren't the same order of magnitude:**
+    - Wisconsin: cyanuric acid's operating ceiling is 30 ppm, but the
+      mandatory-closure threshold is 300 ppm — a 10x gap between "out
+      of spec, log it" and "close the facility," verified against two
+      independent sources. Every other state's CYA ceiling collected so
+      far uses the same number (or a small buffer) for both purposes;
+      don't assume operating-ceiling and closure-trigger are
+      interchangeable for every reading in every state.
+
+41. **A chemical has both a floor and a ceiling, not just a ceiling:**
+    - West Virginia: cyanuric acid must stay between 10 and 100 mg/L —
+      every other state's CYA rule collected so far only caps it from
+      above. West Virginia is the first to also require a minimum.
+
+42. **State-level pool authority sits in an agriculture department, not
+    a health department** — confirmed independently in two states:
+    - Wisconsin (DATCP) and Wyoming (Dept. of Agriculture, Consumer
+      Health Services Division) both place standard-setting and
+      enforcement authority outside any health agency.
+      `ComplianceRuleset`'s `healthDepartmentName` field may need to
+      tolerate a non-health-agency name without implying a data error.
+
+43. **Testing frequency driven by an individually-approved facility
+    plan, not a cadence fixed in the regulation text itself:**
+    - Utah: R392-302-29 requires operators to follow their own approved
+      operation/maintenance plan's testing schedule; the code only
+      imposes a fixed 4x/day cadence as a post-failure corrective
+      action, not a baseline. Distinct from California's "frequency
+      required to maintain compliance" (item 5) — Utah's baseline
+      frequency isn't performance-conditional, it's whatever each
+      facility's individually approved plan says.
+
+44. **Blood NOT exempted from closure — grouped with fecal/vomit as an
+    equal trigger, the opposite of the exemption pattern:**
+    - Washington explicitly lists blood alongside feces and vomit as an
+      equal Imminent Health Hazard closure trigger, with no risk-based
+      carve-out — direct contrast to New York/Delaware/Oregon's
+      explicit "blood doesn't require closure" language (item 21).
+      Don't assume that exemption generalizes; each state's
+      blood-handling rule needs individual verification. (Vermont's
+      rule is genuinely silent on blood-in-water specifically — flagged
+      there as an open item, not assumed to match either camp.)
+
+45. **A curve/table-based chlorine minimum, confirmed in a second state
+    via a different mechanism than Alaska's continuous formula:**
+    - South Dakota: free chlorine minimum steps up by a fixed increment
+      (+0.2 mg/L) for every 0.2-unit rise in pH, starting at 0.5 mg/L at
+      pH 7.2, and doubles again if CYA is present — a discrete staircase
+      rather than Alaska's continuous formula, but the same underlying
+      idea (pH redefines the chlorine floor) confirmed independently.
+
 **★ Source-confidence tracking:** Maryland is the first state where the
 chemistry-threshold source itself is a secondary/unverified explainer
 rather than a primary government document or official form (see the
@@ -5114,5 +5182,1555 @@ research.
 - [28 Pa. Code Chapter 18, Public Swimming and Bathing Places — table of contents (Pennsylvania Code and Bulletin, official)](https://www.pacodeandbulletin.gov/Display/pacode?file=%2Fsecure%2Fpacode%2Fdata%2F028%2Fchapter18%2Fchap18toc.html)
 - [28 Pa. Code §18.29 (Pennsylvania Code and Bulletin, official)](https://www.pacodeandbulletin.gov/Display/pacode?file=/secure/pacode/data/028/chapter18/s18.29.html) — source of the chlorine/pH/testing-frequency figures
 - [28 Pa. Code §18.27 (Pennsylvania Code and Bulletin, official)](https://www.pacodeandbulletin.gov/Display/pacode?file=/secure/pacode/data/028/chapter18/s18.27.html) — confirms the bacteriological-only scope of the chapter's closure provision
+
+---
+## Rhode Island
+
+**★ A genuine outlier — the lowest outdoor cyanuric acid cap found in this
+file:** Rhode Island caps outdoor-pool CYA at **25 ppm** (§4.6.2(B)(11)),
+far below the 90–150 ppm range used almost everywhere else in this
+dataset (Georgia/Oregon at 90 ppm, Delaware/most states at 100 ppm).
+Rhode Island also **bans CYA/stabilized chlorine outright in every
+indoor Aquatic Venue and in outdoor hot tubs, spas, and therapeutic
+pools** (§4.6.2(B)(4)) — broader than Delaware's indoor-only ban, since
+RI extends the prohibition to outdoor spas as well. Only outdoor
+traditional/non-traditional pools and wading pools may use CYA at all,
+and even there it's capped at a quarter of the typical ceiling.
+
+- **Health Department name:** Rhode Island Department of Health,
+  Public Drinking Water Program (administers the Licensed Swimming
+  Pools Program; general pool inquiries route to
+  DOH.RIDWQ@health.ri.gov).
+- **Official citation:** 216-RICR-50-05-4, "Licensing Aquatic Venues."
+  Codified as final regulation effective **August 7, 2022** (originally
+  adopted as an emergency regulation, then made permanent) — confirmed
+  current and in force via the Department of Health's own program page,
+  not a stale or superseded citation.
+- **Has dedicated log sheet:** **Yes** → `logSheetSource: state-provided`.
+  RI Health publishes a "Water Quality Parameter Daily Operations Logs"
+  PDF, and §4.6.2(D) requires operators to record daily water-quality
+  analyses, clarity observations, maintenance, corrective actions, and
+  closures "on forms provided by the Licensing Agency" — a codified
+  requirement to use the state's own form, not just an available
+  convenience form.
+
+**Chemistry thresholds (§4.6.2(B)):**
+
+| Reading | Requirement |
+|---|---|
+| pH — all venue types (chlorine or bromine) | Minimum 7.2, ideal 7.4–7.6, maximum 7.8 (§4.6.2(B)(7)–(9)) |
+| Free Chlorine — indoor pools/wading pools | Minimum 1.0 ppm, ideal 2.0–4.0, maximum 10.0 (§4.6.2(B)(7)) |
+| Free Chlorine — outdoor pools without CYA | Minimum 1.0 ppm, ideal 2.0–4.0, maximum 10.0 (§4.6.2(B)(7)) |
+| Free Chlorine — outdoor pools with CYA | Minimum 2.0 ppm, ideal 2.0–8.0, maximum 10.0 (§4.6.2(B)(7)) |
+| Free Chlorine — hot tubs/spas/therapeutic pools | Minimum 2.0 ppm, ideal 3.0–5.0, maximum 10.0 (§4.6.2(B)(8)) — note CYA is banned here, so there's no CYA-present branch for spas the way there is for outdoor pools |
+| Combined Chlorine — all chlorine venues | Minimum 0.0, ideal 0.0, maximum **0.2 ppm** (§4.6.2(B)(7)–(8)) |
+| Bromine — traditional/non-traditional/wading pools | Minimum 3.0 ppm, ideal 4.0–6.0, maximum 8.0 (§4.6.2(B)(9)) |
+| Bromine — hot tubs/spas | Minimum 4.0 ppm, ideal 4.0–6.0, maximum 8.0 (§4.6.2(B)(10)) |
+| Cyanuric Acid — outdoor pools only | Maximum **25 ppm** (§4.6.2(B)(11)); prohibited entirely indoors and in all spas (§4.6.2(B)(4)) |
+| Ozone (secondary disinfectant, if used) | Maximum 0.1 ppm residual (§4.6.2(B)(12)) |
+| Copper ions (secondary disinfectant, if used) | Maximum 1.3 ppm (§4.6.2(B)(12)) |
+| Silver ions (secondary disinfectant, if used) | Maximum 0.10 ppm (§4.6.2(B)(12)) |
+| Spa/hot tub water temperature | Maximum 104°F (§4.6.2(B)(8)) |
+| Water clarity | No numeric NTU standard — a marker tile or floor suction outlet must remain visible while the water is static (§4.6.2(C)) |
+| Total Alkalinity | **NOT FOUND** — confirmed absent from §4.6.2; the regulation does not set an alkalinity range at all |
+| Calcium Hardness | **NOT FOUND** — same as alkalinity, confirmed absent |
+
+Both alkalinity and hardness are **confirmed absences** in the codified
+text (checked §4.6.2 in full), not research gaps — same shape as
+Pennsylvania's confirmed-absent CYA/alkalinity fields, just a different
+pair of parameters this time.
+
+**pH/chemistry range that triggers mandatory closure:** Two mechanisms,
+both codified:
+1. **§4.6.2(A)** — a direct, general rule: "If any water quality
+   parameter is not within the range [required]...the Aquatic Venue
+   shall close and remain closed until such time that the Licensing
+   Agency determines the water quality meets all standards." This makes
+   *every* threshold in the table above a closure trigger by default,
+   not just pH/chlorine.
+2. **§4.3.9(C)**, "Imminent Health Hazards" (immediate-closure list,
+   same enumerated-checklist shape as Delaware/Georgia/Oregon):
+   - (2) disinfectant residual below minimum or above maximum
+   - (3) pH outside the stated range
+   - (4) filtration/disinfection equipment not running continuously
+   - (17) broken glass, sharp objects, **vomit, fecal matter**, or other
+     AHJ-determined hazard on the deck or in the water
+
+**Bacteriological standard (§4.6.3):** Heterotrophic plate count (HPC)
+must not exceed **200 CFU/mL** (§4.6.3(C)) — matches Delaware's 200
+colonies/mL HPC ceiling exactly. Year-round venues sample every 90 days
+(§4.6.3(A)); seasonal venues sample once in June and once in August
+(§4.6.3(B)). Exceeding 200 CFU requires **immediate closure** upon
+notification (§4.6.3(G)) — a lab-result-triggered closure, distinct
+from the daily-reading triggers above.
+
+**Testing frequency (§4.6.2(A)):**
+- All venues: water clarity observed and samples analyzed **prior to
+  opening**, every operating day.
+- **Manual disinfectant feed systems:** re-check and log every **2
+  hours** while open to bathers.
+- **Automated disinfectant feed systems:** re-check and log every **4
+  hours** while open to bathers — a lighter cadence for automated
+  control, the same shape as Oregon's cadence split (though Oregon's
+  split is CYA-presence-based rather than equipment-type-based; worth
+  flagging for the architecture-notes index as a second example of
+  "facility-attribute-based frequency exceptions," this time keyed on
+  disinfection-equipment type rather than pool size or CYA use).
+
+**Fecal/Vomit/Blood Contamination Response: confirmed absent, not
+unresearched.** §4.3.9(C)(17) names vomit and fecal matter as an
+Imminent Health Hazard requiring immediate closure, but the regulation
+**does not specify** CT values, hold times, pre-treatment conditions,
+a formed-vs-diarrheal-stool distinction, or any blood-specific
+exemption — it stops at "close immediately." Rhode Island gives no
+detailed remediation protocol at all, the same gap shape as Pennsylvania
+(which also has closure-on-contamination but no CT-based procedure).
+
+**Record-keeping (§4.6.2(D)):** Daily records must be submitted
+electronically within 24 hours of any Licensing Agency request, and
+retained for **at least 1 year** (§4.6.2(D)(1)) — same 1-year minimum
+as Delaware.
+
+**Open items for Rhode Island:** (1) total alkalinity and calcium
+hardness are confirmed absent from the codified chemistry standards —
+no numeric range exists to seed; (2) no CT-based fecal/vomit/blood
+protocol exists — confirmed absent, not a sourcing gap; (3) the exact
+name/number of the "Water Quality Parameter Daily Operations Logs" form
+(e.g. a form number) wasn't captured this pass — only that it exists
+and is state-provided.
+
+**Sources used:**
+- [216-RICR-50-05-4, Licensing Aquatic Venues — Rhode Island Department of State, Office of Regulatory Reform (rules.sos.ri.gov)](https://rules.sos.ri.gov/Regulations/part/216-50-05-4?reg_id=10853) — official regulation text; source of every §4.6.2/§4.3.9 citation above
+- [Licensed Swimming Pools Program — Rhode Island Department of Health](https://health.ri.gov/drinking-water-quality/licensed-swimming-pools-program) — confirmed the regulation is current/in force (codified final effective 8/7/2022), identified the administering Public Drinking Water Program, and confirmed the state-provided daily log form exists
+
+---
+## South Carolina
+
+**★ Agency name is mid-transition — regulation text itself is stale on this
+point:** As of July 1, 2024 (Act 60 of 2023), the former South Carolina
+Department of Health and Environmental Control (DHEC) was split into two
+agencies. Public pool oversight (Bureau of Water, Recreational Waters
+Program) now sits with the **South Carolina Department of Environmental
+Services (SCDES)** — confirmed via SCDES's own "DHEC Restructuring" page and
+its live Recreational Waters / pool-permitting pages, all hosted at
+`des.sc.gov`. However, **R.61-51's own text still internally defines
+"Department" as DHEC** (§A.11: *"'Department' means the South Carolina
+Department of Health and Environmental Control"*) — the regulation has not
+been formally re-worded post-split. Use SCDES as the current authority; note
+the stale internal definition rather than treating it as a contradiction.
+
+- **Health Department name:** South Carolina Department of Environmental
+  Services (SCDES), Bureau of Water — Recreational Waters Program. (Formerly
+  SC DHEC; see note above.)
+- **Official citation:** S.C. Code Ann. Regs. **61-51**, Section J ("Operation
+  and Maintenance for All Type Pools") for chemistry/records, Section K
+  ("Pool Closures and Enforcement") for closure triggers.
+- **Has dedicated log sheet:** No specific numbered department form found →
+  `logSheetSource: built-from-code`. §J.17(a)-(b) requires a **"bound log,
+  with consecutively numbered pages, that is acceptable to the Department,"**
+  with date/time/numerical reading, initialed at each reading and signed by
+  the pool operator — a content/format requirement, not a prescribed state
+  form.
+
+**Chemistry thresholds (§J.14(b)-(c)):**
+
+| Reading | Requirement |
+|---|---|
+| pH | 7.0 – 7.8 |
+| Free Chlorine | 1 – 8 ppm (single flat range — no separate minimum stated for CYA-present vs. CYA-absent pools, unlike most states in this file) |
+| Bromine | 2.3 – 17.6 ppm |
+| Cyanuric Acid | Max 100 ppm (current; historical phase-down noted in the reg text itself — 200 ppm cap for 2009, 150 ppm for 2010, 100 ppm "beginning in 2011" — now fully phased in and stale as a schedule, only the 100 ppm figure is live) |
+| Indoor pools + CYA | "Indoor pools need not be stabilized" — permissive, not a prohibition like Delaware/Indiana/Iowa's outright indoor CYA bans |
+| Total Alkalinity | **NOT FOUND** — confirmed absent from §J.14 and the rest of the regulation; no target range or index-based method (e.g. Delaware's Langelier approach) appears anywhere in the 47-page document |
+| Calcium Hardness | **NOT FOUND** — same as alkalinity, confirmed absent |
+| Water Clarity | Qualitative, not numeric: main drains "must be plainly visible" from the deck, with grate openings individually countable (§J.13) — no NTU figure given |
+| Max water temperature | 104°F, all pool types (§J.16(a)) |
+
+**pH/chemistry range that triggers mandatory closure (§K.1(a)) — a flat
+16-item enumerated checklist, same shape as Georgia/Delaware, not a two-tier
+authority structure:** free chlorine/halogen below 1.0 or above 8.0 ppm
+(§K.1(a)(vii)); pH below 7.0 or above 7.8 (§K.1(a)(viii)); temperature above
+104°F (§K.1(a)(xii)); fecal coliform present (§K.1(a)(xi)); plus non-chemistry
+items — no valid permit, insufficient lifeguards, missing life-saving
+equipment or emergency phone, imminent safety hazard, disinfection/
+recirculation/filtration system not fully operational, log not maintained or
+unavailable, required signage missing, uncorrected defects past the
+Department's deadline, no credentialed pool operator, non-compliant fencing/
+gate, and water too cloudy to see the main drains.
+
+**Testing frequency (§J.17-18):**
+- Chlorine/bromine and pH: **daily or more often during operating hours**,
+  "to ensure the facility maintains required water quality standards" —
+  adequacy-based, not a fixed count, same shape as Connecticut/Delaware
+- Cyanuric acid (if used): **weekly** (§J.17(a))
+- Pool operator of record must physically inspect each pool **at least 3
+  times per week**, logged and initialed separately from the chemistry log
+  (§J.18(b))
+- Records retained **18 months** (§J.17(c)) — shorter than the 1-year minimum
+  seen in most other states in this file
+
+**Fecal/Vomit/Blood Contamination Response — the thinnest protocol found in
+this file so far, a genuinely different mechanism than Delaware/Oregon's
+codified CT tables:**
+
+- §J.14(e), in full effect: *"In all cases of biological or chemical
+  contamination of the pool water, the pool shall be immediately closed and
+  the facility operator shall follow all current Department guidance in
+  addressing the contamination before reopening of the pool. Biological
+  contamination such as fecal, blood, or other body fluids shall be treated
+  using guidance published by the Centers for Disease Control (CDC) on their
+  healthy swimming web site. Procedures other than those provided by the
+  Department may be approved on a case-by-case basis."*
+- **★ South Carolina does not codify its own CT values (concentration ×
+  time) for formed-stool, diarrheal-stool, or vomit anywhere in R.61-51** —
+  unlike Delaware/Oregon/etc., which lift MAHC's numbers directly into the
+  regulation text, South Carolina's rule is a **pure incorporation-by-
+  reference to external, non-static CDC guidance**. This means the actual
+  numeric remediation standard for SC pools lives outside this regulation
+  entirely and can change without a rulemaking. Flag for the rule engine: SC
+  may need a `referencesExternalGuidance: true` flag rather than inline CT
+  values, or the CDC MAHC's own current numbers substituted with a citation
+  back to §J.14(e) rather than to SC's own code.
+- **★ Blood is NOT explicitly exempted here**, unlike New York/Delaware/
+  Oregon (three states that carve blood out as "does not pose a public
+  health risk to swimmers," closure optional). South Carolina's text groups
+  "fecal, blood, or other body fluids" together under the same immediate-
+  closure-plus-CDC-guidance sentence, with no special carve-out — a fourth
+  state's contamination rule, but one that goes the *other* direction from
+  the pattern in Delaware/Oregon.
+- Separately, §J.20 (Bacteriological Quality) makes presence of **any fecal
+  coliform** in a lab sample its own independent closure trigger, held open
+  "until satisfactory results are obtained" — distinct from the visible-
+  contamination-event provision above, closer to Pennsylvania's
+  bacteriological-only closure mechanism than to a CT-based event protocol.
+- No explicit statement on whether closure cascades to other pools sharing
+  the same recirculation system, and no separate brominated-pool remediation
+  language — both **NOT FOUND**, consistent with the rule's overall brevity
+  on this topic rather than an oversight in this research pass.
+
+**Open items for South Carolina:** (1) total alkalinity and calcium hardness
+targets are confirmed absent from the codified regulation — no numeric range
+and no index-based method either; (2) the fecal/vomit/blood protocol is
+genuinely thin in the primary source — SC defers to external CDC guidance
+rather than stating its own numbers, and doesn't address cascading closure
+or brominated-pool handling; this isn't a research gap, it's what the
+regulation actually says.
+
+**Sources used:**
+- [R.61-51 — South Carolina Department of Environmental Services (official PDF, full regulation text)](https://www.des.sc.gov/sites/des/files/Library/Regulations/R.61-51.pdf) — source of every citation above; read via `pdftotext -layout` extraction of the full 47-page document
+- [Water Regulations & Standards: Public Swimming Pools — SCDES](https://des.sc.gov/programs/bureau-water/recreational-waters/water-regulations-standards-public-swimming-pools) — confirms SCDES as current administering agency
+- [DHEC Restructuring — South Carolina Department of Environmental Services](https://des.sc.gov/about-scdes/dhec-restructuring) — confirms the July 1, 2024 DHEC → SCDES/DPH split (Act 60 of 2023) and that environmental/water programs, including recreational waters, moved to SCDES
+- [Enforcement and Violations: Public Swimming Pools/Spas — SCDES](https://des.sc.gov/programs/bureau-water/recreational-waters/enforcement-and-violations-public-swimming-poolsspas) — corroborates current enforcement authority
+
+---
+## Virginia
+
+**★ The section titled "Alkalinity" doesn't regulate alkalinity — a real
+drafting quirk, not a transcription error:** 12VAC5-460-290 is literally
+titled "Alkalinity," but its entire operative text reads *"The
+hydrogen-ion concentration should be maintained at 7.2 or above"* — a
+restatement of a pH floor, not a total-alkalinity ppm range. There is no
+ppm alkalinity standard anywhere in the chapter. Don't assume a
+transcription slipped the pH value into the wrong section; this is the
+codified text as written.
+
+- **Health Department name:** Virginia Department of Health (VDH).
+- **Official citation:** 12VAC5-460, *"Regulations Governing Tourist
+  Establishment Swimming Pools and Other Public Pools"* — chemistry at
+  §§260 (chemical testing equipment), 280 (disinfection), 290
+  ("alkalinity," see caveat above), 300 (filtration/water clarity), 270
+  (operating records). Last amended Virginia Register Vol. 36, Issue 1,
+  eff. **October 17, 2019**; text confirmed current through June 16,
+  2025.
+- **Has dedicated log sheet:** **Yes** → `logSheetSource: state-provided`.
+  The chapter's forms list names a **"Swimming Pool Operators Weekly
+  Report," form #LHS-183**, plus a separate **"Swimming Pool Inspection
+  Form," #LHS-182** (inspector-side, not operator-side) and **"Swimming
+  Pool Construction Report," T.E.S. 1505** (design/construction, out of
+  scope here). Form content/layout wasn't pulled this pass — only the
+  form numbers/names, confirmed from the chapter's own forms index.
+
+**Chemistry thresholds (§§260, 280, 290, 300):**
+
+| Reading | Requirement |
+|---|---|
+| pH — equipment must be able to test | 6.8 – 8.0 (§260, describes required test-kit range, not necessarily an operative bather-time band) |
+| pH — operative floor | 7.2 or above (§290 — see title/content mismatch above; **no stated ceiling** in the codified text) |
+| Free Chlorine | Minimum 0.5 ppm "at all points throughout the swimming pool water when there are bathers present" (§280) |
+| Free Chlorine — test-kit range required | 0.0 – 1.0 ppm (§260) — note this is *narrower* than the CDC/MAHC-typical 0–10 ppm kit range other states specify, and doesn't obviously accommodate reading a shock-level residual |
+| Free Chlorine — maximum | **NOT FOUND** — §280 states only a floor, no ceiling |
+| Bromine | **NOT FOUND** — confirmed absent from §280; the section addresses only chlorination, no alternative-disinfectant clause |
+| Cyanuric Acid | **NOT FOUND** — confirmed absent from the entire chapter, not just §280/290 |
+| Total Alkalinity (ppm) | **NOT FOUND** — see ★ note above; the section with this name sets no ppm range |
+| Calcium Hardness | **NOT FOUND** — not addressed anywhere in the chapter |
+| Water clarity | Six-inch black/white quadrant disc on the pool bottom at the deepest point must be visible from deck at up to 10 yards horizontal distance, at all times the pool is open (§300) — a visibility-test standard, not an NTU turbidity number |
+| Spa max temperature | **NOT FOUND** — the chapter does not separately address spas/hot tubs at all; it is written for pools only |
+
+**pH/chemistry range that triggers mandatory closure:** **NOT FOUND** —
+the chapter contains no closure-trigger section. §270 (Operating
+Records) requires pH, free chlorine residual, water clarity, and
+cleanliness to be logged and kept on file for one year, but nothing in
+Part I or Part II ties an out-of-range reading to a mandatory-closure
+mechanism the way most other states in this file do. Do not infer a
+closure rule from the chemistry floor alone.
+
+**Testing frequency:** **NOT FOUND** — §270 requires records to be kept
+but does not state how often testing must occur (no "daily," "twice
+daily," or "every N hours" language anywhere in the chapter).
+
+**Fecal/Vomit/Blood Contamination Response:** **NOT FOUND** — confirmed
+absent. This is a genuinely thin, largely design/construction-focused
+regulation (dating to a 1962-authorized base rule per §290's own
+citation, last touched in 2019) with no MAHC-style event-protocol
+section at all — closer in shape to Pennsylvania's minimal chapter than
+to the fully-built-out MAHC-derived states (Delaware, Oregon, etc.).
+
+**Cross-reference to ARCHITECTURE NOTES index:** none of the
+relational/event-triggered/adaptive-frequency patterns apply here —
+Virginia's code is notable for how little it specifies, not for a new
+mechanism. Worth flagging for the index as a second confirmed instance
+(after Pennsylvania) of a "minimal legacy code" shape: floor-only
+chlorine, no CYA/bromine/hardness, no closure section, no event
+protocol — these two states may be the two to build a "sparse ruleset"
+fallback UI against, if AquaRunner needs one.
+
+**Open items for Virginia:** (1) confirm via VDH directly (or the
+LHS-183 form itself) whether a pH ceiling, chlorine maximum, testing
+cadence, or closure trigger exists in *practice guidance* even though
+absent from the codified regulation — some states' actual enforcement
+runs on non-codified department bulletins; (2) the LHS-182/183 forms
+were identified by name/number but not retrieved and read this pass —
+worth pulling the actual PDF if the log-sheet UI needs to mirror
+Virginia's own layout; (3) confirm whether 12VAC5-460 is still the
+operative pool chapter or whether VDH has a newer draft in progress (no
+evidence of one found this pass, unlike Oregon's 2025 MAHC-based
+rewrite).
+
+**Sources used:**
+- [12VAC5-460 chapter index — Virginia Law (law.lis.virginia.gov, official)](https://law.lis.virginia.gov/admincodefull/title12/agency5/chapter460/) — section list, forms index (LHS-182, LHS-183, T.E.S. 1505), last-amended date
+- [12VAC5-460-260, Chemical testing equipment — Virginia Law](https://law.lis.virginia.gov/admincode/title12/agency5/chapter460/section260/) — pH/chlorine test-kit range
+- [12VAC5-460-280, Disinfection — Virginia Law](https://law.lis.virginia.gov/admincode/title12/agency5/chapter460/section280/) — free chlorine floor, confirmed no bromine/max clause
+- [12VAC5-460-290, Alkalinity — Virginia Law](https://law.lis.virginia.gov/admincode/title12/agency5/chapter460/section290/) — confirmed title/content mismatch, 1962 origin citation
+- [12VAC5-460-300, Filtration; water clarity — Virginia Law](https://law.lis.virginia.gov/admincode/title12/agency5/chapter460/section300/) — disc-visibility clarity standard
+- [12VAC5-460-270, Operating records — Virginia Law](https://law.lis.virginia.gov/admincode/title12/agency5/chapter460/section270/) — one-year retention, no cadence requirement
+
+---
+## Washington
+
+**★ Outlier — no CT-based contamination protocol at all, and blood is NOT
+exempted:** unlike the MAHC-derived states in this file (Delaware, Oregon,
+etc.), Washington's entire fecal/vomit/blood rule is one sentence: close
+the affected pool "when contaminated with feces, blood, vomit, sewage, or
+other hazardous or unknown material until the area is clean, disinfected,
+and free of the hazardous material" (WAC 246-260-111(4)(b)(i)). There is
+no formed-stool/diarrheal-stool distinction, no hyperchlorination CT
+value, no pH/temperature precondition, and — notably — **blood is grouped
+with feces and vomit as an equal closure trigger**, the opposite of the
+blood-exemption pattern confirmed independently in New York, Delaware,
+and Oregon (`NO_CLOSURE_REQUIRED` for blood in those states). Don't
+apply the CT-value shape from other states to Washington; the rule here
+is a flat "close until visibly clean and disinfected," full stop.
+
+- **Health Department name:** Washington State Department of Health
+  (DOH), Environmental Public Health Division — Water Recreation
+  Facilities program.
+- **Official citation:** Washington Administrative Code, **Chapter
+  246-260 WAC, "Water Recreation Facilities"** (WRF). Chemistry
+  standards at **WAC 246-260-111** (water quality standards, analysis,
+  sample collection) plus **Appendix A / WAC 246-260-999** (the numeric
+  tables); monitoring/recordkeeping at **WAC 246-260-121**; operational
+  closure authority at **WAC 246-260-131(11)**.
+- **Has dedicated log sheet:** `built-from-code` — the rule requires
+  monitoring records to be kept for **three years** (longer than most
+  states in this file, which cluster around one year) but does not name
+  or prescribe a specific numbered state form in the sections reviewed.
+
+**Chemistry thresholds (Table 111.1 and Table 111.2 of Appendix A, WAC
+246-260-999):**
+
+| Reading | Requirement |
+|---|---|
+| pH | 7.2 – 8.0 |
+| Free Chlorine — pools, not using cyanurate | Minimum 1.5 ppm |
+| Free Chlorine — pools, using cyanurate compound | Minimum 2.0 ppm |
+| Free Chlorine — spas & wading pools, not using cyanurate | Minimum 3.0 ppm |
+| Free Chlorine — spas & wading pools, using cyanurate | Minimum 3.5 ppm |
+| Free Chlorine — maximum (all) | 10.0 ppm (also capped by manufacturer's recommendation) |
+| Bromine — pools | Minimum 2.5 ppm |
+| Bromine — spas & wading pools | Minimum 4.0 ppm |
+| Cyanuric acid | 0 – 90 ppm |
+| Combined chlorine | Maximum 50% of free chlorine reading (relational, not a flat ppm) |
+| Turbidity | Maximum 0.5 T.U. (may rise to 1.0 T.U. at peak use, must return to 0.5 within 6 hours; not a required routine analysis) |
+| Water clarity | Main drain and pool bottom visible at all times |
+| Temperature | Maximum 104°F (thermometer required above 95°F) |
+| Ozone (atmospheric, supplemental only) | Maximum 0.05 ppm |
+| Copper/silver ionizers (supplemental only) | Maximum 1.0 ppm Cu / 0.05 ppm Ag |
+| Total Alkalinity | **NOT FOUND** — confirmed absent from Table 111.2; the 0–300 ppm figure that appears elsewhere in the rule (Table 111.3) is a *test-kit accuracy range*, not a regulatory target, and should not be seeded as one |
+| Calcium Hardness | **NOT FOUND** — no standard anywhere in the chapter, not even a Langelier-style index (unlike Delaware) |
+
+**★ Relational rule — combined chlorine is capped as a percentage of
+free chlorine, not an absolute ppm ceiling:** most states in this file
+(e.g. California's 0.4 ppm max) set combined chlorine as a flat number;
+Washington instead caps it at "50% of free chlorine" (Table 111.2) — a
+second, independently-shaped example for the `relationalRule` pattern
+noted in the ARCHITECTURE NOTES index, alongside Alaska's FAC/TAC ratio
+and Arkansas's Combined = Total − Free rule.
+
+**Bacteriological standards (§111(2)):** heterotrophic plate count ≤200
+bacteria/mL (two consecutive tests); total coliform ≤1 per 100 mL average
+(membrane filter method, two consecutive tests) or ≤2.2 per 100 mL (MPN
+method, two consecutive samples) — numerically identical HPC/coliform
+figures to Delaware's.
+
+**pH/chemistry range that triggers mandatory closure:** no separate
+enumerated list (unlike Georgia's ten-item list or Oregon's twenty-item
+list). Instead, §131(11) is a single blanket rule: owners "shall close
+the facility when the facility presents an unhealthful, unsafe, or
+unsanitary condition," expressly **including any noncompliance with the
+water quality or operation requirements in [§131] or in WAC 246-260-111**
+— meaning any Table 111.2 excursion (pH outside 7.2–8.0, CYA over 90 ppm,
+etc.) is itself the closure trigger, with no separate stricter threshold
+defined for closure vs. routine correction.
+
+**Testing frequency (§121(3)):**
+- Disinfectant residual and pH: "frequently enough, but **at least once
+  every twenty-four hours**" — notably looser than most other states in
+  this file, several of which require hourly-to-4-hourly checks while
+  open; Washington's floor is a daily minimum with no stated open-hours
+  cadence
+- Alkalinity: **at least weekly**
+- Cyanuric acid (if used): **at least weekly**
+- Water temperature (only if pool exceeds 95°F): at least once every 24
+  hours
+- Records (chemical quantities added, flow rates, contamination
+  incidents) kept for **three years**, available to the department/local
+  health officer on request
+
+**No death/injury/illness reporting overlap worth flagging:** owners
+must separately notify the department of any drowning, near-drowning,
+death, serious injury, or serious illness within **48 hours** of becoming
+aware (§121(1)) — a distinct incident-reporting duty, not a water-
+chemistry rule, but worth carrying into the data model if AquaRunner
+ever tracks incident reports alongside chemistry logs.
+
+**Open items for Washington:** (1) no numeric standard exists for total
+alkalinity or calcium hardness anywhere in the chapter — confirmed
+absent, not a research gap, the strongest "nothing to find" case in this
+file since even Delaware and Hawaii have a Langelier-index fallback;
+(2) no dedicated state log-sheet form was located in the sections
+reviewed — recordkeeping content is specified directly in code instead.
+
+**Sources used:**
+- [WAC 246-260 — Washington State Legislature, chapter index](https://apps.leg.wa.gov/wac/default.aspx?cite=246-260) — confirmed section numbering/titles used above
+- [Chapter 246-260 WAC full text (PDF, via thepoolandspahouse.com, sourced from WA DOH)](https://www.thepoolandspahouse.com/documents/Health-Dept/WaterRec-WAC246-260.pdf) — read via direct PDF text extraction (pdftotext); every chemistry table, testing-frequency, recordkeeping, and closure citation above comes from this document (WAC 246-260-111, -121, -131, -141, -171, and Appendix A/Table 111.1–111.3 at -999)
+
+---
+## District of Columbia
+
+- **Health Department name:** District of Columbia Department of Health
+  (branded publicly as "DC Health").
+- **Official citation:** Title 25-C DCMR, "Swimming Pool and Spa
+  Regulations" (adopted as a Notice of Final Rulemaking, published
+  District of Columbia Register Vol. 64, No. 23, June 9, 2017). Chemistry
+  standards at **§404**; contamination/closure at **§406**; testing
+  frequency and logs at **§412**; imminent-hazard closures at **§715**.
+- **Has dedicated log sheet:** No numbered state form found in the
+  regulation text → `logSheetSource: built-from-code`. §412.1–412.6
+  prescribe the required fields (pH, free chlorine, bromine, CYA,
+  chemicals added, injuries/accidents, equipment malfunctions) and
+  retention (on-site, readable, dated and signed, **3 years**), but the
+  rule doesn't name or attach a specific fill-in form.
+
+**Chemistry thresholds (§404.2):**
+
+| Reading | Requirement |
+|---|---|
+| pH | 7.2 – 7.8 target; hard floor/ceiling 6.5 – 8.0 (§404.2(a)) |
+| Free Chlorine — conventional pools | 1 – 10 mg/L (§404.2(b)(1)) |
+| Free Chlorine — spa-type & other non-conventional pools | 2 – 10 mg/L, spas minimum 3 mg/L (§404.2(b)(2)) |
+| Free Chlorine — max, **indoor conventional pools specifically** | 5 mg/L (§404.2(b)(4)) |
+| Bromine — conventional pools | 1.5 – 8 mg/L (§404.2(b)(3)) |
+| Bromine — spa-type pools | 4 – 8 mg/L (§404.2(b)(3)) |
+| Bromine — max, **indoor conventional pools specifically** | 6 mg/L (§404.2(b)(4)) |
+| Combined Chlorine (Chloramines) | Must not exceed 0.4 ppm; remediate via super-chlorination or water exchange (§404.2(c)) |
+| ORP (if used as controller) | 600 – 900 mV (§404.2(d)) — does not waive manual testing under §412 |
+| Cyanuric Acid | 30 – 50 mg/L target, hard ceiling 100 ppm (§404.2(e)) |
+| Cyanuric Acid — **during diarrheal/Cryptosporidium decontamination specifically** | Max 15 ppm (§406.1(d)) |
+| Quaternary ammonium (if used) | 5 mg/L maximum (§404.2(f)) |
+| Max spa/heated-pool water temperature | 104°F / 40°C (§402.6-adjacent, water-temp section) |
+
+**★ Indoor pools get a *tighter* disinfectant ceiling than the general
+range, not a separate floor:** §404.2(b)(4) caps indoor conventional
+pools at 5 mg/L free chlorine / 6 mg/L bromine even though the general
+range in (b)(1)/(3) runs up to 10 mg/L / 8 mg/L. This is a
+facility-attribute-based exception to a chemistry range (indoor vs.
+outdoor), similar in shape to California's facility-attribute frequency
+exception, but here it narrows a **concentration ceiling** rather than a
+testing cadence.
+
+**pH/chemistry range that triggers mandatory closure — an enumerated
+Imminent Health Hazard checklist (§715.1(a)–(z), plus §715.2), not a
+two-tier authority split:** the Department "shall summarily suspend
+operations" (or the licensee must immediately discontinue and notify)
+for pH below 6.5 or above 8.0 (§715.1(f)–(g), cross-referencing
+§404.2(a)), disinfectant below minimum or above maximum (§715.1(h)),
+contaminated water not properly treated (§715.1(i)), plus ~24 other
+enumerated physical/structural conditions (missing depth markings,
+filtration not running, entrapment-prevention equipment absent, no
+PPE for chemical handling, etc.). Same enumerated-list closure shape as
+Georgia/Delaware, not Connecticut's two-tier model.
+
+**Contamination (§406) is bacteriological-only in its own defined
+terms**, same shape as Pennsylvania: §406.1(a)–(c) define "contaminated"
+purely via coliform sample counts (multi-tube fermentation or membrane
+filter method thresholds). §406.1(d) is the sole other trigger and is
+narrow — it only sets the 15 ppm CYA ceiling *during* a
+diarrheal/Cryptosporidium decontamination event, implying such an event
+protocol exists, but doesn't itself define contamination broadly.
+
+**Testing frequency (§412.1–412.3):**
+- pH, free chlorine, bromine: **minimum every 3 hours**
+- Cyanuric acid (if used): **prior to opening only**
+- All of the above recorded **at least 3x/day** on a fixed schedule:
+  before opening, between 12pm–2pm, and 2 hours before closing
+  (§412.2(a)–(c))
+- Department may require more frequent testing given high bather load,
+  high temperature, bright sunlight, or inadequate water quality
+  (§412.3) — a conditional escalation clause, not a fixed override
+  number
+- Logs: readable, dated, signed, retained on-site **3 years**
+  (§412.4–412.6)
+
+**★ Fecal/Vomit/Blood Contamination Response — incorporated by
+reference, not reproduced in the code text (a new pattern for this
+file):** §412.7 requires compliance with "Standard Operating Procedures
+for accidents involving bodily fluid as specified in Sections 6.0.1.8,
+6.0.1.9, 6.1.2.1.4.1, 6.1.2.1.4.5, 6.1.2.1.4.14, 6.1.2.1.4.15,
+6.4.1.1.2(4), 6.4.1.3.1(15), 6.4.1.8, and 6.5 of **The Model Aquatic
+Health Code, 2nd Edition (July 2016)**" — cited by exact MAHC section
+number, not restated as DC's own numbered ppm/time table the way
+Delaware and Oregon each transcribed MAHC's CT values into their own
+code text. **This means DC has no independently-stated CT table in the
+DCMR itself** — the actual formed-stool/diarrheal-stool/vomit/blood
+numbers legally in force in DC are whatever MAHC 2nd Edition §6.5 says
+(materially the same figures Delaware/Oregon transcribed: 2.0 ppm/25 min
+formed-stool and vomit with CYA-doubling, 20 ppm/12.75 hr diarrheal,
+blood exempted from mandatory closure), but citing them as "DC's rule"
+would mean citing MAHC directly, not a DC-specific number. Recommend
+seeding DC's `ComplianceRuleset` fecal/vomit/blood fields either (a) by
+pointing to the Delaware/Oregon entries' already-transcribed MAHC 2nd
+Ed. figures with a note that DC adopts them by reference, or (b) as
+`range: null` with a citation-by-reference note — **do not silently copy
+the numbers in as if DC's own code states them**, since DC's code text
+itself only names the MAHC section numbers, it doesn't restate the
+figures.
+- **Bloodborne pathogen handling** is addressed only via lifeguard PPE/
+  training requirements (§302.1(d), OSHA cross-reference) — no separate
+  DC-specific "blood does not require closure" statement exists in the
+  DCMR text itself; that determination lives in the referenced MAHC
+  §6.5, same as the CT values above.
+- No DC-specific statement found on cascading closure to
+  shared-recirculation pools — again, that logic (if any) would live in
+  the referenced MAHC section, not DC's own text.
+
+**Open items for DC:** (1) the fecal/vomit/blood CT table is
+incorporated by reference to MAHC 2nd Ed. rather than restated — flagged
+above, needs an explicit decision on how to represent that in the schema
+rather than silently inlining another state's transcription; (2) Total
+Alkalinity and Calcium Hardness numeric ranges were **not found** in
+§404 or the test-kit sections — §405.1 requires kits capable of testing
+alkalinity and hardness, implying they're monitored, but no target range
+is stated in the chapter text reviewed; treat as confirmed absent from
+the codified rule, not a research gap, pending a fuller read of any
+appendix; (3) water clarity/turbidity numeric standard (NTU) referenced
+in definitions but the operative numeric requirement in §402/410 wasn't
+captured this pass.
+
+**Sources used:**
+- [DEPARTMENT OF HEALTH NOTICE OF FINAL RULEMAKING — Title 25-C DCMR, Swimming Pool and Spa Regulations (doh.dc.gov / dchealth.dc.gov official PDF, District of Columbia Register Vol. 64 No. 23, June 9, 2017)](https://dchealth.dc.gov/sites/default/files/dc/sites/doh/publication/attachments/2017-%2025C%20DCMR-DC%20Swimming%20Pool,%20Spa%20and%20Saunas_0.pdf) — full regulation PDF, read via pdftotext extraction; every chemistry figure, testing-frequency figure, and closure-list item above comes directly from this document (§§404, 406, 412, 715)
+- [Chapter 25-C64, Swimming Pools and Spas — D.C. Municipal Regulations (dcrules.elaws.us)](http://dcrules.elaws.us/dcmr/t25_subt25-c_ch25-c64) — confirms current DCMR chapter structure/numbering, used to cross-check the PDF is the current codified chapter
+
+---
+## Tennessee
+
+**★ No chemistry-linked closure trigger at all — a genuine outlier in this
+file's pattern, not a gap:** every other state collected so far ties an
+out-of-range pH/chlorine/CYA reading to some closure mechanism (an
+enumerated checklist, a two-tier authority structure, or at minimum a
+named violation category). Tennessee's rule (Chapter 1200-23-05) never
+does this. The only mandatory-closure language in the whole chapter is
+discretionary and administrative: **"Upon declaration of an imminent
+health hazard by the Commissioner, the facility shall immediately cease
+operations until authorized to reopen"** (§.04(3)(b)) — a case-by-case
+call by the Commissioner, not a rule-defined numeric trigger. Chemistry
+violations instead feed a **weighted-point inspection score** (100 minus
+the sum of violation point values, critical items worth 4–5 points,
+minor items 1–2) with a **10-calendar-day correction window for critical
+violations** (§.04(2)(c)–(3)(a), citing T.C.A. §68-14-318) — closure is
+a consequence of an uncorrected violation persisting past that window
+or an inspector's imminent-hazard call, not an automatic reading-based
+rule.
+
+- **Health Department name:** Tennessee Department of Health. The rule
+  text refers throughout to "the Commissioner" (of Health) and permits
+  are issued "through the local county health department" — no more
+  specific division name (e.g. a named Environmental Health bureau) is
+  stated in the rule itself. Chapter 1200-23 is filed under the
+  Department's "General Environmental Health" rule grouping.
+- **Official citation:** Rules of the Tennessee Department of Health,
+  **Chapter 1200-23-05, "Public Swimming Pools"** — water quality at
+  §1200-23-05-.02(4), permitting/inspection/closure at §1200-23-05-.04.
+  Current revision: September 2024 (confirmed via the Tennessee
+  Secretary of State's official rules-publication PDF, which is the
+  authoritative text — the older tn.gov-hosted May 2000 PDF is
+  superseded).
+- **Has dedicated log sheet:** `built-from-code`. §1200-23-05-.04(2)(b)
+  requires inspection results to be recorded on "standard departmental
+  forms," but that governs the *inspector's* visit record, not an
+  operator-maintained daily chemistry log — the rule does not name or
+  require a specific technician-facing log sheet, and does not state a
+  testing-frequency cadence to build one around (see below).
+
+**Chemistry thresholds (§1200-23-05-.02(4)):**
+
+Tennessee defines five pool types: **Type A** (general public/institutional
+use), **Type B** (restricted to residents/members/guests — apartments,
+HOAs, clubs), **Type C** (referenced but not separately defined in the
+sections reviewed), **Type D** (whirlpools/hot tubs/spas), **Type E**
+(water slides/flumes). Sanitizer minimums split on Type D vs. everyone
+else, not on CYA presence the way most other states in this file split
+their numbers.
+
+| Reading | Requirement |
+|---|---|
+| pH | 7.2 – 7.6 (§.02(4)(b)1 — tighter top end than the 7.2–7.8 most other states use) |
+| Free Chlorine — Type A, B, C, E pools | 0.5 – 3.0 ppm (§.02(4)(c)1(i)) |
+| Free Chlorine — Type D (spas) | 1.0 – 3.0 ppm (§.02(4)(c)1(ii)) |
+| Bromine — Type A, B, C, E pools | 2.0 – 5.0 ppm (§.02(4)(c)1(i)) |
+| Bromine — Type D (spas) | 3.0 – 5.0 ppm (§.02(4)(c)1(ii)) |
+| Polyhexamethyl biguanide (PHMB) — all types | 30 – 50 ppm (§.02(4)(c)1) — Tennessee is one of the few states in this file to give PHMB its own codified range alongside chlorine/bromine, rather than treating it only as an unspecified "EPA-approved alternative" |
+| Cyanuric Acid | Shall not exceed 100 ppm (§.02(4)(b)3) |
+| Total Alkalinity | 80 – 200 ppm (§.02(4)(b)2) |
+| Calcium Hardness | **NOT FOUND** — confirmed absent from §.02(4); the chapter has no calcium hardness provision at all |
+| Water clarity | Main drain grating must be clearly distinguishable from deck edge (§.02(4)(e)1) — qualitative, not an NTU number |
+| Max pool/spa temperature | 104°F (§.02(4)(g)) — one shared ceiling for all pool types including Type D, not a separate spa-specific number |
+| Microbiological | Positive/unacceptable above 4 total coliform bacteria per 100 mL, Chromogenic Substrate Test (§.02(4)(a)) |
+
+**Testing frequency: NOT FOUND as a stated cadence — confirmed absent,
+not unresearched.** §1200-23-05-.02(4)(d) only requires that "testing
+equipment complete with reagents shall be provided at the pool" for
+disinfectant residual, pH, total alkalinity, and cyanuric acid (DPD
+method for disinfectant), without stating how often it must be used.
+This is a different shape from every other state reviewed so far — even
+the loosest ("as often as necessary," "adequacy-based") cadences seen
+elsewhere still commit to some frequency language; Tennessee's rule
+never does.
+
+**Fecal/Vomit/Blood Contamination Response: NOT FOUND — confirmed
+absent from the whole chapter, not a research gap.** Searched the full
+text of Chapter 1200-23-05 (Definitions, Operational Requirements,
+Design Standards, Permitting/Inspection, Fees, General Provisions,
+Tables) for fecal/vomit/blood/diarrhea/contamination language — zero
+matches. The only related provision is a general communicable-disease
+exclusion for patrons/staff showing symptoms (§.02(3)(c)), which is
+about exclusion from the facility, not a water-remediation CT protocol.
+Tennessee gives AquaRunner nothing to seed for this category at the
+state level.
+
+**Open items for Tennessee:** (1) Type C pools are referenced (sanitizer
+table, signage rule) but never separately defined in the sections
+reviewed — likely defined by exclusion relative to A/B, not confirmed;
+(2) calcium hardness, testing frequency, and fecal/vomit/blood response
+are all confirmed absent from the current rule text, not sourcing gaps —
+don't re-research these expecting to find a number elsewhere in this
+chapter.
+
+**Sources used:**
+- [Rules of the Tennessee Department of Health, Chapter 1200-23-05, Public Swimming Pools — September 2024 revision (Tennessee Secretary of State, official publications)](https://publications.tnsosfiles.com/rules/1200/1200-23/1200-23-05.20240922.pdf) — full text read via direct PDF extraction (pdftotext); source of every citation above, including the Type A–E definitions, §.02(4) water quality table, and §.04 permitting/inspection/closure mechanism
+- [Tenn. Comp. R. & Regs. 1200-23-05-.02 — Cornell Legal Information Institute](https://www.law.cornell.edu/regulations/tennessee/Tenn-Comp-R-Regs-1200-23-05-.02) — cross-check copy of the operational-requirements section, confirms pH/alkalinity/CYA figures match the primary PDF
+
+---
+## South Dakota
+
+**★ A confirmed partial regulatory vacuum, not a total one — narrower than Idaho's, but
+real:** South Dakota's Department of Environment and Natural Resources chapter that used to
+cover **all** public beaches and municipal swimming pools — **Title 74, Chapter 74:04:08,
+"Public Beach and Municipal Swimming Pool Standards"** — was **deleted effective April 15,
+2013**, "deemed obsolete by operation of law" after **SL 2011, ch 166, §1** removed its
+underlying statutory authority. It was never replaced. What remains at the state level is
+narrower: the Department of Health's food/lodging licensing rules incorporate a swimming-pool
+standard **only for pools attached to a licensed lodging establishment** — hotels (ARSD
+44:02:02), campgrounds (44:02:14), vacation homes (44:02:08), and by the same pattern likely
+specialty resorts/B&Bs. A **standalone municipal pool, water park, apartment/HOA pool, or gym
+pool with no lodging license attached has no confirmed state-level chemistry regulation** —
+this is the gap that matters most for AquaRunner's typical commercial customers, who are
+overwhelmingly *not* hotel pools.
+
+- **Health Department name:** South Dakota Department of Health (DOH), for the lodging-attached
+  pools that remain regulated. (South Dakota Department of Agriculture and Natural Resources —
+  the renamed successor to DENR — has no swimming-pool chapter since the 2013 deletion.)
+- **Official citation:** ARSD **44:02:02:22** (hotels) and **44:02:14:11** (campgrounds), each
+  of which incorporates by reference the **"Recommended Standards for Swimming Pool Design and
+  Operation"** (Great Lakes–Upper Mississippi River Board of State and Provincial Public Health
+  and Environmental Managers, 1996 edition, hosted current by DOH and last updated April 2019).
+  ARSD 44:02:08:13 (vacation homes) applies the same incorporation for that facility type. This
+  is an **incorporation-by-reference model** — the numeric chemistry standard lives entirely in
+  the external GLUMRB document, not in the administrative rule text itself. First state in this
+  file where the operative numbers come from an incorporated document rather than being stated
+  directly in the code (Oregon's MAHC-derived rule states its own numbers in the rule text;
+  South Dakota's doesn't restate them at all, just points to the standard).
+- **Has dedicated log sheet:** `built-from-code` — §2.8 of the standard requires "daily
+  operating records ... on forms acceptable to the regulatory agency," not a single prescribed
+  statewide form.
+
+**Chemistry thresholds (Recommended Standards for Swimming Pool Design and Operation, Part 2,
+§1.0):**
+
+| Reading | Requirement |
+|---|---|
+| pH | 7.2 – 8.0 (§1.2.1) |
+| Free Chlorine — no CYA | Minimum 0.5 mg/L at pH 7.2, **+0.2 mg/L for each 0.2 pH-unit increase above 7.2** (§1.1.1) |
+| Free Chlorine — with CYA (isocyanurate) | Minimum 1.0 mg/L at pH 7.2, **+0.4 mg/L for each 0.2 pH-unit increase above 7.2** (§1.1.4) |
+| Bromine | Minimum 1.0 mg/L below pH 7.8; minimum 2.0 mg/L at pH 7.8 or higher (§1.1.2) |
+| Cyanuric Acid | Must not exceed 100 mg/L (§1.1.4) |
+| Total Alkalinity | 70 – 150 mg/L as CaCO₃ ("should be maintained," §1.2.2 — softer than the mandatory "shall" language used for pH/disinfectant) |
+| Combined Chlorine | Superchlorinate if combined residual exceeds 0.2 mg/L; raise free chlorine to ≥10× the combined level during treatment (§1.6, §1.6.1) |
+| Water clarity | A 3–6 inch black-and-white disc must be readily visible at the deepest point (§1.3) — a visual standard, not an NTU number |
+| Bacteriological | ≤200 colonies/mL standard plate count, no confirmed coliform; superchlorinate and retest immediately on failure (§1.4.2) |
+| Pool water temperature | Should be 72–85°F, except therapy/spa pools (§1.7) |
+| **Spa/special-purpose water temperature max** | **102°F** (§14.7) |
+
+**★ Both chlorine minimums are pH-indexed staircases, not flat numbers** — a second
+independent confirmation of the curve/table-based-threshold pattern first flagged for Alaska
+in the architecture notes (index item 6): here the "curve" is a linear step function of pH
+rather than a lookup table, but the mechanism — one reading's minimum threshold is a function
+of another reading's value — is the same shape and should reuse whatever relational-threshold
+representation gets built for Alaska.
+
+**★ The 102°F spa maximum is a genuine outlier** — every other state collected in this file
+that specifies a spa/hot-tub temperature ceiling uses 104°F. Confirmed directly from the
+current (April 2019-updated) text at §14.7, not a transcription artifact.
+
+**pH range that triggers mandatory closure:** **NOT FOUND as its own trigger.** §5.1 lists six
+enumerated closure grounds — disinfectant residual failure (§1.1), clarity failure (§1.3),
+inoperable treatment equipment, electrical hazard, absent supervision/lifeguard, and a
+catch-all "any condition creating an immediate danger" — but **pH (§1.2) is not itself listed**
+as an independent closure trigger the way disinfectant residual and clarity are. A pool
+slightly outside 7.2–8.0 but otherwise dosed to its pH-adjusted chlorine minimum would not,
+on this text, automatically trigger the §5.1 closure list. Confirmed absent from the section,
+not a research gap — same shape as Pennsylvania's bacteriological-only closure mechanism, just
+a different omission (equipment/clarity/residual-based here, vs. purely bacteriological there).
+
+**CYA threshold that triggers closure-risk violation:** NOT FOUND as a distinct closure
+trigger — the 100 mg/L CYA ceiling in §1.1.4 is stated as a maintenance requirement, not
+cross-referenced in the §5.1 closure list.
+
+**Testing frequency:** **NOT a fixed cadence** — §2.3 states water-quality analyses "shall be
+performed at a frequency and at such locations as established by the regulatory agency," i.e.
+delegated to inspector/agency discretion rather than a stated daily/hourly number in the
+standard itself. The ARSD sections layer one fixed requirement on top of that: **at least one
+water sample weekly** submitted to an EPA-certified lab for bacteriological analysis, with
+unsafe results reported to DOH within **three days**, and **two consecutive negative resamples**
+required before reopening after a positive result (ARSD 44:02:02:22, 44:02:14:11). Reagents
+must be renewed semi-annually for indoor pools, and before each opening for seasonal pools
+(§2.3).
+
+**Fecal/Vomit/Blood Contamination Response: NOT FOUND — confirmed absent, not unresearched.**
+Both the incorporated 1996 GLUMRB standard and the ARSD lodging chapters were checked
+specifically for "fecal," "vomit," "blood," "diarrhea," and "hyperchlorinat-" language; none
+appears. This document predates the MAHC-derived CT-value protocols (formed-stool/
+diarrheal-stool/vomit hold times) that Delaware, Oregon, New York, and others have adopted —
+South Dakota's only contamination response is the general bacteriological-failure rule at
+§1.4.2 (superchlorinate and retest), with no body-fluid-specific protocol, no CT values, and
+no blood exemption language to confirm or contradict the New York/Delaware/Oregon pattern.
+
+**Open items for South Dakota:** (1) the lodging-establishment-only scope (hotels, campgrounds,
+vacation homes) is confirmed for those three chapters; specialty resorts (44:02:05) and B&Bs
+(44:02:06) were not individually checked for a matching water-recreation section this pass but
+almost certainly follow the same pattern given they sit in the same Article 44:02 food/lodging
+framework — treat as likely-same-shape, not confirmed; (2) the standalone
+municipal/HOA/waterpark pool gap is the load-bearing finding — if AquaRunner services any South
+Dakota commercial pool that isn't part of a licensed hotel/campground/vacation home, there may
+be no state chemistry standard to bind them to at all, similar in *effect* (though not in
+legal mechanism) to Idaho; (3) no fecal/vomit/blood protocol exists at the state level,
+confirmed rather than a gap.
+
+**Sources used:**
+- [S.D. Admin. R. 44:02:14:11 — Swimming pools and spas (Cornell LII)](https://www.law.cornell.edu/regulations/south-dakota/ARSD-44-02-14-11) — campground pools, confirms scope and weekly-sample/reporting requirements
+- [S.D. Admin. R. 44:02:02:22 — Water recreation facilities (Cornell LII)](https://www.law.cornell.edu/regulations/south-dakota/ARSD-44-02-02-22) — hotel pools, same incorporation-by-reference structure
+- [Recommended Standards for Swimming Pool Design and Operation (South Dakota Dept. of Health, 1996 ed., updated April 2019) — full PDF](https://doh.sd.gov/media/q1cligob/standardsforswimmingpooldesign.pdf) — source of every numeric chemistry figure, testing-frequency, and closure-trigger citation above (Part 2, §§1.0–5.0)
+- [ARSD Title 74, Article 74:04, Chapter 74:04:08 — Justia, confirming 2013 deletion](https://regulations.justia.com/states/south-dakota/title-74/article-74-04/chapter-74-04-08/) — confirms the municipal/public-beach chapter's repeal and the SL 2011 ch 166 §1 statutory-authority removal
+- [South Dakota Legislature — Administrative Rule 74:04](https://sdlegislature.gov/Rules/Administrative/74:04) — corroborates the chapter's current (empty/repealed) status
+
+---
+## Wyoming
+
+**★ Regulated by the Department of Agriculture, not a health department** — the
+only state confirmed so far in this file where pool/spa oversight sits outside
+a health agency entirely. The **Wyoming Department of Agriculture (WDA),
+Consumer Health Services (CHS) Division** administers and inspects public
+pools/spas under the Wyoming Swimming Pool and Spa Health and Safety Act.
+
+- **Health Department name:** N/A — regulated by the **Wyoming Department of
+  Agriculture, Consumer Health Services (CHS) Division** (not a health
+  department). Contact of record: (307) 777-7321 / wda1@wyo.gov.
+- **Official citation:** Wyoming Administrative Code, **Agency 010 (Dept. of
+  Agriculture), Sub-Agency 0008 (Public Swimming Pools)** — chemistry and
+  testing at **Chapter 5, "Water Quality, Test Kits, Record Keeping"**
+  (Reference No. 010.0008.5.10092003, effective 10/09/2003 to current);
+  definitions/operator/record requirements at **Chapter 1, "Purpose,
+  Variances, Definitions, and Operator Requirements."** Underlying statute:
+  Wyoming Swimming Pool, Spa and Similar Installation Regulations (Wyoming
+  Swimming Pool and Spa Health and Safety Act).
+- **Has dedicated log sheet:** No official fill-in form found →
+  `logSheetSource: built-from-code`. Chapter 1 §10(a) specifies exactly what
+  a record must contain (bather load at time of test, chemicals added, the
+  Chapter 5 §1(a) test results, filter-backwash date/time, empty/clean dates,
+  recirculation-equipment downtime/repair) and how long to keep it, but WDA's
+  pools page (checked directly) lists only a Plan Review Worksheet, a
+  Variance Request form, and a CPO brochure — no downloadable water-quality
+  log.
+
+**Chemistry thresholds (Chapter 5 §1(a) — Wyoming's table format is Minimum /
+Ideal / Maximum, not a flat range, for every parameter):**
+
+| Reading | Minimum | Ideal | Maximum |
+|---|---|---|---|
+| pH | 7.0 | 7.4–7.6 | 7.8 |
+| Free Chlorine, ppm | 1.0 | 2.0–3.0 | 8.0¹ |
+| Free Chlorine, ppm — spas | 2.0 | 3.0–5.0 | 8.0¹ |
+| Combined Chlorine, ppm | none | none | 0.5 |
+| Bromine, ppm | 2.5 | 2.5–6.0 | 12.0¹ |
+| Bromine, ppm — spas | 4.5 | 5.5–7.5 | 12.0¹ |
+| Cyanuric acid, ppm² | none | 10.0–40.0 | 100.0 |
+| Total alkalinity, ppm as CaCO₃ | 60.0 | 80–100³ / 100–120⁴ | 180.0 |
+| Calcium hardness, ppm as CaCO₃ | 150.0 | 200–400 | 500–1000 |
+| Total dissolved solids, ppm | 300.0 | 1000–2000 | 5000.0 |
+| Temperature, °F | N/A | 78–82 | 98 |
+| Temperature, °F — spas | N/A | ≤102 | 104 |
+| ORP, mV (optional, supplemental) | 650 | N/A | N/A |
+
+¹ "Refer to product label for maximum level" — the 8.0/12.0 figures are the
+code's own stated max, not derived.
+² **Cyanuric acid may not be used in indoor pools/spas, or in brominated
+pools/spas, without prior approval from the regulatory authority** — broader
+than the indoor-only ban seen in Delaware/Indiana/Iowa/Minnesota/Montana;
+Wyoming extends the default prohibition to brominated installations too, not
+just indoor ones.
+³ Ideal alkalinity range when sanitizer is calcium/lithium/sodium
+hypochlorite.
+⁴ Ideal alkalinity range when sanitizer is sodium dichlor, chlorine gas, or
+bromine compounds. **This is a second, independent confirmation of
+Arkansas's pattern** (`ARCHITECTURE NOTES` #1) — alkalinity's target range
+depends on sanitizer type, not a single fixed band. Unlike Arkansas, Wyoming
+only varies the *ideal* band this way; minimum (60) and maximum (180) stay
+fixed regardless of sanitizer.
+
+Heavy metals and biological parameters (algae, bacteria) are all listed with
+a flat "None / None / None" row — present, but not a numeric range.
+
+**Closure trigger — broader than most states in this file:** §2(b) — if
+testing shows the water **out of compliance with any parameter listed in
+§1(a)** (not just pH/chlorine specifically), "the operator shall immediately
+close the pool, spa or similar installation," reopening only once retesting
+confirms compliance (§2(b)(i)). Unlike states with an enumerated closure
+checklist (Georgia, Delaware) or a two-tier authority structure
+(Connecticut), Wyoming's mechanism is a blanket rule tied directly back to
+the entire §1(a) table — any one of the ~10 listed parameters drifting out of
+its min/max band is independently sufficient to require closure.
+
+**Testing frequency (§2):**
+- Sanitizer (chlorine/bromine), pH, water clarity, and temperature: **once
+  prior to opening, every 4 hours during operation, and once prior to
+  closing** (§2(a)(i)–(iii))
+- Total alkalinity and calcium hardness: **at least once each week** the pool
+  is open (§2(c))
+- Cyanuric acid, if used: **each month** the pool is open (§2(d))
+- Spa pools: drained and refilled with fresh water **at least every 2 weeks**
+  (§3(a)); flow-through pools drained/cleaned on the same 2-week floor (§3(b))
+- Natural mineral flow-through pools are exempt from the clarity standard
+  (§2(f)); operator/lifeguard has independent authority to clear the pool any
+  time clarity becomes a swimmer-safety issue, judgment-based (§2(g))
+- Test kits must use **DPD** reagent for free chlorine — OTO is explicitly
+  disallowed because it can't distinguish free from total available chlorine
+  (§4(c))
+
+**Fecal/Vomit/Blood Contamination Response: confirmed absent, not a research
+gap.** Wyoming's public-pool rule is only 7 chapters (1: general/definitions;
+2: licensing/inspection; 3: structural design; 4: sanitary
+facilities/chemical feed equipment; 5: water quality/testing/records; 6:
+lifeguards/lifesaving equipment; 7: bathhouses) — confirmed against the
+official table of contents. **None of the 7 contains a bodily-fluid
+contamination or CT-value remediation protocol** — no formed-stool,
+diarrheal-stool, vomit, or blood section anywhere in the rule. Same
+confirmed-absence shape as Pennsylvania, not the MAHC-derived protocol found
+in most other states in this file.
+
+**Note for `ARCHITECTURE NOTES`:** Wyoming is a second confirmation of
+Arkansas's "target range depends on sanitizer type" relational pattern (see
+CYA/alkalinity note above) — worth citing alongside Arkansas if the model
+needs a second real-world example.
+
+**Open items for Wyoming:** none outstanding from the sections reviewed —
+Chapters 1 and 5 (definitions, records, water quality/testing) were read in
+full; Chapters 2–4, 6–7 were confirmed via table of contents to contain no
+chemistry or contamination-response content relevant to this dataset.
+
+**Sources used:**
+- [Wyoming Dept. of Agriculture — Pools (agriculture.wy.gov/pools)](https://agriculture.wy.gov/pools) — confirms CHS Division as regulator, confirms no downloadable log-sheet form exists
+- [Chapter 5: Water Quality, Test Kits, Record Keeping — official PDF](https://agriculture.wy.gov/corecode/uploads/document6/uploaded_pdfs/corecode/Chapter%205%20Water%20Quality,%20Test%20Kits,%20Record%20Keeping_1005.pdf) — source of every chemistry threshold and testing-frequency figure above, read via pdftotext extraction of the full 6-page chapter
+- [Chapter 1: General Provisions — official PDF](https://agriculture.wy.gov/corecode/uploads/document6/uploaded_pdfs/corecode/Chapter%201%20General%20Provisions%20(2)_1001.pdf) — source of the §10 record-content requirement
+- [Table of Contents — all 7 chapters — official PDF](https://agriculture.wy.gov/corecode/uploads/document6/uploaded_pdfs/corecode/tableofcontents_1000.pdf) — used to confirm the fecal/vomit/blood protocol is genuinely absent, not missed in a partial read
+
+---
+## Vermont
+
+**★ Structural outlier — no single "public swimming pool" code; regulation is
+split by facility type across separate chapters.** Unlike every other state
+collected so far, Vermont does not have one universal pool/spa chemistry rule.
+Pool/spa provisions live inside whichever facility-type regulation applies:
+**Regulation for Licensed Lodging Establishments** (Chapter 6, effective
+1/1/2018) covers pools, RWFs, and hot tubs at hotels/motels/inns — almost
+certainly the regulation that governs the large majority of AquaRunner's
+Vermont commercial accounts (hotels, condo/HOA properties operated as lodging).
+A separate, much older **Public Spas and Hot Tubs** rule (Chapter 5, Subchapter
+17, effective 1988) governs freestanding commercial spas/hot tubs *not* part of
+a lodging establishment, and a third, separate **Children's Camp** regulation
+(Chapter 6, Subchapter 2) covers camp pools — not reviewed this pass, out of
+scope. **The two rules that were reviewed give different numbers for hot
+tubs/spas** (see below) — which one applies depends on what kind of facility
+the spa is inside, not a single statewide spa standard. Recommend seeding
+Vermont's `ComplianceRuleset` from the Lodging Establishment rule as the
+default (broadest applicable case), with a `ComplianceNote` flagging that
+freestanding spas may fall under the older, stricter Chapter 5 rule instead.
+
+- **Health Department name:** Vermont Department of Health, Food & Lodging
+  Program (Environmental Health).
+- **Official citation (primary, used below):** Regulation for Licensed Lodging
+  Establishments, **13-023 Code Vt. R. 13-140-023-X**, **§18.0 "Swimming
+  Pools, Recreational Water Facilities (RWFs), and Hot Tubs"** — effective
+  January 1, 2018.
+  Secondary/overlapping citation: **13-027 Code Vt. R. 13-140-027-X**,
+  Vermont Health Regulations Chapter 5, Subchapter 17, "Public Spas and Hot
+  Tubs" — effective April 9, 1988, still in force per Cornell LII, applies to
+  standalone spas outside a lodging establishment.
+- **Has dedicated log sheet:** No official fill-in form found →
+  `logSheetSource: built-from-code`. §18.10.1 requires a daily operational log
+  (date, time, initials of tester, disinfectant residual, pH, hot-tub
+  temperature) kept on-site 1 year, plus a separate fecal/vomiting accident
+  log — content is prescribed, but no numbered state form found this pass.
+
+**Chemistry thresholds — Lodging Establishment rule (§18.5):**
+
+| Reading | Requirement |
+|---|---|
+| pH — pools, RWFs, and hot tubs | 7.0 – 8.0 (§18.5.2) |
+| Free Chlorine — pools/RWFs | 1.0 – 5.0 ppm (§18.5.1.1) |
+| Free Chlorine — hot tubs | 2.9 – 5.0 ppm (§18.5.1.1) |
+| Bromine — pools/RWFs | 1.0 – 5.0 ppm (§18.5.1.2) |
+| Bromine — hot tubs | 2.0 – 5.0 ppm (§18.5.1.2) |
+| Cyanuric Acid | **NOT FOUND** — confirmed absent; no mention anywhere in the regulation text (checked full document) |
+| Total Alkalinity | **NOT FOUND** — confirmed absent, same as CYA |
+| Calcium Hardness | **NOT FOUND** — confirmed absent, same as CYA |
+| Water clarity | Black disc (6" diameter) visible at deepest point, or main drain/hot-tub bottom clearly visible (§18.5.4) |
+| Max hot tub temperature | 104°F (§18.5.7) |
+
+**Chemistry thresholds — older standalone Spas/Hot Tubs rule (Ch. 5, Subch.
+17, 1988), for comparison — do not merge these into the Lodging figures
+above, they're a different regulatory instrument:**
+
+| Reading | Requirement |
+|---|---|
+| pH | Min 7.2, ideal 7.4–7.6, max 7.8 |
+| Free Chlorine | Min 2 ppm, ideal 3–5 ppm, max 5 ppm |
+| Bromine | Min 2 ppm, ideal 3–5 ppm, max 5 ppm |
+| Total Alkalinity | Min 60 ppm as CaCO₃, ideal 80–100 ppm |
+| Calcium Hardness | Min 150 ppm, ideal 200–400 ppm, max 500 ppm |
+| Max temperature | 104°F |
+| Shock treatment | At least once every 24 hours, 10 ppm chlorine or bromine for a minimum of 4 hours |
+
+Alternative disinfectants are permitted under the Lodging rule only if the
+licensee demonstrates equivalent disinfection to §18.5.1.1/.1.2 (§18.5.1.3) —
+a performance-based substitution clause, same shape as several other states.
+
+**pH/chemistry range that triggers mandatory closure:** **NOT FOUND** as a
+distinct, named trigger under the Lodging rule. Vermont's only closure
+mechanism found this pass is the broad, non-enumerated **"Imminent Health
+Hazard"** definition (§4.13/§7.0): "a fire, significant flooding, sewage
+backup, infestation, misuse of poisonous or toxic materials, **or any other
+condition that could endanger the health and safety of guests**" — licensee
+must discontinue operation of the affected area immediately and notify the
+Department within 24 hours (§7.1–7.2). An out-of-range pH or chlorine reading
+would presumably qualify under the catch-all clause, but — unlike Delaware's
+or Oregon's enumerated checklists, or Georgia's ten-item list — Vermont never
+names a specific chemistry value as a closure trigger. Treat as **confirmed
+absent as a specific rule**, not a research gap.
+
+**Testing frequency (§18.10.1):**
+- Disinfectant residual and pH: **at least once daily** when the pool/RWF/hot
+  tub is available for guest use, "or more often, if necessary to maintain
+  the water quality" — a minimum-plus-adequacy standard, not a fixed
+  multiple-times-per-day cadence like most other states
+- Hot tub temperature: at least once daily
+- No stated frequency for alkalinity/hardness/CYA, consistent with those
+  fields not existing in the rule at all
+
+**Fecal/Vomit/Blood Contamination Response (§18.6–18.9) — distinct
+pools/RWFs vs. hot tubs, kept separate per this file's architecture:**
+
+- **Formed-stool (pools/RWFs, §18.6.1):** guests out, remove material with
+  net/scoop, raise disinfectant to **2.0 ppm** with pH between **7.2 and
+  7.8**; closure duration **not tied to a fixed CT value** — the rule states
+  plainly *"closure times can vary since the decontamination process takes
+  from 30 to 60 minutes"* (§18.6.1.1), a time-window rather than a computed
+  CT target
+- **Diarrheal-stool (pools/RWFs, §18.6.2):** raise disinfectant to **20.0 ppm
+  for at least 8 hours** (pH 7.2–7.8), **or** use the table's equivalent
+  options — **1.0 ppm/6.5 days, 10.0 ppm/16 hours, 20.0 ppm/8 hours** — a
+  three-point CT table, smaller than Delaware's/Oregon's but the same
+  equivalent-CT-tradeoff shape. Vacuuming the fecal material is explicitly
+  **prohibited** (§18.6.2.2). Filter must be backwashed and *not* returned
+  through the filter; medium replaced if necessary (§18.6.2.4).
+- **Vomiting (pools/RWFs, §18.7):** explicitly routed to the **same
+  diarrheal-stool procedure** (§18.6.2) — Vermont does not give vomit its own,
+  lighter formed-stool-style protocol the way Delaware/Oregon do; it's treated
+  at the higher 20 ppm/8-hour standard across the board.
+- **★ No blood-specific exemption found:** unlike New York, Delaware, and
+  Oregon (all of which explicitly state blood contamination does *not* pose a
+  public health risk and exempts operators from mandatory closure), Vermont's
+  rule only has a generic **"Body fluid spills"** provision (§18.8) covering
+  spills on **equipment or hard surfaces/decking** — 1:10 bleach solution,
+  10-minute contact time, PPE for staff — but says nothing about blood
+  *in the water itself*. Don't assume Vermont grants the same blood exemption
+  found in three other states; the rule is silent on blood-in-water
+  specifically, which reads as a gap rather than a confirmed exemption.
+- **Hot tubs (§18.9) — different mechanism entirely:** fecal or vomiting
+  incident in a hot tub requires **complete draining** (not a CT-based
+  in-water disinfection option), manufacturer-spec disinfection, and either
+  disinfecting or replacing the filter medium before refilling — no
+  alternative "raise disinfectant and hold" path is offered for hot tubs the
+  way it is for pools/RWFs.
+- **Log requirement:** every fecal/vomiting accident logged with time, date,
+  and disinfection measures taken (§18.10.2).
+
+**Open items for Vermont:** (1) confirm whether the 1988 Chapter 5/Subchapter
+17 spa rule has been formally superseded for lodging-establishment spas, or
+genuinely still governs freestanding ones in parallel — Cornell LII lists it
+as current but the two rules were not cross-referenced against each other in
+primary source text; (2) Children's Camp regulation (Ch. 6, Subch. 2) not
+reviewed — may contain a third, camp-specific pool standard; (3) no
+chemistry-specific closure trigger exists in the Lodging rule (confirmed
+absent, not unresearched) — only the generic Imminent Health Hazard catch-all;
+(4) CYA, alkalinity, and calcium hardness are confirmed absent from the
+Lodging rule's chemistry table entirely.
+
+**Sources used:**
+- [Regulation for Licensed Lodging Establishments, effective 1/1/2018 (Vermont Department of Health, official PDF)](https://www.healthvermont.gov/sites/default/files/document/reg-lodging-establishment.pdf) — read via direct PDF text extraction; source of every §18.x citation above, including the fecal/vomit/hot-tub protocol and the daily-log requirement
+- [13-027 Code Vt. R. 13-140-027-X — Vermont Health Regulations Chapter 5, Subchapter 17, Public Spas and Hot Tubs (Cornell LII)](https://www.law.cornell.edu/regulations/vermont/13-027-Code-Vt-R-13-140-027-X) — source of the older standalone-spa figures shown for comparison
+- [13-023 Code Vt. R. 13-140-023-X — Licensed Lodging Establishment Rule (Cornell LII, citation record)](https://www.law.cornell.edu/regulations/vermont/13-023-Code-Vt-R-13-140-023-X) — confirms the official code citation for the Lodging Establishment regulation
+
+---
+## Texas
+
+**★ Fecal/vomit/blood response is incorporated by reference, not codified with
+Texas-specific numbers — a genuinely different mechanism from every other state
+collected so far:** §265.191(h)(3) and (i)(4) require lifeguard training and the
+facility emergency action plan to follow **"the Centers for Disease Control and
+Prevention standards for responding to formed-stool contamination,
+diarrheal-stool contamination, vomit contamination, and contamination
+involving blood,"** and the definitions section (§265.180(34)) names the exact
+source document: **CDC's "Healthy Swimming: Fecal Incident Response
+Recommendations for Aquatic Staff."** Unlike Delaware/Oregon (which transcribe
+the CDC/MAHC CT values directly into the state code text), Texas's own rule
+text contains **no CT values, hold times, or ppm targets for the fecal/vomit/
+blood protocol at all** — operators are pointed at the CDC document itself
+rather than a state-restated version of it. Recommend seeding Texas's
+`eventProtocols` by citing the CDC document directly (same numbers used
+elsewhere in this file — 2.0 ppm/25 min formed-stool, 20 ppm/12.75 hr
+diarrheal-stool, CYA-doubling rule, blood exemption — since Texas's own
+citation *is* that CDC guidance), but flag in the ruleset that Texas's
+*regulatory* text does not restate them, so if CDC guidance is ever revised,
+Texas's incorporated-by-reference rule updates automatically without a Texas
+rule change, while Delaware's/Oregon's codified numbers would not.
+
+- **Health Department name:** Texas Department of State Health Services
+  (DSHS), Environmental and Consumer Safety Section (Public Sanitation and
+  Retail Food Safety Branch administers pool/spa rules).
+- **Official citation:** 25 Texas Administrative Code (TAC), Part 1, Chapter
+  265, **Subchapter L — "Public Swimming Pools and Spas"** (§§265.180–265.196).
+  Water quality standards specifically at **§265.193**; fecal/vomit/blood
+  policy requirement at §265.191(h)(3)/(i)(4); CYA remediation at §265.193(p).
+- **Has dedicated log sheet:** No single statewide numbered DSHS form
+  confirmed this pass → `logSheetSource: built-from-code`. §265.193(l)
+  requires a "pool or spa log" (electronic or manual logbook) with specific
+  required fields (date/time, chemical levels, ORP mV, corrective actions,
+  formed-stool/diarrhea incidents), kept on-site (or produced within 5
+  business days) for a minimum of 3 years — the field list is prescriptive
+  enough to build a log sheet from, but no state-provided fill-in form was
+  located.
+
+**Chemistry thresholds — Texas is unusual among states collected for using an
+explicit three-column Minimum/Ideal/Maximum table plus an ORP band, from
+Figure: 25 TAC §265.193(c):**
+
+| Reading | Minimum | Ideal | Maximum |
+|---|---|---|---|
+| Pool Free Available Chlorine | 1.0 ppm | 2.0 – 3.0 ppm | 8.0 ppm |
+| Spa Free Available Chlorine | 2.0 ppm | 3.0 ppm | 8.0 ppm |
+| Pool Bromine | 3.0 ppm | 4.0 – 6.0 ppm | 10.0 ppm |
+| Spa Bromine | 4.0 ppm | 5.0 ppm | 10.0 ppm |
+| Combined Chlorine | — | — | 0.4 ppm max |
+| pH | Not less than 7.0 | 7.2 – 7.6 | 7.8 |
+| Cyanuric Acid | — | 30 – 50 ppm | 100 ppm |
+| ORP | 600 mV | 650 – 750 mV | 900 mV |
+| Total Alkalinity | 60 ppm | 60 – 180 ppm | >180 ppm out of range |
+| Calcium Hardness — pools | 150 ppm | >150 – 400 ppm | 1000 ppm |
+| Calcium Hardness — spas | 100 ppm | 150 – 400 ppm | 800 ppm |
+
+**★ ORP as a first-class, tabled parameter (not just an ancillary reading tied
+to automated controllers) is a new pattern for this file** — every other
+state so far treats ORP/mV readings as something automatic controllers log
+alongside chlorine/pH, not as its own row in the primary chemistry table with
+its own min/ideal/max band. §265.193(h) requires ORP readings to be logged
+whenever in-line ORP meters are used, timed to the same interval as
+sanitizer/pH tests.
+
+**Cyanuric acid ceiling and required remediation (§265.193(p)) — a step-based
+remedy, not just a closure flag:** when CYA exceeds 100 ppm: (1) free
+available chlorine must be raised to and held at 2.0 ppm until CYA drops
+below 100 ppm; (2) sanitizer, pH, and CYA must be tested and logged at least
+daily until CYA is back under 100 ppm; (3) the exceedance and remediation
+must be recorded in the pool/spa log. **CYA use is banned outright in any
+indoor pool, spa, or therapy pool** (§265.193(d)) — same flat prohibition
+shape as Delaware/Indiana/Iowa/Minnesota/Montana, not Oregon's phased
+transition-period model.
+
+**pH range that triggers mandatory closure:** **NOT FOUND as an explicit,
+separately-stated closure trigger** the way most other states enumerate it —
+§265.193(c) states water quality "must meet" the table criteria "when the
+pool or spa is open for use," which functions as an implicit closure
+requirement (out-of-range water quality means the facility should not be
+open), but no standalone "pH below X or above Y triggers closure" sentence
+was found in Subchapter L itself. The one **explicit, named mandatory-closure
+trigger found** is unrelated to chemistry: §265.185 requires closure "until
+corrected" whenever a drain grate, suction outlet, or suction outlet cover is
+missing, broken, or loose (an entrapment-hazard trigger, not a water-chemistry
+one). General enforcement/closure authority for chemistry violations likely
+lives in a different part of Texas Health & Safety Code (permit
+suspension/revocation provisions) not reviewed this pass — flagged as an open
+item below rather than assumed absent.
+
+**Testing frequency (§265.193(o)) — tied to pool *class* (A/B/C) and staffing,
+a facility-attribute-based frequency exception matching the pattern already
+noted for California in the ARCHITECTURE NOTES index, but keyed off pool
+classification + staffing rather than unit count:**
+
+- **Class A and Class B pools/spas:** disinfectant and pH tested and logged
+  **every 2 hours**; if an automatic controller is used, tested and logged **at
+  least 3×/day** plus a logged controller reading; CYA (if used) **weekly**.
+- **Class C pools/spas with on-site staff** (e.g., lifeguards): disinfectant
+  and pH **minimum 3×/day**; with automatic control, **minimum 1×/day** plus
+  logged controller reading; CYA **weekly**.
+- **Class C pools/spas with no on-site staff:** disinfectant and pH **minimum
+  1×/day**; if the automatic system can record/transmit mV or free-chlorine
+  and pH data to the certified operator daily, sanitizer/pH need only be
+  manually tested **weekly** (with a logged controller reading at the same
+  time) — a remote-monitoring-based frequency reduction, a new sub-pattern
+  worth noting alongside the ARCHITECTURE NOTES adaptive-frequency entry.
+- **Alkalinity, calcium hardness, and overall chemical balance** (Langelier
+  Saturation Index or equivalent): **at least once every 10 days**, or more
+  often if needed to maintain §265.193(c)/(e) compliance — same
+  adequacy-conditioned shape as California's combined-chlorine rule already
+  in the index.
+
+**Water clarity standard:** an 8-inch black/Secchi disk on the pool floor at
+the deepest point must be clearly and immediately visible (§265.193(e)); a
+near-identical, separately-stated clarity rule also appears at §265.194(h)
+tied to visibility of the bottom and submerged suction outlets specifically
+as an open/closed-for-use gate.
+
+**Fecal/Vomit/Blood Contamination Response:** see the ★ callout above — Texas
+requires a written plan and staff training following CDC's "Healthy Swimming:
+Fecal Incident Response Recommendations for Aquatic Staff," referenced by
+name in the definitions section (hyperchlorination is itself a defined term,
+§265.180(34), tied explicitly to that CDC document), but **states no
+Texas-specific CT values, hold times, or blood-exemption language of its
+own** in Subchapter L.
+
+**Open items for Texas:** (1) explicit chemistry-based mandatory-closure
+trigger language (as opposed to the implicit "must meet the table to be open"
+framing) may exist in Texas Health & Safety Code's general permit/enforcement
+provisions outside Subchapter L — not reviewed this pass; (2) the specific
+CDC "Healthy Swimming" CT values Texas incorporates by reference weren't
+re-derived from that CDC source directly this pass (borrowed from Delaware's
+and Oregon's independently-sourced figures on the assumption they're citing
+the same CDC document — reasonable but not Texas-primary-sourced); (3) no
+statewide numbered log-sheet form was confirmed to exist or not exist.
+
+**Sources used:**
+- [25 TAC Chapter 265, Subchapter L — official current rule text (Texas DSHS, PDF, dated 05/03/24)](https://www.dshs.texas.gov/sites/default/files/poolspa/pdf/25%20TAC-P1-CH%20265-SubCh%20L%20-%20050324.pdf) — read via direct PDF text extraction (pdftotext); source of every citation above, including the full Figure: 25 TAC §265.193(c) chemistry table, testing-frequency subsections, CYA remediation steps, and the CDC-incorporation-by-reference language for fecal/vomit/blood response.
+- [§265.193, Water Quality at Pools and Spas — txrules.elaws.us mirror](http://txrules.elaws.us/rule/title25_chapter265_sec.265.193) — corroborating secondary mirror of the same section text (confirms the figure is a graphic/table not reproduced in HTML mirrors, which is why the PDF was the primary source used).
+
+---
+## West Virginia
+
+**★ No fecal/vomit/blood contamination protocol at all — confirmed absent, not a research gap:** unlike the MAHC-derived states in this file (Delaware, Oregon, and others), West Virginia's rule predates that model — it was last substantively updated in 2007, before the 2015-era MAHC template circulated. §64-16-5 (Inspections, Closure Orders) and §64-16-11 (Routine Maintenance and Operation) contain no bodily-fluid incident language, no CT values, and no CDC cross-reference. The rule's only closure mechanism is a general "endangers health/safety" catch-all plus two named triggers (turbidity, disinfectant residual below minimum) — see below.
+
+- **Health Department name:** West Virginia Bureau for Public Health, Office of Environmental Health Services (OEHS).
+- **Official citation:** West Virginia Code of State Rules, **Title 64, Series 16 ("64CSR16"), "Recreational Water Facilities"** — legislative rule, effective April 18, 2007 (last substantive update; confirmed as the current active version). Water quality at **§64-16-7**, testing/records at **§64-16-8**, inspections/closure at **§64-16-5**. The rule cross-references **64CSR3** and **46CSR1** for additional chemical/bacteriological standards not detailed within 64-16-7 itself — not reviewed this pass.
+- **Has dedicated log sheet:** Yes → `logSheetSource: state-provided`. OEHS publishes **Form ER-32, "Recreational Water Facility Weekly Operational Report"** — matches §64-16-8's requirement that pH/chlorine results be recorded and submitted to the Commissioner on **weekly summaries** (a weekly-report cadence, not a daily-sheet-per-visit shape like most other states in this file). A companion **Form SR-153, "Recreational Water Facility Tables,"** appears to be a quick-reference parameter/closure table published alongside the rule — not fetched as raw text this pass, worth pulling if AquaRunner wants a second cross-check on the numbers below. **Form SG-49** is the operating-permit application, not a log sheet.
+
+**Chemistry thresholds (§64-16-7):**
+
+| Reading | Requirement |
+|---|---|
+| pH | 7.2 – 7.8 (§7.4.a) |
+| Free Chlorine | 1 – 5 mg/L (§7.1.d) — one flat range; **no separate CYA-present/absent or spa-specific tier found**, unlike most MAHC-influenced states in this file |
+| Bromine | 2 – 5 mg/L (§7.1.e) |
+| Cyanuric Acid | 10 – 100 mg/L (§7.1.g) — notable for having a **floor as well as a ceiling**; most other states in this file only cap CYA, they don't require a minimum |
+| Total Alkalinity | 60 – 180 mg/L as CaCO₃ (§7.4.c) |
+| Combined Chlorine | **NOT FOUND** — confirmed absent from §7.1; not mentioned as a separate parameter |
+| Calcium Hardness | **NOT FOUND** — confirmed absent from the section |
+| Turbidity/Clarity | No NTU figure — instead a **visual sight-disk standard**: "sufficient water clarity to allow the main drain or a six (6) inch black disk on the bottom of the deepest part... to be readily visible" (§7.5.a). Same shape as Delaware/Georgia's disk-based clarity test, but expressed as visibility-of-object rather than a measured NTU ceiling. |
+| Max spa/pool temperature | **NOT FOUND** in §7 — not reviewed in 64CSR3 cross-reference this pass |
+
+**Closure triggers (§64-16-5.4) — enumerated but short, not a long MAHC-style checklist:**
+- **5.4.a** — "A condition... that endangers the life, health, or safety of the patrons or employees" (general catch-all)
+- **5.4.b** — Excessive turbidity per the sight-disk standard above
+- **5.4.c** — Disinfectant residual below the §7.1.d/7.1.e minimum (i.e., free chlorine <1 mg/L or bromine <2 mg/L)
+- **★ No enumerated pH-out-of-range closure trigger** — closure is tied to disinfectant residual and turbidity only; a pH excursion alone (with chlorine still in range) isn't a named closure condition the way it is in Delaware/Georgia/Oregon. Operations must also **cease** (§7.1, per §64-16-8 fetch) if free chlorine drops below 1 mg/L or bromine below 2 mg/L, until restored — functionally the same trigger stated twice, once as an operational stop-work rule and once as a Commissioner closure-order basis.
+- An issued closure order stays in effect until the Commissioner confirms corrections were made (§5.5) — no fixed reopening test-count, similar in shape to several other states' "Commissioner discretion to reopen" language.
+
+**Testing frequency (§64-16-8):**
+- pH and free chlorine residual: **"not less than twice daily"** (bathing beaches excepted), recorded and submitted on **weekly summaries** to the Commissioner
+- Test kits must use the **DPD method** for chlorine; test strips/ORP may supplement but cannot replace the required daily readings
+- Reagents replaced at the start of each season (seasonal facilities) or whenever found defective; **1-year maximum shelf life** from purchase
+- **Alkalinity and cyanuric acid testing frequency: NOT FOUND** — the section doesn't state a cadence for either, only that approved test equipment for them must be on hand
+- Records retained **minimum 1 year**
+- Commissioner inspects each facility **at least 2 times per year** (§5.1) — a state-inspection cadence, separate from the operator's own twice-daily testing requirement
+
+**Fecal/Vomit/Blood Contamination Response: NOT FOUND — confirmed absent from the rule, not unresearched.** See ★ note above. If AquaRunner needs a WV-specific protocol, it would have to come from CDC MAHC guidance directly (unenacted in WV) or a local health department policy, not this state rule.
+
+**Cross-state architecture pattern flagged:** the CYA **floor-and-ceiling** pair (10–100 mg/L, §7.1.g) is worth adding to the ARCHITECTURE NOTES index — every other state collected so far only caps CYA from above; West Virginia is the first with a stated minimum.
+
+**Open items for West Virginia:** (1) 64CSR3 and 46CSR1 (cross-referenced for "additional" chemical/bacteriological standards) weren't pulled this pass — combined chlorine, calcium hardness, and max temperature may live there instead of being genuinely absent from WV regulation as a whole; (2) Form SR-153 ("Recreational Water Facility Tables") wasn't fetched as raw text — likely a useful cross-check/second source for the numbers above; (3) the official 64-16 PDF on the WV SOS site (`readfile.aspx?DocId=8316`) is a **scanned image PDF with no text layer** — every number above was sourced from Cornell Law's/Justia's HTML transcription instead, not the scanned original; worth a manual spot-check against the scan if precision matters for a legal citation.
+
+**Sources used:**
+- [W. Va. Code R. agency 64, tit. 64, ser. 64-16 — Recreational Water Facilities, section index (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/agency-64/title-64/series-64-16) — confirms the 15-section structure and which section covers what
+- [W. Va. Code R. § 64-16-7 — Water Quality (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-7) — source of all chemistry thresholds above
+- [W. Va. Code R. § 64-16-8 — Control Tests and Operation Records (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-8) — source of testing frequency, record retention, and reagent rules
+- [W. Va. Code R. § 64-16-5 — Inspections, Closure Orders (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-5) — source of the closure trigger list
+- [Recreational Water Facilities — WV Bureau for Public Health, OEHS (official)](https://oehs.wvdhhr.org/phs/general-environmental-health/recreational-water-facilities/) — confirms ER-32, SG-49, SR-153 as the official forms
+- [64-16 rule history/status — WV Secretary of State Code of State Rules search](https://apps.sos.wv.gov/adlaw/csr/rule.aspx?rule=64-16) — confirms 4/18/2007 as the current, still-active effective date
+- [64-16 full-text PDF, WV SOS (DocId 8316) — scanned image, no extractable text layer](https://apps.sos.wv.gov/adlaw/csr/readfile.aspx?DocId=8316&Format=PDF) — attempted as primary source; not usable directly, see Open items
+
+---
+## Wisconsin
+
+**★ Regulated by the agriculture department, not a health department:**
+Wisconsin's public pool code lives in the **Department of Agriculture, Trade
+and Consumer Protection (DATCP)**, not the Department of Health Services —
+a second confirmed case in this file of standard-setting authority sitting
+outside a health agency, alongside Wyoming (Dept. of Agriculture, Consumer
+Health Services Division). DHS maintains a public-facing "Pool Chemical
+Safety" info page, but the binding rule and enforcement authority (licensing,
+closure orders, appeals) are DATCP's. Actual inspections are frequently
+carried out by **local "agent health departments"** (e.g. county/municipal
+health departments) operating under delegated authority — ATCP 76.10 is
+specifically "Appeals of actions by agent health departments" — the same
+state-authority/local-delegate split seen in Idaho's now-repealed structure
+and Arizona's county-level system, except here the state layer is very much
+still in force.
+
+- **Health Department name:** Wisconsin Department of Agriculture, Trade and
+  Consumer Protection (DATCP), Bureau of Food and Recreational Businesses —
+  enforcement locally delegated to agent (county/municipal) health
+  departments in most jurisdictions.
+- **Official citation:** Wis. Admin. Code **ch. ATCP 76**, "Safety,
+  Maintenance, and Operation of Public Pools and Water Attractions" (created
+  under CR 22-021, effective September 24, 2025 — Wisconsin renumbered this
+  chapter from the older **DHS 172** in the same rulemaking; ATCP 76 is the
+  current, in-force citation, not DHS 172). Chemistry/testing standards at
+  **ATCP 76.14 (disinfectant/sanitizer residuals)**, **76.16 (water
+  quality/clarity)**, **76.17 (test kits)**, **76.18 (testing frequency)**,
+  **76.19 (water supply and temperature)**; closure criteria at **76.30**;
+  fecal/vomit/blood response at **76.31**. (Construction/design standards
+  are a separate chapter, **ATCP 76.34–76.38**, formerly SPS 390 — not
+  reviewed this pass; SPS 390 is a distinct, still-active chapter covering
+  only design/construction, confirmed by reading its inspection checklist,
+  which contains zero chemistry content.)
+- **Has dedicated log sheet:** No single statewide DATCP-issued PDF form was
+  found — ATCP 76.32 requires reports "on forms provided by the department,"
+  but in practice, agent health departments issue and collect their own
+  monthly report forms (e.g. the South Milwaukee/St Francis Health
+  Department's "Monthly Report on Public Pool Operation," which cites
+  "Chapter DATCP 76" directly and requires daily pH/chlorine-or-bromine/ORP,
+  combined chlorine, alkalinity, and cyanuric acid entries, water
+  appearance, patron counts, and filter maintenance) → `logSheetSource:
+  built-from-code`, same shape as Delaware — content requirements are
+  codified, the specific form isn't.
+
+**Chemistry thresholds (ATCP 76.14 Table A, 76.14(5), 76.16(2)):**
+
+| Reading | Requirement |
+|---|---|
+| pH | 7.2 – 7.8 (§76.14(5)(c)) |
+| Free Chlorine — swimming/activity pools, no stabilizer | Minimum 1.0 ppm |
+| Free Chlorine — swimming/activity pools, with stabilizer | Minimum 2.0 ppm |
+| Free Chlorine — with electronic monitoring device | Minimum 1.0 ppm (with or without stabilizer) |
+| Free Chlorine — wading pools, no stabilizer | Minimum 2.0 ppm |
+| Free Chlorine — wading pools, with stabilizer | Minimum 4.0 ppm |
+| Free Chlorine — whirlpool/exercise/therapy, no stabilizer | Minimum 3.0 ppm |
+| Free Chlorine — whirlpool/exercise/therapy, with stabilizer | Minimum 6.0 ppm |
+| Free Chlorine — maximum (all pool types) | 10.0 ppm (§76.14(5)(f)) |
+| Total Bromine — swimming/activity pools | Minimum 3.0 ppm |
+| Total Bromine — wading pools | Minimum 4.0 ppm |
+| Total Bromine — whirlpool/exercise/therapy | Minimum 4.0 ppm |
+| Total Bromine — maximum (all) | 10.0 ppm (§76.14(5)(g)) |
+| Cyanuric Acid — operating maximum | 30 ppm (§76.14(2)(b)1.) |
+| Cyanuric Acid — closure threshold | Above 300 ppm (§76.14(2)(b)2., §76.30(1)(j)) |
+| Total Alkalinity | 60 – 180 ppm as CaCO₃, unless the operator demonstrates an alternate balanced-water level to the department (§76.14(5)(d)) |
+| Calcium Hardness | **NOT FOUND** — no numeric standard anywhere in ch. ATCP 76; confirmed absent, not a research gap |
+| Water clarity | Main drain grating and its cover pattern must be readily visible from the pool deck (§76.16(2)) — a visibility standard, not an NTU number |
+| Indoor pool water temp | 70°F – 90°F (§76.19(4)(b)1.) |
+| Outdoor pool water temp | Minimum 65°F, no stated maximum (§76.19(4)(b)2.) |
+| Whirlpool water temp | Greater than 90°F, maximum 104°F (§76.19(4)(c)) |
+| Oxidation-reduction potential (if ORP controller used) | 650–900 mV; readings outside that band require manual test-kit confirmation (§76.14(6)(a)) |
+
+**★ A genuine two-tier gap, not a transcription artifact — independently
+verified against the Wisconsin Legislature's own HTML text, not just the
+PDF:** the routine operating ceiling for cyanuric acid is **30 ppm**, but
+the mandatory-closure trigger doesn't fire until CYA is **above 300 ppm** —
+a 10x gap between "out of compliance" and "must close," wider than any
+other two-tier structure found in this file so far (compare Delaware/Georgia,
+where the closure trigger sits at or near the operating ceiling). Don't
+"correct" the 30 ppm figure toward the more commonly seen 100–150 ppm
+range other states use — it's real, and it functions as Wisconsin's actual
+operating ceiling; 300 ppm is only the point of forced closure, not a
+second acceptable range.
+
+**★ Flat CYA ban at indoor pools/therapy pools/whirlpools, on a fixed past
+date, not a phase-out:** §76.14(2)(a) — "Cyanuric acid-containing
+disinfectant or sanitizer may not be used at an indoor pool, therapy pool,
+or whirlpool, beginning September 24, 2025." Unlike Oregon's 4-year
+transition window for new/altered construction, Wisconsin's ban applies
+immediately and universally to the indoor/therapy/whirlpool category —
+closer in shape to Delaware/Indiana/Iowa/Minnesota/Montana's outright bans,
+but notably it is a **recent (2025) rule change**, not a longstanding one.
+
+**pH range that triggers mandatory closure (§76.30(1)(c)):** pH below 6.8
+or **equal to or greater than 8.0** is one of ten enumerated closure
+criteria — note this closure band (6.8–8.0) is *not* symmetric with the
+7.2–7.8 operating range the way most other states' closure bands mirror
+their operating range exactly; Wisconsin's upper closure trigger (8.0) sits
+below where you'd expect if the closure band were just "operating range
+±0.2" applied symmetrically to both ends relative to other states' patterns.
+
+**Full closure criteria list (§76.30(1)) — flat enumerated checklist, same
+shape as Delaware/Georgia:** hazardous substance/object or any condition
+creating immediate danger including fecal accidents; failure to meet
+§76.16 water quality; failure to meet §76.14 disinfectant residuals or the
+6.8/8.0 pH band; nonoperational recirculation pump, filter, or feeder;
+insufficient lifeguards/attendants; absent responsible supervisor;
+nonfunctional emergency phone; pool under maintenance/repair; gate/door
+missing self-closing/latching hardware (unless actively staffed); **CYA
+above 300 ppm**.
+
+**Testing frequency (§76.18):**
+- **Standard pools** (not whirlpool/therapy/exercise): pH and disinfectant
+  residual — daily before opening, plus at least one more time during peak
+  patron load (so a firm 2x/day minimum, not an adequacy-based standard);
+  combined chlorine — at least twice weekly, if chlorine used; total
+  alkalinity — at least weekly; cyanuric acid — at least weekly, if used
+- **Whirlpool/therapy/exercise pools:** pH and disinfectant residual — at
+  least **4 times daily**, two of which must fall during peak patron load;
+  combined chlorine — at least **daily**; alkalinity — weekly; cyanuric
+  acid — weekly
+- **Electronic monitoring device in use:** operator still manually tests
+  pH/disinfectant residual **at least once daily** even with automated
+  control — automation reduces neither the alkalinity/CYA cadence nor the
+  duty to spot-check
+- Test kit accuracy required: chlorine/combined chlorine ±0.2 ppm,
+  pH ±0.2 units (±0.1 recommended, and a pH-meter-vs-test-kit note advises
+  operators without a meter to hold pH within **7.4–7.6** specifically, a
+  tighter self-imposed band to guarantee they never drift outside the legal
+  7.2–7.8 range given kit imprecision), alkalinity ±25%, cyanuric acid
+  ±20%, bromine ±10%
+
+**Fecal/Vomit/Blood Contamination Response (§76.31) — ★ incorporation by
+reference, not codified numbers, a new pattern in this file:** Unlike every
+other state collected so far (Delaware, Oregon, etc., which write their own
+CT values, pH preconditions, and hold times directly into the regulation
+text), Wisconsin's rule does **not** state its own numbers. §76.31(1) reads
+in full: *"In responding to a fecal accident, vomit, and blood incident,
+the operator shall follow the guidelines for a fecal accident, vomit, and
+blood incident in pools used for swimming published by the United States
+centers for disease control and prevention."* — a direct incorporation-by-
+reference of the CDC's public guidance page, not a restatement of its
+numbers into the Wisconsin code. Practically this likely nets out to the
+same MAHC-derived CT values seen elsewhere (2.0 ppm/25 min formed-stool,
+20 ppm/12.75 hr diarrheal-stool, CYA-doubling rule, etc.), but Wisconsin's
+own regulatory text does not say so — if `ComplianceRuleset` distinguishes
+"values stated in the rule" from "values incorporated by reference to an
+external standard," this state needs the second shape, not the first.
+Recommend treating Wisconsin's protocol as **CDC-deferred**, not NOT_FOUND
+and not independently-specified.
+
+- What Wisconsin's own rule *does* require directly: closure is triggered
+  for fecal accidents as an "immediate danger to health or safety"
+  (§76.30(1)(a)); and a specific documentation package under §76.31(2) —
+  date/time and chemical readings (free chlorine or bromine, CYA, pH) both
+  at the time of the event and again after cleanup/before reopening;
+  whether the stool was formed or loose; the procedures followed; patron
+  count at the time; and total duration from occurrence to resolution.
+- No explicit blood exemption is stated one way or the other in Wisconsin's
+  own text — because the operative standard is "follow the CDC guidance,"
+  and the CDC guidance itself treats blood as low-risk (as documented via
+  New York/Delaware/Oregon's independent codifications of the same CDC
+  content in this file), Wisconsin's practical answer is very likely the
+  same `NO_CLOSURE_REQUIRED`-shaped blood treatment — but that inference
+  comes from the CDC document itself, not from Wisconsin's own regulatory
+  text, which says nothing about blood specifically.
+
+**Open items for Wisconsin:** (1) no statewide-uniform log sheet PDF found,
+only local agent-health-department forms that reference ch. ATCP 76;
+(2) Table A of minimum disinfectant residuals was reconstructed from the
+department's own PDF text (not just search-engine summary) and cross-
+checked against the legislature's HTML for the CYA figures specifically —
+high confidence, but the full disinfectant residual table for every pool
+subtype (wading, plunge/wave, interactive play, waterslide) was not
+double-checked against a second source; (3) calcium hardness confirmed
+absent from the code, not a research gap; (4) ATCP 76.34–76.38
+(construction/design) not reviewed, matching this file's usual scope
+boundary.
+
+**Sources used:**
+- [Wis. Admin. Code ch. ATCP 76, full chapter PDF — Wisconsin Legislature (official)](https://docs.legis.wisconsin.gov/code/admin_code/atcp/055/76.pdf) — read via direct text extraction (pdftotext); source of every chemistry threshold, testing-frequency, closure-criteria, and fecal/vomit/blood-response citation above
+- [Wisconsin Legislature: ATCP 76.14 (HTML)](https://docs.legis.wisconsin.gov/code/admin_code/atcp/055/76/iii/14) — used to independently confirm the 30 ppm/300 ppm cyanuric acid figures and the September 24, 2025 indoor CYA ban against the PDF extraction
+- [South Milwaukee/St Francis Health Department — Monthly Report on Public Pool Operation (PDF)](https://www.southmilwaukee.gov/DocumentCenter/View/2505/Monthly-Pool-Report-Form-PDF) — confirms no single statewide DATCP form; local agent health department form citing "Chapter DATCP 76" directly
+- [DSPS Pool Inspection Checklist, SPS 390](https://dsps.wi.gov/Documents/Programs/Pools/PoolInspectionChecklist.pdf) — confirmed SPS 390 covers construction/design only, zero chemistry content, ruling it out as the operative chemistry citation
+
+---
+## Utah
+
+**★ Testing frequency is plan-driven, not a fixed state cadence — with one
+narrow exception:** unlike most states in this file, Utah's rule does **not**
+set a flat "test pH/chlorine N times per day" baseline. Instead, **R392-302-29(3)**
+requires each facility's own written Operation and Maintenance Plan to specify
+"the measurement frequency of the parameters" (disinfectant, pH, temperature) —
+the cadence itself is whatever the facility's approved plan says, not a number
+in the code. A fixed **four times a day** measurement/recording requirement for
+disinfectant residual, pH, and water temperature only appears as a **corrective
+action the local health department may impose after a failed bacteriological
+sample** (§29(4)(a)), alongside an alternative option to instead read flow-rate
+gauges four times a day (§29(4)(b)). Don't seed Utah's `testingFrequency` field
+with "4x/day" as if it's the baseline rule — it's a post-failure remedial
+measure, and the true baseline is "whatever the facility's own plan states."
+
+- **Health Department name:** Utah Department of Health and Human Services,
+  Population Health, Environmental Health (state rule); enforced day-to-day by
+  local health departments per §R392-302-3.
+- **Official citation:** Utah Administrative Code, **R392-302, "Design,
+  Construction and Operation of Public Pools."** Water chemistry at
+  **R392-302-25** ("Disinfection and Quality of Water"); supervision/testing-plan
+  and record-keeping at **R392-302-29** ("Supervision of Pools"); fecal-response
+  incorporation-by-reference at **R392-302-33** ("Cleaning Pools"); spa-specific
+  rules at **R392-302-37**.
+- **Has dedicated log sheet:** Not confirmed as a single named state form this
+  pass — the rule requires a facility-specific written Operation and Maintenance
+  Plan and ongoing records (§29(2)-(3)) rather than naming a numbered department
+  form → `logSheetSource: built-from-code`.
+
+**Chemistry thresholds (R392-302-25):**
+
+| Reading | Requirement |
+|---|---|
+| pH | 7.2 – 7.8 |
+| Free Chlorine — stabilized (CYA present), pH 7.2–7.6 | Minimum 2.0 ppm (pools) |
+| Free Chlorine — stabilized, pH 7.7–7.8 | Minimum 3.0 ppm (pools) |
+| Free Chlorine — non-stabilized (no CYA), pH 7.2–7.6 | Minimum 1.0 ppm (pools) |
+| Free Chlorine — non-stabilized, pH 7.7–7.8 | Minimum 2.0 ppm (pools) |
+| Free Chlorine — spas | Higher minimums than pools at each pH band (3.0 / 5.0 ppm stabilized; 2.0 / 3.0 ppm non-stabilized, per band above) |
+| Free Chlorine — maximum (all) | 10.0 ppm while open to bathers |
+| Combined Chlorine | Must not exceed 0.5 ppm above free chlorine; breakpoint chlorination or water exchange required if exceeded |
+| Bromine — minimum (all pool types) | 4.0 ppm |
+| Bromine — maximum | **NOT FOUND** — no separate ceiling located this pass, unlike Oregon's 8.0 ppm cap |
+| Cyanuric Acid | At least 10 ppm, must not exceed 100 ppm |
+| Total Alkalinity — plaster-lined pool | 100 – 125 ppm |
+| Total Alkalinity — spa, plaster-lined | 80 – 150 ppm |
+| Total Alkalinity — other approved materials | 125 – 150 ppm |
+| Calcium Hardness | Minimum 200 ppm (no stated ceiling) |
+| Saturation (Langelier) Index | -0.3 to +0.3 |
+| Turbidity/clarity | Drain grate/cover in deepest part must be readily visible (or a 6" black disk placed there must be visible) |
+| General pool temperature | 78°F minimum, 82–86°F target range |
+| Spa maximum temperature | 104°F |
+
+**★ Total alkalinity is material-dependent, not one flat range** — same shape
+as several other states, but Utah ties the range to construction material
+(plaster vs. other) *and* pool-vs-spa, giving three different bands rather than
+two.
+
+**pH/chemistry range that triggers mandatory closure:** **NOT FOUND as a
+distinct enumerated trigger.** Utah's rule does not contain an "imminent health
+hazard" list the way Delaware/Georgia/Oregon do. The only codified consequence
+found is bacteriological: a failed sample (more than 200 bacteria/mL, or a
+positive coliform result — R392-302-25(6)(d)-(e)) triggers required resampling
+and may trigger the local health department imposing the four-times-daily
+corrective monitoring described above. Broad structural-hazard authority exists
+at R392-302-3(1) ("dangerous, unsafe, unsanitary, or a nuisance or menace to
+life, health or property"), but it isn't tied to specific pH/chlorine/CYA
+numbers the way most other states' closure lists are. Don't assume an
+out-of-range pH or CYA reading forces closure in Utah the way it would in
+Delaware or Georgia — the codified trigger found this pass is bacteriological
+and structural-hazard authority only, not a chemistry checklist.
+
+**Testing frequency:** No fixed baseline cadence in the code — set by each
+facility's Operation and Maintenance Plan (R392-302-29(3)). Bacteriological
+sampling is required monthly at minimum, more often if the local health officer
+requires it (R392-302-25(6)(a)). Four-times-daily disinfectant/pH/temperature
+measurement is a post-failure corrective action only (R392-302-29(4)(a)), not a
+standing requirement.
+
+**Fecal/Vomit/Blood Contamination Response — incorporated by reference only,
+not spelled out in Utah's own rule text (a genuinely different pattern from
+Delaware/Oregon/New York):**
+
+R392-302-33(4): "The operator shall respond to all discovered releases of
+fecal matter into a public pool in accordance with" the **CDC's "Fecal Accident
+Response Recommendations for Aquatic Staff," released June 22, 2018**, which is
+incorporated by reference. Unlike Delaware, Oregon, and New York — which
+transcribe the CT values, formed-stool/diarrheal-stool/vomit distinctions,
+pre-treatment pH/temperature conditions, cascading-closure-to-shared-filtration
+rule, and blood exemption directly into their own codified text — **Utah's own
+rule text contains none of that detail.** It only names the CDC document and
+delegates entirely to it. The rule does add one thing CDC's document doesn't
+control: **R392-302-33(4) lets the local health officer approve an alternative
+fecal-response protocol** if the facility operator can show "equivalent
+protection" through other operational or engineering controls — a
+local-discretion escape valve not seen in the states that wrote their own full
+protocol into code.
+
+**Consequence for AquaRunner's data model:** if a numeric fecal/vomit/blood CT
+protocol is needed for Utah, it has to come from the externally incorporated
+CDC document (which is the same "Fecal Accident Response Recommendations"
+lineage other states drew their own numbers from — likely the familiar 2.0
+ppm/25 min formed-stool and 20 ppm/12.75 hr diarrheal-stool figures), not from
+Utah's own administrative code, and Utah's rule gives no separate treatment for
+vomit vs. blood at all — that distinction simply isn't present in the state
+text.
+
+**Open items for Utah:** (1) no bromine maximum ceiling was located, only a
+4.0 ppm floor; (2) no chemistry-based (as opposed to bacteriological/structural)
+immediate-closure trigger was located in the sections reviewed; (3) the
+CDC-by-reference fecal protocol means AquaRunner needs the actual CDC document
+text if a numeric Utah fecal/vomit/blood ruleset entry is required — flagged,
+not resolved, this pass.
+
+**Sources used:**
+- [Utah Admin. Code R392-302-25 — Disinfection and Quality of Water (Cornell LII, mirrors official Utah Administrative Code)](https://www.law.cornell.edu/regulations/utah/Utah-Admin-Code-R392-302-25) — primary source for all chemistry thresholds, combined chlorine, saturation index, temperature range
+- [R392-302 — Design, Construction and Operation of Public Pools (utrules.elaws.us mirror)](http://utrules.elaws.us/uac/r392-302) — cross-check for chemistry thresholds and turbidity/clarity language (uses older internal section numbering than Cornell's current mirror; numbers cross-verified, not section labels)
+- [R392-302-29 — Supervision of Pools (utrules.elaws.us mirror)](http://utrules.elaws.us/uac/r392-302-29) — source for the operation/maintenance-plan-driven testing frequency and the four-times-daily post-failure corrective action
+- [Utah Admin. Code R392-302-34 — Pool Operation and Record Keeping (Cornell LII)](https://www.law.cornell.edu/regulations/utah/Utah-Admin-Code-R392-302-34) — confirms two-operating-season record retention and plan-driven measurement frequency
+- WebSearch results confirming R392-302-33's incorporation of "CDC Fecal Accident Response Recommendations for Aquatic Staff, released June 22, 2018" and the local-health-officer alternative-protocol clause, and confirming the 78–86°F general / 104°F spa temperature figures under current section numbering
 
 ---
