@@ -438,6 +438,30 @@ pass. **Read this section before finalizing the schema.**
       rather than Alaska's continuous formula, but the same underlying
       idea (pH redefines the chlorine floor) confirmed independently.
 
+46. **A required-shock dose defined as an exact multiplier of a different
+    reading, now confirmed real** — the same formula shape that was
+    retracted for Maryland (item 22) because its cited source turned out
+    to be wrong, resurfacing here from a verified primary source:
+    - West Virginia: SR-153 Table 64-16 C requires super-chlorination
+      whenever combined chlorine reaches 0.2 mg/L or more, dosed at
+      **10× the combined chlorine reading**, performed off-hours; the
+      facility may reopen once free chlorine drops back below 5.0 ppm —
+      also a second confirmation of Florida's "descending below a
+      ceiling" reopening shape (item 13). Don't assume Maryland's
+      retraction means this formula never appears in this dataset — it
+      does, just not in Maryland.
+
+47. **A fourth distinct blood-handling pattern**, alongside NY/DE/OR's
+    exemption (item 21), Washington's equal-severity inclusion, and
+    Vermont's silence on blood-in-water specifically:
+    - West Virginia requires closure for blood released into the water
+      the same as fecal/vomit (§64-16-13.1.h) — not exempted — but
+      explicitly routes it to the **lighter formed-stool cleanup
+      procedure** (2 ppm free chlorine, 25 minutes) rather than the
+      heavier diarrheal-stool procedure. A `bloodHandling` field may need
+      more than an exempt/not-exempt boolean — at minimum
+      `"exempt" | "equal-severity" | "lighter-procedure" | "unspecified"`.
+
 **★ Source-confidence tracking:** Maryland is the first state where the
 chemistry-threshold source itself is a secondary/unverified explainer
 rather than a primary government document or official form (see the
@@ -6407,55 +6431,197 @@ statewide numbered log-sheet form was confirmed to exist or not exist.
 ---
 ## West Virginia
 
-**★ No fecal/vomit/blood contamination protocol at all — confirmed absent, not a research gap:** unlike the MAHC-derived states in this file (Delaware, Oregon, and others), West Virginia's rule predates that model — it was last substantively updated in 2007, before the 2015-era MAHC template circulated. §64-16-5 (Inspections, Closure Orders) and §64-16-11 (Routine Maintenance and Operation) contain no bodily-fluid incident language, no CT values, and no CDC cross-reference. The rule's only closure mechanism is a general "endangers health/safety" catch-all plus two named triggers (turbidity, disinfectant residual below minimum) — see below.
+**★ Correction — the earlier pass on this state got the closure and
+fecal/vomit/blood picture wrong, and it's fixed now.** The original research
+here relied on Cornell LII's mirror of §64-16-5 and §64-16-7/8 only, plus a
+scanned, non-OCR'd source PDF, and concluded (explicitly, with a ★ callout)
+that West Virginia has "no fecal/vomit/blood contamination protocol at all"
+and "no enumerated pH-out-of-range closure trigger." **Both claims were
+wrong** — the rule's actual closure list lives in **§64-16-13**, a section
+the earlier pass never located, and the fecal/vomit/blood protocol is
+published as an official appendix table (**SR-153, Table 64-16 A**) rather
+than embedded in the numbered rule text itself. Both are now confirmed
+directly: §64-16-13 verified against Cornell LII's own page for that
+section, and SR-153's actual table content extracted via `pdftotext` from
+the WV DHHR-authored PDF (mirrored by Cabell-Huntington Health Dept.). The
+corrected content replaces the earlier claims below rather than sitting
+alongside them — don't resurrect the "confirmed absent" framing.
 
-- **Health Department name:** West Virginia Bureau for Public Health, Office of Environmental Health Services (OEHS).
-- **Official citation:** West Virginia Code of State Rules, **Title 64, Series 16 ("64CSR16"), "Recreational Water Facilities"** — legislative rule, effective April 18, 2007 (last substantive update; confirmed as the current active version). Water quality at **§64-16-7**, testing/records at **§64-16-8**, inspections/closure at **§64-16-5**. The rule cross-references **64CSR3** and **46CSR1** for additional chemical/bacteriological standards not detailed within 64-16-7 itself — not reviewed this pass.
-- **Has dedicated log sheet:** Yes → `logSheetSource: state-provided`. OEHS publishes **Form ER-32, "Recreational Water Facility Weekly Operational Report"** — matches §64-16-8's requirement that pH/chlorine results be recorded and submitted to the Commissioner on **weekly summaries** (a weekly-report cadence, not a daily-sheet-per-visit shape like most other states in this file). A companion **Form SR-153, "Recreational Water Facility Tables,"** appears to be a quick-reference parameter/closure table published alongside the rule — not fetched as raw text this pass, worth pulling if AquaRunner wants a second cross-check on the numbers below. **Form SG-49** is the operating-permit application, not a log sheet.
+- **Health Department name:** West Virginia Bureau for Public Health, Office
+  of Environmental Health Services (OEHS); day-to-day permitting/inspection
+  delegated to local health departments.
+- **Official citation:** West Virginia Code of State Rules, **Title 64,
+  Series 16 ("64CSR16"), "Recreational Water Facilities"** — legislative
+  rule, effective April 18, 2007, confirmed still the current active
+  version. Definitions/scope at **§64-16-2**; water quality at **§64-16-7**;
+  testing/records at **§64-16-8**; inspections at **§64-16-5**; **closure
+  triggers at §64-16-13** (not §5 — corrected from the earlier pass). A
+  **"recreational water facility"** is any body of water modified,
+  improved, constructed, or installed for public swimming/bathing —
+  pools, wading/diving pools, slides, spray pools, lazy rivers, wave pools,
+  spas/hot tubs/therapy pools — at hotels, motels, apartments, condos,
+  camps, schools, parks, clubs, mobile home parks, etc. (§64-16-2).
+  **Excluded:** private residential pools at single-family dwellings housing
+  ≤3 families, used only by residents and non-paying guests. New
+  construction/renovation additionally requires a construction permit and
+  compliance with referenced national standards (ANSI/NSPI-1 2003 for public
+  pools, ANSI/NSPI-2 1999 for spas, ANSI/IAF-9 2005 for water parks,
+  ANSI/APSP-7 2006 for suction-entrapment/VGB compliance) — design/
+  construction detail, not reviewed further here.
+- **Has dedicated log sheet:** Yes → `logSheetSource: state-provided`. OEHS
+  publishes **Form ER-32, "Recreational Water Facility Weekly Operational
+  Report"** (weekly-report cadence, not a daily-sheet-per-visit shape like
+  most other states in this file) and **Form SR-153, "Recreational Water
+  Facility Tables"** — the latter isn't just a form, it's a full three-part
+  reference appendix (**Table 64-16 A** closure requirements, **Table
+  64-16 B** lifeguard-count matrix, **Table 64-16 C** water quality
+  standards) that operators use directly, and which this pass now confirms
+  the actual content of. **Form SG-49** is the operating-permit application,
+  not a log sheet.
+- **Qualified operator requirement** — a two-tier structure similar in
+  shape to Georgia's (architecture item 33), though defined by
+  response-time rather than visit-count: a **"Qualified Water Facility
+  Operator"** must hold a Certified Pool Operator certification (NSPI,
+  YMCA, or Commissioner-approved equivalent); an **"Available Qualified
+  Water Facility Operator"** must be reachable by phone within **30
+  minutes**, on-site within **60 minutes** of notification, and physically
+  visit the facility **at least once per week** during the operating
+  season (§64-16-2 definitions).
 
-**Chemistry thresholds (§64-16-7):**
+**Chemistry thresholds (§64-16-7, cross-checked against SR-153 Table
+64-16 C's Min/Ideal/Max structure — SR-153 is the more granular source and
+is used for every row below):**
 
 | Reading | Requirement |
 |---|---|
-| pH | 7.2 – 7.8 (§7.4.a) |
-| Free Chlorine | 1 – 5 mg/L (§7.1.d) — one flat range; **no separate CYA-present/absent or spa-specific tier found**, unlike most MAHC-influenced states in this file |
-| Bromine | 2 – 5 mg/L (§7.1.e) |
-| Cyanuric Acid | 10 – 100 mg/L (§7.1.g) — notable for having a **floor as well as a ceiling**; most other states in this file only cap CYA, they don't require a minimum |
-| Total Alkalinity | 60 – 180 mg/L as CaCO₃ (§7.4.c) |
-| Combined Chlorine | **NOT FOUND** — confirmed absent from §7.1; not mentioned as a separate parameter |
-| Calcium Hardness | **NOT FOUND** — confirmed absent from the section |
-| Turbidity/Clarity | No NTU figure — instead a **visual sight-disk standard**: "sufficient water clarity to allow the main drain or a six (6) inch black disk on the bottom of the deepest part... to be readily visible" (§7.5.a). Same shape as Delaware/Georgia's disk-based clarity test, but expressed as visibility-of-object rather than a measured NTU ceiling. |
-| Max spa/pool temperature | **NOT FOUND** in §7 — not reviewed in 64CSR3 cross-reference this pass |
+| pH | Min 7.2, ideal 7.5, max 7.8 |
+| Free Chlorine | Min 1.0, ideal 2.0–3.0, max 5.0 mg/L — one flat range; no separate CYA-present/absent or spa-specific tier |
+| Combined Chlorine | Max **0.5 mg/L** — previously marked NOT FOUND; it's in SR-153 Table C, not §7 |
+| Bromine | Min 2.0, ideal 2.0–3.0, max 5.0 mg/L |
+| Cyanuric Acid (Stabilizer) | Min 10, ideal 30–50, max 100 mg/L — floor **and** ceiling, per architecture item 41 (WV was the first state confirmed with a CYA minimum, not just a cap). SR-153 notes stabilizer "is not needed for indoor facilities and should not be used in hot water facilities," and that CYA "may titrate as Alkalinity" — a measurement-interference caveat, not a numeric adjustment |
+| Total Alkalinity | Min 60, ideal 80–100 or 120 (two acceptable ideal bands), max 180 mg/L as CaCO₃ |
+| Calcium Hardness | Min 50, ideal 125, max 800 mg/L as CaCO₃ — previously marked NOT FOUND; SR-153 Table C is the source |
+| Total Dissolved Solids | Min 300, max 2000 mg/L |
+| Copper | Max 0.3 mg/L |
+| Iron | Max 0.2 mg/L |
+| Manganese | Max 0.05 mg/L |
+| Water clarity/turbidity | No NTU figure — visual standard: main drain or a 6" black disk on the deepest-point bottom must be visible from the adjacent deck |
+| Water temperature (general) | Max **105°F** (not 104°F — WV is a genuine outlier on this figure, verified directly from SR-153, not a transcription slip toward the more common number) |
+| Water temperature — artificially heated indoor facility | 75–90°F |
+| Air temperature — indoor facility (excluding hot-water facilities) | Water temp −2°F to water temp +8°F, a **relational range keyed to the water reading itself**, not a flat number |
+| Algaecides | Quaternary ammonium **not permitted** at all. Copper-based (non-chelated): max 0.3 mg/L. Copper-based (chelated): max 3.0 mg/L. Silver-based: max 3.0 mg/L, and "precipitates with cyanuric acid" — a cross-chemical interaction warning, not a hard rule |
 
-**Closure triggers (§64-16-5.4) — enumerated but short, not a long MAHC-style checklist:**
-- **5.4.a** — "A condition... that endangers the life, health, or safety of the patrons or employees" (general catch-all)
-- **5.4.b** — Excessive turbidity per the sight-disk standard above
-- **5.4.c** — Disinfectant residual below the §7.1.d/7.1.e minimum (i.e., free chlorine <1 mg/L or bromine <2 mg/L)
-- **★ No enumerated pH-out-of-range closure trigger** — closure is tied to disinfectant residual and turbidity only; a pH excursion alone (with chlorine still in range) isn't a named closure condition the way it is in Delaware/Georgia/Oregon. Operations must also **cease** (§7.1, per §64-16-8 fetch) if free chlorine drops below 1 mg/L or bromine below 2 mg/L, until restored — functionally the same trigger stated twice, once as an operational stop-work rule and once as a Commissioner closure-order basis.
-- An issued closure order stays in effect until the Commissioner confirms corrections were made (§5.5) — no fixed reopening test-count, similar in shape to several other states' "Commissioner discretion to reopen" language.
+**★ Super-chlorination/shock rule — a relational trigger with a specific
+multiplier, the same formula structure that was retracted for Maryland
+(architecture item 22) but is directly confirmed here for West Virginia:**
+SR-153 Table C, section F — required super-chlorination is triggered
+whenever **combined chlorine reaches 0.2 mg/L or more**, at a dose of
+**10× the combined chlorine reading**, performed while the facility is
+**not in use**. The facility **may reopen once free chlorine drops below
+5.0 ppm** — the same "descending below a ceiling" reopening shape as
+Florida's breakpoint-chlorination reopening rule (architecture item 13).
+
+**Closure triggers (§64-16-13.1, verbatim, applies to all facilities except
+bathing beaches — corrected: this is the actual closure section, not §5.4
+as the earlier pass cited; enumerated (a)–(h), matching SR-153 Table 64-16 A
+one-for-one):**
+- **13.1.a** — Free chlorine < 1.0 mg/L
+- **13.1.b** — pH > 7.8
+- **13.1.c** — pH < 7.2 — **confirmed present, correcting the earlier
+  claim that WV has no pH closure trigger**
+- **13.1.d** — Inadequate lifeguards or lifesaving equipment (count scales
+  with patron load × water surface area, per the Table 64-16 B matrix)
+- **13.1.e** — An accident causing a lifeguard to leave station, or
+  resulting in discharge of body fluids into the water
+- **13.1.f** — Free bromine < 2.0 mg/L
+- **13.1.g** — Failure of the circulation pump or disinfectant feed
+  equipment (SR-153 adds: also close if main drain covers are missing,
+  loose, or broken)
+- **13.1.h** — A fecal accident occurs, or blood or vomitus is released
+  into the water — **confirmed present, correcting the earlier claim that
+  no such trigger exists**
+- §13.4 requires a written record of each closure event (date, description,
+  corrective action) regardless of category — not just for fecal incidents
+- Water-clarity failure closes only the **affected area**, not the whole
+  facility (SR-153 Table A item F), the same partial-closure shape seen in
+  a few other states' clarity rules
+
+**Fecal/Vomit/Blood Contamination Response (SR-153, Table 64-16 A, item I
+— footnoted "*Current CDC guidelines," so this is CDC-aligned but, unlike
+Texas/Utah/Wisconsin/DC, WV transcribes its own explicit numbers rather
+than incorporating the CDC document purely by reference):**
+- Evacuate all patrons from contaminated water; no reentry until
+  decontamination is complete. **Vacuuming stool or vomitus from the water
+  is explicitly not recommended.** Removal is by net/scoop, disposed of
+  sanitarily; the net/scoop itself is cleaned and disinfected (left
+  immersed in the pool during disinfection is one acceptable method).
+- **Cleanup Procedure A — formed stool, visible blood, or vomit:** raise
+  free chlorine to **2 ppm**, adjust pH to **7.2–7.5**, maintain for at
+  least **25 minutes** before reentry, filtration running throughout.
+- **Cleanup Procedure B — loose/diarrheal stool:** raise chlorine to pH
+  7.2–7.5 and one of four equivalent CT options — **5 ppm/32 hrs, 10
+  ppm/16 hrs, 15 ppm/12 hrs, or 20 ppm/8 hrs** — filtration running
+  throughout; backwash or replace filter media afterward; reduce free
+  chlorine to below 5 ppm before reentry. No separate CYA-present
+  adjustment (doubling, etc.) is stated in this table, unlike Delaware/
+  Oregon/New York.
+- **★ Blood is not exempted, and not treated as an equal-severity trigger
+  either — a fourth distinct pattern, alongside NY/DE/OR's exemption,
+  Washington's equal-severity inclusion, and Vermont's silence:** WV
+  requires closure for blood release the same as fecal/vomit (§13.1.h), but
+  explicitly assigns it the **lighter formed-stool procedure** (2 ppm/25
+  min), not the heavier diarrheal-stool procedure. Worth its own row in
+  the architecture notes if the model needs a `bloodHandling` enum beyond
+  a simple exempt/not-exempt boolean.
+- **Fecal accident log required** (§13.4/SR-153): date/time, formed vs.
+  diarrheal, chlorine level at time of discovery, pH before reentry,
+  procedures followed (including how chlorine was raised), and total
+  contact time.
 
 **Testing frequency (§64-16-8):**
-- pH and free chlorine residual: **"not less than twice daily"** (bathing beaches excepted), recorded and submitted on **weekly summaries** to the Commissioner
-- Test kits must use the **DPD method** for chlorine; test strips/ORP may supplement but cannot replace the required daily readings
-- Reagents replaced at the start of each season (seasonal facilities) or whenever found defective; **1-year maximum shelf life** from purchase
-- **Alkalinity and cyanuric acid testing frequency: NOT FOUND** — the section doesn't state a cadence for either, only that approved test equipment for them must be on hand
+- pH and free chlorine residual: **"not less than twice daily"** (bathing
+  beaches excepted), recorded and submitted on **weekly summaries** to the
+  Commissioner via Form ER-32
+- Test kits must use the **DPD method** for chlorine; test strips/ORP may
+  supplement but cannot replace the required readings
+- Reagents replaced at the start of each season (seasonal facilities) or
+  whenever found defective; **1-year maximum shelf life** from purchase
+- Alkalinity/cyanuric acid testing frequency still not explicitly stated —
+  only that approved test equipment for them must be on hand
 - Records retained **minimum 1 year**
-- Commissioner inspects each facility **at least 2 times per year** (§5.1) — a state-inspection cadence, separate from the operator's own twice-daily testing requirement
+- Commissioner inspects each facility **at least 2 times per year**
+  (§64-16-5) — a state-inspection cadence, separate from the operator's own
+  twice-daily testing requirement
 
-**Fecal/Vomit/Blood Contamination Response: NOT FOUND — confirmed absent from the rule, not unresearched.** See ★ note above. If AquaRunner needs a WV-specific protocol, it would have to come from CDC MAHC guidance directly (unenacted in WV) or a local health department policy, not this state rule.
+**Cross-state architecture patterns flagged for the index (see items 41,
+46–47):** the CYA floor-and-ceiling pair (item 41, already added); the
+super-chlorination 10×-combined-chlorine formula, now confirmed real for a
+state after being retracted for Maryland; and WV's "blood gets the lighter
+procedure, not an exemption or equal-severity" pattern.
 
-**Cross-state architecture pattern flagged:** the CYA **floor-and-ceiling** pair (10–100 mg/L, §7.1.g) is worth adding to the ARCHITECTURE NOTES index — every other state collected so far only caps CYA from above; West Virginia is the first with a stated minimum.
-
-**Open items for West Virginia:** (1) 64CSR3 and 46CSR1 (cross-referenced for "additional" chemical/bacteriological standards) weren't pulled this pass — combined chlorine, calcium hardness, and max temperature may live there instead of being genuinely absent from WV regulation as a whole; (2) Form SR-153 ("Recreational Water Facility Tables") wasn't fetched as raw text — likely a useful cross-check/second source for the numbers above; (3) the official 64-16 PDF on the WV SOS site (`readfile.aspx?DocId=8316`) is a **scanned image PDF with no text layer** — every number above was sourced from Cornell Law's/Justia's HTML transcription instead, not the scanned original; worth a manual spot-check against the scan if precision matters for a legal citation.
+**Open items for West Virginia:** (1) 64CSR3 and 46CSR1 (cross-referenced
+in §64-16-7 for "additional" chemical/bacteriological standards) still
+weren't pulled directly — SR-153 Table C likely already supersedes the
+need for this, but not fully confirmed; (2) the official 64-16 PDF on the
+WV SOS site (`readfile.aspx?DocId=8316`) remains a scanned image with no
+text layer — every number above is now cross-verified via Cornell LII
+(rule text) and the official SR-153 appendix PDF (via `pdftotext`
+extraction) instead, which is a materially stronger source pairing than
+the single secondary HTML mirror the earlier pass relied on, but a
+manual spot-check against the scan is still the gold-standard option if
+legal precision is ever required; (3) lifeguard count matrix (Table
+64-16 B) wasn't transcribed into this file — it's a patron-count ×
+surface-area grid, available in the SR-153 source if needed later.
 
 **Sources used:**
-- [W. Va. Code R. agency 64, tit. 64, ser. 64-16 — Recreational Water Facilities, section index (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/agency-64/title-64/series-64-16) — confirms the 15-section structure and which section covers what
-- [W. Va. Code R. § 64-16-7 — Water Quality (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-7) — source of all chemistry thresholds above
+- [W. Va. Code R. § 64-16-2 — Definitions (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-2) — source of the recreational-water-facility scope/exclusion and the qualified-operator response-time definitions
+- [W. Va. Code R. § 64-16-13 — Compliance/Closure (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-13) — verified verbatim; source of the corrected 13.1.a–h closure list, replacing the earlier (wrong) §5.4-based list
+- [SR-153, "Recreational Water Facility Tables" (West Virginia DHHR, official, mirrored by Cabell-Huntington Health Department)](https://cabellhealth.org/wp-content/uploads/2023/05/sr-153_recreation_water_facilities_closure_requirements_tables.pdf) — read via direct PDF text extraction (`pdftotext -layout`); source of Table 64-16 A (closure/cleanup procedures, including the fecal/vomit/blood CT values), Table 64-16 B (lifeguard matrix), and Table 64-16 C (the full Min/Ideal/Max chemistry table, including combined chlorine, calcium hardness, temperature, and algaecide limits previously marked NOT FOUND)
+- [W. Va. Code R. § 64-16-7 — Water Quality (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-7) — cross-check for the chemistry table against SR-153
 - [W. Va. Code R. § 64-16-8 — Control Tests and Operation Records (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-8) — source of testing frequency, record retention, and reagent rules
-- [W. Va. Code R. § 64-16-5 — Inspections, Closure Orders (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-5) — source of the closure trigger list
+- [W. Va. Code R. § 64-16-5 — Inspections (Cornell Law LII)](https://www.law.cornell.edu/regulations/west-virginia/W-Va-C-S-R-SS-64-16-5) — source of the state-inspection cadence (distinct from §13's closure triggers)
 - [Recreational Water Facilities — WV Bureau for Public Health, OEHS (official)](https://oehs.wvdhhr.org/phs/general-environmental-health/recreational-water-facilities/) — confirms ER-32, SG-49, SR-153 as the official forms
 - [64-16 rule history/status — WV Secretary of State Code of State Rules search](https://apps.sos.wv.gov/adlaw/csr/rule.aspx?rule=64-16) — confirms 4/18/2007 as the current, still-active effective date
-- [64-16 full-text PDF, WV SOS (DocId 8316) — scanned image, no extractable text layer](https://apps.sos.wv.gov/adlaw/csr/readfile.aspx?DocId=8316&Format=PDF) — attempted as primary source; not usable directly, see Open items
 
 ---
 ## Wisconsin
