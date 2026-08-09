@@ -408,6 +408,25 @@ const ALASKA: StateSeed = {
     officialCitation: "18 AAC 30 (18 AAC 30.550)",
     sourceDocument: "Pool Testing Guidelines (ADEC guidance doc, rev. 6/12/2012) + 18 AAC 30.550 regulatory text",
     logSheetSource: "BUILT_FROM_CODE",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 18 AAC 30.550.
+
+### Chemistry targets
+- **Free chlorine:** rises with pH — roughly 0.4 ppm at pH 7.0 up to 1.25–1.5 ppm at pH
+  8.0, a curve rather than a flat number (must yield at least 0.3 ppm hypochlorous acid)
+- **Total chlorine:** 2.0 – 10.0 ppm
+- **Bromine:** 2.0 – 4.0 ppm
+- **pH:** 7.0 – 8.0
+- **Cyanuric acid:** prohibited entirely — not just indoors
+- **Total alkalinity:** 50 – 200 ppm
+- **Total hardness:** 100 – 1,000 ppm; calcium hardness must be at least 70% of it
+
+### Closure triggers
+A positive pathogen lab result (e.g. pseudomonas) closes the pool until a retest confirms
+it's clear — no fixed reopening window, since lab turnaround time isn't specified.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Alaska
+Department of Environmental Conservation's own published rules. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.0, maxValue: 8.0, unit: "", sourceConfidence: "confirmed", notes: "measured to nearest 0.2; must be maintained in this range while bathers are in the water" },
@@ -2211,6 +2230,31 @@ const DELAWARE: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "No official fill-in form found in the regulation text itself. §8.6.13 requires results recorded with date/time/sample location and kept on-site for at least 1 year, but doesn't prescribe a specific form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 16 DE Admin. Code 4464.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 ppm minimum without cyanuric acid, 2.0 ppm minimum with cyanuric
+  acid (pools), 3.0 ppm minimum (spas), 10.0 ppm maximum for all
+- **pH:** 7.2 – 7.8
+- **Cyanuric acid:** should not exceed 100 ppm — also the closure-risk trigger
+- **Total alkalinity / calcium hardness:** no flat ppm range in the code — governed by the
+  Langelier Saturation Index instead (must stay within ±0.3)
+
+### Closure triggers
+Any of the following forces immediate closure without a hearing: pH outside 7.2–7.8,
+non-compliant clarity or bacteriological quality, disinfection system down, disinfectant
+below minimum, cyanuric acid above 100 ppm, filtration equipment down, spa water above
+104°F, missing lifeguard/attendant where required, or a fecal accident.
+
+### Fecal/vomit/blood response
+Formed stool or vomit: 2.0 ppm free chlorine for at least 25 minutes (doubled if cyanuric
+acid is present). Diarrheal stool: 20.0 ppm for at least 12.75 hours. Blood alone does not
+require closure — Delaware's code states it doesn't pose a public health risk to properly
+maintained water.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Delaware
+Division of Public Health's own published code. Verify against the authoritative source
+for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "§8.5.1.1. Also the pH band named in §14.2.4.3's permit-suspension checklist -- same number, not a separate hazard tier." },
@@ -2386,6 +2430,30 @@ const DISTRICT_OF_COLUMBIA: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "No numbered state form found. §412.1-412.6 prescribe required fields (pH, free chlorine, bromine, CYA, chemicals added, injuries/accidents, equipment malfunctions) and retention (on-site, readable, dated and signed, 3 years), but the rule doesn't name or attach a specific fill-in form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Title 25-C DCMR.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 10.0 ppm (conventional pools), 3.0 – 10.0 ppm minimum (spas)
+- **pH:** 7.2 – 7.8 (hard floor/ceiling for closure: 6.5 – 8.0)
+- **Cyanuric acid:** 30 – 50 ppm target, 100 ppm hard ceiling
+- **Combined chlorine:** must not exceed 0.4 ppm
+
+### Testing frequency
+Disinfectant residual and pH tested at minimum every 3 hours, on a fixed schedule: before
+opening, midday, and 2 hours before closing.
+
+### Closure triggers
+Any Imminent Health Hazard condition forces summary suspension, including pH below 6.5 or
+above 8.0 and disinfectant below minimum or above maximum.
+
+### Fecal/vomit/blood response
+DC's code requires operators to follow the CDC's Model Aquatic Health Code procedures for
+any bodily-fluid accident, but does not restate the CT values in its own text — the
+current MAHC document itself is the operative standard.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for DC Health's
+own published code. Verify against the authoritative source for anything
+compliance-critical.*`,
     codeReferenceLabel: "Title 25-C DCMR, Swimming Pool and Spa Regulations (DC Health, official PDF)",
     codeReferenceUrl:
       "https://dchealth.dc.gov/sites/default/files/dc/sites/doh/publication/attachments/2017-%2025C%20DCMR-DC%20Swimming%20Pool,%20Spa%20and%20Saunas_0.pdf",
@@ -2566,6 +2634,31 @@ const ILLINOIS: StateSeed = {
     logSheetSourceLabel: "Swimming Facility Daily Operational Report",
     logSheetSourceNotes:
       "Referenced in §820.350 and published by IDPH; the form's own printed copy is a scanned/binary PDF that couldn't be read as text, so the numeric ranges below come from the regulation text itself, not a transcription of the form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 77 Ill. Admin. Code
+Part 820.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 4.0 ppm (2.0 – 4.0 ppm once water exceeds 85°F, the de facto
+  spa floor)
+- **pH:** 7.2 – 7.6 (closure band: below 6.8 or above 8.0)
+- **Cyanuric acid:** should not exceed 100 ppm
+- **Total alkalinity:** 50 – 200 ppm
+
+### Closure triggers
+Immediate closure for: free chlorine below 0.5 ppm or bromine below 1.0 ppm; total
+chlorine above 5.0 ppm or total bromine above 10.0 ppm; pH below 6.8 or above 8.0;
+coliform/E. coli/Pseudomonas presence; recirculation or filtration equipment down; a
+missing/damaged suction outlet cover; hazardous turbidity; or a Department closure notice.
+
+### Fecal/vomit response
+Immediate closure the moment a patron defecates or vomits in the pool; superchlorinate
+and remain closed a minimum of 30 minutes, or longer until the disinfectant residual
+returns to its normal range. Illinois's code doesn't state a specific ppm target or CT
+value for this step.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Illinois
+Department of Public Health's own published code. Verify against the authoritative source
+for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     // No CYA-present/absent branch in Illinois's own text -- one flat range, written
@@ -2691,6 +2784,31 @@ const INDIANA: StateSeed = {
     logSheetSource: "STATE_PROVIDED",
     logSheetSourceLabel: "Swimming Pool Record of Operation, State Form 12279",
     logSheetSourceNotes: "Logged daily, retained 1 year per §38.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 410 IAC 6-2.1.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 7.0 ppm (pools), 2.0 – 7.0 ppm (spas)
+- **Bromine:** 2.0 – 10.0 ppm (pools), 4.0 – 10.0 ppm (spas)
+- **pH:** 7.2 – 7.8 (closure band: below 6.8 or ≥8.0)
+- **Cyanuric acid:** must not exceed 60 ppm — this is also the closure trigger,
+  indoor pools and all spas are prohibited from using it at all
+- **Total alkalinity:** 80 – 120 ppm
+
+### Closure triggers
+Immediate closure for: pH outside 6.8–8.0; bacteriological or clarity failure; main drain
+or equipment issues; missing lifeguards where required; a fecal accident; or CYA above
+60 ppm. Breakpoint chlorination periods also require closure until chlorine descends back
+to the 7.0 ppm maximum.
+
+### Fecal/vomit/blood response
+Formed stool or full-stomach vomit: 2 ppm (4 ppm if a stabilizer is present) for at least
+25 minutes, closing every body of water on the shared filtration system. Diarrheal stool:
+20 ppm for 12h45m (unstabilized) — with stabilizer present, drain CYA to ≤15 ppm and
+hyperchlorinate to one of three CT-equivalent options. No blood-specific provision exists.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Indiana
+State Department of Health's own published code. Verify against the authoritative source
+for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, hazardMin: 6.8, hazardMax: 8.0, unit: "", sourceConfidence: "confirmed", notes: "§30 routine range 7.2-7.8; §43 closure trigger is the wider <6.8 or >=8.0 band -- same two-tier shape as Illinois." },
@@ -2830,6 +2948,28 @@ const IOWA: StateSeed = {
     officialCitation: "641 Iowa Administrative Code, Chapter 15, Rules 15.4 (pool operations) and 15.51 (spa operations) -- version effective 9/24/25 (IAB 8/20/25, ARC 9498C)",
     sourceDocument: "641 IAC Chapter 15, 'Swimming Pools, Spas, and Spray Pads' -- current rewrite, not the superseded 2020 text",
     logSheetSource: "BUILT_FROM_CODE",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 641 Iowa Administrative
+Code, Chapter 15.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 8.0 ppm (pools), 2.0 – 8.0 ppm (spas) — closure floors are
+  looser (0.6 / 1.0 ppm) and function as a mandatory minimum
+- **Bromine:** 2.0 – 18.0 ppm (pools), 4.0 – 18.0 ppm (spas)
+- **pH:** 7.2 – 7.8 — an inspection agency *may* order closure below 6.8 or above 8.2
+  (discretionary, pools only)
+- **Cyanuric acid:** closes at 80 ppm, may reopen once back to 40 ppm or below; banned
+  entirely in indoor pools and spas
+
+### Testing frequency
+Disinfectant/pH tested within 30 minutes of opening then every 4 hours (pools) or every 2
+hours (spas); combined chlorine and cyanuric acid weekly (pools) or daily (spas).
+
+### Fecal/vomit/blood response
+No protocol exists in Iowa's current rule — confirmed absent, not a gap in this research.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Iowa
+Department of Public Health's own published code. Verify against the authoritative source
+for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -2963,6 +3103,26 @@ const KANSAS: StateSeed = {
     sourceDocument: "Corroborated via two independent secondary extractions (Cornell LII summary + independent web search cross-check) -- direct primary-text fetch was blocked (HTTP 403) every attempt this pass.",
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes: "No state-provided form surfaced in any source reviewed.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under K.A.R. 4-27-16.
+
+*Sourcing note: every direct fetch of the primary regulation text was blocked this pass —
+these figures are corroborated from two independent secondary sources, not a direct
+primary-text read.*
+
+### Chemistry targets
+- **Disinfectant residual (chlorine or bromine):** 1.0 – 5.0 ppm (pools), 2.0 – 5.0 ppm
+  (hot tubs) — Kansas doesn't split chlorine and bromine into separate figures
+- **pH:** 7.0 – 8.0
+
+### Fecal/vomit response
+Formed stool or vomiting: close 30–60 minutes, raise disinfectant to 2.0 ppm, restore pH
+to 7.2–7.8. Diarrheal stool: drain and close, raise disinfectant to 20.0 ppm for at least
+8 hours. Hot tubs specifically: complete drain and manufacturer-spec disinfection for any
+contamination type, no partial-treatment option.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Kansas
+Department of Agriculture's own published code. Verify against the authoritative source
+for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 1.0, maxValue: 5.0, unit: "ppm", sourceConfidence: "assumption", notes: "Source states 'disinfectant residual (chlorine or bromine)' as one combined figure for pools/recreational water facilities, not split by chemical -- same range written here and on the BROMINE/POOL row below." },
@@ -3060,6 +3220,30 @@ const KENTUCKY: StateSeed = {
     logSheetSourceLabel: "Swimming Pool Log Sheet, DFS-352 (7/2022)",
     logSheetSourceNotes:
       "Blank weekly grid (free/combined chlorine, pH, turbidity, water temp, alkalinity, cyanuric acid per day) with a chemical-added log on the reverse. The form prints no target ranges itself, unlike Georgia's or Hawaii's forms -- all numbers below come from the regulation text.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 902 KAR 10:120.
+
+*Sourcing note: figures are corroborated across two independent secondary extractions of
+the regulation text, not a direct primary-source read (Kentucky's own PDF-generation
+endpoint errored out this pass).*
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 5.0 ppm (pools), 2.0 – 5.0 ppm (spas)
+- **pH:** 7.2 – 7.8 — this exact range is also Kentucky's mandatory closure trigger, with
+  no separate wider band
+- **Cyanuric acid:** should not exceed 50 ppm
+
+### Testing frequency
+Disinfectant residual and pH tested at least 3 times daily, more often if bather load or
+weather conditions warrant. Alkalinity and cyanuric acid tested weekly.
+
+### Fecal/vomit/blood response
+Kentucky's rule requires immediate closure for a fecal accident but states no specific
+chlorine target, CT value, or hold time — reopening follows the general reinspection
+process instead of a chemistry-based test.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Kentucky
+Cabinet for Health and Family Services' own published code. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -3158,6 +3342,24 @@ const LOUISIANA: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "No official state-issued form found, and unlike most other states' BUILT_FROM_CODE entries, Chapter 9 doesn't even state a required record-keeping field list to derive one from -- this is the weakest-possible BUILT_FROM_CODE case, not a real form substitute.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Louisiana Administrative
+Code, Title 51, Part XXIV.
+
+### Chemistry targets
+- **Free chlorine:** 0.4 – 0.6 ppm (chlorine alone), 0.7 – 1.0 ppm (with ammonia) — a real,
+  primary-source-confirmed figure, the lowest in AquaRunner's dataset alongside
+  Pennsylvania's
+- **pH:** 7.2 – 7.8
+
+### What Louisiana's code doesn't specify
+No numeric cyanuric acid or total alkalinity standard, no stated testing frequency, and no
+enumerated chemistry-based closure trigger exist anywhere in the codified chapter — all
+confirmed absent, not gaps in this research. The only closure mechanism is a general
+"menace to health" determination by the state health officer.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Louisiana
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "§905.B(1), applies uniformly to pools and spas -- Part XXIV's definitions fold hot tubs/spas/whirlpools/water parks into the one term the whole chapter regulates, same no-split pattern as Illinois." },
@@ -3252,6 +3454,28 @@ const MAINE: StateSeed = {
     logSheetSource: "STATE_PROVIDED",
     logSheetSourceLabel: "Pool Log",
     logSheetSourceNotes: "Published as a separate PDF alongside the rule on Maine CDC's own site, not embedded in the regulation text itself.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 10-144 CMR Chapter 202.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 3.0 ppm (pools), 4.0 – 5.0 ppm (spas)
+- **Bromine:** 3.0 – 5.0 ppm (pools), 6.0 – 8.0 ppm (spas)
+- **pH:** 7.2 – 7.8
+- **Cyanuric acid:** 10 – 150 ppm, target 30 – 50 ppm — banned entirely indoors
+- **Total alkalinity:** 60 – 180 ppm
+- **PHMB:** prohibited entirely, alongside elemental chlorine gas
+
+### Testing frequency
+Disinfectant/pH tested at least 3 times per day (at least one manual reading required);
+alkalinity, hardness, and cyanuric acid weekly.
+
+### Fecal/vomit/blood response
+Formed stool, vomiting, or bleeding all share one track: close, raise free chlorine to
+2.0 ppm, restore pH to 7.2–7.5, hold 30 minutes. Diarrheal stool: 20 ppm for at least 8
+hours. Maine does not exempt blood from closure the way some states do.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Maine CDC's
+own published code. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "Section 4(C). Same range for pools and spas -- one unconditional row." },
@@ -3382,6 +3606,28 @@ const MASSACHUSETTS: StateSeed = {
     logSheetSourceLabel: "Appendix A, \"Swimming Pool Testing Records\"",
     logSheetSourceNotes:
       "Printed directly inside the regulation itself (not a separate document), with the acceptable ranges pre-printed on the form: \"FREE CHLORINE RESIDUAL (1.0-3.0)\", \"pH (7.2-7.8)\", \"TOTAL ALKALINITY (80-150 PPM)\" -- independently corroborating the §435.29 table, the same official-form-prints-the-standard pattern seen in Georgia/Hawaii. Note the form's alkalinity floor (80) reads tighter than §435.29's own stated floor (50) -- both are seeded faithfully below (the ChemistryThreshold row uses §435.29's 50-150, the discrepancy is flagged in a ComplianceNote rather than silently reconciled.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 105 CMR 435.000.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 3.0 ppm (applies to both pools and special-purpose/spa pools)
+- **Bromine:** 2.0 – 6.0 ppm
+- **pH:** 7.2 – 7.8 — this exact range doubles as Massachusetts's mandatory closure
+  trigger, with no separate wider band
+- **Cyanuric acid:** 30 – 100 ppm, only where a chlorinated isocyanurate is used
+- **Total alkalinity:** 50 – 150 ppm
+- **Combined chlorine:** must not exceed 0.2 ppm
+
+### Testing frequency
+Disinfectant/pH tested at least 4 times daily, one of which must fall during peak bather
+load; alkalinity and calcium hardness weekly.
+
+### Fecal/vomit/blood response
+No protocol exists anywhere in Massachusetts's code — confirmed absent via a full-text
+search, not a research gap.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the
+Massachusetts Department of Public Health's own published code. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "§435.29(1), applies to chlorine or bromine disinfection alike. No separate hazard tier -- see the AUTHORITY_MANDATORY EventProtocol below; §435.34(2) makes this same range the closure trigger." },
@@ -3478,6 +3724,28 @@ const MICHIGAN: StateSeed = {
     logSheetSource: "STATE_PROVIDED",
     logSheetSourceLabel: "EQP1719 Public Swimming Pool Monthly Operation Report + EQP1735 Public Swimming Pool Inspection Report",
     logSheetSourceNotes: "Both current as of the December 2025/January-April 2026 revision dates on the source PDFs.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Michigan Rule 94
+(R 325.2194).
+
+### Chemistry targets
+- **Free chlorine:** 1.0 ppm (pH 7.2–7.5) or 2.0 ppm (pH 7.7–7.8) minimum without
+  cyanuric acid; rises further if cyanuric acid is present
+- **Bromine:** 2.0 ppm minimum, same at every pH band
+- **pH:** 7.2 – 8.0 — this exact range is also Michigan's mandatory closure trigger
+- **Cyanuric acid:** must not exceed 80 ppm — also the closure trigger
+
+### Testing frequency
+Disinfectant/pH tested before and during each period of use, at least once per day;
+cyanuric acid weekly.
+
+### Fecal/vomit/blood response
+Michigan requires every facility to maintain its own written Contingency and Emergency
+Response Plan (Rule 94a) — the state doesn't codify a single CT value or hold time itself,
+delegating the specific numbers to each facility's approved plan.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for Michigan
+EGLE's own published rules. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 8.0, hazardMin: 7.2, hazardMax: 8.0, unit: "", sourceConfidence: "confirmed", notes: "Rule 94 table. EGLE's own guidance is explicit that the routine range IS the closure trigger (closure ordered when pH <7.2 or >8.0) -- same shape independently found in Kentucky and Massachusetts, not a separate wider hazard band." },
@@ -3643,6 +3911,30 @@ const MINNESOTA: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "4717.0750 mandates what a pool record must contain (flow rates, chemical amounts, disinfectant residuals, pH, temperature, equipment issues, accidents) but doesn't reference a named MDH form the way Georgia's or Michigan's rules do.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Minnesota Rules,
+Chapter 4717.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 10.0 ppm (pools), 2.0 – 10.0 ppm (spas)
+- **Bromine:** 2.0 – 20.0 ppm (pools), 4.0 – 20.0 ppm (spas)
+- **pH:** 7.2 – 7.8
+- **Cyanuric acid:** must not exceed 100 ppm — banned entirely in every indoor pool as of
+  2024
+- **Total alkalinity:** 50 ppm minimum, no stated ceiling
+- **Combined chlorine:** must not exceed 0.5 ppm
+
+### Closure triggers
+Enumerated triggers: water clarity failure and disinfectant residual out of range. A pH or
+cyanuric acid violation only forces closure via the general "endangers health or safety"
+catch-all — not independently named the way clarity and disinfectant are.
+
+### Fecal/vomit/blood response
+No protocol exists anywhere in Chapter 4717 — confirmed absent via a full-text search, not
+a research gap.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Minnesota
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -3811,6 +4103,26 @@ const MISSOURI: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "No state-issued form found. 19 CSR 20-3.050 requires daily operating records (disinfectant, pH, water temp, timestamp) but doesn't reference a specific form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 19 CSR 20-3.050.
+
+*Scope note: this numeric standard applies specifically to pools/spas at licensed lodging
+establishments (hotels, motels, B&Bs). No state-level numeric standard was found for
+municipal, apartment/HOA, or water-park pools.*
+
+### Chemistry targets
+- **Free chlorine:** 1.0 ppm minimum
+- **Bromine:** 3.0 – 5.0 ppm (spas)
+- **pH:** 7.2 – 7.8
+- **Max spa temperature:** 104°F
+
+### Closure authority
+Missouri's only closure mechanism is a discretionary "menace to health" determination by
+the Department of Health — there's no enumerated pH/chemistry-specific trigger, no stated
+testing frequency, and no cyanuric acid or alkalinity standard anywhere in the chapter.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Missouri
+Department of Health and Senior Services' own published code. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "19 CSR 20-3.050, pools and spas at lodging establishments. No separate, wider closure band exists -- see the AUTHORITY_DISCRETIONARY EventProtocol below; this is the only pH standard Missouri states." },
@@ -3898,6 +4210,28 @@ const MONTANA: StateSeed = {
     logSheetSource: "STATE_PROVIDED",
     logSheetSourceLabel: "Public Swimming Pool Inspection Report + department-approved fecal incident log",
     logSheetSourceNotes: "§2.4.1(d) specifically requires a \"department approved fecal incident log\" for contamination events, on top of the standard inspection report.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Montana Circular FCS
+3-2022.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 10.0 ppm without cyanuric acid, 2.0 – 10.0 ppm with (pools);
+  3.0 – 10.0 ppm (spas, CYA banned outright)
+- **Bromine:** 3.0 – 8.0 ppm (pools), 4.0 – 8.0 ppm (spas)
+- **pH:** 7.2 – 7.8 — critical/immediate closure below 6.5 or above 8.0
+- **ORP:** 650 mV minimum — Montana treats this as its own independent critical closure
+  trigger, not just an optional controller alternative
+- **Cyanuric acid:** must not exceed 50 ppm (ideal ≤15 ppm) — also the closure trigger
+- **Total alkalinity:** 60 – 180 ppm, but only closes after 3 consecutive failed
+  inspections, not a single reading
+
+### Fecal/vomit response
+Montana defers to the CDC's Fecal Incident Response Recommendations for the specific CT
+values, requiring the Certified Pool Operator to be notified and the incident logged.
+Legionella contamination is handled as a separate, distinct protocol.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for Montana
+DPHHS's own published standards. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -4063,6 +4397,29 @@ const NEBRASKA: StateSeed = {
     logSheetSource: "STATE_PROVIDED",
     logSheetSourceLabel: "Attachment 3 (Pool Water Quality Log Sheet) / Attachment 4 (Spa Water Quality Log Sheet)",
     logSheetSourceNotes: "Both incorporated by reference directly into 2-005.03's rule text; records kept at least 1 year.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Title 178 NAC, Chapter 2.
+
+### Chemistry targets
+- **Free chlorine:** 2.0 ppm minimum (pools), 3.0 ppm minimum (spas), 10.0 ppm closure
+  ceiling
+- **Bromine:** 2.0 ppm minimum (pools), 4.0 ppm minimum (spas), 18.0 ppm closure ceiling
+- **pH:** 7.2 – 7.8 — this exact range is also Nebraska's closure trigger
+- **Cyanuric acid:** must not exceed 50 ppm — also the closure trigger
+- **Total alkalinity:** 80 ppm minimum, no stated ceiling
+- **Combined chlorine:** must not exceed 0.5 ppm
+
+### Closure triggers
+Nebraska names pH, cyanuric acid, and alkalinity individually as closure triggers, not
+just via a general catch-all — failure to meet any listed standard forces immediate
+closure.
+
+### Fecal/vomit/blood response
+No protocol exists anywhere in Chapter 2 — confirmed absent via a full-text search, not a
+research gap.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Nebraska
+Department of Health and Human Services' own published code. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -4173,6 +4530,27 @@ const NEW_HAMPSHIRE: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "No single named state form -- Env-Wq 1104.01(f)-(g) mandates what a daily log must contain (test results, filter events, fecal/vomit accident times) and requires a rolling 12-month retention, but doesn't reference a specific numbered DES form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under New Hampshire Env-Wq
+1105.13.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 5.0 ppm (pools), 2.0 – 10.0 ppm (spas)
+- **Bromine:** 2.0 – 10.0 ppm (pools and spas)
+- **pH:** 7.0 – 7.8 — this exact range is also the mandatory closure trigger
+- **Cyanuric acid:** must not exceed 50 ppm — also the closure trigger
+- **Total alkalinity:** 60 – 180 ppm
+- **Combined chlorine:** must not exceed 0.5 ppm
+
+### Testing frequency
+Disinfectant/pH tested before opening and every 4 hours during operation.
+
+### Fecal/vomit response
+New Hampshire's rule text only requires logging a fecal/vomit incident; the actual CT
+values come from a separate DES guidance bulletin, not the codified rule itself.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for New Hampshire
+DES's own published rules. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -4305,6 +4683,24 @@ const NEW_JERSEY: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "Records must be kept in a \"bound log\" (§8:26-7.12(b), cross-referencing §8:26-7.7(e)) documenting every chemical test, bather load, clarity, temperature, and weather -- the rule mandates the log's contents and binding format but doesn't name a single numbered state form. A separate self-inspection checklist (Appendix, PRB_Checklist.pdf) exists as a distinct department-published document -- it's the source of the total-alkalinity figure below, not a facility log template itself.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under N.J.A.C. 8:26.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 10.0 ppm (pools), 2.0 – 10.0 ppm (spas)
+- **Bromine:** 2.0 – 10.0 ppm (pools and spas)
+- **pH:** 7.2 – 7.8 — this exact range is also New Jersey's mandatory closure trigger
+- **Cyanuric acid:** 10 – 100 ppm — banned entirely in indoor pools and spas
+- **Total alkalinity:** 60 – 180 ppm (department self-inspection checklist figure, not the
+  codified rule text itself)
+- **Combined chlorine:** must not exceed 0.2 ppm
+
+### Fecal/vomit/blood response
+No protocol exists anywhere in Chapter IX — confirmed absent via a full-text search, not a
+research gap. Anyone actively recovering from diarrhea is barred from using the pool.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the New Jersey
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -4422,6 +4818,29 @@ const NORTH_CAROLINA: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceLabel: "Inspection of Swimming Pool Form DENR 3960 (department's own inspection form, not a facility daily log)",
     logSheetSourceNotes: ".2535(11) requires daily/weekly operator record-keeping directly in the rule text without naming a separate facility-side log form -- DENR 3960 is the state's own inspection form, used here for confirmation only.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 15A NCAC 18A .2535.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 ppm minimum (all pool types)
+- **Bromine:** 2.0 ppm minimum (all pool types)
+- **pH:** 7.2 – 7.8
+- **Cyanuric acid:** must not exceed 100 ppm — required by default for chlorinated
+  outdoor pools unless shown to be unnecessary
+- **PHMB:** 30 – 50 ppm, where used
+
+### Enforcement — a demerit-point system, not a flat threshold
+North Carolina classifies violations into 2/4/6-demerit tiers. Six-demerit items — which
+include pH and every disinfectant/CYA-related standard — warrant immediate suspension of
+the operating permit.
+
+### Fecal/vomit response
+Formed stool or vomit: 2 ppm free chlorine for 25 minutes (or 3 ppm for 19 minutes),
+pH 7.2–7.5. Diarrheal (liquid) stool: raised chlorine and extended hold time to reach a
+CT of 15,300, then backwash the filter. No blood-specific provision exists.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the North
+Carolina DHHS's own published code. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -4544,6 +4963,27 @@ const NORTH_DAKOTA: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "Neither the state chapter (33-29-01-08, daily pH/disinfectant/temperature records, 3-year retention) nor First District's rule (a daily log per body of water) names a specific numbered form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas in North Dakota.
+
+*North Dakota's own state code has almost no numeric chemistry standard left — most of its
+enforcement sections were repealed in 1993. Local ordinances control instead, so these
+figures come from First District Health Unit (Minot, ND) as a representative example, not
+a statewide North Dakota number. A different local health unit may enforce different
+figures.*
+
+### Chemistry targets (First District)
+- **Free chlorine:** 2.0 – 4.0 ppm (pools), 3.0 – 5.0 ppm (spas)
+- **pH:** 7.2 – 7.8 — this exact range is also the mandatory closure trigger
+- **Cyanuric acid:** should stay below 50 ppm, closes at above 100 ppm, reopen once back
+  below 50 ppm
+
+### Fecal/vomit/blood response
+Formed stool, vomit, or blood: raise free chlorine to 10 mg/L for 30 minutes, reopen once
+back down to 2–3 mg/L. Diarrheal stool: 20 mg/L for 13 hours.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for your local
+North Dakota health unit's own published rules. Verify against the authoritative source
+for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -4698,6 +5138,29 @@ const OHIO: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "Paragraph (B)(4)(a) specifies exactly what a written water-quality record must contain and how often, but doesn't reference a specific numbered ODH form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under OAC 3701-31-04.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 ppm minimum (pools), 2.0 ppm minimum (spas), no stated maximum
+- **Bromine:** 2.0 ppm minimum (pools), 4.0 ppm minimum (spas)
+- **pH:** 7.2 – 7.8 — notably, pH is NOT one of Ohio's named imminent-hazard closure
+  triggers
+- **Cyanuric acid:** must not exceed 70 ppm — also not a named closure trigger
+- **Total alkalinity:** 60 ppm minimum, no numeric ceiling
+- **Combined chlorine:** must not exceed 1.0 ppm
+
+### Closure triggers
+Twelve named imminent-hazard conditions force closure, including disinfectant residual
+below minimum, equipment failure, insufficient clarity, an untreated fecal accident, and
+electrical hazards — disinfectant residual is named, pH and CYA are not.
+
+### Fecal/vomit response
+Ohio incorporates the CDC's fecal-response guidance directly (embedded as image pages in
+its own Appendix A rather than transcribed text) as the binding protocol until treated.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Ohio
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -4855,6 +5318,31 @@ const OKLAHOMA: StateSeed = {
       "OSDH Ch. 320, Proposed Rule Amendments, Flight 2 2022 (read via direct pdftotext extraction) for testing frequency, the closure clause, and the redline appendix's alkalinity figures; Tulsa Health Department's public swimming pools program page for corroborating chemistry ranges and the fecal/vomit response, since the state's own primary 310:320-3-8 table is image-only on every platform checked and OSDH's hosted PDF now 404s.",
     logSheetSource: "STATE_PROVIDED",
     logSheetSourceLabel: "Operation Record Form and Instructions (310:320-5-4)",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under OAC 310:320.
+
+*Sourcing note: Oklahoma's own chemistry table (310:320-3-8) exists only as a scanned
+image on every platform checked — these figures are corroborated from a 2022 proposed-
+amendments redline plus a Tulsa Health Department page, not a direct primary-text read.*
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 5.0 ppm (pools and spas, not split by body type)
+- **pH:** 7.2 – 7.8
+- **Cyanuric acid:** 30 – 100 ppm — not one of Oklahoma's three named closure triggers
+- **Total alkalinity:** 80 – 120 ppm (pools) — sources disagree on the spa figure
+
+### Closure triggers
+Only three parameters are named as flat closure triggers: free chlorine, pH, and
+turbidity. Cyanuric acid and alkalinity violations are standing violations, not confirmed
+closure triggers.
+
+### Fecal/vomit response
+Formed stool: close roughly 30 minutes with levels restored. Diarrheal stool or vomit:
+raise free chlorine to 20 ppm, hold pH 7.2–7.8 for 8 hours, backwash the filter — Oklahoma
+groups vomit with the heavier diarrheal treatment, not the lighter formed-stool one.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Oklahoma
+State Department of Health's own published code. Verify against the authoritative source
+for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -5066,6 +5554,32 @@ const OREGON: StateSeed = {
     sourceDocument: "Oregon Public Aquatic Facility Rules, OAR 333-062, effective April 1, 2025 (Oregon Health Authority, official PDF, read via direct text extraction)",
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes: "The rule specifies record content and retention requirements directly rather than naming a single numbered OHA form in the sections reviewed.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under OAR 333-062 (effective
+4/1/2025).
+
+### Chemistry targets
+- **Free chlorine:** 1.0 ppm minimum without cyanuric acid, 2.0 ppm with (pools); 3.0 ppm
+  minimum (spas)
+- **Bromine:** 3.0 ppm minimum (pools), 4.0 ppm minimum (spas)
+- **pH:** 7.0 – 7.8 — this exact range is also the mandatory closure trigger
+- **Cyanuric acid:** 90 ppm routine ceiling; closes if the CYA:chlorine ratio exceeds
+  45:1 or CYA exceeds 150 ppm outright — phased out of new/altered indoor construction
+  by 2029
+- **Total alkalinity:** 60 – 180 ppm
+- **Calcium hardness:** must not exceed 2,500 ppm
+
+### Testing frequency
+Every 4 hours for indoor venues or any venue using cyanuric acid; every hour for outdoor
+venues without cyanuric acid — a tighter cadence for the no-stabilizer case.
+
+### Fecal/vomit/blood response
+Formed stool or vomit: 2.0 ppm for 25 minutes (doubled with cyanuric acid present).
+Diarrheal stool: 20.0 ppm for 12.75 hours. Blood alone does not require closure. A
+separate Legionella-specific response also exists.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Oregon
+Health Authority's own published rules. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -5248,6 +5762,22 @@ const PENNSYLVANIA: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "§18.32 requires operational records, filed monthly or more often as required, but no specific numbered state form was confirmed. A separate county-level \"Public Bathing Place Inspection Report Annex\" (Chester County) exists but is a local document, not necessarily statewide.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 28 Pa. Code Chapter 18.
+
+### Chemistry targets
+- **Free chlorine:** 0.4 ppm minimum — a real, primary-source-confirmed figure, the
+  lowest in AquaRunner's dataset alongside Louisiana's
+- **pH:** 7.2 – 8.2
+
+### What Pennsylvania's code doesn't specify
+No numeric cyanuric acid or total alkalinity standard exists anywhere in the chapter. The
+only closure/contamination provision (§18.27) is defined exclusively in bacteriological
+(coliform) terms — there's no chemistry-based (pH/chlorine) closure trigger and no
+fecal/vomit/blood protocol, both confirmed absent, not gaps in this research.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the
+Pennsylvania Department of Health's own published code. Verify against the authoritative
+source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 8.2, unit: "", sourceConfidence: "confirmed", notes: "§18.29." },
@@ -5336,6 +5866,28 @@ const RHODE_ISLAND: StateSeed = {
     logSheetSourceLabel: "Water Quality Parameter Daily Operations Logs",
     logSheetSourceNotes:
       "§4.6.2(D) codifies a requirement to record daily water-quality analyses, clarity observations, maintenance, corrective actions, and closures \"on forms provided by the Licensing Agency\" -- the exact form number wasn't captured this pass, only that RI Health publishes and requires this specific form (not just an available convenience template).",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 216-RICR-50-05-4.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 10.0 ppm without cyanuric acid, 2.0 – 10.0 ppm with (pools);
+  2.0 – 10.0 ppm (spas, cyanuric acid banned there entirely)
+- **Bromine:** 3.0 – 8.0 ppm (pools), 4.0 – 8.0 ppm (spas)
+- **pH:** 7.2 – 7.8
+- **Cyanuric acid:** must not exceed 25 ppm — the lowest cap in AquaRunner's dataset —
+  and banned entirely indoors and in every spa/hot tub
+
+### Closure triggers
+Any water quality parameter outside its required range forces closure by default, not
+just pH/chlorine. A separate Imminent Health Hazard list also names vomit and fecal
+matter, disinfectant residual, pH, and non-functioning equipment.
+
+### Fecal/vomit/blood response
+Rhode Island requires immediate closure for vomit or fecal matter but states no specific
+chlorine target, CT value, or hold time.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Rhode
+Island Department of Health's own published code. Verify against the authoritative source
+for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, idealMin: 7.4, idealMax: 7.6, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "§4.6.2(B)(7)-(9). Same range for every venue type (chlorine or bromine) -- one unconditional row." },
@@ -5486,6 +6038,29 @@ const SOUTH_CAROLINA: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "§J.17(a)-(b) requires a \"bound log, with consecutively numbered pages, that is acceptable to the Department,\" with date/time/numerical reading, initialed at each reading and signed by the pool operator -- a content/format requirement, not a prescribed state form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under S.C. Code Ann. Regs.
+61-51.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 8.0 ppm (pools and spas, not split by body type)
+- **Bromine:** 2.3 – 17.6 ppm
+- **pH:** 7.0 – 7.8 — this exact range is also one of 16 enumerated closure triggers
+- **Cyanuric acid:** must not exceed 100 ppm
+- **Max water temperature:** 104°F
+
+### Closure triggers
+A flat 16-item checklist spans chemistry, equipment, and safety: disinfectant/pH out of
+range, high temperature, fecal coliform present, insufficient lifeguards, no valid permit,
+and more. No total alkalinity or calcium hardness standard exists anywhere in the
+regulation.
+
+### Fecal/vomit/blood response
+South Carolina requires immediate closure and defers entirely to current CDC guidance —
+it doesn't codify its own CT values. Blood is grouped with fecal material, not exempted.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for SCDES's own
+published code. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.0, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "§J.14(b)-(c). Also named in §K.1(a)(viii) as one of the flat 16-item mandatory closure triggers." },
@@ -5602,6 +6177,29 @@ const SOUTH_DAKOTA: StateSeed = {
       "Recommended Standards for Swimming Pool Design and Operation (SD DOH, 1996 ed., updated April 2019, official PDF), read via direct text extraction -- the actual source of every numeric figure below, since the ARSD sections only incorporate it by reference and state no numbers of their own",
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes: "§2.8 requires daily operating records \"on forms acceptable to the regulatory agency\" -- not a single prescribed statewide form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas at South Dakota lodging
+establishments (hotels, campgrounds, vacation homes).
+
+*Scope note: South Dakota repealed its general municipal-pool standard in 2013 and never
+replaced it. This standard applies only to pools attached to a licensed lodging
+establishment — a standalone municipal, HOA, or water-park pool may have no confirmed
+state-level chemistry standard at all.*
+
+### Chemistry targets
+- **Free chlorine:** starts at 0.5 ppm at pH 7.2 (1.0 ppm with cyanuric acid), rising as
+  pH rises — a pH-indexed sliding scale, not a flat number
+- **Bromine:** 1.0 ppm below pH 7.8, 2.0 ppm at or above
+- **pH:** 7.2 – 8.0
+- **Cyanuric acid:** must not exceed 100 mg/L
+- **Total alkalinity:** 70 – 150 mg/L
+- **Max spa temperature:** 102°F — lower than the 104°F most other states use
+
+### What's not covered
+No fecal/vomit/blood protocol exists — this standard predates that model.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the South
+Dakota Department of Health's own published standards. Verify against the authoritative
+source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 8.0, unit: "mg/L", sourceConfidence: "confirmed", notes: "§1.2.1. NOT named as its own closure trigger in §5.1's enumerated list -- see the UNIFIED_CLOSURE_CHECKLIST EventProtocol and matching ComplianceNote below." },
@@ -5784,6 +6382,27 @@ const TENNESSEE: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "§.04(2)(b) requires inspection results recorded on \"standard departmental forms,\" but that's the inspector's visit record, not an operator-maintained daily chemistry log -- no technician-facing log sheet is named or required.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Tennessee Chapter
+1200-23-05.
+
+### Chemistry targets
+- **Free chlorine:** 0.5 – 3.0 ppm (pools), 1.0 – 3.0 ppm (spas)
+- **Bromine:** 2.0 – 5.0 ppm (pools), 3.0 – 5.0 ppm (spas)
+- **pH:** 7.2 – 7.6
+- **Cyanuric acid:** must not exceed 100 ppm
+- **Total alkalinity:** 80 – 200 ppm
+- **PHMB:** 30 – 50 ppm, where used
+
+### Enforcement — no chemistry-linked closure trigger
+Tennessee's only immediate-closure mechanism is a discretionary Commissioner declaration
+of an imminent health hazard. Chemistry violations instead feed a weighted-point
+inspection score with a 10-day correction window before an uncorrected critical violation
+forces closure — no reading itself is a direct closure trigger. No testing frequency and
+no fecal/vomit/blood protocol are stated anywhere in the chapter.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Tennessee
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -5912,6 +6531,29 @@ const TEXAS: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "§265.193(l) requires a \"pool or spa log\" (electronic or manual) with specific required fields (date/time, chemical levels, ORP mV, corrective actions, formed-stool/diarrhea incidents), kept on-site or produced within 5 business days, minimum 3-year retention -- no single statewide numbered DSHS form confirmed.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under 25 TAC Chapter 265,
+Subchapter L.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 8.0 ppm without cyanuric acid, 2.0 – 8.0 ppm with (pools);
+  2.0 – 8.0 ppm (spas)
+- **Bromine:** 3.0 – 10.0 ppm (pools), 4.0 – 10.0 ppm (spas)
+- **pH:** 7.0 – 7.8
+- **ORP:** 600 – 900 mV — Texas is the first state in AquaRunner's dataset to table this
+  as a first-class reading
+- **Cyanuric acid:** must not exceed 100 ppm — banned entirely indoors — exceeding it
+  triggers a required remediation sequence, not just a closure flag
+- **Total alkalinity:** 60 – 180 ppm
+- **Calcium hardness:** 150 – 1,000 ppm (pools), 100 – 800 ppm (spas)
+
+### Fecal/vomit/blood response
+Texas requires operators to follow the CDC's "Healthy Swimming" fecal-incident guidance by
+name, but doesn't restate its own CT values — the current CDC document is the operative
+standard.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for Texas DSHS's
+own published code. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -6131,6 +6773,30 @@ const UTAH: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "No single named state form confirmed -- the rule requires a facility-specific written Operation and Maintenance Plan and ongoing records (R392-302-29(2)-(3)) rather than naming a numbered department form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Utah R392-302-25.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 ppm minimum (pH 7.2–7.6, no cyanuric acid) up to 5.0 ppm minimum
+  (spas, cyanuric acid present, higher pH) — Utah's floor varies by pH band and cyanuric
+  acid presence together
+- **Bromine:** 4.0 ppm minimum
+- **pH:** 7.2 – 7.8
+- **Cyanuric acid:** 10 – 100 ppm
+- **Total alkalinity:** varies by construction material (100–125 ppm for plaster-lined
+  pools)
+
+### Testing frequency
+No fixed statewide cadence — each facility's own approved Operation and Maintenance Plan
+sets its testing schedule. A 4x/day cadence only applies as a corrective action after a
+failed bacteriological sample.
+
+### Fecal/vomit/blood response
+Utah requires operators to follow a named CDC document for fecal accidents but states no
+numbers of its own — the local health officer may also approve an alternative protocol.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Utah
+Department of Health and Human Services' own published code. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "R392-302-25. No separate hazard band -- see the GAP ComplianceNote on closure triggers below." },
@@ -6288,6 +6954,29 @@ const VERMONT: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "§18.10.1 requires a daily operational log (date, time, tester initials, disinfectant residual, pH, hot-tub temperature) kept on-site 1 year, plus a separate fecal/vomiting accident log (§18.10.2) and a standing written fecal/vomit contamination response plan -- no numbered state form found for any of the three.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Vermont's Licensed
+Lodging Establishments rule (13-023 Code Vt. R. 13-140-023-X, §18.0).
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 5.0 ppm (pools/RWFs), 2.9 – 5.0 ppm (hot tubs)
+- **Bromine:** 1.0 – 5.0 ppm (pools/RWFs), 2.0 – 5.0 ppm (hot tubs)
+- **pH:** 7.0 – 8.0
+
+### What Vermont's code doesn't specify
+No numeric cyanuric acid, total alkalinity, or calcium hardness standard exists in either
+the Lodging or Children's Camp rule — confirmed directly with VDH's Food & Lodging
+program, not inferred from silence. No chemistry-specific closure trigger exists either,
+only a general Imminent Health Hazard catch-all.
+
+### Fecal/vomit response
+Formed stool: close 30–60 minutes with free chlorine at 2.0 ppm. Diarrheal stool, and
+vomiting (routed to the same, heavier procedure): 20.0 ppm for 8 hours. Hot tubs require
+complete draining for any incident rather than an in-water hold. Vermont's rule doesn't
+address blood in the water specifically.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Vermont
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.0, maxValue: 8.0, unit: "", sourceConfidence: "confirmed", notes: "§18.5.2. Same range for pools, RWFs, and hot tubs -- one unconditional row." },
@@ -6443,6 +7132,22 @@ const VIRGINIA: StateSeed = {
     logSheetSourceLabel: "Swimming Pool Operators Weekly Report, form LHS-183",
     logSheetSourceNotes:
       "Confirmed from the chapter's own forms index (name/number only, form content/layout not pulled this pass). A separate \"Swimming Pool Inspection Form\" (LHS-182) is inspector-side, not operator-side.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Virginia 12VAC5-460.
+
+### Chemistry targets
+- **Free chlorine:** 0.5 ppm minimum — no stated ceiling
+- **pH:** 7.2 minimum — no stated ceiling
+
+### What Virginia's code doesn't specify
+This is one of the thinnest codes in AquaRunner's dataset: no bromine, cyanuric acid, or
+calcium hardness standard exists, and the section titled "Alkalinity" only restates the
+pH floor rather than setting a total-alkalinity ppm range. No closure trigger, no testing
+frequency, and no fecal/vomit/blood protocol exist anywhere in the chapter — all confirmed
+absent, not gaps in this research.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Virginia
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -6557,6 +7262,27 @@ const WASHINGTON: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "Monitoring records must be kept 3 years (longer than most states collected, which cluster around 1 year), but no specific numbered state form is named in the sections reviewed.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under WAC 246-260.
+
+### Chemistry targets
+- **Free chlorine:** 1.5 ppm minimum without cyanuric acid, 2.0 ppm with (pools);
+  3.0 – 3.5 ppm minimum (spas)
+- **Bromine:** 2.5 ppm minimum (pools), 4.0 ppm minimum (spas)
+- **pH:** 7.2 – 8.0 — this exact range is also the closure trigger
+- **Cyanuric acid:** must not exceed 90 ppm
+- **Combined chlorine:** must not exceed 50% of the free chlorine reading
+
+### What Washington's code doesn't specify
+No total alkalinity or calcium hardness standard exists anywhere in the chapter.
+
+### Fecal/vomit/blood response
+Washington's rule is a single blanket sentence: close the affected pool until clean,
+disinfected, and free of hazardous material — no specific chlorine target or hold time.
+Blood is grouped with feces and vomit as an equal closure trigger, not exempted.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the
+Washington State Department of Health's own published code. Verify against the
+authoritative source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.2, maxValue: 8.0, unit: "", sourceConfidence: "confirmed", notes: "Table 111.1/111.2. No separate enumerated closure band -- WAC 246-260-131(11) makes any Table 111.2 excursion (including this range) itself the closure trigger; see the CHEMISTRY_HAZARD_THRESHOLD EventProtocol below." },
@@ -6677,6 +7403,31 @@ const WEST_VIRGINIA: StateSeed = {
     logSheetSourceLabel: "Form ER-32, \"Recreational Water Facility Weekly Operational Report\" + Form SR-153, \"Recreational Water Facility Tables\"",
     logSheetSourceNotes:
       "ER-32 is a weekly-report cadence, not a daily-sheet-per-visit shape like most other states. SR-153 isn't just a form -- it's a three-part reference appendix (Table 64-16 A closure requirements, Table 64-16 B lifeguard-count matrix, Table 64-16 C water quality standards) operators use directly. Form SG-49 is the operating-permit application, not a log sheet.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under West Virginia 64CSR16
+and its SR-153 appendix tables.
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 5.0 ppm (pools and spas)
+- **Bromine:** 2.0 – 5.0 ppm (pools and spas)
+- **pH:** 7.2 – 7.8 — this exact range is also the mandatory closure trigger
+- **Cyanuric acid:** 10 – 100 mg/L — one of the few states with a stated minimum, not
+  just a ceiling
+- **Total alkalinity:** 60 – 180 mg/L
+- **Max general water temperature:** 105°F — an outlier vs. the 104°F most states use
+
+### Closure triggers
+Eight enumerated conditions force closure, including free chlorine below 1.0 mg/L, pH
+outside 7.2–7.8, free bromine below 2.0 mg/L, equipment failure, and a fecal accident,
+blood, or vomitus in the water.
+
+### Fecal/vomit/blood response
+Formed stool, blood, or vomit: 2 mg/L free chlorine for 25 minutes — blood gets this same
+lighter procedure, not exempted and not treated as more severe. Diarrheal stool: one of
+four CT-equivalent options (5 mg/L/32hr up to 20 mg/L/8hr).
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the West
+Virginia Bureau for Public Health's own published rules. Verify against the authoritative
+source for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -6880,6 +7631,27 @@ const WISCONSIN: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "No single statewide DATCP-issued PDF form was found -- 76.32 requires reports \"on forms provided by the department,\" but in practice agent health departments issue their own monthly report forms (e.g. South Milwaukee/St Francis Health Dept.'s \"Monthly Report on Public Pool Operation,\" which cites Chapter DATCP 76 directly) -- content requirements are codified, the specific form isn't, same shape as Delaware.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Wis. Admin. Code ch.
+ATCP 76 (effective 9/24/2025).
+
+### Chemistry targets
+- **Free chlorine:** 1.0 ppm minimum without cyanuric acid, 2.0 ppm with (swimming/
+  activity pools); higher minimums for wading and therapy pools
+- **Bromine:** 3.0 ppm minimum (pools), 4.0 ppm minimum (wading/therapy)
+- **pH:** 7.2 – 7.8 (closure band: 6.8 – 8.0)
+- **Cyanuric acid:** 30 ppm routine operating ceiling, but closure doesn't trigger until
+  above 300 ppm — a real 10x gap between the two, not a typo. Banned entirely at indoor,
+  therapy, and whirlpool venues.
+- **Total alkalinity:** 60 – 180 ppm
+
+### Fecal/vomit/blood response
+Wisconsin requires operators to follow published CDC guidance directly for any fecal
+accident, vomit, or blood incident, rather than codifying its own CT values — closure
+itself is a separate "immediate danger to health or safety" trigger.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for Wisconsin
+DATCP's own published code. Verify against the authoritative source for anything
+compliance-critical.*`,
   },
   chemistryThresholds: [
     {
@@ -7062,6 +7834,29 @@ const WYOMING: StateSeed = {
     logSheetSource: "BUILT_FROM_CODE",
     logSheetSourceNotes:
       "Chapter 1 §10(a) specifies exactly what a record must contain and how long to keep it, but WDA's own pools page (checked directly) lists only a Plan Review Worksheet, a Variance Request form, and a CPO brochure -- no downloadable water-quality log form.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Wyoming Chapter 5
+(Water Quality, Test Kits, Record Keeping).
+
+### Chemistry targets
+- **Free chlorine:** 1.0 – 8.0 ppm (pools), 2.0 – 8.0 ppm (spas)
+- **Bromine:** 2.5 – 12.0 ppm (pools), 4.5 – 12.0 ppm (spas)
+- **pH:** 7.0 – 7.8
+- **Cyanuric acid:** must not exceed 100 ppm — banned in indoor pools/spas and in
+  brominated pools/spas without prior approval
+- **Total alkalinity:** 60 – 180 ppm
+- **Calcium hardness:** 150 – 1,000 ppm
+
+### Closure triggers
+A blanket rule: if testing shows any Chapter 5 parameter out of range, the operator must
+immediately close, reopening only once a retest confirms compliance.
+
+### What Wyoming's code doesn't specify
+No fecal/vomit/blood contamination protocol exists anywhere in the rule's 7 chapters —
+confirmed absent via the official table of contents, not a research gap.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Wyoming
+Department of Agriculture's own published rules. Verify against the authoritative source
+for anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.0, idealMin: 7.4, idealMax: 7.6, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "Chapter 5 §1(a). Same range for pools and spas -- one unconditional row." },
