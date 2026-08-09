@@ -3533,16 +3533,26 @@ Iowa and Kentucky, which also lack a numeric CT protocol, at least have
 *some* closure trigger tied to contamination (Kentucky's §17(1)(i));
 Louisiana appears to have neither.
 
-**Open items for Louisiana:** (1) the entire chapter reads as unusually
-sparse compared to every other state collected — confirm whether a more
-recent LDH rulemaking (post-2010) has updated Chapter 9 with numbers
-this pass didn't find, especially the CYA/alkalinity gap and the
-missing test cadence, before treating this as Louisiana's complete
-current rule; (2) the 0.4 ppm chlorine floor is a genuine, corroborated
-outlier — don't "correct" it toward another state's number, but do
-prioritize this state for a manual recheck given how far it diverges;
-(3) no fecal/vomit/blood protocol and no enumerated closure list exist
-in the source reviewed — confirmed absent, not overlooked.
+**Open items for Louisiana:** (1) ~~confirm whether a more recent LDH
+rulemaking has updated Chapter 9~~ — **re-verified in a later pass**
+(prompted by finding a real miss of this exact shape in West Virginia,
+where a closure chapter existed but simply hadn't been located): Cornell
+LII's own chapter-range index for Part XXIV confirms it spans **Chapter 1
+to Chapter 9 and nothing further** — there is no higher-numbered
+enforcement/closure/violations chapter to have missed, unlike West
+Virginia's §64-16-13. The Justia mirror's "updated through September
+2024" timestamp likely reflects a minor in-place amendment, not a new
+chapter; the CYA/alkalinity/test-cadence gaps and the absent closure
+list stand as genuinely confirmed, not overlooked. (One caveat: the
+finalsite.net "November 2023 full Title 51" link originally flagged as
+a follow-up source turned out to be misfiled — it resolves to Part XXI,
+Day Care Centers, not Part XXIV — so that specific source cannot be
+used to double-check this; the Cornell LII chapter-range check above is
+a better substitute for the same purpose.) (2) the 0.4 ppm chlorine
+floor is a genuine, corroborated outlier — don't "correct" it toward
+another state's number; (3) no fecal/vomit/blood protocol and no
+enumerated closure list exist in the source reviewed — confirmed
+absent, not overlooked, now doubly confirmed by the chapter-range check.
 
 **Sources used:**
 - [Title 51, Part XXIV — Swimming Pools and Natural or Semi-Artificial Swimming or Bathing Places (poolweb.com, mirrored copy of the LDH-promulgated text)](https://assets.poolweb.com/state_regs/louisiana.pdf) — read via direct text extraction (pdftotext), not tool summarization; every citation above comes from this document
