@@ -116,6 +116,17 @@ export default async function SettingsPage() {
           </button>
         </form>
       </section>
+
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-brand-ink">Pay rates</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          Set what each technician is paid per body of water, and the pay-period cycle used for their
+          estimated-earnings total.
+        </p>
+        <a href="/dashboard/settings/pay-rates" className="app-link mt-2 inline-block text-sm">
+          Manage pay rates →
+        </a>
+      </section>
     </main>
   );
 }

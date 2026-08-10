@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getTechnicianEarnings } from "@/lib/technician-pay";
 
 function startOfWeek(d: Date) {
   const day = d.getDay(); // 0 = Sunday
@@ -23,6 +24,10 @@ function toMonthParam(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function fmtMoney(n: number): string {
+  return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
+
 export async function TechnicianHome({
   appUser,
   monthParam,
@@ -41,7 +46,7 @@ export async function TechnicianHome({
   const nextMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
   const isCurrentMonth = monthStart.getFullYear() === now.getFullYear() && monthStart.getMonth() === now.getMonth();
 
-  const [weekVisits, monthVisits] = await Promise.all([
+  const [weekVisits, monthVisits, earnings] = await Promise.all([
     prisma.serviceVisit.findMany({
       where: { technicianId: appUser.id, scheduledStart: { gte: weekStart, lt: weekEnd }, status: { in: ["COMPLETED", "CANCELLED"] } },
       select: { status: true },
@@ -50,6 +55,7 @@ export async function TechnicianHome({
       where: { technicianId: appUser.id, scheduledStart: { gte: monthStart, lt: monthEnd }, status: { in: ["COMPLETED", "CANCELLED"] } },
       select: { status: true },
     }),
+    getTechnicianEarnings(appUser.organizationId, appUser.id, now),
   ]);
 
   const weekStats = {
@@ -81,6 +87,24 @@ export async function TechnicianHome({
           </div>
           <span className="text-xl text-brand-primary">›</span>
         </Link>
+
+        <section className="app-card lg:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Estimated earnings</p>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-center">
+            <div>
+              <p className="app-metric text-3xl font-bold text-brand-primary">{fmtMoney(earnings.todayTotal)}</p>
+              <p className="text-xs text-brand-muted">Today ({earnings.todayVisitCount} stop{earnings.todayVisitCount === 1 ? "" : "s"})</p>
+            </div>
+            <div>
+              <p className="app-metric text-3xl font-bold text-brand-ink">{fmtMoney(earnings.periodTotal)}</p>
+              <p className="text-xs text-brand-muted">
+                This pay period ({earnings.periodStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })}–
+                {earnings.periodEnd.toLocaleDateString(undefined, { month: "short", day: "numeric" })})
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-center text-xs text-brand-muted">Estimated — confirmed amount appears on your paycheck.</p>
+        </section>
 
         <section className="app-card">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">This week</p>

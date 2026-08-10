@@ -119,6 +119,8 @@ model Organization {
   adHocStops            AdHocStop[]
   dosingProductSettings OrgChemicalProductSetting[]
   complianceTargets     OrgComplianceTarget[]
+  technicianPayRates    TechnicianPayRate[]
+  payrollSettings       OrgPayrollSettings?
 
   @@index([complianceRulesetId])
 }
@@ -422,6 +424,9 @@ model User {
   adHocStops                     AdHocStop[]             @relation("AdHocStopTechnician")
   createdAdHocStops              AdHocStop[]             @relation("AdHocStopCreatedBy")
   recordedContaminationIncidents ContaminationIncident[]
+  payRatesAsTechnician           TechnicianPayRate[]     @relation("TechnicianPayRateTechnician")
+  payRatesCreated                TechnicianPayRate[]     @relation("TechnicianPayRateCreatedBy")
+  payrollSettingsUpdates         OrgPayrollSettings[]
 
   @@index([organizationId])
 }
@@ -611,6 +616,8 @@ model BodyOfWater {
   /// body's filtration system, without being the body where the incident was discovered.
   cascadedIncidents      ContaminationIncident[]     @relation("CascadedFiltrationClosure")
   volumeCalculation      VolumeCalculation?
+  payRates               TechnicianPayRate[]         @relation("TechnicianPayRateBody")
+  bundledIntoPayRates    TechnicianPayRate[]         @relation("TechnicianPayRateBundledInto")
 
   @@index([propertyId])
 }
@@ -930,21 +937,21 @@ model VisitWaterReading {
   visitId String       @unique
   visit   ServiceVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
 
-  ph               Decimal? @db.Decimal(4, 2)
-  freeChlorinePpm  Decimal? @db.Decimal(6, 2)
-  totalChlorinePpm Decimal? @db.Decimal(6, 2)
+  ph                 Decimal? @db.Decimal(4, 2)
+  freeChlorinePpm    Decimal? @db.Decimal(6, 2)
+  totalChlorinePpm   Decimal? @db.Decimal(6, 2)
   /// Alternative to freeChlorinePpm -- which one applies is determined by this body of
   /// water's own disinfectionMethod (BodyOfWater.disinfectionMethod), not both at once.
-  brominePpm       Decimal? @db.Decimal(6, 2)
-  alkalinityPpm    Decimal? @db.Decimal(8, 2)
-  cyanuricAcidPpm  Decimal? @db.Decimal(8, 2)
+  brominePpm         Decimal? @db.Decimal(6, 2)
+  alkalinityPpm      Decimal? @db.Decimal(8, 2)
+  cyanuricAcidPpm    Decimal? @db.Decimal(8, 2)
   /// Not required by any state's compliance log -- captured only for orgs that want the
   /// dosing calculator's Calcium Hardness recommendation (dosing-calculator-spec.md).
   calciumHardnessPpm Decimal? @db.Decimal(8, 2)
   /// Salt/SWG-generator level -- same as calciumHardnessPpm, dosing-calculator input only.
   saltPpm            Decimal? @db.Decimal(8, 2)
   /// Optional — not required for your SNHD workflow
-  temperatureF     Decimal? @db.Decimal(5, 2)
+  temperatureF       Decimal? @db.Decimal(5, 2)
 
   filterPressurePsi  Decimal? @db.Decimal(6, 2)
   vacGaugeReading    Decimal? @db.Decimal(6, 2)
@@ -1202,19 +1209,19 @@ model ChemicalProductCatalog {
   /// with no meaningful "percent active" concept.
   activePercent Decimal? @db.Decimal(5, 2)
 
-  dosingUnit   DosingUnit
+  dosingUnit       DosingUnit
   /// Amount of dosingUnit needed to move 1 ppm per 10,000 gallons -- see
   /// dosing-calculator-spec.md Section 6 for the full reference table and derivation.
   /// EXCEPTION: for PH_UP/PH_DOWN products, this is per 1.0 pH unit (not 1 ppm) per
   /// 10,000 gallons, since pH has no ppm concept -- the calculator's target-delta math is
   /// identical either way (targetValue - currentValue), only the unit of that delta differs.
-  dosingFactor Decimal    @db.Decimal(10, 4)
+  dosingFactor     Decimal    @db.Decimal(10, 4)
   /// CYA ppm added per 1 ppm of Free Chlorine raised by this product -- the dichlor/
   /// trichlor stabilizer cross-effect (Section 6: "also adds ~0.9 ppm CYA per ppm FC").
   /// Null for products with no stabilizer content (liquid chlorine, cal-hypo). Drives the
   /// "avoid stabilizer same visit as shock" sequencing warning without string-matching
   /// product names.
-  cyaAddedPerFcPpm Decimal? @db.Decimal(6, 3)
+  cyaAddedPerFcPpm Decimal?   @db.Decimal(6, 3)
 
   defaultMaxDosePerVisit   Decimal? @db.Decimal(10, 2)
   defaultRoundingIncrement Decimal  @db.Decimal(10, 4)
@@ -1303,4 +1310,117 @@ model OrgComplianceTarget {
 
   @@unique([organizationId, state, chemicalType])
   @@index([organizationId])
+}
+
+/// How an org's pay period resets -- see OrgPayrollSettings. tech-earnings-tracker-spec.md
+/// Section 7: this app is white-labeled for other pool service companies, and pay cycles
+/// vary by org, so period-boundary math (lib/technician-pay.ts) always branches on this
+/// rather than assuming any one org's cycle.
+enum PayPeriodType {
+  WEEKLY
+  BIWEEKLY
+  SEMI_MONTHLY
+  MONTHLY
+}
+
+/// How an org pays its technicians. PER_PROPERTY (flat rate per technician x body of
+/// water, via TechnicianPayRate) is the only value actually wired up in v1 -- see
+/// tech-earnings-tracker-spec.md Section 8. Deliberately not adding HOURLY/
+/// FLAT_PER_VISIT/PROPERTY_TYPE_TIERED members yet: those need their own tables and
+/// calculation-service branches (hourly in particular runs on elapsed time, not visits
+/// completed) that don't exist yet, so an unused enum value with no backing logic would be
+/// misleading rather than useful groundwork.
+enum PayStructureType {
+  PER_PROPERTY
+}
+
+/// One row per org -- org-configurable pay-period and pay-structure settings for the
+/// technician earnings tracker (tech-earnings-tracker-spec.md Sections 7-8). Period-
+/// boundary and rate-lookup logic (lib/technician-pay.ts) always branches on this row
+/// rather than assuming any one org's cycle -- Lindley's own semi-monthly/15th split is
+/// just this org's seeded setting (prisma/seed.ts), not global application logic.
+model OrgPayrollSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  payPeriodType    PayPeriodType    @default(SEMI_MONTHLY)
+  /// Only PER_PROPERTY is wired up in v1 -- see the PayStructureType doc comment.
+  payStructureType PayStructureType @default(PER_PROPERTY)
+
+  /// Used when payPeriodType = WEEKLY. ISO weekday (Mon=1..Sun=7), matching
+  /// RecurringRoute.dayOfWeek's own convention -- see lib/visit-generation.ts.
+  weeklyStartDayOfWeek    Int?
+  /// Used when payPeriodType = BIWEEKLY -- first day of a known past pay period, the fixed
+  /// reference point every subsequent 14-day window is calculated from (biweekly isn't
+  /// calendar-aligned like semi-monthly, so a day-of-month isn't enough -- it needs an
+  /// anchor date).
+  biweeklyAnchorStartDate DateTime? @db.Date
+  /// Used when payPeriodType = SEMI_MONTHLY. Standard is 1st-15th / 16th-end of month;
+  /// this exists in case an org splits differently, though 15 covers the common case.
+  semiMonthlySplitDay     Int?      @default(15)
+  /// Used when payPeriodType = MONTHLY -- day of month the period resets.
+  monthlyPayDay           Int?
+
+  updatedByUserId String?
+  updatedByUser   User?   @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Per-(technician, body of water) flat pay rate -- what THIS tech is paid for completing
+/// a service visit at THIS body of water, admin-set and admin-only visible. Powers the
+/// technician's running "Estimated Earnings" total on TechnicianHome; the tech never sees
+/// this table directly, only the aggregate total -- see lib/technician-pay.ts. Only the v1
+/// PER_PROPERTY pay structure reads this table, and only through resolveRateForVisit()
+/// there, never ad hoc -- see that function's doc comment for why.
+///
+/// History is kept rather than overwritten -- effectiveDate + isActive let a rate change
+/// apply going forward without altering what a past, already-completed visit should have
+/// paid. Earnings are always recomputed live from current ServiceVisit state (never an
+/// incremental counter), so a visit reverted/rescheduled after completion is reflected
+/// automatically with no separate reversal hook needed.
+model TechnicianPayRate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  technicianId String
+  technician   User   @relation("TechnicianPayRateTechnician", fields: [technicianId], references: [id], onDelete: Cascade)
+
+  bodyOfWaterId String
+  bodyOfWater   BodyOfWater @relation("TechnicianPayRateBody", fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+
+  /// Flat $ paid to this tech for completing a service visit at this body of water. Can
+  /// legitimately be 0 -- see isBundled below.
+  rateAmount Decimal @db.Decimal(10, 2)
+
+  /// True when this body of water's pay is folded into another body at the same property
+  /// (the common case: a spa's pay is bundled into its paired pool's rate, so the spa
+  /// itself pays $0 on its own). A rateAmount: 0 row with isBundled: true is a valid,
+  /// intentional state -- never treated as a missing rate by the "Unrated visits" check.
+  isBundled Boolean @default(false)
+
+  /// Which body of water actually carries the combined rate, for admin clarity/audit only
+  /// -- NOT used in earnings calculation (rateAmount already reflects the real number to
+  /// add, even if 0). Purely so an admin looking at the rate table later understands WHY a
+  /// row is $0 instead of wondering if it was missed.
+  bundledIntoBodyOfWaterId String?
+  bundledIntoBodyOfWater   BodyOfWater? @relation("TechnicianPayRateBundledInto", fields: [bundledIntoBodyOfWaterId], references: [id], onDelete: SetNull)
+
+  isActive      Boolean  @default(true)
+  /// Date this rate takes effect. A visit's earnings use the rate that was active as of
+  /// the visit's OWN completion timestamp, not always the latest row.
+  effectiveDate DateTime @db.Date
+
+  createdByUserId String?
+  createdByUser   User?   @relation("TechnicianPayRateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([technicianId, bodyOfWaterId, effectiveDate])
+  @@index([bodyOfWaterId])
 }

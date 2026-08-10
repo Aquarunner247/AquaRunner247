@@ -8,7 +8,7 @@ import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { BodyQrCode } from "@/app/components/body-qr-code";
 import { EquipmentForm } from "./equipment-form";
 import { EquipmentItem } from "./equipment-item";
-import { updateBodyOfWater, deleteBodyOfWater, importVenueReadings, saveVolumeCalculation } from "../../actions";
+import { updateBodyOfWater, deleteBodyOfWater, importVenueReadings, saveVolumeCalculation, setBodyPayRate } from "../../actions";
 import { FilterTypeFields } from "@/app/components/filter-type-fields";
 import { VolumeCalculator } from "@/app/components/volume-calculator";
 
@@ -16,6 +16,10 @@ type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
   searchParams?: Promise<{ imported?: string; importError?: string; importedMonths?: string }>;
 };
+
+function fmtMoney(n: number): string {
+  return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -44,6 +48,27 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
   });
 
   if (!body) notFound();
+
+  // Pay rate -- tech-earnings-tracker-spec.md Section 4's inline entry point. The route
+  // assignment (if any) is shown for context since a rate is meaningless without knowing
+  // which technician actually services this venue; technicians list is the full org
+  // roster, not just the routed one, so an admin can still set a rate ahead of routing.
+  const [routedStop, technicians, payRates] = await Promise.all([
+    prisma.recurringStop.findFirst({
+      where: { bodyOfWaterId: body.id, route: { active: true } },
+      select: { route: { select: { name: true, technicianId: true, technician: { select: { name: true, email: true } } } } },
+    }),
+    prisma.user.findMany({
+      where: { organizationId: appUser.organizationId, role: "TECHNICIAN" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true },
+    }),
+    prisma.technicianPayRate.findMany({
+      where: { bodyOfWaterId: body.id, isActive: true },
+      orderBy: { effectiveDate: "desc" },
+      include: { technician: { select: { name: true, email: true } } },
+    }),
+  ]);
 
   const isResidential = body.property.propertyType === "RESIDENTIAL";
   const publicUrl = isResidential ? null : publicBodyOfWaterUrl(body.publicSlug);
@@ -172,6 +197,62 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
             }
           />
         </div>
+      </section>
+
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-brand-ink">Pay rate</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          {routedStop?.route.technician ? (
+            <>
+              On route <span className="font-medium text-brand-ink">{routedStop.route.name}</span>, assigned to{" "}
+              <span className="font-medium text-brand-ink">{routedStop.route.technician.name ?? routedStop.route.technician.email}</span>.
+            </>
+          ) : (
+            "Not currently on an active route with a technician assigned."
+          )}{" "}
+          Full history and bundled-rate setup live on the{" "}
+          <Link href="/dashboard/settings/pay-rates" className="app-link">
+            Pay rates
+          </Link>{" "}
+          settings page.
+        </p>
+
+        {payRates.length > 0 ? (
+          <ul className="mt-3 space-y-1 text-sm text-brand-ink">
+            {payRates.map((r) => (
+              <li key={r.id}>
+                {r.technician.name ?? r.technician.email}: {fmtMoney(Number(r.rateAmount))}
+                {r.isBundled ? " (bundled)" : ""}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-brand-control">No pay rate set for this venue yet.</p>
+        )}
+
+        <form action={setBodyPayRate} className="app-card-inset mt-4">
+          <input type="hidden" name="bodyId" value={body.id} />
+          <input type="hidden" name="customerId" value={customerId} />
+          <p className="text-sm font-medium text-brand-ink">Add a rate</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+            <select name="technicianId" required defaultValue={routedStop?.route.technicianId ?? ""} className="rounded border border-brand-control px-2 py-1.5 text-sm">
+              <option value="">Technician…</option>
+              {technicians.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name ?? t.email}
+                </option>
+              ))}
+            </select>
+            <input name="rateAmount" type="number" step="0.01" required placeholder="Rate ($)" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+            <label className="flex items-center gap-1 text-xs text-brand-ink">
+              <input type="checkbox" name="isBundled" />
+              Bundled ($0, folded into another body)
+            </label>
+          </div>
+          <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+            Add rate
+          </button>
+        </form>
       </section>
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">

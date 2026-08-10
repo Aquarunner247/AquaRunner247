@@ -80,11 +80,27 @@ The update script only refreshes dependencies; it does NOT start services. On a 
 - Seeded logins (password = `SEED_DEV_PASSWORD`, currently `aquarunner-dev-pass-2026`):
   `pool-admin@example.com`, `pool-office@example.com`, `pool-tech@example.com`.
 - Inspect the DB directly with: `docker exec supabase_db_workspace psql -U postgres -d postgres -c "..."`.
+- Auth is client-side Supabase (`signInWithPassword()` in the browser), so there's no POST-able
+  login form to curl. `npm run dev:login -- <email> [password]` (password defaults to
+  `$SEED_DEV_PASSWORD`) logs in against the local GoTrue REST API and prints a `Cookie` header
+  via `@supabase/ssr`'s own `createServerClient`, so its name/format is guaranteed to match what
+  the app reads back. Use it to curl server-rendered pages directly instead of needing a real
+  browser, e.g.:
+  `COOKIE=$(npm run -s dev:login -- pool-admin@example.com); curl -b "$COOKIE" http://localhost:3000/dashboard/settings`
 
 ### Gotchas
 
 - `npm run lint` and `npm run build` both pass. (`next dev --turbopack` does NOT run full type
   checking, so always run `npm run build` to catch type errors before relying on the app.)
+- Don't run `npm run build` while `npm run dev`/`dev:turbo` is running — both write to `.next/`,
+  and a production build overwriting a live dev server's build output corrupts its module
+  resolution (`Cannot find module './NNNN.js'` / `Cannot find module './vendor-chunks/...'`
+  errors on every route, even ones that were working). If that happens, kill the dev server,
+  `rm -rf .next`, and restart it. Prisma client changes have the same failure mode for a
+  different reason: the dev server's already-running Node process keeps the OLD
+  `generated/prisma` module in memory even after `prisma generate`/`db push` writes new files to
+  disk (`Cannot read properties of undefined (reading 'findMany')` on a newly-added model) — it
+  needs a restart, not just a recompile, to pick up schema changes.
 - `prisma generate` runs as a `postinstall` hook and reads `.env` via `prisma.config.ts`, so it
   fails if `DATABASE_URL` is unset. Keep `.env` present before `npm install`.
 - Photo upload only stores a metadata row (no real binary upload yet), so the "Complete service

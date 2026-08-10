@@ -17,6 +17,7 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "db:verify-compliance-seed": "node --env-file=.env node_modules/.bin/tsx prisma/verify-compliance-seed.ts",
+    "dev:login": "node --env-file=.env node_modules/.bin/tsx scripts/dev-login-cookie.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
