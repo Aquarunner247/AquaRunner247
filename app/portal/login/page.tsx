@@ -3,7 +3,7 @@ import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
 import { PortalLoginForm } from "./login-form";
 
 type PageProps = {
-  searchParams?: Promise<{ error?: string }>;
+  searchParams?: Promise<{ error?: string; reset?: string }>;
 };
 
 export default async function PortalLoginPage({ searchParams }: PageProps) {
@@ -22,6 +22,9 @@ export default async function PortalLoginPage({ searchParams }: PageProps) {
         </p>
         {params.error === "no-access" ? (
           <p className="mt-3 text-sm text-brand-danger">That account doesn&rsquo;t have customer portal access.</p>
+        ) : null}
+        {params.reset === "success" ? (
+          <p className="mt-3 text-sm text-brand-ok">Password updated — sign in with your new password.</p>
         ) : null}
       </div>
       <PortalLoginForm />

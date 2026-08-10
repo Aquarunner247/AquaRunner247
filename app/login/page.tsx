@@ -4,7 +4,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { LoginForm } from "./login-form";
 
 type PageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: PageProps) {
@@ -23,6 +23,9 @@ export default async function LoginPage({ searchParams }: PageProps) {
         ) : null}
         {params.error === "email-in-use" ? (
           <p className="mt-3 text-sm text-brand-danger">That email already has an account. Sign in below.</p>
+        ) : null}
+        {params.reset === "success" ? (
+          <p className="mt-3 text-sm text-brand-ok">Password updated — sign in with your new password.</p>
         ) : null}
       </div>
       <LoginForm />
