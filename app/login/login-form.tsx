@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
@@ -37,7 +38,12 @@ export function LoginForm() {
         />
       </label>
       <label className="flex flex-col gap-1 text-sm text-brand-ink">
-        Password
+        <span className="flex items-center justify-between">
+          Password
+          <Link href="/forgot-password" className="text-xs font-medium text-brand-primary underline">
+            Forgot password?
+          </Link>
+        </span>
         <input
           type="password"
           autoComplete="current-password"
