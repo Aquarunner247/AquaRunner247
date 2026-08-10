@@ -16,6 +16,7 @@
     "db:migrate": "prisma migrate dev && prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "dev:login": "node --env-file=.env node_modules/.bin/tsx scripts/dev-login-cookie.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

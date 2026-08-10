@@ -11,6 +11,8 @@ import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/cust
 import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
 import { sendCustomerAlertEmail } from "@/lib/email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
+import { parseFormNumber as numOrNull } from "@/lib/form-utils";
+import { createPayRateRow } from "@/lib/technician-pay";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -353,6 +355,50 @@ export async function updateBodyOfWater(formData: FormData) {
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);
   redirect(`/dashboard/customers/${customerId}?tab=bodies`);
+}
+
+/**
+ * The inline "Pay rate" entry point on a body of water's own detail page --
+ * tech-earnings-tracker-spec.md Section 4's fast path, letting an admin set a technician's
+ * rate for this venue in the same screen/moment as assigning them to it. Writes through
+ * lib/technician-pay.ts's createPayRateRow, the same INSERT the dedicated Settings > Pay
+ * Rates table uses, so a rate set here shows up there immediately and vice versa. Always a
+ * new effective-dated row, never an overwrite -- see TechnicianPayRate's schema doc.
+ */
+export async function setBodyPayRate(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const technicianId = String(formData.get("technicianId") ?? "").trim();
+  const rateAmount = numOrNull(formData.get("rateAmount"));
+  const isBundled = formData.get("isBundled") != null;
+  if (!bodyId || !customerId || !technicianId || rateAmount == null) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  const technician = await prisma.user.findFirst({
+    where: { id: technicianId, organizationId: appUser.organizationId, role: "TECHNICIAN" },
+    select: { id: true },
+  });
+  if (!technician) return;
+
+  await createPayRateRow({
+    organizationId: appUser.organizationId,
+    technicianId,
+    bodyOfWaterId: body.id,
+    rateAmount,
+    isBundled,
+    bundledIntoBodyOfWaterId: null,
+    effectiveDate: new Date(),
+    createdByUserId: appUser.id,
+  });
+
+  revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
+  redirect(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
 }
 
 export async function deleteBodyOfWater(formData: FormData) {

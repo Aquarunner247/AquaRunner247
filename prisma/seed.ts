@@ -54,6 +54,15 @@ async function main() {
     update: { name: "AquaRunner (seed)" },
   });
 
+  // Technician earnings tracker -- matches this org's actual semi-monthly (15th/last-day)
+  // pay cycle; see tech-earnings-tracker-spec.md Section 7. Other orgs get their own row
+  // set from the Settings > Pay Rates page rather than inheriting this default.
+  await prisma.orgPayrollSettings.upsert({
+    where: { organizationId: org.id },
+    create: { organizationId: org.id, payPeriodType: "SEMI_MONTHLY", semiMonthlySplitDay: 15 },
+    update: { payPeriodType: "SEMI_MONTHLY", semiMonthlySplitDay: 15 },
+  });
+
   const customer = await prisma.customer.upsert({
     where: { id: "seed-customer-1" },
     create: {

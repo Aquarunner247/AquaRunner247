@@ -93,30 +93,32 @@ model Organization {
   businessPhone String?
 
   planStatus           OrganizationPlanStatus @default(TRIALING)
-  trialEndsAt           DateTime?
-  stripeCustomerId      String?   @unique
-  stripeSubscriptionId  String?   @unique
-  currentPeriodEnd      DateTime?
+  trialEndsAt          DateTime?
+  stripeCustomerId     String?                @unique
+  stripeSubscriptionId String?                @unique
+  currentPeriodEnd     DateTime?
 
   /// Captured at signup — USPS 2-letter code ("NV", "CA", ...). Null for accounts that
   /// predate multi-state support and haven't been backfilled yet.
-  state                String?
+  state               String?
   /// Captured at signup — whether this account services any commercial pools at all.
   /// Null means "not asked yet" (pre-multi-state accounts); false means residential-only,
   /// so compliance features never apply regardless of state support.
-  hasCommercialPools   Boolean?
-  complianceRulesetId  String?
-  complianceRuleset    ComplianceRuleset? @relation(fields: [complianceRulesetId], references: [id])
+  hasCommercialPools  Boolean?
+  complianceRulesetId String?
+  complianceRuleset   ComplianceRuleset? @relation(fields: [complianceRulesetId], references: [id])
 
-  users     User[]
-  customers Customer[]
-  properties Property[]
+  users               User[]
+  customers           Customer[]
+  properties          Property[]
   managementCompanies ManagementCompany[]
-  chemicalProducts ChemicalProduct[]
-  checklistItems ChecklistItemDefinition[]
-  recurringRoutes RecurringRoute[]
-  serviceVisits   ServiceVisit[]
-  adHocStops      AdHocStop[]
+  chemicalProducts    ChemicalProduct[]
+  checklistItems      ChecklistItemDefinition[]
+  recurringRoutes     RecurringRoute[]
+  serviceVisits       ServiceVisit[]
+  adHocStops          AdHocStop[]
+  technicianPayRates  TechnicianPayRate[]
+  payrollSettings     OrgPayrollSettings?
 
   @@index([complianceRulesetId])
 }
@@ -152,10 +154,10 @@ model ComplianceRuleset {
   countyName        String?
 
   /// e.g. "5 CCR 1003-5", "18 AAC 30", "CT Public Health Code § 19-13-B33b"
-  officialCitation String?
+  officialCitation      String?
   /// The actual source document(s) extracted from, e.g. "Guidelines for Arkansas Pools,
   /// Spas, and Other Aquatic Facility Operators -- Updated Edition, 2026"
-  sourceDocument String?
+  sourceDocument        String?
   /// How long operating logs must be retained on file, in months (12 for AL/AZ, 24 for
   /// CA, null where the source doesn't state one).
   recordRetentionMonths Int?
@@ -169,7 +171,7 @@ model ComplianceRuleset {
   /// Markdown body rendered on the in-app state code reference page. Only populated for
   /// Nevada so far -- extending the reference page to the other 8 states is a separate
   /// pass (see COMPLIANCE_RULESET_NOTES.md).
-  referenceContent String? @db.Text
+  referenceContent   String? @db.Text
 
   chemistryThresholds ChemistryThreshold[]
   frequencyRules      FrequencyRule[]
@@ -224,10 +226,10 @@ model ChemistryThreshold {
   /// deliberately NOT built" section. Null = unconditional.
   appliesWhen         String?
 
-  minValue Decimal? @db.Decimal(10, 3)
-  idealMin Decimal? @db.Decimal(10, 3)
-  idealMax Decimal? @db.Decimal(10, 3)
-  maxValue Decimal? @db.Decimal(10, 3)
+  minValue  Decimal? @db.Decimal(10, 3)
+  idealMin  Decimal? @db.Decimal(10, 3)
+  idealMax  Decimal? @db.Decimal(10, 3)
+  maxValue  Decimal? @db.Decimal(10, 3)
   /// A separate, optional tier that triggers closure risk specifically -- distinct from
   /// the routine min/max above (Nevada's pH hazard band 6.5-8.0 vs. its 7.2-7.8 target).
   /// Most states collected so far only have one tier; hazardMin/Max stay null there.
@@ -273,10 +275,10 @@ model FrequencyRule {
   bodyOfWaterCategory String?
   /// A property attribute (not a pool type) that changes frequency -- e.g.
   /// "common_interest_development_under_25_units" (California's small-HOA exception).
-  facilityAttribute String?
+  facilityAttribute   String?
 
-  cadence         String?
-  intervalMinutes Int?
+  cadence            String?
+  intervalMinutes    Int?
   /// California's combined-chlorine cadence is "whatever frequency maintains
   /// compliance," not a stated number -- cadence/intervalMinutes hold the closest
   /// stated approximation (if any); this flag says don't treat that as a hard interval.
@@ -314,8 +316,8 @@ model EventProtocol {
   /// value, hold time) but kept as text this pass -- e.g. "Free chlorine >= 2.0 ppm AND
   /// pH <= 7.5, maintained 30 minutes", or Florida's descend-below-ceiling mirror case:
   /// "Free chlorine <= 10.0 mg/L".
-  reopeningCondition String  @db.Text
-  remediationSteps   String? @db.Text
+  reopeningCondition          String  @db.Text
+  remediationSteps            String? @db.Text
 
   /// Chemical-triggered obligations (Florida: CYA/quat-ammonium/ozone/copper need a
   /// dedicated test kit; silver needs a full lab analysis every six months).
@@ -383,21 +385,24 @@ model User {
   /// Supabase Auth user id (`auth.users.id`) — set after user is created in Supabase
   authUserId String? @unique @db.Uuid
 
-  email     String   @unique
-  name      String?
-  role      UserRole @default(TECHNICIAN)
-  phone     String?
-  active    Boolean  @default(true)
+  email           String   @unique
+  name            String?
+  role            UserRole @default(TECHNICIAN)
+  phone           String?
+  active          Boolean  @default(true)
   /// Platform-level oversight access across ALL organizations — separate from the per-org `role`. Never settable via any UI; set manually by the platform owner.
-  isPlatformAdmin Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isPlatformAdmin Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  assignedVisits ServiceVisit[] @relation("VisitTechnician")
-  assignedRoutes RecurringRoute[] @relation("RouteTechnician")
-  sentAlerts     CustomerAlert[]
-  adHocStops        AdHocStop[] @relation("AdHocStopTechnician")
-  createdAdHocStops AdHocStop[] @relation("AdHocStopCreatedBy")
+  assignedVisits         ServiceVisit[]       @relation("VisitTechnician")
+  assignedRoutes         RecurringRoute[]     @relation("RouteTechnician")
+  sentAlerts             CustomerAlert[]
+  adHocStops             AdHocStop[]          @relation("AdHocStopTechnician")
+  createdAdHocStops      AdHocStop[]          @relation("AdHocStopCreatedBy")
+  payRatesAsTechnician   TechnicianPayRate[]  @relation("TechnicianPayRateTechnician")
+  payRatesCreated        TechnicianPayRate[]  @relation("TechnicianPayRateCreatedBy")
+  payrollSettingsUpdates OrgPayrollSettings[]
 
   @@index([organizationId])
 }
@@ -413,10 +418,10 @@ model Customer {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  properties     Property[]
-  documents      CustomerDocument[]
-  customerUsers  CustomerUser[]
-  alerts         CustomerAlert[]
+  properties    Property[]
+  documents     CustomerDocument[]
+  customerUsers CustomerUser[]
+  alerts        CustomerAlert[]
 
   @@index([organizationId])
 }
@@ -481,40 +486,40 @@ model Property {
   customerId     String?
   customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
-  name                  String
+  name                 String
   /// Drives which on-site service form/compliance rules apply — single source of truth,
   /// not an account- or login-level setting.
-  propertyType          PropertyType @default(COMMERCIAL)
-  managerName           String?
-  managerBusinessPhone  String?
-  managerMobilePhone    String?
-  managerPhone          String?
-  managerEmail          String?
+  propertyType         PropertyType       @default(COMMERCIAL)
+  managerName          String?
+  managerBusinessPhone String?
+  managerMobilePhone   String?
+  managerPhone         String?
+  managerEmail         String?
   /// On-site maintenance contact — separate from the property manager above.
-  maintenanceName       String?
-  maintenanceCellPhone  String?
-  maintenanceEmail      String?
+  maintenanceName      String?
+  maintenanceCellPhone String?
+  maintenanceEmail     String?
   /// Residential-only: replaces Manager/Maintenance above for propertyType RESIDENTIAL.
-  ownerName             String?
-  ownerMobilePhone      String?
-  ownerHomePhone        String?
-  ownerEmail            String?
+  ownerName            String?
+  ownerMobilePhone     String?
+  ownerHomePhone       String?
+  ownerEmail           String?
   /// Residential-only: directions for reaching the pool (gate code, parking, side yard, etc.)
-  accessNotes           String?
+  accessNotes          String?
   /// Residential-only: whether a dog is on the property, for technician awareness/safety.
-  hasDog                Boolean @default(false)
-  managementCompanyId String?
-  managementCompany   ManagementCompany? @relation(fields: [managementCompanyId], references: [id], onDelete: SetNull)
-  addressLine1          String?
-  addressLine2          String?
-  city                  String?
-  region                String?
-  postalCode            String?
-  country               String? @default("US")
-  latitude              Decimal? @db.Decimal(10, 7)
-  longitude             Decimal? @db.Decimal(10, 7)
-  geofenceMeters        Int?
-  notes                 String?
+  hasDog               Boolean            @default(false)
+  managementCompanyId  String?
+  managementCompany    ManagementCompany? @relation(fields: [managementCompanyId], references: [id], onDelete: SetNull)
+  addressLine1         String?
+  addressLine2         String?
+  city                 String?
+  region               String?
+  postalCode           String?
+  country              String?            @default("US")
+  latitude             Decimal?           @db.Decimal(10, 7)
+  longitude            Decimal?           @db.Decimal(10, 7)
+  geofenceMeters       Int?
+  notes                String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -534,12 +539,12 @@ model BodyOfWater {
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  name         String
-  type         BodyOfWaterType @default(POOL)
-  volumeGallons Decimal?        @db.Decimal(12, 2)
+  name             String
+  type             BodyOfWaterType @default(POOL)
+  volumeGallons    Decimal?        @db.Decimal(12, 2)
   /// SNHD-posted maximum bather load for this body of water
   maximumOccupancy Int?
-  notes        String?
+  notes            String?
 
   /// SNHD log footer: minimum required recirculation flow (GPM)
   minimumRequiredFlowGpm Decimal? @db.Decimal(10, 2)
@@ -577,10 +582,12 @@ model BodyOfWater {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  equipment       Equipment[]
-  serviceWeekdays BodyOfWaterServiceWeekday[]
-  visits          ServiceVisit[]
-  recurringStops  RecurringStop[]
+  equipment           Equipment[]
+  serviceWeekdays     BodyOfWaterServiceWeekday[]
+  visits              ServiceVisit[]
+  recurringStops      RecurringStop[]
+  payRates            TechnicianPayRate[]         @relation("TechnicianPayRateBody")
+  bundledIntoPayRates TechnicianPayRate[]         @relation("TechnicianPayRateBundledInto")
 
   @@index([propertyId])
 }
@@ -604,35 +611,35 @@ model Equipment {
   bodyOfWaterId String
   bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
 
-  kind         EquipmentKind @default(OTHER)
-  make         String?
-  model        String?
-  serialNumber String?
+  kind           EquipmentKind @default(OTHER)
+  make           String?
+  model          String?
+  serialNumber   String?
   /// For main drain covers, skimmer covers, and valves
-  numberOfPorts Int?
+  numberOfPorts  Int?
   /// Pipe sizing, e.g. "2 in"
-  pipeSize      String?
+  pipeSize       String?
   /// Date this item was last changed, serviced, or fixed
   lastServicedAt DateTime?
-  installedOn  DateTime?
-  notes        String?
+  installedOn    DateTime?
+  notes          String?
 
   /// Pump: motor horsepower
   horsepower Decimal? @db.Decimal(6, 2)
   /// Pump: e.g. "115V", "230V", "115/230V"
-  voltage String?
+  voltage    String?
 
   /// Heater: BTU rating
-  btu Int?
+  btu           Int?
   /// Heater: ASME-certified pressure vessel
   asmeCertified Boolean?
 
   /// Main drain cover: VGB Act compliance year (2008 or 2017)
-  vgbaYear Int?
+  vgbaYear         Int?
   /// Main drain cover: manufactured sump (vs. field-built)
   manufacturedSump Boolean?
   /// Main drain cover: max GPM flow rate (shown in place of serial # for this kind)
-  flowRateGpm Decimal? @db.Decimal(10, 2)
+  flowRateGpm      Decimal? @db.Decimal(10, 2)
 
   /// Skimmer cover: equalizer line abandoned
   equalizerAbandoned Boolean?
@@ -672,13 +679,13 @@ model RecurringRoute {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  name      String
+  name         String
   /// Default assigned technician for generated visits (1 route per tech per day).
   technicianId String?
-  technician   User?   @relation("RouteTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
-  frequency ScheduleFrequency @default(WEEKLY)
-  dayOfWeek Int?
-  active    Boolean           @default(true)
+  technician   User?             @relation("RouteTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+  frequency    ScheduleFrequency @default(WEEKLY)
+  dayOfWeek    Int?
+  active       Boolean           @default(true)
 
   /// Soft cap for Smart Route Placement suggestions and the manual Routes page load
   /// badge — null means unlimited. Advisory only, never enforced against manual
@@ -782,11 +789,11 @@ model ServiceVisit {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  reading         VisitWaterReading?
-  doses           VisitChemicalDose[]
-  photos          VisitPhoto[]
-  issues          VisitIssueFlag[]
-  recommendation ChemistryRecommendation?
+  reading              VisitWaterReading?
+  doses                VisitChemicalDose[]
+  photos               VisitPhoto[]
+  issues               VisitIssueFlag[]
+  recommendation       ChemistryRecommendation?
   checklistCompletions VisitChecklistCompletion[]
 
   @@index([organizationId, scheduledStart])
@@ -822,8 +829,8 @@ model VisitWaterReading {
   backwashAt DateTime?
 
   capturedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model ChemicalProduct {
@@ -855,7 +862,7 @@ model VisitChemicalDose {
   chemicalProduct   ChemicalProduct? @relation(fields: [chemicalProductId], references: [id], onDelete: SetNull)
 
   productName String
-  quantity    Decimal @db.Decimal(12, 4)
+  quantity    Decimal  @db.Decimal(12, 4)
   unit        String
   /// Cost/charge per unit, snapshotted at the time this dose was logged so
   /// historical billing stays accurate even if catalog prices change later.
@@ -876,9 +883,9 @@ model VisitPhoto {
   storagePath    String
   contentType    String?
   takenAt        DateTime?
-  latitude       Decimal? @db.Decimal(10, 7)
-  longitude      Decimal? @db.Decimal(10, 7)
-  accuracyMeters Decimal? @db.Decimal(8, 2)
+  latitude       Decimal?  @db.Decimal(10, 7)
+  longitude      Decimal?  @db.Decimal(10, 7)
+  accuracyMeters Decimal?  @db.Decimal(8, 2)
 
   createdAt DateTime @default(now())
 
@@ -954,4 +961,117 @@ model WaitlistSignup {
   id        String   @id @default(cuid())
   email     String   @unique
   createdAt DateTime @default(now())
+}
+
+/// How an org's pay period resets -- see OrgPayrollSettings. tech-earnings-tracker-spec.md
+/// Section 7: this app is white-labeled for other pool service companies, and pay cycles
+/// vary by org, so period-boundary math (lib/technician-pay.ts) always branches on this
+/// rather than assuming any one org's cycle.
+enum PayPeriodType {
+  WEEKLY
+  BIWEEKLY
+  SEMI_MONTHLY
+  MONTHLY
+}
+
+/// How an org pays its technicians. PER_PROPERTY (flat rate per technician x body of
+/// water, via TechnicianPayRate) is the only value actually wired up in v1 -- see
+/// tech-earnings-tracker-spec.md Section 8. Deliberately not adding HOURLY/
+/// FLAT_PER_VISIT/PROPERTY_TYPE_TIERED members yet: those need their own tables and
+/// calculation-service branches (hourly in particular runs on elapsed time, not visits
+/// completed) that don't exist yet, so an unused enum value with no backing logic would be
+/// misleading rather than useful groundwork.
+enum PayStructureType {
+  PER_PROPERTY
+}
+
+/// One row per org -- org-configurable pay-period and pay-structure settings for the
+/// technician earnings tracker (tech-earnings-tracker-spec.md Sections 7-8). Period-
+/// boundary and rate-lookup logic (lib/technician-pay.ts) always branches on this row
+/// rather than assuming any one org's cycle -- Lindley's own semi-monthly/15th split is
+/// just this org's seeded setting (prisma/seed.ts), not global application logic.
+model OrgPayrollSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  payPeriodType    PayPeriodType    @default(SEMI_MONTHLY)
+  /// Only PER_PROPERTY is wired up in v1 -- see the PayStructureType doc comment.
+  payStructureType PayStructureType @default(PER_PROPERTY)
+
+  /// Used when payPeriodType = WEEKLY. ISO weekday (Mon=1..Sun=7), matching
+  /// RecurringRoute.dayOfWeek's own convention -- see lib/visit-generation.ts.
+  weeklyStartDayOfWeek    Int?
+  /// Used when payPeriodType = BIWEEKLY -- first day of a known past pay period, the fixed
+  /// reference point every subsequent 14-day window is calculated from (biweekly isn't
+  /// calendar-aligned like semi-monthly, so a day-of-month isn't enough -- it needs an
+  /// anchor date).
+  biweeklyAnchorStartDate DateTime? @db.Date
+  /// Used when payPeriodType = SEMI_MONTHLY. Standard is 1st-15th / 16th-end of month;
+  /// this exists in case an org splits differently, though 15 covers the common case.
+  semiMonthlySplitDay     Int?      @default(15)
+  /// Used when payPeriodType = MONTHLY -- day of month the period resets.
+  monthlyPayDay           Int?
+
+  updatedByUserId String?
+  updatedByUser   User?   @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Per-(technician, body of water) flat pay rate -- what THIS tech is paid for completing
+/// a service visit at THIS body of water, admin-set and admin-only visible. Powers the
+/// technician's running "Estimated Earnings" total on TechnicianHome; the tech never sees
+/// this table directly, only the aggregate total -- see lib/technician-pay.ts. Only the v1
+/// PER_PROPERTY pay structure reads this table, and only through resolveRateForVisit()
+/// there, never ad hoc -- see that function's doc comment for why.
+///
+/// History is kept rather than overwritten -- effectiveDate + isActive let a rate change
+/// apply going forward without altering what a past, already-completed visit should have
+/// paid. Earnings are always recomputed live from current ServiceVisit state (never an
+/// incremental counter), so a visit reverted/rescheduled after completion is reflected
+/// automatically with no separate reversal hook needed.
+model TechnicianPayRate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  technicianId String
+  technician   User   @relation("TechnicianPayRateTechnician", fields: [technicianId], references: [id], onDelete: Cascade)
+
+  bodyOfWaterId String
+  bodyOfWater   BodyOfWater @relation("TechnicianPayRateBody", fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+
+  /// Flat $ paid to this tech for completing a service visit at this body of water. Can
+  /// legitimately be 0 -- see isBundled below.
+  rateAmount Decimal @db.Decimal(10, 2)
+
+  /// True when this body of water's pay is folded into another body at the same property
+  /// (the common case: a spa's pay is bundled into its paired pool's rate, so the spa
+  /// itself pays $0 on its own). A rateAmount: 0 row with isBundled: true is a valid,
+  /// intentional state -- never treated as a missing rate by the "Unrated visits" check.
+  isBundled Boolean @default(false)
+
+  /// Which body of water actually carries the combined rate, for admin clarity/audit only
+  /// -- NOT used in earnings calculation (rateAmount already reflects the real number to
+  /// add, even if 0). Purely so an admin looking at the rate table later understands WHY a
+  /// row is $0 instead of wondering if it was missed.
+  bundledIntoBodyOfWaterId String?
+  bundledIntoBodyOfWater   BodyOfWater? @relation("TechnicianPayRateBundledInto", fields: [bundledIntoBodyOfWaterId], references: [id], onDelete: SetNull)
+
+  isActive      Boolean  @default(true)
+  /// Date this rate takes effect. A visit's earnings use the rate that was active as of
+  /// the visit's OWN completion timestamp, not always the latest row.
+  effectiveDate DateTime @db.Date
+
+  createdByUserId String?
+  createdByUser   User?   @relation("TechnicianPayRateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([technicianId, bodyOfWaterId, effectiveDate])
+  @@index([bodyOfWaterId])
 }
