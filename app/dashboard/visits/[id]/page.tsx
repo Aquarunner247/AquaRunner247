@@ -7,7 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VisitForm } from "./visit-form";
 import { ResidentialVisitForm } from "./residential-visit-form";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
-import { computeAndSaveDosingRecommendation } from "@/lib/dosing-calculator";
+import { computeAndSaveDosingRecommendation, getSavedDosingRecommendation } from "@/lib/dosing-calculator";
 import type { VisitWaterReading } from "@/generated/prisma/client";
 
 type PageProps = {
@@ -134,11 +134,17 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
     completed: completionById.get(item.id) ?? false,
   }));
 
-  // Recomputed on every page load (not just read back from storage) since targets/
-  // products can change without a new reading being submitted -- keeps the card honest
-  // relative to the org's current Chemicals-page setup, not stale from whenever the
-  // reading itself was last saved.
-  const dosing = await computeAndSaveDosingRecommendation(visit.id);
+  // Recomputed on every page load while the visit is still active (not just read back from
+  // storage) since targets/products can change without a new reading being submitted --
+  // keeps the card honest relative to the org's current Chemicals-page setup, not stale
+  // from whenever the reading itself was last saved. Once a visit is COMPLETED, though, it
+  // stops changing -- read the frozen recommendation back instead of recomputing it, so
+  // viewing a completed visit later (an audit, browsing history) never silently overwrites
+  // what was actually true at service time with today's config. Matches the PATCH reading
+  // route's own COMPLETED guard (app/api/visits/[id]/reading/route.ts), which is the only
+  // other place this gets computed.
+  const dosing =
+    visit.status === "COMPLETED" ? await getSavedDosingRecommendation(visit.id) : await computeAndSaveDosingRecommendation(visit.id);
 
   const supabaseAdmin = createSupabaseAdminClient();
   const photosWithUrls = await Promise.all(

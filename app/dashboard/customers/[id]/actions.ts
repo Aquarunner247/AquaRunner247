@@ -13,6 +13,7 @@ import { sendCustomerAlertEmail } from "@/lib/email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
 import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
 import { VolumeShape } from "@/generated/prisma/client";
+import { parseFormNumber as numOrNull } from "@/lib/form-utils";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -305,7 +306,7 @@ export async function updateBodyOfWater(formData: FormData) {
       id: bodyId,
       property: { organizationId: appUser.organizationId, customerId },
     },
-    select: { id: true, property: { select: { propertyType: true } } },
+    select: { id: true, property: { select: { propertyType: true } }, volumeCalculation: { select: { calculatedGallons: true } } },
   });
   if (!body) return;
 
@@ -313,6 +314,7 @@ export async function updateBodyOfWater(formData: FormData) {
     ? (typeRaw as BodyOfWaterType)
     : BodyOfWaterType.POOL;
   const volume = volumeRaw ? Number(volumeRaw) : null;
+  const newVolumeGallons = Number.isFinite(volume) ? volume : null;
   const occupancy = occupancyRaw ? Number(occupancyRaw) : null;
 
   let residentialFields = {};
@@ -345,23 +347,25 @@ export async function updateBodyOfWater(formData: FormData) {
     data: {
       name,
       type,
-      volumeGallons: Number.isFinite(volume) ? volume : null,
+      volumeGallons: newVolumeGallons,
       maximumOccupancy: Number.isFinite(occupancy) ? occupancy : null,
       ...residentialFields,
       ...commercialFields,
     },
   });
 
+  // A manually-entered gallons number that no longer matches the last "Calculate volume"
+  // snapshot means that snapshot's dimensions no longer describe this body -- clear it so
+  // reopening the calculator starts fresh instead of pre-filling stale dimensions that
+  // would silently recompute and overwrite this manual correction the next time "Save to
+  // property" is clicked with no edits.
+  if (body.volumeCalculation != null && Number(body.volumeCalculation.calculatedGallons) !== newVolumeGallons) {
+    await prisma.volumeCalculation.delete({ where: { bodyOfWaterId: body.id } });
+  }
+
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);
   redirect(`/dashboard/customers/${customerId}?tab=bodies`);
-}
-
-function numOrNull(raw: FormDataEntryValue | null): number | null {
-  const s = String(raw ?? "").trim();
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
 }
 
 /**

@@ -117,10 +117,14 @@ export function legalBoundsFor(
     return { min: t?.min ?? null, max: t?.max ?? null };
   }
 
+  // Uses the *legal* bound fields, not phTargetMin/Max et al -- those track the state's
+  // narrower "ideal" sub-range where one exists (see activeChemistryThresholds's doc
+  // comment), which is the wrong thing to clamp an org's custom target against here: a
+  // target between the legal bound and the ideal sub-range is still legally compliant.
   const thresholds = activeChemistryThresholds(ruleset);
-  if (key === "PH") return { min: thresholds.phTargetMin, max: thresholds.phTargetMax };
-  if (key === "ALKALINITY") return { min: thresholds.alkalinityTargetMinPpm, max: thresholds.alkalinityTargetMaxPpm };
-  if (key === "CYA") return { min: thresholds.cyaTargetMinPpm, max: thresholds.cyaTargetMaxPpm };
+  if (key === "PH") return { min: thresholds.phLegalMin, max: thresholds.phLegalMax };
+  if (key === "ALKALINITY") return { min: thresholds.alkalinityLegalMinPpm, max: thresholds.alkalinityLegalMaxPpm };
+  if (key === "CYA") return { min: thresholds.cyaLegalMinPpm, max: thresholds.cyaLegalMaxPpm };
   // CALCIUM_HARDNESS, SALT: no health department regulates these -- OrgComplianceTarget
   // (ORG_CUSTOM) is the only way to get a target; see OrgComplianceTarget's schema doc.
   return { min: null, max: null };
@@ -238,6 +242,7 @@ function productChemicalTypeFor(key: DosingChemicalKey, direction: "UP" | "DOWN"
 type CatalogRow = {
   id: string;
   name: string;
+  chemicalType: ChemicalType;
   form: ChemicalProductForm;
   dosingUnit: DosingUnit;
   dosingFactor: unknown;
@@ -253,13 +258,70 @@ type SettingWithCatalog = {
   catalogProduct: CatalogRow;
 };
 
-async function selectPrimaryProduct(organizationId: string, chemicalType: ChemicalType): Promise<SettingWithCatalog | null> {
+/** Every enabled product this org could possibly need for this body's pool-vs-spa scale,
+ * across all 7 product chemical types, fetched once instead of once per chemical (up to 6
+ * sequential round trips previously -- see pickPrimaryProduct's caller). Scoped by
+ * poolOrSpa (schema's documented isPrimary invariant is per (chemicalType, poolOrSpa), not
+ * chemicalType alone) so a POOL- or SPA-specific catalog row is never handed to the wrong
+ * body type; a BOTH-scoped row (every current v1 seed row) matches either. */
+async function loadEnabledProductsByType(
+  organizationId: string,
+  poolOrSpa: "POOL" | "SPA",
+): Promise<Map<ChemicalType, SettingWithCatalog[]>> {
   const settings = await prisma.orgChemicalProductSetting.findMany({
-    where: { organizationId, isEnabled: true, catalogProduct: { chemicalType } },
+    where: { organizationId, isEnabled: true, catalogProduct: { poolOrSpa: { in: [poolOrSpa, "BOTH"] } } },
     include: { catalogProduct: true },
   });
-  if (settings.length === 0) return null;
+  const byType = new Map<ChemicalType, SettingWithCatalog[]>();
+  for (const s of settings as unknown as SettingWithCatalog[]) {
+    const arr = byType.get(s.catalogProduct.chemicalType) ?? [];
+    arr.push(s);
+    byType.set(s.catalogProduct.chemicalType, arr);
+  }
+  return byType;
+}
+
+function pickPrimaryProduct(byType: Map<ChemicalType, SettingWithCatalog[]>, chemicalType: ChemicalType): SettingWithCatalog | null {
+  const settings = byType.get(chemicalType);
+  if (!settings || settings.length === 0) return null;
   return settings.find((s) => s.isPrimary) ?? settings[0];
+}
+
+/** Fills in every DosingRecommendation field with its "nothing to report" default, so each
+ * of the three call sites (dilution, no-product-configured, product dose) only has to state
+ * what's actually different about that case. A field added later only needs to be added
+ * here once, instead of independently to three near-identical literals. */
+function buildRecommendation(input: {
+  chemicalKey: DosingChemicalKey;
+  currentValue: number;
+  targetValue: number;
+  targetMin: number | null;
+  targetMax: number | null;
+  productSettingId?: string | null;
+  productName?: string | null;
+  productForm?: ChemicalProductForm | null;
+  recommendedDose?: number | null;
+  dosingUnit?: DosingUnit | null;
+  capped?: boolean;
+  actionRequired?: "DILUTION" | null;
+  note?: string | null;
+}): DosingRecommendation {
+  return {
+    chemicalKey: input.chemicalKey,
+    label: CHEMICAL_LABELS[input.chemicalKey],
+    currentValue: input.currentValue,
+    targetValue: input.targetValue,
+    targetMin: input.targetMin,
+    targetMax: input.targetMax,
+    productSettingId: input.productSettingId ?? null,
+    productName: input.productName ?? null,
+    productForm: input.productForm ?? null,
+    recommendedDose: input.recommendedDose ?? null,
+    dosingUnit: input.dosingUnit ?? null,
+    capped: input.capped ?? false,
+    actionRequired: input.actionRequired ?? null,
+    note: input.note ?? null,
+  };
 }
 
 /**
@@ -285,10 +347,12 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
 
   const gallons = Number(visit.bodyOfWater.volumeGallons);
   const state = visit.organization.state;
+  const poolOrSpa: "POOL" | "SPA" = visit.bodyOfWater.type === "SPA" ? "SPA" : "POOL";
 
-  const [ruleset, orgTargets] = await Promise.all([
+  const [ruleset, orgTargets, enabledProductsByType] = await Promise.all([
     getOrganizationRuleset(visit.organizationId),
     prisma.orgComplianceTarget.findMany({ where: { organizationId: visit.organizationId } }),
+    loadEnabledProductsByType(visit.organizationId, poolOrSpa),
   ]);
 
   const warnings: string[] = [];
@@ -316,22 +380,17 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
 
     if (!productChemicalType) {
       if ((key === "CYA" || key === "CALCIUM_HARDNESS") && direction === "DOWN") {
-        recommendations.push({
-          chemicalKey: key,
-          label: CHEMICAL_LABELS[key],
-          currentValue: current,
-          targetValue: resolved.targetValue,
-          targetMin: resolved.boundMin,
-          targetMax: resolved.boundMax,
-          productSettingId: null,
-          productName: null,
-          productForm: null,
-          recommendedDose: null,
-          dosingUnit: null,
-          capped: false,
-          actionRequired: "DILUTION",
-          note: `${CHEMICAL_LABELS[key]} is above range -- no chemical lowers it. Partial drain and refill, then recheck.`,
-        });
+        recommendations.push(
+          buildRecommendation({
+            chemicalKey: key,
+            currentValue: current,
+            targetValue: resolved.targetValue,
+            targetMin: resolved.boundMin,
+            targetMax: resolved.boundMax,
+            actionRequired: "DILUTION",
+            note: `${CHEMICAL_LABELS[key]} is above range -- no chemical lowers it. Partial drain and refill, then recheck.`,
+          }),
+        );
       } else if (key === "ALKALINITY" && direction === "DOWN") {
         warnings.push(
           "Total Alkalinity is above range -- there's no dedicated lowering product; it's normally corrected via pH-down (muriatic acid) plus aeration. Recheck next visit.",
@@ -342,24 +401,18 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
       continue;
     }
 
-    const setting = await selectPrimaryProduct(visit.organizationId, productChemicalType);
+    const setting = pickPrimaryProduct(enabledProductsByType, productChemicalType);
     if (!setting) {
-      recommendations.push({
-        chemicalKey: key,
-        label: CHEMICAL_LABELS[key],
-        currentValue: current,
-        targetValue: resolved.targetValue,
-        targetMin: resolved.boundMin,
-        targetMax: resolved.boundMax,
-        productSettingId: null,
-        productName: null,
-        productForm: null,
-        recommendedDose: null,
-        dosingUnit: null,
-        capped: false,
-        actionRequired: null,
-        note: `No enabled primary product configured for ${CHEMICAL_LABELS[key]} -- set one on the Chemicals admin page.`,
-      });
+      recommendations.push(
+        buildRecommendation({
+          chemicalKey: key,
+          currentValue: current,
+          targetValue: resolved.targetValue,
+          targetMin: resolved.boundMin,
+          targetMax: resolved.boundMax,
+          note: `No enabled primary product configured for ${CHEMICAL_LABELS[key]} -- set one on the Chemicals admin page.`,
+        }),
+      );
       if (key === "CYA") cyaRecommended = true;
       if (key === "ALKALINITY") alkalinityRecommended = true;
       if (key === "PH") phRecommended = true;
@@ -387,22 +440,22 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
       }
     }
 
-    recommendations.push({
-      chemicalKey: key,
-      label: CHEMICAL_LABELS[key],
-      currentValue: current,
-      targetValue: resolved.targetValue,
-      targetMin: resolved.boundMin,
-      targetMax: resolved.boundMax,
-      productSettingId: setting.id,
-      productName: catalog.name,
-      productForm: catalog.form,
-      recommendedDose: capped ? maxDose : roundedDose,
-      dosingUnit: catalog.dosingUnit,
-      capped,
-      actionRequired: null,
-      note,
-    });
+    recommendations.push(
+      buildRecommendation({
+        chemicalKey: key,
+        currentValue: current,
+        targetValue: resolved.targetValue,
+        targetMin: resolved.boundMin,
+        targetMax: resolved.boundMax,
+        productSettingId: setting.id,
+        productName: catalog.name,
+        productForm: catalog.form,
+        recommendedDose: capped ? maxDose : roundedDose,
+        dosingUnit: catalog.dosingUnit,
+        capped,
+        note,
+      }),
+    );
 
     if (key === "CYA") cyaRecommended = true;
     if (key === "ALKALINITY") alkalinityRecommended = true;
@@ -432,4 +485,17 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
   });
 
   return result;
+}
+
+/**
+ * Read-only counterpart to computeAndSaveDosingRecommendation -- returns whatever was last
+ * persisted for this visit without recomputing or overwriting it. Use this (not the
+ * compute-and-save version) anywhere a visit is only being viewed, not actively serviced --
+ * e.g. a completed visit's page, which should stay a point-in-time record of what was true
+ * when the visit was serviced rather than get silently replaced by today's product/target
+ * configuration on every later view (an audit, a customer looking back at history, etc).
+ */
+export async function getSavedDosingRecommendation(visitId: string): Promise<DosingResult | null> {
+  const row = await prisma.chemistryRecommendation.findUnique({ where: { visitId } });
+  return row ? (row.payload as unknown as DosingResult) : null;
 }

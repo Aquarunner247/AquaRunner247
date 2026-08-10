@@ -4,19 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { parseFormNumber as toDecimalOrNull } from "@/lib/form-utils";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN") redirect("/dashboard");
   return appUser;
-}
-
-function toDecimalOrNull(v: FormDataEntryValue | null): number | null {
-  const s = String(v ?? "").trim();
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
 }
 
 export async function createChemicalProduct(formData: FormData) {
@@ -111,10 +105,27 @@ export async function updateChemicalTypeSettings(formData: FormData) {
   const catalogProducts = await prisma.chemicalProductCatalog.findMany({ where: { chemicalType }, select: { id: true } });
   const primaryPick = String(formData.get("primary") ?? "").trim();
 
+  const existingSettings = await prisma.orgChemicalProductSetting.findMany({
+    where: { organizationId: appUser.organizationId, catalogProductId: { in: catalogProducts.map((p) => p.id) } },
+  });
+  const existingByProductId = new Map(existingSettings.map((s) => [s.catalogProductId, s]));
+
   for (const p of catalogProducts) {
     const isEnabled = formData.get(`enabled_${p.id}`) != null;
     const price = toDecimalOrNull(formData.get(`price_${p.id}`));
     const isPrimary = isEnabled && primaryPick === p.id;
+
+    // Skip the write entirely when nothing actually changed -- the isPrimary fallback
+    // below relies on updatedAt reflecting the last REAL change to a row (see its own
+    // comment), which an unconditional upsert on every submit would defeat by touching
+    // updatedAt on every enabled row every time, whether or not that row changed.
+    const existing = existingByProductId.get(p.id);
+    const unchanged =
+      existing != null &&
+      existing.isEnabled === isEnabled &&
+      (existing.price != null ? Number(existing.price) : null) === price &&
+      existing.isPrimary === isPrimary;
+    if (unchanged) continue;
 
     await prisma.orgChemicalProductSetting.upsert({
       where: { organizationId_catalogProductId: { organizationId: appUser.organizationId, catalogProductId: p.id } },
@@ -129,23 +140,41 @@ export async function updateChemicalTypeSettings(formData: FormData) {
   // 2+ enabled products never ends up with zero primaries.
   const enabledSettings = await prisma.orgChemicalProductSetting.findMany({
     where: { organizationId: appUser.organizationId, isEnabled: true, catalogProduct: { chemicalType } },
-    orderBy: { createdAt: "asc" },
+    orderBy: { updatedAt: "asc" },
   });
   if (enabledSettings.length > 0 && !enabledSettings.some((s) => s.isPrimary)) {
     await prisma.orgChemicalProductSetting.update({ where: { id: enabledSettings[0].id }, data: { isPrimary: true } });
   }
 
-  const orgState = (await prisma.organization.findUnique({ where: { id: appUser.organizationId }, select: { state: true } }))?.state;
+  // PH_DOWN has no compliance-target row of its own -- pH is one range regardless of
+  // product direction, and the dosing engine's orgTargetChemicalType() always resolves pH
+  // to the canonical PH_UP row (see lib/dosing-calculator.ts). Writing one here anyway
+  // would round-trip fine on this page but be silently ignored by every actual dosing
+  // calculation, which is exactly the bug this guard prevents.
+  const orgState =
+    chemicalType === "PH_DOWN"
+      ? null
+      : (await prisma.organization.findUnique({ where: { id: appUser.organizationId }, select: { state: true } }))?.state;
   const targetMode = String(formData.get("targetMode") ?? "STATE_MIDPOINT") === "ORG_CUSTOM" ? "ORG_CUSTOM" : "STATE_MIDPOINT";
+  const orgTargetMin = toDecimalOrNull(formData.get("targetMin"));
+  const orgTargetMax = toDecimalOrNull(formData.get("targetMax"));
+  const orgTargetValue = toDecimalOrNull(formData.get("targetValue"));
+
   if (orgState) {
-    const orgTargetMin = toDecimalOrNull(formData.get("targetMin"));
-    const orgTargetMax = toDecimalOrNull(formData.get("targetMax"));
-    const orgTargetValue = toDecimalOrNull(formData.get("targetValue"));
     await prisma.orgComplianceTarget.upsert({
       where: { organizationId_state_chemicalType: { organizationId: appUser.organizationId, state: orgState, chemicalType } },
       create: { organizationId: appUser.organizationId, state: orgState, chemicalType, targetMode, orgTargetMin, orgTargetMax, orgTargetValue },
       update: { targetMode, orgTargetMin, orgTargetMax, orgTargetValue },
     });
+  } else if (targetMode === "ORG_CUSTOM") {
+    // OrgComplianceTarget is keyed by organizationId+state+chemicalType -- with no state on
+    // file (a pre-multi-state org that never got backfilled) there's nowhere valid for this
+    // write to land. Previously this branch was just skipped, so the admin's custom target
+    // silently vanished with the page still reporting success. Only fire for an actual
+    // ORG_CUSTOM attempt (not every STATE_MIDPOINT submit, which has nothing to persist
+    // regardless of state) and not for PH_DOWN (which never writes here at all, see above).
+    revalidatePath("/dashboard/chemicals");
+    redirect("/dashboard/chemicals?targetSaveError=missing-org-state");
   }
 
   revalidatePath("/dashboard/chemicals");

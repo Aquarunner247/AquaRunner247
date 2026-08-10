@@ -8,7 +8,7 @@ import { legalBoundsFor, dosingChemicalKeyFor, CHEMICAL_LABELS } from "@/lib/dos
 import type { ChemicalType } from "@/generated/prisma/enums";
 
 type PageProps = {
-  searchParams?: Promise<{ from?: string; to?: string; propertyId?: string; edit?: string }>;
+  searchParams?: Promise<{ from?: string; to?: string; propertyId?: string; edit?: string; targetSaveError?: string }>;
 };
 
 function toYmd(date: Date): string {
@@ -34,6 +34,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
   const to = sp.to ? new Date(`${sp.to}T23:59:59`) : now;
   const propertyId = sp.propertyId ?? "";
   const editingId = sp.edit ?? "";
+  const targetSaveError = sp.targetSaveError ?? "";
 
   const products = await prisma.chemicalProduct.findMany({
     where: { organizationId: appUser.organizationId },
@@ -125,6 +126,13 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
         <h1 className="app-h1">Chemicals</h1>
         <p className="app-subhead">Manage the chemical catalog and review usage/billing by property.</p>
       </header>
+
+      {targetSaveError === "missing-org-state" ? (
+        <p className="app-card mt-6 border-brand-danger/30 text-sm text-brand-danger">
+          Couldn&rsquo;t save that custom compliance target — this organization has no state on file yet. Set it on
+          the Settings page, then try again.
+        </p>
+      ) : null}
 
       {/* Chemical products -- the org's own selected/active catalog, shown first since
           it's what most admins actually want to see and edit day to day. The Dosing
@@ -263,60 +271,70 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
                   })}
                 </div>
 
-                <div className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-brand-muted">Compliance target</p>
-                  {midpoint == null ? (
-                    <p className="mt-1 text-xs text-brand-ink/60">No state compliance data for this chemical — set your own target below.</p>
-                  ) : (
-                    <p className="mt-1 app-metric text-xs text-brand-ink">
-                      State range: {legal.min ?? "—"}–{legal.max ?? "—"} · midpoint {midpoint}
-                    </p>
-                  )}
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-1 text-xs text-brand-ink">
-                      <input
-                        type="radio"
-                        name="targetMode"
-                        value="STATE_MIDPOINT"
-                        defaultChecked={(target?.targetMode ?? "STATE_MIDPOINT") === "STATE_MIDPOINT"}
-                      />
-                      Use state midpoint
-                    </label>
-                    <label className="flex items-center gap-1 text-xs text-brand-ink">
-                      <input type="radio" name="targetMode" value="ORG_CUSTOM" defaultChecked={target?.targetMode === "ORG_CUSTOM"} />
-                      Custom
-                    </label>
-                    {key === "SALT" ? (
-                      <input
-                        name="targetValue"
-                        type="number"
-                        step="1"
-                        placeholder="Target ppm"
-                        defaultValue={target?.orgTargetValue?.toString() ?? ""}
-                        className="w-24 rounded border border-brand-control px-1.5 py-0.5 text-sm"
-                      />
+                {chemicalType === "PH_DOWN" ? (
+                  // pH is one target range regardless of product direction -- set it once,
+                  // above, under "pH (raise)". A second target form here would round-trip
+                  // fine but be silently ignored by the dosing calculator, which always
+                  // resolves pH to that canonical row.
+                  <p className="mt-3 text-xs text-brand-ink/60">
+                    Compliance target is shared with pH (raise) above — set it there.
+                  </p>
+                ) : (
+                  <div className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-brand-muted">Compliance target</p>
+                    {midpoint == null ? (
+                      <p className="mt-1 text-xs text-brand-ink/60">No state compliance data for this chemical — set your own target below.</p>
                     ) : (
-                      <>
-                        <input
-                          name="targetMin"
-                          type="number"
-                          step="0.1"
-                          placeholder="Min"
-                          defaultValue={target?.orgTargetMin?.toString() ?? ""}
-                          className="w-20 rounded border border-brand-control px-1.5 py-0.5 text-sm"
-                        />
-                        <input
-                          name="targetMax"
-                          type="number"
-                          step="0.1"
-                          placeholder="Max"
-                          defaultValue={target?.orgTargetMax?.toString() ?? ""}
-                          className="w-20 rounded border border-brand-control px-1.5 py-0.5 text-sm"
-                        />
-                      </>
+                      <p className="mt-1 app-metric text-xs text-brand-ink">
+                        State range: {legal.min ?? "—"}–{legal.max ?? "—"} · midpoint {midpoint}
+                      </p>
                     )}
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-1 text-xs text-brand-ink">
+                        <input
+                          type="radio"
+                          name="targetMode"
+                          value="STATE_MIDPOINT"
+                          defaultChecked={(target?.targetMode ?? "STATE_MIDPOINT") === "STATE_MIDPOINT"}
+                        />
+                        Use state midpoint
+                      </label>
+                      <label className="flex items-center gap-1 text-xs text-brand-ink">
+                        <input type="radio" name="targetMode" value="ORG_CUSTOM" defaultChecked={target?.targetMode === "ORG_CUSTOM"} />
+                        Custom
+                      </label>
+                      {key === "SALT" ? (
+                        <input
+                          name="targetValue"
+                          type="number"
+                          step="1"
+                          placeholder="Target ppm"
+                          defaultValue={target?.orgTargetValue?.toString() ?? ""}
+                          className="w-24 rounded border border-brand-control px-1.5 py-0.5 text-sm"
+                        />
+                      ) : (
+                        <>
+                          <input
+                            name="targetMin"
+                            type="number"
+                            step="0.1"
+                            placeholder="Min"
+                            defaultValue={target?.orgTargetMin?.toString() ?? ""}
+                            className="w-20 rounded border border-brand-control px-1.5 py-0.5 text-sm"
+                          />
+                          <input
+                            name="targetMax"
+                            type="number"
+                            step="0.1"
+                            placeholder="Max"
+                            defaultValue={target?.orgTargetMax?.toString() ?? ""}
+                            className="w-20 rounded border border-brand-control px-1.5 py-0.5 text-sm"
+                          />
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <button type="submit" className="app-btn-primary-sm mt-3">
                   Save

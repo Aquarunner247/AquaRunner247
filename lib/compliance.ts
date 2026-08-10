@@ -228,10 +228,23 @@ export function activeChemistryThresholds(ruleset: ComplianceRulesetWithRules) {
     phTargetMax: toNumOrNull(ph?.idealMax ?? ph?.maxValue),
     phHazardMin: toNumOrNull(ph?.hazardMin),
     phHazardMax: toNumOrNull(ph?.hazardMax),
+    // The true regulatory outer bound, for callers that need "is this legal at all" rather
+    // than "is this in the state's own ideal sub-range" (e.g. dosing-calculator.ts's
+    // legalBoundsFor). Opposite fallback order from phTargetMin/Max above: minValue is the
+    // real legal floor/ceiling when a state defines both tiers (e.g. minValue: 7.2,
+    // idealMin: 7.4 -- 7.2 is still legal, just not ideal); idealMin only stands in when a
+    // state gives no separate outer bound at all, in which case it IS that state's whole
+    // rule (see this function's doc comment on Nevada).
+    phLegalMin: toNumOrNull(ph?.minValue ?? ph?.idealMin),
+    phLegalMax: toNumOrNull(ph?.maxValue ?? ph?.idealMax),
     alkalinityTargetMinPpm: toNumOrNull(alkalinity?.idealMin ?? alkalinity?.minValue),
     alkalinityTargetMaxPpm: toNumOrNull(alkalinity?.idealMax ?? alkalinity?.maxValue),
+    alkalinityLegalMinPpm: toNumOrNull(alkalinity?.minValue ?? alkalinity?.idealMin),
+    alkalinityLegalMaxPpm: toNumOrNull(alkalinity?.maxValue ?? alkalinity?.idealMax),
     cyaTargetMinPpm: toNumOrNull(cya?.idealMin ?? cya?.minValue),
     cyaTargetMaxPpm: toNumOrNull(cya?.idealMax ?? cya?.maxValue),
+    cyaLegalMinPpm: toNumOrNull(cya?.minValue ?? cya?.idealMin),
+    cyaLegalMaxPpm: toNumOrNull(cya?.maxValue ?? cya?.idealMax),
     cyaHazardMaxPpm: toNumOrNull(cya?.hazardMax),
     closureFeeAmount: feeProtocol?.feeAmount != null ? Number(feeProtocol.feeAmount) : null,
     closureFeeNote: feeProtocol?.feeNote ?? null,
