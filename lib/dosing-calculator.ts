@@ -95,7 +95,14 @@ function readingValueFor(key: DosingChemicalKey, reading: Record<string, unknown
   }
 }
 
-export type LegalBounds = { min: number | null; max: number | null };
+export type LegalBounds = {
+  min: number | null;
+  max: number | null;
+  /** True when `max` is an app-level safety-ceiling fallback (currently only
+   * chlorineFamilyThreshold's CDC default) rather than this state's own sourced number --
+   * see resolveTarget, which targets `min` instead of the midpoint when this is true. */
+  maxIsFallback: boolean;
+};
 
 /** Legal min/max from the org's own ComplianceRuleset, per dosing-calculator-spec.md
  * Section 1c step 1. Returns {null, null} whenever compliance isn't active for this
@@ -108,13 +115,13 @@ export function legalBoundsFor(
   bodyOfWaterType: string,
   disinfectionMethod: DisinfectionMethod,
 ): LegalBounds {
-  if (!isComplianceActive(ruleset)) return { min: null, max: null };
+  if (!isComplianceActive(ruleset)) return { min: null, max: null, maxIsFallback: false };
 
   if (key === "FREE_CHLORINE") {
     // Bromine dosing is out of scope for v1 -- see ChemicalType's schema doc comment.
-    if (disinfectionMethod !== "CHLORINE") return { min: null, max: null };
+    if (disinfectionMethod !== "CHLORINE") return { min: null, max: null, maxIsFallback: false };
     const t = chlorineFamilyThreshold(ruleset, bodyOfWaterType, disinfectionMethod);
-    return { min: t?.min ?? null, max: t?.max ?? null };
+    return { min: t?.min ?? null, max: t?.max ?? null, maxIsFallback: t?.maxIsFallback ?? false };
   }
 
   // Uses the *legal* bound fields, not phTargetMin/Max et al -- those track the state's
@@ -122,12 +129,12 @@ export function legalBoundsFor(
   // comment), which is the wrong thing to clamp an org's custom target against here: a
   // target between the legal bound and the ideal sub-range is still legally compliant.
   const thresholds = activeChemistryThresholds(ruleset);
-  if (key === "PH") return { min: thresholds.phLegalMin, max: thresholds.phLegalMax };
-  if (key === "ALKALINITY") return { min: thresholds.alkalinityLegalMinPpm, max: thresholds.alkalinityLegalMaxPpm };
-  if (key === "CYA") return { min: thresholds.cyaLegalMinPpm, max: thresholds.cyaLegalMaxPpm };
+  if (key === "PH") return { min: thresholds.phLegalMin, max: thresholds.phLegalMax, maxIsFallback: false };
+  if (key === "ALKALINITY") return { min: thresholds.alkalinityLegalMinPpm, max: thresholds.alkalinityLegalMaxPpm, maxIsFallback: false };
+  if (key === "CYA") return { min: thresholds.cyaLegalMinPpm, max: thresholds.cyaLegalMaxPpm, maxIsFallback: false };
   // CALCIUM_HARDNESS, SALT: no health department regulates these -- OrgComplianceTarget
   // (ORG_CUSTOM) is the only way to get a target; see OrgComplianceTarget's schema doc.
-  return { min: null, max: null };
+  return { min: null, max: null, maxIsFallback: false };
 }
 
 type OrgTargetRow = { state: string; chemicalType: ChemicalType; targetMode: ComplianceTargetMode; orgTargetMin: unknown; orgTargetMax: unknown; orgTargetValue: unknown };
@@ -154,7 +161,15 @@ type ResolvedTarget = { targetValue: number; boundMin: number | null; boundMax: 
 /** Resolution order per dosing-calculator-spec.md Section 1c: legal bounds first, then an
  * ORG_CUSTOM override clamped within them (or the plain legal midpoint if no usable
  * override exists). Returns null only when there's truly nothing to act on -- no legal
- * bounds AND no usable org override -- rather than ever inventing a number. */
+ * bounds AND no usable org override -- rather than ever inventing a number.
+ *
+ * EXCEPTION: when the legal max is a fallback safety ceiling rather than the state's own
+ * sourced number (legal.maxIsFallback), the default target is `min`, not the midpoint.
+ * Averaging against a fallback ceiling (e.g. Hawaii: legal min 0.6, CDC fallback max 10)
+ * produces a target far above realistic operating levels (5.3 ppm) -- the ceiling exists
+ * for clamping/hazard purposes, not because the state considers it "half the ideal range."
+ * An org can still override via ORG_CUSTOM, which is clamped against the same ceiling
+ * above -- this exception only changes the no-override default. */
 function resolveTarget(
   key: DosingChemicalKey,
   legal: LegalBounds,
@@ -185,7 +200,7 @@ function resolveTarget(
   }
 
   if (targetValue == null) {
-    if (boundMin != null && boundMax != null) targetValue = (boundMin + boundMax) / 2;
+    if (boundMin != null && boundMax != null && !legal.maxIsFallback) targetValue = (boundMin + boundMax) / 2;
     else if (boundMin != null) targetValue = boundMin;
     else if (boundMax != null) targetValue = boundMax;
   }
@@ -430,14 +445,20 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
 
     let note: string | null = capped ? "Max safe dose applied -- recheck next visit." : null;
     // pH acid-demand caveat (Section 6): the muriatic/soda-ash constants assume TA in the
-    // 80-120 ppm range; outside it, actual demand is TA-dependent and this is an estimate.
+    // 80-120 ppm range; outside it -- or simply unknown -- actual demand is TA-dependent,
+    // so this dose is an estimate either way. A null ta (not tested this visit) previously
+    // fell through this check silently, showing a precise-looking dose with no indication
+    // its underlying assumption was never actually verified -- just as unreliable as a
+    // known-out-of-range TA, but with no caveat surfaced at all. Fixed to flag both cases.
     if (key === "PH") {
       const ta = toNum((visit.reading as unknown as Record<string, unknown>).alkalinityPpm);
-      if (ta != null && (ta < 80 || ta > 120)) {
-        note = [note, "Estimate -- Total Alkalinity is outside the normal 80-120 ppm range this formula assumes; verify with an acid demand test."]
-          .filter(Boolean)
-          .join(" ");
-      }
+      const taCaveat =
+        ta == null
+          ? "Estimate -- Total Alkalinity wasn't tested this visit; acid/soda-ash demand is TA-dependent, so treat this as approximate until TA is verified."
+          : ta < 80 || ta > 120
+            ? "Estimate -- Total Alkalinity is outside the normal 80-120 ppm range this formula assumes; verify with an acid demand test."
+            : null;
+      if (taCaveat) note = [note, taCaveat].filter(Boolean).join(" ");
     }
 
     recommendations.push(

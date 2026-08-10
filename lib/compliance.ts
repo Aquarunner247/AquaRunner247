@@ -164,7 +164,22 @@ export type ChlorineFamilyThreshold = {
   unit: string;
   min: number | null;
   max: number | null;
+  /** True when `max` came from CDC_FREE_CHLORINE_MAX_PPM, not this state's own sourced
+   * regulation -- a real safety ceiling for clamping/hazard purposes, but not a number
+   * that means anything as "half the ideal range." Callers computing a default target
+   * (no org override) should target `min` instead of averaging against it -- see
+   * lib/dosing-calculator.ts's resolveTarget. */
+  maxIsFallback: boolean;
 };
+
+/** CDC (Model Aquatic Health Code / Healthy Swimming) recognized practical upper limit for
+ * free available chlorine in pools and spas. Applied ONLY when a state's own regulation
+ * defines a floor but is silent on a ceiling (e.g. Hawaii: "minimum 0.6 ppm", no stated
+ * max) -- the underlying ChemistryThreshold row still faithfully records the state has no
+ * legal max; this is an app-level safety fallback layered on top of that, not a rewrite of
+ * the sourced data. Deliberately NOT applied to Bromine -- its commonly cited practical
+ * ceiling differs from chlorine's and isn't a number this app states as fact. */
+const CDC_FREE_CHLORINE_MAX_PPM = 10;
 
 /**
  * The hard floor/ceiling for whichever disinfectant this SPECIFIC body of water actually
@@ -186,12 +201,15 @@ export function chlorineFamilyThreshold(
   const parameter = disinfectionMethod === "BROMINE" ? "BROMINE" : "FREE_CHLORINE";
   const threshold = findThreshold(ruleset.chemistryThresholds, parameter, bodyCategory, DEFAULT_CONDITION_PRIORITY);
   if (!threshold) return null;
+  const realMax = toNumOrNull(threshold.maxValue);
+  const maxIsFallback = realMax == null && parameter === "FREE_CHLORINE";
   return {
     key: parameter === "BROMINE" ? "brominePpm" : "freeChlorinePpm",
     label: parameter === "BROMINE" ? "Bromine" : "Free Chlorine",
     unit: threshold.unit || "ppm",
     min: toNumOrNull(threshold.minValue),
-    max: toNumOrNull(threshold.maxValue),
+    max: realMax ?? (parameter === "FREE_CHLORINE" ? CDC_FREE_CHLORINE_MAX_PPM : null),
+    maxIsFallback,
   };
 }
 
