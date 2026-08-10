@@ -505,7 +505,10 @@ export function RouteDayView({
                       {isSkipped ? "Skip" : idx + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <Link href={`/dashboard/visits/${v.id}`} className="block truncate text-sm font-medium text-brand-ink underline">
+                      {/* RouteDayView is only ever rendered from the Schedule tab (both admin and
+                          technician), so the visit page's back-link can safely assume that's
+                          where "back" should go -- see VisitPage's `from` searchParam handling. */}
+                      <Link href={`/dashboard/visits/${v.id}?from=schedule`} className="block truncate text-sm font-medium text-brand-ink underline">
                         {v.propertyName} — {v.bodyName}
                       </Link>
                       <p className="truncate text-xs text-brand-muted">{v.address || "No address on file"}</p>

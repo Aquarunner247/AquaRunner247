@@ -12,6 +12,7 @@ import type { VisitWaterReading } from "@/generated/prisma/client";
 
 type PageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ from?: string }>;
 };
 
 /**
@@ -44,13 +45,19 @@ function serializeReading(reading: VisitWaterReading | null) {
   };
 }
 
-export default async function VisitPage({ params }: PageProps) {
+export default async function VisitPage({ params, searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
   if (!appUser) {
     redirect("/login");
   }
 
   const { id } = await params;
+  const sp = (await searchParams) ?? {};
+  // Every link into this page from the Schedule tab (RouteDayView, both admin and
+  // technician) appends ?from=schedule -- anything else (alerts, customer detail, etc.)
+  // falls back to the Dashboard tab, which was this link's only destination before.
+  const backHref = sp.from === "schedule" ? "/dashboard/schedule" : "/dashboard";
+  const backLabel = sp.from === "schedule" ? "Back to schedule" : "Back to dashboard";
   const visit = await prisma.serviceVisit.findUnique({
     where: { id },
     include: {
@@ -144,8 +151,8 @@ export default async function VisitPage({ params }: PageProps) {
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
       <div className="mb-6">
-        <Link href="/dashboard" className="text-sm text-brand-primary underline">
-          Back to dashboard
+        <Link href={backHref} className="text-sm text-brand-primary underline">
+          {backLabel}
         </Link>
       </div>
       <header className="rounded-lg border border-brand-ink bg-brand-ink p-4 shadow-sm">
