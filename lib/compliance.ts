@@ -103,15 +103,16 @@ function findThreshold(
   thresholds: ChemistryThreshold[],
   parameter: string,
   bodyOfWaterCategory: string | null,
-  preferredAppliesWhen?: string,
+  preferredAppliesWhen?: string | string[],
 ): ChemistryThreshold | undefined {
   const matches = thresholds.filter((t) => t.parameter === parameter && t.bodyOfWaterCategory === bodyOfWaterCategory);
   if (matches.length <= 1) return matches[0];
   const unconditional = matches.find((t) => t.appliesWhen == null);
   if (unconditional) return unconditional;
-  if (preferredAppliesWhen) {
-    const preferred = matches.find((t) => t.appliesWhen === preferredAppliesWhen);
-    if (preferred) return preferred;
+  const preferredList = preferredAppliesWhen == null ? [] : Array.isArray(preferredAppliesWhen) ? preferredAppliesWhen : [preferredAppliesWhen];
+  for (const preferred of preferredList) {
+    const match = matches.find((t) => t.appliesWhen === preferred);
+    if (match) return match;
   }
   return matches[0];
 }
