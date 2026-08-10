@@ -173,6 +173,10 @@
     @apply app-pill bg-brand-warnFill text-brand-warn;
   }
 
+  .app-pill-danger {
+    @apply app-pill bg-brand-dangerFill text-brand-danger;
+  }
+
   .app-pill-inactive {
     @apply app-pill bg-brand-foam text-brand-muted;
   }

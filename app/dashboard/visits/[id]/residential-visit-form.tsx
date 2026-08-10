@@ -2,7 +2,9 @@
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CameraCapture } from "@/app/components/camera-capture";
+import { DosingCard } from "@/app/components/dosing-card";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
+import type { DosingResult } from "@/lib/dosing-calculator";
 
 type Dose = {
   id: string;
@@ -79,6 +81,7 @@ type Props = {
   initialPhotos?: PhotoOption[];
   initialDoses: Dose[];
   initialStartedAt: string | null;
+  initialDosing: DosingResult | null;
 };
 
 function toInput(v: unknown): string {
@@ -114,6 +117,7 @@ export function ResidentialVisitForm({
   initialPhotos = [],
   initialDoses,
   initialStartedAt,
+  initialDosing,
 }: Props) {
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
   const [arrivalSaving, setArrivalSaving] = useState(false);
@@ -133,6 +137,7 @@ export function ResidentialVisitForm({
   const [doses, setDoses] = useState<Dose[]>(initialDoses);
   const [doseForm, setDoseForm] = useState({ chemicalProductId: "", quantity: "" });
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [dosing, setDosing] = useState<DosingResult | null>(initialDosing);
   const timerRef = useRef<number | null>(null);
   const isFirstRender = useRef(true);
 
@@ -176,6 +181,8 @@ export function ResidentialVisitForm({
       if (!response.ok) throw new Error("Save failed");
       setSaveState("saved");
       setSaveMsg(source === "auto" ? "Autosaved" : "Saved");
+      const data = (await response.json().catch(() => null)) as { dosing?: DosingResult | null } | null;
+      if (data && "dosing" in data) setDosing(data.dosing ?? null);
     } catch {
       setSaveState("error");
       setSaveMsg("Save failed");
@@ -390,6 +397,8 @@ export function ResidentialVisitForm({
           <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
         </div>
       ) : null}
+
+      <DosingCard dosing={dosing} />
 
       <div className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemical Doses</h2>

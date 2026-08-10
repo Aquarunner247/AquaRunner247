@@ -2,10 +2,12 @@
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CameraCapture } from "@/app/components/camera-capture";
+import { DosingCard } from "@/app/components/dosing-card";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 import { queuedSubmitJson } from "@/lib/client/offline-queue";
 import { useOfflineSync } from "@/lib/client/use-offline-sync";
 import type { ReadingFieldSpec } from "@/lib/compliance";
+import type { DosingResult } from "@/lib/dosing-calculator";
 
 type Dose = {
   id: string;
@@ -21,6 +23,9 @@ type Reading = {
   brominePpm: string;
   alkalinityPpm: string;
   cyanuricAcidPpm: string;
+  /** Dosing-calculator inputs only -- not required by any state's compliance log. */
+  calciumHardnessPpm: string;
+  saltPpm: string;
   temperatureF: string;
   pumpPressurePsi: string;
   vacGaugeReading: string;
@@ -53,6 +58,15 @@ const CHEMISTRY_INPUT_BOUNDS: Record<string, { min: number; max: number; step: n
   cyanuricAcidPpm: { min: 0, max: 150, step: 1 },
   temperatureF: { min: 50, max: 110, step: 1 },
 };
+
+/** Optional, dosing-calculator-only fields -- not part of activeReadingFields since no
+ * state's compliance log requires them (see dosing-calculator-spec.md). Always shown,
+ * never required, so entering them is purely opt-in for orgs that want the Calcium
+ * Hardness/Salt recommendations. */
+const DOSING_ONLY_FIELDS: FieldConfig[] = [
+  { key: "calciumHardnessPpm", label: "Calcium Hardness", unitLabel: "ppm", required: false, min: 0, max: 1000, step: 10 },
+  { key: "saltPpm", label: "Salt", unitLabel: "ppm", required: false, min: 0, max: 6000, step: 50 },
+];
 
 function toFieldConfig(spec: ReadingFieldSpec): FieldConfig {
   const bounds = CHEMISTRY_INPUT_BOUNDS[spec.key] ?? { min: 0, max: 100, step: 1 };
@@ -97,6 +111,7 @@ type Props = {
   initialPhotos?: PhotoOption[];
   initialDoses: Dose[];
   initialStartedAt: string | null;
+  initialDosing: DosingResult | null;
 };
 
 function toInput(v: unknown): string {
@@ -124,7 +139,7 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt }: Props) {
+export function VisitForm({ visitId, visitStatus, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt, initialDosing }: Props) {
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
   const [arrivalSaving, setArrivalSaving] = useState(false);
   const [arrivalError, setArrivalError] = useState("");
@@ -138,6 +153,8 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
     brominePpm: toInput(initialReading?.brominePpm),
     alkalinityPpm: toInput(initialReading?.alkalinityPpm),
     cyanuricAcidPpm: toInput(initialReading?.cyanuricAcidPpm),
+    calciumHardnessPpm: toInput(initialReading?.calciumHardnessPpm),
+    saltPpm: toInput(initialReading?.saltPpm),
     temperatureF: toInput(initialReading?.temperatureF),
     pumpPressurePsi: toInput(initialReading?.pumpPressurePsi),
     vacGaugeReading: toInput(initialReading?.vacGaugeReading),
@@ -150,6 +167,7 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
   const [saveMsg, setSaveMsg] = useState("");
   const [photoCount, setPhotoCount] = useState(initialPhotoCount);
   const [doses, setDoses] = useState<Dose[]>(initialDoses);
+  const [dosing, setDosing] = useState<DosingResult | null>(initialDosing);
   const [doseForm, setDoseForm] = useState({ chemicalProductId: "", quantity: "" });
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -193,6 +211,8 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
         brominePpm: reading.brominePpm || null,
         alkalinityPpm: reading.alkalinityPpm || null,
         cyanuricAcidPpm: reading.cyanuricAcidPpm || null,
+        calciumHardnessPpm: reading.calciumHardnessPpm || null,
+        saltPpm: reading.saltPpm || null,
         temperatureF: reading.temperatureF || null,
         pumpPressurePsi: reading.pumpPressurePsi || null,
         vacGaugeReading: reading.vacGaugeReading || null,
@@ -208,6 +228,8 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
     } else if (result.status === "sent") {
       setSaveState("saved");
       setSaveMsg(source === "auto" ? "Autosaved" : "Saved");
+      const data = (await result.response.json().catch(() => null)) as { dosing?: DosingResult | null } | null;
+      if (data && "dosing" in data) setDosing(data.dosing ?? null);
     } else {
       setSaveState("error");
       setSaveMsg("Save failed");
@@ -518,7 +540,11 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
       <div className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
         <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
+        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional — for dosing recommendations</p>
+        <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
       </div>
+
+      <DosingCard dosing={dosing} />
 
       <div className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Gauges</h2>

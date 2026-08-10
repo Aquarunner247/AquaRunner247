@@ -93,30 +93,32 @@ model Organization {
   businessPhone String?
 
   planStatus           OrganizationPlanStatus @default(TRIALING)
-  trialEndsAt           DateTime?
-  stripeCustomerId      String?   @unique
-  stripeSubscriptionId  String?   @unique
-  currentPeriodEnd      DateTime?
+  trialEndsAt          DateTime?
+  stripeCustomerId     String?                @unique
+  stripeSubscriptionId String?                @unique
+  currentPeriodEnd     DateTime?
 
   /// Captured at signup — USPS 2-letter code ("NV", "CA", ...). Null for accounts that
   /// predate multi-state support and haven't been backfilled yet.
-  state                String?
+  state               String?
   /// Captured at signup — whether this account services any commercial pools at all.
   /// Null means "not asked yet" (pre-multi-state accounts); false means residential-only,
   /// so compliance features never apply regardless of state support.
-  hasCommercialPools   Boolean?
-  complianceRulesetId  String?
-  complianceRuleset    ComplianceRuleset? @relation(fields: [complianceRulesetId], references: [id])
+  hasCommercialPools  Boolean?
+  complianceRulesetId String?
+  complianceRuleset   ComplianceRuleset? @relation(fields: [complianceRulesetId], references: [id])
 
-  users     User[]
-  customers Customer[]
-  properties Property[]
-  managementCompanies ManagementCompany[]
-  chemicalProducts ChemicalProduct[]
-  checklistItems ChecklistItemDefinition[]
-  recurringRoutes RecurringRoute[]
-  serviceVisits   ServiceVisit[]
-  adHocStops      AdHocStop[]
+  users                 User[]
+  customers             Customer[]
+  properties            Property[]
+  managementCompanies   ManagementCompany[]
+  chemicalProducts      ChemicalProduct[]
+  checklistItems        ChecklistItemDefinition[]
+  recurringRoutes       RecurringRoute[]
+  serviceVisits         ServiceVisit[]
+  adHocStops            AdHocStop[]
+  dosingProductSettings OrgChemicalProductSetting[]
+  complianceTargets     OrgComplianceTarget[]
 
   @@index([complianceRulesetId])
 }
@@ -152,10 +154,10 @@ model ComplianceRuleset {
   countyName        String?
 
   /// e.g. "5 CCR 1003-5", "18 AAC 30", "CT Public Health Code § 19-13-B33b"
-  officialCitation String?
+  officialCitation      String?
   /// The actual source document(s) extracted from, e.g. "Guidelines for Arkansas Pools,
   /// Spas, and Other Aquatic Facility Operators -- Updated Edition, 2026"
-  sourceDocument String?
+  sourceDocument        String?
   /// How long operating logs must be retained on file, in months (12 for AL/AZ, 24 for
   /// CA, null where the source doesn't state one).
   recordRetentionMonths Int?
@@ -169,7 +171,7 @@ model ComplianceRuleset {
   /// Markdown body rendered on the in-app state code reference page. Only populated for
   /// Nevada so far -- extending the reference page to the other 8 states is a separate
   /// pass (see COMPLIANCE_RULESET_NOTES.md).
-  referenceContent String? @db.Text
+  referenceContent   String? @db.Text
 
   chemistryThresholds ChemistryThreshold[]
   frequencyRules      FrequencyRule[]
@@ -224,10 +226,10 @@ model ChemistryThreshold {
   /// deliberately NOT built" section. Null = unconditional.
   appliesWhen         String?
 
-  minValue Decimal? @db.Decimal(10, 3)
-  idealMin Decimal? @db.Decimal(10, 3)
-  idealMax Decimal? @db.Decimal(10, 3)
-  maxValue Decimal? @db.Decimal(10, 3)
+  minValue  Decimal? @db.Decimal(10, 3)
+  idealMin  Decimal? @db.Decimal(10, 3)
+  idealMax  Decimal? @db.Decimal(10, 3)
+  maxValue  Decimal? @db.Decimal(10, 3)
   /// A separate, optional tier that triggers closure risk specifically -- distinct from
   /// the routine min/max above (Nevada's pH hazard band 6.5-8.0 vs. its 7.2-7.8 target).
   /// Most states collected so far only have one tier; hazardMin/Max stay null there.
@@ -273,10 +275,10 @@ model FrequencyRule {
   bodyOfWaterCategory String?
   /// A property attribute (not a pool type) that changes frequency -- e.g.
   /// "common_interest_development_under_25_units" (California's small-HOA exception).
-  facilityAttribute String?
+  facilityAttribute   String?
 
-  cadence         String?
-  intervalMinutes Int?
+  cadence            String?
+  intervalMinutes    Int?
   /// California's combined-chlorine cadence is "whatever frequency maintains
   /// compliance," not a stated number -- cadence/intervalMinutes hold the closest
   /// stated approximation (if any); this flag says don't treat that as a hard interval.
@@ -285,7 +287,7 @@ model FrequencyRule {
   /// stabilized chlorine" vs. "manually dosed" (New Mexico's CYA cadence depends on
   /// delivery method, not just whether the chemical is used at all). Null = unconditional.
   /// Same descriptive-not-evaluated convention as ChemistryThreshold.appliesWhen.
-  appliesWhen String?
+  appliesWhen        String?
 
   notes String? @db.Text
 
@@ -321,22 +323,22 @@ model EventProtocol {
   /// treatment time; California's CYA-present row is an entirely separate target).
   /// Null = the unconditional/baseline variant. Same convention as
   /// ChemistryThreshold.appliesWhen -- descriptive, not evaluated.
-  appliesWhen String?
+  appliesWhen                 String?
   /// Concentration x time inactivation target, when the source states one explicitly
   /// (New York's CT=15,300 for Crypto) -- lets multiple stated concentration/time pairs
   /// be cross-checked against the same number rather than only storing one hardcoded
   /// pair in reopeningCondition's prose. Null where a state doesn't state a CT value.
-  ctValue     Decimal? @db.Decimal(12, 2)
-  ctValueUnit String?
+  ctValue                     Decimal? @db.Decimal(12, 2)
+  ctValueUnit                 String?
   /// True when this protocol requires closing every body of water sharing the same
   /// filtration system, not just the specifically affected one (New York, California).
-  cascadesToSharedFiltration Boolean @default(false)
+  cascadesToSharedFiltration  Boolean  @default(false)
   /// Described precisely enough to eventually encode (target chemical, direction,
   /// value, hold time) but kept as text this pass -- e.g. "Free chlorine >= 2.0 ppm AND
   /// pH <= 7.5, maintained 30 minutes", or Florida's descend-below-ceiling mirror case:
   /// "Free chlorine <= 10.0 mg/L".
-  reopeningCondition String  @db.Text
-  remediationSteps   String? @db.Text
+  reopeningCondition          String   @db.Text
+  remediationSteps            String?  @db.Text
 
   /// Chemical-triggered obligations (Florida: CYA/quat-ammonium/ozone/copper need a
   /// dedicated test kit; silver needs a full lab analysis every six months).
@@ -404,21 +406,21 @@ model User {
   /// Supabase Auth user id (`auth.users.id`) — set after user is created in Supabase
   authUserId String? @unique @db.Uuid
 
-  email     String   @unique
-  name      String?
-  role      UserRole @default(TECHNICIAN)
-  phone     String?
-  active    Boolean  @default(true)
+  email           String   @unique
+  name            String?
+  role            UserRole @default(TECHNICIAN)
+  phone           String?
+  active          Boolean  @default(true)
   /// Platform-level oversight access across ALL organizations — separate from the per-org `role`. Never settable via any UI; set manually by the platform owner.
-  isPlatformAdmin Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isPlatformAdmin Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  assignedVisits ServiceVisit[] @relation("VisitTechnician")
-  assignedRoutes RecurringRoute[] @relation("RouteTechnician")
-  sentAlerts     CustomerAlert[]
-  adHocStops        AdHocStop[] @relation("AdHocStopTechnician")
-  createdAdHocStops AdHocStop[] @relation("AdHocStopCreatedBy")
+  assignedVisits                 ServiceVisit[]          @relation("VisitTechnician")
+  assignedRoutes                 RecurringRoute[]        @relation("RouteTechnician")
+  sentAlerts                     CustomerAlert[]
+  adHocStops                     AdHocStop[]             @relation("AdHocStopTechnician")
+  createdAdHocStops              AdHocStop[]             @relation("AdHocStopCreatedBy")
   recordedContaminationIncidents ContaminationIncident[]
 
   @@index([organizationId])
@@ -435,10 +437,10 @@ model Customer {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  properties     Property[]
-  documents      CustomerDocument[]
-  customerUsers  CustomerUser[]
-  alerts         CustomerAlert[]
+  properties    Property[]
+  documents     CustomerDocument[]
+  customerUsers CustomerUser[]
+  alerts        CustomerAlert[]
 
   @@index([organizationId])
 }
@@ -503,40 +505,40 @@ model Property {
   customerId     String?
   customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
-  name                  String
+  name                 String
   /// Drives which on-site service form/compliance rules apply — single source of truth,
   /// not an account- or login-level setting.
-  propertyType          PropertyType @default(COMMERCIAL)
-  managerName           String?
-  managerBusinessPhone  String?
-  managerMobilePhone    String?
-  managerPhone          String?
-  managerEmail          String?
+  propertyType         PropertyType       @default(COMMERCIAL)
+  managerName          String?
+  managerBusinessPhone String?
+  managerMobilePhone   String?
+  managerPhone         String?
+  managerEmail         String?
   /// On-site maintenance contact — separate from the property manager above.
-  maintenanceName       String?
-  maintenanceCellPhone  String?
-  maintenanceEmail      String?
+  maintenanceName      String?
+  maintenanceCellPhone String?
+  maintenanceEmail     String?
   /// Residential-only: replaces Manager/Maintenance above for propertyType RESIDENTIAL.
-  ownerName             String?
-  ownerMobilePhone      String?
-  ownerHomePhone        String?
-  ownerEmail            String?
+  ownerName            String?
+  ownerMobilePhone     String?
+  ownerHomePhone       String?
+  ownerEmail           String?
   /// Residential-only: directions for reaching the pool (gate code, parking, side yard, etc.)
-  accessNotes           String?
+  accessNotes          String?
   /// Residential-only: whether a dog is on the property, for technician awareness/safety.
-  hasDog                Boolean @default(false)
-  managementCompanyId String?
-  managementCompany   ManagementCompany? @relation(fields: [managementCompanyId], references: [id], onDelete: SetNull)
-  addressLine1          String?
-  addressLine2          String?
-  city                  String?
-  region                String?
-  postalCode            String?
-  country               String? @default("US")
-  latitude              Decimal? @db.Decimal(10, 7)
-  longitude             Decimal? @db.Decimal(10, 7)
-  geofenceMeters        Int?
-  notes                 String?
+  hasDog               Boolean            @default(false)
+  managementCompanyId  String?
+  managementCompany    ManagementCompany? @relation(fields: [managementCompanyId], references: [id], onDelete: SetNull)
+  addressLine1         String?
+  addressLine2         String?
+  city                 String?
+  region               String?
+  postalCode           String?
+  country              String?            @default("US")
+  latitude             Decimal?           @db.Decimal(10, 7)
+  longitude            Decimal?           @db.Decimal(10, 7)
+  geofenceMeters       Int?
+  notes                String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -557,12 +559,12 @@ model BodyOfWater {
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  name         String
-  type         BodyOfWaterType @default(POOL)
-  volumeGallons Decimal?        @db.Decimal(12, 2)
+  name             String
+  type             BodyOfWaterType @default(POOL)
+  volumeGallons    Decimal?        @db.Decimal(12, 2)
   /// SNHD-posted maximum bather load for this body of water
   maximumOccupancy Int?
-  notes        String?
+  notes            String?
 
   /// SNHD log footer: minimum required recirculation flow (GPM)
   minimumRequiredFlowGpm Decimal? @db.Decimal(10, 2)
@@ -607,7 +609,8 @@ model BodyOfWater {
   contaminationIncidents ContaminationIncident[]
   /// Other bodies of water closed as part of an incident cascade because they share this
   /// body's filtration system, without being the body where the incident was discovered.
-  cascadedIncidents      ContaminationIncident[] @relation("CascadedFiltrationClosure")
+  cascadedIncidents      ContaminationIncident[]     @relation("CascadedFiltrationClosure")
+  volumeCalculation      VolumeCalculation?
 
   @@index([propertyId])
 }
@@ -630,12 +633,12 @@ enum ContaminationIncidentStatus {
 /// (New York, California) -- none of which fits as nullable columns on a reading table.
 /// Schema only this pass -- no UI/forms; see COMPLIANCE_RULESET_NOTES.md.
 model ContaminationIncident {
-  id            String      @id @default(cuid())
-  propertyId    String
-  property      Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  bodyOfWaterId String
+  id                    String        @id @default(cuid())
+  propertyId            String
+  property              Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  bodyOfWaterId         String
   /// The body of water where the incident was discovered/reported.
-  bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+  bodyOfWater           BodyOfWater   @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
   /// Every body of water actually closed by this incident, including the discovery body
   /// above -- populate this even for a single-body incident, since "which bodies were
   /// closed" should never require inferring from bodyOfWaterId alone once cascade rules
@@ -655,7 +658,7 @@ model ContaminationIncident {
   /// Whether cyanuric acid was present at the time, and its measured ppm if so --
   /// directly determines which state's CYA-present protocol variant applies (see
   /// EventProtocol.appliesWhen="if CYA present" rows).
-  cyaPresentPpm Decimal? @db.Decimal(10, 3)
+  cyaPresentPpm     Decimal? @db.Decimal(10, 3)
 
   /// When the disinfectant first reached target concentration -- NOT necessarily when
   /// the CT/hold clock starts (see verifiedEvenDistributionAt below, Maryland's pattern).
@@ -663,11 +666,11 @@ model ContaminationIncident {
   /// Multi-point perimeter sampling (Maryland: every 15 ft) confirming the disinfectant
   /// is evenly distributed throughout the body of water -- some states' hold-time clock
   /// starts here, not at targetConcentrationReachedAt.
-  verifiedEvenDistributionAt DateTime?
+  verifiedEvenDistributionAt   DateTime?
   /// Georgia's explicit definition: Total Contact Time ends when the disinfectant
   /// concentration begins being reduced for reopening, not at reopenedAt itself.
-  contactTimeEndedAt DateTime?
-  reopenedAt         DateTime?
+  contactTimeEndedAt           DateTime?
+  reopenedAt                   DateTime?
 
   remediationSteps String? @db.Text
   notes            String? @db.Text
@@ -693,18 +696,18 @@ model IncidentMonitoringReading {
 
   /// e.g. "DISCOVERY", "POST_DISINFECTION", "REOPENING" (California's 3) or "START",
   /// "INTERVAL_1".."INTERVAL_4", "END" (Georgia's 6).
-  checkpointLabel  String
-  sequence         Int?
-  recordedAt       DateTime
-  freeChlorinePpm  Decimal? @db.Decimal(10, 3)
-  totalChlorinePpm Decimal? @db.Decimal(10, 3)
-  ph               Decimal? @db.Decimal(10, 3)
-  temperature      Decimal? @db.Decimal(10, 3)
+  checkpointLabel      String
+  sequence             Int?
+  recordedAt           DateTime
+  freeChlorinePpm      Decimal? @db.Decimal(10, 3)
+  totalChlorinePpm     Decimal? @db.Decimal(10, 3)
+  ph                   Decimal? @db.Decimal(10, 3)
+  temperature          Decimal? @db.Decimal(10, 3)
   /// Maryland's every-15-ft perimeter check confirming even distribution at this
   /// checkpoint specifically, distinct from ContaminationIncident.verifiedEvenDistributionAt
   /// (the single moment the overall hold clock started).
-  distributionVerified Boolean @default(false)
-  notes                String? @db.Text
+  distributionVerified Boolean  @default(false)
+  notes                String?  @db.Text
 
   createdAt DateTime @default(now())
 
@@ -730,35 +733,35 @@ model Equipment {
   bodyOfWaterId String
   bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
 
-  kind         EquipmentKind @default(OTHER)
-  make         String?
-  model        String?
-  serialNumber String?
+  kind           EquipmentKind @default(OTHER)
+  make           String?
+  model          String?
+  serialNumber   String?
   /// For main drain covers, skimmer covers, and valves
-  numberOfPorts Int?
+  numberOfPorts  Int?
   /// Pipe sizing, e.g. "2 in"
-  pipeSize      String?
+  pipeSize       String?
   /// Date this item was last changed, serviced, or fixed
   lastServicedAt DateTime?
-  installedOn  DateTime?
-  notes        String?
+  installedOn    DateTime?
+  notes          String?
 
   /// Pump: motor horsepower
   horsepower Decimal? @db.Decimal(6, 2)
   /// Pump: e.g. "115V", "230V", "115/230V"
-  voltage String?
+  voltage    String?
 
   /// Heater: BTU rating
-  btu Int?
+  btu           Int?
   /// Heater: ASME-certified pressure vessel
   asmeCertified Boolean?
 
   /// Main drain cover: VGB Act compliance year (2008 or 2017)
-  vgbaYear Int?
+  vgbaYear         Int?
   /// Main drain cover: manufactured sump (vs. field-built)
   manufacturedSump Boolean?
   /// Main drain cover: max GPM flow rate (shown in place of serial # for this kind)
-  flowRateGpm Decimal? @db.Decimal(10, 2)
+  flowRateGpm      Decimal? @db.Decimal(10, 2)
 
   /// Skimmer cover: equalizer line abandoned
   equalizerAbandoned Boolean?
@@ -798,13 +801,13 @@ model RecurringRoute {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  name      String
+  name         String
   /// Default assigned technician for generated visits (1 route per tech per day).
   technicianId String?
-  technician   User?   @relation("RouteTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
-  frequency ScheduleFrequency @default(WEEKLY)
-  dayOfWeek Int?
-  active    Boolean           @default(true)
+  technician   User?             @relation("RouteTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+  frequency    ScheduleFrequency @default(WEEKLY)
+  dayOfWeek    Int?
+  active       Boolean           @default(true)
 
   /// Soft cap for Smart Route Placement suggestions and the manual Routes page load
   /// badge — null means unlimited. Advisory only, never enforced against manual
@@ -908,11 +911,11 @@ model ServiceVisit {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  reading         VisitWaterReading?
-  doses           VisitChemicalDose[]
-  photos          VisitPhoto[]
-  issues          VisitIssueFlag[]
-  recommendation ChemistryRecommendation?
+  reading              VisitWaterReading?
+  doses                VisitChemicalDose[]
+  photos               VisitPhoto[]
+  issues               VisitIssueFlag[]
+  recommendation       ChemistryRecommendation?
   checklistCompletions VisitChecklistCompletion[]
 
   @@index([organizationId, scheduledStart])
@@ -935,6 +938,11 @@ model VisitWaterReading {
   brominePpm       Decimal? @db.Decimal(6, 2)
   alkalinityPpm    Decimal? @db.Decimal(8, 2)
   cyanuricAcidPpm  Decimal? @db.Decimal(8, 2)
+  /// Not required by any state's compliance log -- captured only for orgs that want the
+  /// dosing calculator's Calcium Hardness recommendation (dosing-calculator-spec.md).
+  calciumHardnessPpm Decimal? @db.Decimal(8, 2)
+  /// Salt/SWG-generator level -- same as calciumHardnessPpm, dosing-calculator input only.
+  saltPpm            Decimal? @db.Decimal(8, 2)
   /// Optional — not required for your SNHD workflow
   temperatureF     Decimal? @db.Decimal(5, 2)
 
@@ -948,8 +956,8 @@ model VisitWaterReading {
   backwashAt DateTime?
 
   capturedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model ChemicalProduct {
@@ -966,7 +974,10 @@ model ChemicalProduct {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  doses VisitChemicalDose[]
+  doses              VisitChemicalDose[]
+  /// Dosing-calculator settings that bill through this existing product, if the org
+  /// chose to link them (OrgChemicalProductSetting.linkedBillingProductId).
+  dosingSettingLinks OrgChemicalProductSetting[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -981,7 +992,7 @@ model VisitChemicalDose {
   chemicalProduct   ChemicalProduct? @relation(fields: [chemicalProductId], references: [id], onDelete: SetNull)
 
   productName String
-  quantity    Decimal @db.Decimal(12, 4)
+  quantity    Decimal  @db.Decimal(12, 4)
   unit        String
   /// Cost/charge per unit, snapshotted at the time this dose was logged so
   /// historical billing stays accurate even if catalog prices change later.
@@ -1002,9 +1013,9 @@ model VisitPhoto {
   storagePath    String
   contentType    String?
   takenAt        DateTime?
-  latitude       Decimal? @db.Decimal(10, 7)
-  longitude      Decimal? @db.Decimal(10, 7)
-  accuracyMeters Decimal? @db.Decimal(8, 2)
+  latitude       Decimal?  @db.Decimal(10, 7)
+  longitude      Decimal?  @db.Decimal(10, 7)
+  accuracyMeters Decimal?  @db.Decimal(8, 2)
 
   createdAt DateTime @default(now())
 
@@ -1080,4 +1091,216 @@ model WaitlistSignup {
   id        String   @id @default(cuid())
   email     String   @unique
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Dosing calculator — see dosing-calculator-spec.md for full design rationale.
+// ---------------------------------------------------------------------------
+
+enum VolumeShape {
+  RECTANGLE
+  CIRCLE
+  OVAL
+  KIDNEY_FREEFORM
+  MULTI_DEPTH
+}
+
+/// Bromine is deliberately out of scope for v1 (see dosing-calculator-spec.md's Overview:
+/// "Covers all standard chemicals: Free Chlorine, pH, Total Alkalinity, CYA, Calcium
+/// Hardness, Salt") -- bromine tablets are a different product family with their own
+/// dosing math, not represented in the Section 6 seed reference table. A body of water
+/// configured for BROMINE (BodyOfWater.disinfectionMethod) simply gets no dosing
+/// recommendation for its chlorine-family reading; every other chemical still works.
+enum ChemicalType {
+  FREE_CHLORINE
+  PH_UP
+  PH_DOWN
+  ALKALINITY_UP
+  CYA
+  CALCIUM_HARDNESS
+  SALT
+}
+
+enum PoolOrSpa {
+  POOL
+  SPA
+  BOTH
+}
+
+enum ChemicalProductForm {
+  LIQUID
+  GRANULAR
+  TABLET
+  PUCK
+}
+
+enum DosingUnit {
+  OZ
+  LB
+  GAL
+  QUART
+  TABLET
+  SCOOP
+  TSP
+  TBSP
+}
+
+enum ComplianceTargetMode {
+  STATE_MIDPOINT
+  ORG_CUSTOM
+}
+
+/// One-time (or geometry-changes-only) setup tool per body of water, not a per-visit
+/// record -- lets gallons be calculated from real dimensions instead of guessed. Kept as
+/// its own table rather than embedded on BodyOfWater so the shape-specific dimension
+/// fields don't permanently bloat every body-of-water row with columns only a handful of
+/// shapes use.
+model VolumeCalculation {
+  id            String      @id @default(cuid())
+  bodyOfWaterId String      @unique
+  bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+
+  shape VolumeShape
+
+  lengthFt Decimal? @db.Decimal(8, 2)
+  widthFt  Decimal? @db.Decimal(8, 2)
+  radiusFt Decimal? @db.Decimal(8, 2)
+
+  shallowDepthFt Decimal? @db.Decimal(6, 2)
+  deepDepthFt    Decimal? @db.Decimal(6, 2)
+
+  /// Kidney/freeform approximation inputs -- see dosing-calculator-spec.md Section 1a.
+  freeformMeasurementA Decimal? @db.Decimal(8, 2)
+  freeformMeasurementB Decimal? @db.Decimal(8, 2)
+
+  /// Write-through snapshot of the last calculated result -- the actual gallons used
+  /// everywhere else in the app stays BodyOfWater.volumeGallons; this is just this tool's
+  /// own record of what it last computed and when, not a second source of truth.
+  calculatedGallons Decimal?  @db.Decimal(12, 2)
+  lastCalculatedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Global, system-maintained chemical product reference catalog -- NOT org-scoped. Orgs
+/// never build this list from scratch; they enable/price/target rows via
+/// OrgChemicalProductSetting. See dosing-calculator-spec.md Section 1b for why (avoids
+/// every org re-entering the same industry-standard dosing math for the same 20-ish
+/// products).
+model ChemicalProductCatalog {
+  id String @id @default(cuid())
+
+  name         String
+  chemicalType ChemicalType
+  /// BOTH means the same product/dosingFactor works for either -- only the display unit
+  /// and rounding increment differ at spa scale (see dosing-calculator-spec.md Section 6).
+  poolOrSpa    PoolOrSpa           @default(BOTH)
+  form         ChemicalProductForm
+
+  /// Percent active ingredient, e.g. 12.5, 68.0. Null for count-based products (tabs/pucks)
+  /// with no meaningful "percent active" concept.
+  activePercent Decimal? @db.Decimal(5, 2)
+
+  dosingUnit   DosingUnit
+  /// Amount of dosingUnit needed to move 1 ppm per 10,000 gallons -- see
+  /// dosing-calculator-spec.md Section 6 for the full reference table and derivation.
+  /// EXCEPTION: for PH_UP/PH_DOWN products, this is per 1.0 pH unit (not 1 ppm) per
+  /// 10,000 gallons, since pH has no ppm concept -- the calculator's target-delta math is
+  /// identical either way (targetValue - currentValue), only the unit of that delta differs.
+  dosingFactor Decimal    @db.Decimal(10, 4)
+  /// CYA ppm added per 1 ppm of Free Chlorine raised by this product -- the dichlor/
+  /// trichlor stabilizer cross-effect (Section 6: "also adds ~0.9 ppm CYA per ppm FC").
+  /// Null for products with no stabilizer content (liquid chlorine, cal-hypo). Drives the
+  /// "avoid stabilizer same visit as shock" sequencing warning without string-matching
+  /// product names.
+  cyaAddedPerFcPpm Decimal? @db.Decimal(6, 3)
+
+  defaultMaxDosePerVisit   Decimal? @db.Decimal(10, 2)
+  defaultRoundingIncrement Decimal  @db.Decimal(10, 4)
+
+  isSystemDefault Boolean @default(true)
+  displayOrder    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgSettings OrgChemicalProductSetting[]
+
+  @@unique([name])
+  @@index([chemicalType])
+}
+
+/// Org-scoped settings for a single ChemicalProductCatalog row -- one per org per catalog
+/// product the org has actually touched (enabled, priced, or set primary). Rows the org
+/// never interacts with simply don't exist here, same "opt-in" convention as the rest of
+/// the org-scoping pattern in this schema.
+model OrgChemicalProductSetting {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  catalogProductId String
+  catalogProduct   ChemicalProductCatalog @relation(fields: [catalogProductId], references: [id], onDelete: Cascade)
+
+  /// "We use this" -- defaults false until the org confirms; only eligible products for
+  /// the dosing calc are isEnabled: true ones.
+  isEnabled Boolean  @default(false)
+  price     Decimal? @db.Decimal(10, 4)
+
+  /// Exactly one isPrimary: true row per org per (chemicalType, poolOrSpa) combo among
+  /// enabled rows -- the dosing calc uses this one automatically, no per-visit tech
+  /// product choice. Enforced at the service layer (see lib/dosing-calculator.ts), not a
+  /// DB constraint, since chemicalType/poolOrSpa live on the linked catalog row rather
+  /// than this one -- see dosing-calculator-spec.md's isPrimary enforcement note.
+  isPrimary Boolean @default(false)
+
+  maxDosePerVisit   Decimal? @db.Decimal(10, 2)
+  roundingIncrement Decimal? @db.Decimal(10, 4)
+
+  /// Optional link to the org's existing free-text ChemicalProduct billing/usage record
+  /// (app/dashboard/chemicals), if they want dosing-calculator usage to roll into that
+  /// same cost/charge reporting instead of staying separate.
+  linkedBillingProductId String?
+  linkedBillingProduct   ChemicalProduct? @relation(fields: [linkedBillingProductId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, catalogProductId])
+  @@index([organizationId])
+  @@index([catalogProductId])
+  @@index([linkedBillingProductId])
+}
+
+/// Org-level override of a chemical's dosing target, layered on top of the state's own
+/// ComplianceRuleset numbers -- see dosing-calculator-spec.md Section 1c for resolution
+/// order. Only meaningful for chemicals the state's ComplianceRuleset actually regulates
+/// (FREE_CHLORINE, via chlorineFamilyThreshold; pH via PH_UP/PH_DOWN both resolving to the
+/// same PH threshold; ALKALINITY_UP via TOTAL_ALKALINITY; CYA via CYANURIC_ACID).
+/// CALCIUM_HARDNESS and SALT have no ComplianceRuleset backing at all (no health
+/// department regulates them) -- for those, ORG_CUSTOM is the ONLY way to get a target;
+/// with no row here, the dosing calc skips them rather than inventing an industry number.
+model OrgComplianceTarget {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// USPS 2-letter code, matching Organization.state / ComplianceRuleset.state scope.
+  state        String
+  chemicalType ChemicalType
+
+  targetMode ComplianceTargetMode @default(STATE_MIDPOINT)
+
+  orgTargetMin   Decimal? @db.Decimal(10, 3)
+  orgTargetMax   Decimal? @db.Decimal(10, 3)
+  /// Single-point target (e.g. Salt's generator-specified ppm), used instead of a
+  /// min/max range when the chemical's target is naturally one number, not a band.
+  orgTargetValue Decimal? @db.Decimal(10, 3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, state, chemicalType])
+  @@index([organizationId])
 }

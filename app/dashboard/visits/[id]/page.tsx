@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VisitForm } from "./visit-form";
 import { ResidentialVisitForm } from "./residential-visit-form";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
+import { computeAndSaveDosingRecommendation } from "@/lib/dosing-calculator";
 import type { VisitWaterReading } from "@/generated/prisma/client";
 
 type PageProps = {
@@ -126,6 +127,12 @@ export default async function VisitPage({ params }: PageProps) {
     completed: completionById.get(item.id) ?? false,
   }));
 
+  // Recomputed on every page load (not just read back from storage) since targets/
+  // products can change without a new reading being submitted -- keeps the card honest
+  // relative to the org's current Chemicals-page setup, not stale from whenever the
+  // reading itself was last saved.
+  const dosing = await computeAndSaveDosingRecommendation(visit.id);
+
   const supabaseAdmin = createSupabaseAdminClient();
   const photosWithUrls = await Promise.all(
     visit.photos.map(async (p) => {
@@ -177,6 +184,7 @@ export default async function VisitPage({ params }: PageProps) {
             unit: d.unit,
           }))}
           initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
+          initialDosing={dosing}
         />
       ) : (
         <VisitForm
@@ -201,6 +209,7 @@ export default async function VisitPage({ params }: PageProps) {
             unit: d.unit,
           }))}
           initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
+          initialDosing={dosing}
         />
       )}
     </main>
