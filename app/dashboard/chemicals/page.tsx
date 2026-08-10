@@ -126,6 +126,88 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
         <p className="app-subhead">Manage the chemical catalog and review usage/billing by property.</p>
       </header>
 
+      {/* Chemical products -- the org's own selected/active catalog, shown first since
+          it's what most admins actually want to see and edit day to day. The Dosing
+          Product Catalog (enable/price/primary picker feeding the dosing calculator)
+          follows directly below it. */}
+      <section className="app-card mt-6">
+        <h2 className="text-base font-semibold text-brand-ink">Chemical products</h2>
+        <div className="mt-3 space-y-2">
+          {products.map((p) => {
+            const isEditing = editingId === p.id;
+            return (
+              <div key={p.id} className="app-card-inset">
+                {!isEditing ? (
+                  <div className="flex items-center gap-2">
+                    <div className="grid flex-1 grid-cols-4 items-center gap-2 text-sm">
+                      <span className="font-medium text-brand-ink">{p.name}</span>
+                      <span className="app-metric text-brand-ink/70">{p.unit}</span>
+                      <span className="app-metric text-brand-ink/70">Cost: {fmtMoney(Number(p.costPerUnit))}</span>
+                      <span className="app-metric text-brand-ink/70">Charge: {fmtMoney(Number(p.chargePerUnit))}</span>
+                    </div>
+                    <a href={`/dashboard/chemicals?edit=${p.id}`} className="app-btn-secondary-sm">
+                      Edit
+                    </a>
+                    <form action={deleteChemicalProduct}>
+                      <input type="hidden" name="id" value={p.id} />
+                      <ConfirmSubmitButton
+                        label="Delete"
+                        confirmMessage={`Permanently delete "${p.name}"? Past billing history keeps its own cost/charge record.`}
+                        className="app-btn-danger-sm"
+                      />
+                    </form>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <form action={updateChemicalProduct} className="grid flex-1 grid-cols-5 items-center gap-2">
+                      <input type="hidden" name="id" value={p.id} />
+                      <input name="name" defaultValue={p.name} className="app-field col-span-2" />
+                      <input name="unit" defaultValue={p.unit} placeholder="Unit" className="app-field" />
+                      <input
+                        name="costPerUnit"
+                        type="number"
+                        step="0.0001"
+                        defaultValue={p.costPerUnit.toString()}
+                        placeholder="Cost/unit"
+                        className="app-field"
+                      />
+                      <input
+                        name="chargePerUnit"
+                        type="number"
+                        step="0.0001"
+                        defaultValue={p.chargePerUnit.toString()}
+                        placeholder="Charge/unit"
+                        className="app-field"
+                      />
+                      <button type="submit" className="app-btn-primary-sm">
+                        Save
+                      </button>
+                    </form>
+                    <a href="/dashboard/chemicals" className="app-btn-secondary-sm">
+                      Cancel
+                    </a>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {products.length === 0 ? <p className="app-card-inset text-sm text-brand-ink/60">No chemical products yet — add one below.</p> : null}
+        </div>
+
+        <form action={createChemicalProduct} className="app-card-inset mt-4">
+          <p className="text-sm font-medium text-brand-ink">Add chemical product</p>
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            <input name="name" required placeholder="Name (e.g. Cal Hypo)" className="app-field" />
+            <input name="unit" required placeholder="Unit (e.g. lb, gal)" className="app-field" />
+            <input name="costPerUnit" type="number" step="0.0001" required placeholder="Your cost/unit ($)" className="app-field" />
+            <input name="chargePerUnit" type="number" step="0.0001" required placeholder="Charge/unit ($)" className="app-field" />
+          </div>
+          <button className="app-btn-primary-sm mt-2" type="submit">
+            Add product
+          </button>
+        </form>
+      </section>
+
       {/* Dosing Product Catalog */}
       <section className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Dosing Product Catalog</h2>
@@ -243,85 +325,6 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
             );
           })}
         </div>
-      </section>
-
-      {/* Catalog */}
-      <section className="app-card mt-6">
-        <h2 className="text-base font-semibold text-brand-ink">Chemical products</h2>
-        <div className="mt-3 space-y-2">
-          {products.map((p) => {
-            const isEditing = editingId === p.id;
-            return (
-              <div key={p.id} className="app-card-inset">
-                {!isEditing ? (
-                  <div className="flex items-center gap-2">
-                    <div className="grid flex-1 grid-cols-4 items-center gap-2 text-sm">
-                      <span className="font-medium text-brand-ink">{p.name}</span>
-                      <span className="app-metric text-brand-ink/70">{p.unit}</span>
-                      <span className="app-metric text-brand-ink/70">Cost: {fmtMoney(Number(p.costPerUnit))}</span>
-                      <span className="app-metric text-brand-ink/70">Charge: {fmtMoney(Number(p.chargePerUnit))}</span>
-                    </div>
-                    <a href={`/dashboard/chemicals?edit=${p.id}`} className="app-btn-secondary-sm">
-                      Edit
-                    </a>
-                    <form action={deleteChemicalProduct}>
-                      <input type="hidden" name="id" value={p.id} />
-                      <ConfirmSubmitButton
-                        label="Delete"
-                        confirmMessage={`Permanently delete "${p.name}"? Past billing history keeps its own cost/charge record.`}
-                        className="app-btn-danger-sm"
-                      />
-                    </form>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <form action={updateChemicalProduct} className="grid flex-1 grid-cols-5 items-center gap-2">
-                      <input type="hidden" name="id" value={p.id} />
-                      <input name="name" defaultValue={p.name} className="app-field col-span-2" />
-                      <input name="unit" defaultValue={p.unit} placeholder="Unit" className="app-field" />
-                      <input
-                        name="costPerUnit"
-                        type="number"
-                        step="0.0001"
-                        defaultValue={p.costPerUnit.toString()}
-                        placeholder="Cost/unit"
-                        className="app-field"
-                      />
-                      <input
-                        name="chargePerUnit"
-                        type="number"
-                        step="0.0001"
-                        defaultValue={p.chargePerUnit.toString()}
-                        placeholder="Charge/unit"
-                        className="app-field"
-                      />
-                      <button type="submit" className="app-btn-primary-sm">
-                        Save
-                      </button>
-                    </form>
-                    <a href="/dashboard/chemicals" className="app-btn-secondary-sm">
-                      Cancel
-                    </a>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {products.length === 0 ? <p className="app-card-inset text-sm text-brand-ink/60">No chemical products yet — add one below.</p> : null}
-        </div>
-
-        <form action={createChemicalProduct} className="app-card-inset mt-4">
-          <p className="text-sm font-medium text-brand-ink">Add chemical product</p>
-          <div className="mt-2 grid grid-cols-4 gap-2">
-            <input name="name" required placeholder="Name (e.g. Cal Hypo)" className="app-field" />
-            <input name="unit" required placeholder="Unit (e.g. lb, gal)" className="app-field" />
-            <input name="costPerUnit" type="number" step="0.0001" required placeholder="Your cost/unit ($)" className="app-field" />
-            <input name="chargePerUnit" type="number" step="0.0001" required placeholder="Charge/unit ($)" className="app-field" />
-          </div>
-          <button className="app-btn-primary-sm mt-2" type="submit">
-            Add product
-          </button>
-        </form>
       </section>
 
       {/* Usage / billing report */}
