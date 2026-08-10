@@ -54,6 +54,28 @@ async function main() {
     update: { name: "AquaRunner (seed)" },
   });
 
+  const CHEMICAL_PRODUCTS: { name: string; unit: string; costPerUnit: number; chargePerUnit: number }[] = [
+    { name: "Sodium Hypochlorite (12.5%)", unit: "gal", costPerUnit: 3.25, chargePerUnit: 6.0 },
+    { name: "Muriatic Acid (31.45%)", unit: "gal", costPerUnit: 4.5, chargePerUnit: 8.0 },
+    { name: "Cal Hypo (68%)", unit: "lb", costPerUnit: 3.75, chargePerUnit: 6.5 },
+    // Trichlor tablets are dosed/billed by the tablet, not by weight -- the unit field is
+    // free text (no fixed enum), so "tablet" works the same as "lb" or "gal" everywhere
+    // that reads ChemicalProduct.unit (visit-form dose entry, doseStepFor's whole-unit
+    // default, the chemicals admin report).
+    { name: "Trichlor Tablets (3\")", unit: "tablet", costPerUnit: 2.25, chargePerUnit: 4.5 },
+    { name: "Soda Ash (pH Increaser)", unit: "lb", costPerUnit: 1.4, chargePerUnit: 3.0 },
+    { name: "Alkalinity Up", unit: "lb", costPerUnit: 1.1, chargePerUnit: 2.5 },
+    { name: "Cyanuric Acid (Stabilizer)", unit: "lb", costPerUnit: 2.6, chargePerUnit: 4.75 },
+    { name: "Sodium Bisulfate (Dry Acid)", unit: "lb", costPerUnit: 1.75, chargePerUnit: 3.25 },
+  ];
+  for (const product of CHEMICAL_PRODUCTS) {
+    await prisma.chemicalProduct.upsert({
+      where: { organizationId_name: { organizationId: org.id, name: product.name } },
+      create: { organizationId: org.id, ...product },
+      update: { unit: product.unit, costPerUnit: product.costPerUnit, chargePerUnit: product.chargePerUnit, active: true },
+    });
+  }
+
   const customer = await prisma.customer.upsert({
     where: { id: "seed-customer-1" },
     create: {

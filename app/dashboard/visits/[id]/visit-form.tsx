@@ -609,11 +609,17 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
               className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
             >
               <option value="">Select chemical…</option>
-              {chemicalProducts.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.unit})
-                </option>
-              ))}
+              {/* Chemicals already dosed on this visit drop out of the picker -- adding
+                  the same chemical twice on one visit is normally a mistake, not a
+                  second real dose (unlike scheduling the same property twice a day for
+                  states that require it, which is a real, separate need). */}
+              {chemicalProducts
+                .filter((p) => !doses.some((d) => d.productName === p.name))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.unit})
+                  </option>
+                ))}
             </select>
             <input
               placeholder="Qty"
