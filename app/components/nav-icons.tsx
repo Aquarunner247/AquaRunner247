@@ -2,7 +2,7 @@ export type NavIconKind =
   | "dashboard"
   | "schedule"
   | "customers"
-  | "technicians"
+  | "users"
   | "routes"
   | "chemicals"
   | "checklist"
@@ -43,7 +43,7 @@ export function NavIcon({ kind, className = "h-5 w-5" }: { kind: NavIconKind; cl
           <path d="M15.5 5.3a3.2 3.2 0 0 1 0 5.9M18.5 20c0-2.7-1.7-4.7-4-5.3" strokeLinecap="round" />
         </svg>
       );
-    case "technicians":
+    case "users":
       return (
         <svg {...common} className={className}>
           <circle cx="12" cy="7.5" r="3.5" />
@@ -76,8 +76,8 @@ export function NavIcon({ kind, className = "h-5 w-5" }: { kind: NavIconKind; cl
     case "compliance":
       return (
         <svg {...common} className={className}>
-          <path d="M12 3.5l7 2.6v5.4c0 4.5-2.9 7.6-7 9-4.1-1.4-7-4.5-7-9V6.1l7-2.6z" strokeLinejoin="round" />
-          <path d="M8.7 12l2.3 2.3 4.3-4.6" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M12 3.5l7 2.8v5.4c0 4.6-3 7.9-7 9.3-4-1.4-7-4.7-7-9.3V6.3l7-2.8Z" strokeLinejoin="round" />
+          <path d="M8.7 12l2.2 2.2 4.4-4.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     case "settings":

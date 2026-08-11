@@ -4,9 +4,9 @@ import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { AlertsBell } from "@/app/components/alerts-bell";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
+import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, organizationHasCommercialPools } from "@/lib/compliance";
 import { WaveProgress } from "@/app/components/wave-progress";
 import { ChemGauge } from "@/app/components/chem-gauge";
-import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, organizationHasCommercialPools } from "@/lib/compliance";
 import { resolveIssue } from "./actions";
 import { TechnicianHome } from "./technician-home";
 
@@ -238,70 +238,37 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       // actually defines it -- a null bound means this state's regulation doesn't have
       // one (e.g. Arizona has no hazard tier on anything; Arkansas's CYA has no hazard
       // cap), never a fallback to another state's number. See
-      // lib/compliance.ts's activeChemistryThresholds doc comment. The gauge shown for a
-      // flagged reading falls back to that gauge's own outer range for whichever bound
-      // this state doesn't define, so it renders sensibly without asserting a false edge.
+      // lib/compliance.ts's activeChemistryThresholds doc comment. Gauges (params) only
+      // render when this state defines BOTH ideal bounds for a parameter -- same
+      // skip-when-null rule, not a fallback to a default range.
       if (chlorineFamily && chlorineFamilyValue != null) {
         const label = chlorineFamily.label;
-        const gaugeKey = chlorineFamily.key === "brominePpm" ? "bromine" : "freeChlorine";
-        const gaugeRange = READING_GAUGE_RANGES[gaugeKey];
-        if (chlorineFamily.min != null && chlorineFamilyValue < chlorineFamily.min) {
-          issues.push(`${label} ${chlorineFamilyValue} ${chlorineFamily.unit}`);
-          params.push({
-            key: gaugeKey,
-            ...gaugeRange,
-            value: chlorineFamilyValue,
-            idealMin: chlorineFamily.min,
-            idealMax: chlorineFamily.max ?? gaugeRange.max,
-          });
-        } else if (chlorineFamily.max != null && chlorineFamilyValue > chlorineFamily.max) {
-          issues.push(`${label} ${chlorineFamilyValue} ${chlorineFamily.unit}`);
-          params.push({
-            key: gaugeKey,
-            ...gaugeRange,
-            value: chlorineFamilyValue,
-            idealMin: chlorineFamily.min ?? gaugeRange.min,
-            idealMax: chlorineFamily.max,
-          });
+        if (chlorineFamily.min != null && chlorineFamilyValue < chlorineFamily.min) issues.push(`${label} ${chlorineFamilyValue} ${chlorineFamily.unit}`);
+        else if (chlorineFamily.max != null && chlorineFamilyValue > chlorineFamily.max) issues.push(`${label} ${chlorineFamilyValue} ${chlorineFamily.unit}`);
+        if (chlorineFamily.min != null && chlorineFamily.max != null) {
+          const gaugeKey = chlorineFamily.key === "brominePpm" ? "bromine" : "freeChlorine";
+          params.push({ key: gaugeKey, ...READING_GAUGE_RANGES[gaugeKey], value: chlorineFamilyValue, idealMin: chlorineFamily.min, idealMax: chlorineFamily.max });
         }
       }
       if (ph != null) {
-        if (t.phTargetMin != null && ph < t.phTargetMin) {
-          issues.push(`pH ${ph}`);
-          params.push({ key: "ph", ...READING_GAUGE_RANGES.ph, value: ph, idealMin: t.phTargetMin, idealMax: t.phTargetMax ?? READING_GAUGE_RANGES.ph.max });
-        } else if (t.phTargetMax != null && ph > t.phTargetMax) {
-          issues.push(`pH ${ph}`);
-          params.push({ key: "ph", ...READING_GAUGE_RANGES.ph, value: ph, idealMin: t.phTargetMin ?? READING_GAUGE_RANGES.ph.min, idealMax: t.phTargetMax });
+        if (t.phTargetMin != null && ph < t.phTargetMin) issues.push(`pH ${ph}`);
+        else if (t.phTargetMax != null && ph > t.phTargetMax) issues.push(`pH ${ph}`);
+        if (t.phTargetMin != null && t.phTargetMax != null) {
+          params.push({ key: "ph", ...READING_GAUGE_RANGES.ph, value: ph, idealMin: t.phTargetMin, idealMax: t.phTargetMax });
         }
       }
       if (alk != null) {
-        if (t.alkalinityTargetMinPpm != null && alk < t.alkalinityTargetMinPpm) {
-          issues.push(`Alkalinity ${alk} ppm`);
-          params.push({
-            key: "alkalinity",
-            ...READING_GAUGE_RANGES.alkalinity,
-            value: alk,
-            idealMin: t.alkalinityTargetMinPpm,
-            idealMax: t.alkalinityTargetMaxPpm ?? READING_GAUGE_RANGES.alkalinity.max,
-          });
-        } else if (t.alkalinityTargetMaxPpm != null && alk > t.alkalinityTargetMaxPpm) {
-          issues.push(`Alkalinity ${alk} ppm`);
-          params.push({
-            key: "alkalinity",
-            ...READING_GAUGE_RANGES.alkalinity,
-            value: alk,
-            idealMin: t.alkalinityTargetMinPpm ?? READING_GAUGE_RANGES.alkalinity.min,
-            idealMax: t.alkalinityTargetMaxPpm,
-          });
+        if (t.alkalinityTargetMinPpm != null && alk < t.alkalinityTargetMinPpm) issues.push(`Alkalinity ${alk} ppm`);
+        else if (t.alkalinityTargetMaxPpm != null && alk > t.alkalinityTargetMaxPpm) issues.push(`Alkalinity ${alk} ppm`);
+        if (t.alkalinityTargetMinPpm != null && t.alkalinityTargetMaxPpm != null) {
+          params.push({ key: "alkalinity", ...READING_GAUGE_RANGES.alkalinity, value: alk, idealMin: t.alkalinityTargetMinPpm, idealMax: t.alkalinityTargetMaxPpm });
         }
       }
       if (cya != null) {
-        if (t.cyaTargetMinPpm != null && cya < t.cyaTargetMinPpm) {
-          issues.push(`Cyanuric acid ${cya} ppm`);
-          params.push({ key: "cya", ...READING_GAUGE_RANGES.cya, value: cya, idealMin: t.cyaTargetMinPpm, idealMax: t.cyaTargetMaxPpm ?? READING_GAUGE_RANGES.cya.max });
-        } else if (t.cyaTargetMaxPpm != null && cya > t.cyaTargetMaxPpm) {
-          issues.push(`Cyanuric acid ${cya} ppm`);
-          params.push({ key: "cya", ...READING_GAUGE_RANGES.cya, value: cya, idealMin: t.cyaTargetMinPpm ?? READING_GAUGE_RANGES.cya.min, idealMax: t.cyaTargetMaxPpm });
+        if (t.cyaTargetMinPpm != null && cya < t.cyaTargetMinPpm) issues.push(`Cyanuric acid ${cya} ppm`);
+        else if (t.cyaTargetMaxPpm != null && cya > t.cyaTargetMaxPpm) issues.push(`Cyanuric acid ${cya} ppm`);
+        if (t.cyaTargetMinPpm != null && t.cyaTargetMaxPpm != null) {
+          params.push({ key: "cya", ...READING_GAUGE_RANGES.cya, value: cya, idealMin: t.cyaTargetMinPpm, idealMax: t.cyaTargetMaxPpm });
         }
       }
 
@@ -427,18 +394,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <section className="mt-6 space-y-5">
         {complianceComingSoon && !complianceComingSoon.stateName ? (
-          <div className="rounded-2xl border border-brand-border/70 bg-brand-foam/60 p-4 text-sm text-brand-ink">
+          <div className="rounded-lg border border-brand-border bg-brand-foam p-4 text-sm text-brand-ink">
             <p className="font-medium">Set your state to enable compliance tracking</p>
             <p className="mt-1 text-brand-muted">
               This account has commercial properties, but no state is set yet.{" "}
-              <Link href="/dashboard/settings" className="underline">
+              <Link href="/dashboard/settings" className="app-link">
                 Set it in Settings
               </Link>{" "}
               so closure-risk banners and the QR inspector log can turn on.
             </p>
           </div>
         ) : complianceComingSoon ? (
-          <div className="rounded-2xl border border-brand-border/70 bg-brand-foam/60 p-4 text-sm text-brand-ink">
+          <div className="rounded-lg border border-brand-border bg-brand-foam p-4 text-sm text-brand-ink">
             <p className="font-medium">Compliance tracking for {complianceComingSoon.stateName} is coming soon</p>
             <p className="mt-1 text-brand-muted">
               Your service data is still being logged normally in the meantime — closure-risk banners and the QR
@@ -503,7 +470,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             {closureHazardReadings.length > 0 ? (
               <div className="rounded-2xl border-2 border-brand-danger bg-brand-dangerFill p-4 shadow-soft md:p-5">
                 <p className="text-xs font-bold uppercase tracking-wide text-brand-danger">
-                  Closure risk — imminent health hazard ($909 reopening fee)
+                  ⚠ Imminent health hazard — closure risk{closureFeeLabel ? ` (${closureFeeLabel})` : ""}
                 </p>
                 <ul className="mt-3 space-y-3">
                   {closureHazardReadings.map((r) => (

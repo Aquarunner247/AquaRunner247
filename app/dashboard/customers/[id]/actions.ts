@@ -313,6 +313,7 @@ export async function updateBodyOfWater(formData: FormData) {
     ? (typeRaw as BodyOfWaterType)
     : BodyOfWaterType.POOL;
   const volume = volumeRaw ? Number(volumeRaw) : null;
+  const newVolumeGallons = Number.isFinite(volume) ? volume : null;
   const occupancy = occupancyRaw ? Number(occupancyRaw) : null;
 
   let residentialFields = {};
@@ -345,7 +346,7 @@ export async function updateBodyOfWater(formData: FormData) {
     data: {
       name,
       type,
-      volumeGallons: Number.isFinite(volume) ? volume : null,
+      volumeGallons: newVolumeGallons,
       maximumOccupancy: Number.isFinite(occupancy) ? occupancy : null,
       ...residentialFields,
       ...commercialFields,

@@ -6,6 +6,7 @@ import { ScheduleFrequency } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
+import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -226,11 +227,18 @@ export async function addRouteStop(formData: FormData) {
   // weekday — the Routes page UI already filters these out of the dropdown, but this
   // guards against stale page state or a direct request bypassing that. Ad-hoc "Extra
   // stops" are unaffected -- they're a separate system, by design, for same-day one-offs.
-  const alreadyScheduledThatDay = await prisma.recurringStop.findFirst({
-    where: { bodyOfWaterId: body.id, route: { organizationId: appUser.organizationId, dayOfWeek: route.dayOfWeek } },
-    select: { id: true },
-  });
-  if (alreadyScheduledThatDay) return;
+  //
+  // Orgs whose state requires sub-daily testing (see requiresMultipleDailyVisits) skip
+  // this guard entirely -- same compliance-aware exception the page's dropdown filter
+  // applies, kept in sync here since this is the actual enforcement point.
+  const orgRuleset = await getOrganizationRuleset(appUser.organizationId);
+  if (!requiresMultipleDailyVisits(orgRuleset)) {
+    const alreadyScheduledThatDay = await prisma.recurringStop.findFirst({
+      where: { bodyOfWaterId: body.id, route: { organizationId: appUser.organizationId, dayOfWeek: route.dayOfWeek } },
+      select: { id: true },
+    });
+    if (alreadyScheduledThatDay) return;
+  }
 
   const stopCount = await prisma.recurringStop.count({ where: { routeId: route.id } });
   const etaOffsetMinutes = Number(etaOffsetRaw);

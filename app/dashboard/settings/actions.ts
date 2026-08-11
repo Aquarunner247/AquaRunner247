@@ -52,4 +52,8 @@ export async function updateComplianceProfile(formData: FormData) {
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/compliance");
   revalidatePath("/dashboard");
+  // Saving the compliance profile from Settings is specifically about picking a state to
+  // see compliance rules for -- send the admin straight to the page that shows them,
+  // rather than leaving them on Settings to navigate there themselves.
+  redirect("/dashboard/compliance");
 }

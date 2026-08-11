@@ -100,7 +100,6 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
         <p className="app-subhead">Manage the chemical catalog and review usage/billing by property.</p>
       </header>
 
-      {/* Catalog */}
       <section className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Chemical products</h2>
         <div className="mt-3 space-y-2">

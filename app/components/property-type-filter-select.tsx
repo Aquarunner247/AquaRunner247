@@ -6,6 +6,10 @@ type Props = {
   technicianId?: string | null;
   tab?: string;
   date?: string;
+  /** Set when rendering on a dark (e.g. brand-ink) background — flips the label's
+   * contrast. Dashboard's usage is on a light header (default false); the Schedule tab's
+   * is on a dark one. The <select> itself is always white-filled regardless. */
+  onDark?: boolean;
 };
 
 /**
@@ -13,13 +17,13 @@ type Props = {
  * and Schedule tab. Echoes the sibling filter's current value (technicianId/tab/date) as
  * hidden inputs so submitting this form never clobbers state the other filter owns.
  */
-export function PropertyTypeFilterSelect({ selected, action, technicianId, tab, date }: Props) {
+export function PropertyTypeFilterSelect({ selected, action, technicianId, tab, date, onDark = false }: Props) {
   return (
     <form action={action} method="GET" className="flex items-center gap-2">
       {tab != null ? <input type="hidden" name="tab" value={tab} /> : null}
       {date != null ? <input type="hidden" name="date" value={date} /> : null}
       {technicianId ? <input type="hidden" name="tech" value={technicianId} /> : null}
-      <label className="text-sm font-medium text-brand-ink" htmlFor="property-type-filter">
+      <label className={`text-sm font-medium ${onDark ? "text-white" : "text-brand-ink"}`} htmlFor="property-type-filter">
         Type
       </label>
       <select

@@ -7,18 +7,56 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VisitForm } from "./visit-form";
 import { ResidentialVisitForm } from "./residential-visit-form";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
+import type { VisitWaterReading } from "@/generated/prisma/client";
 
 type PageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ from?: string }>;
 };
 
-export default async function VisitPage({ params }: PageProps) {
+/**
+ * VisitWaterReading straight off Prisma carries Decimal instances (ph, freeChlorinePpm,
+ * etc.) and Date instances (backwashAt, capturedAt, createdAt, updatedAt) -- neither is a
+ * plain object, so passing the row as-is into a "use client" component (VisitForm /
+ * ResidentialVisitForm below) throws "Only plain objects can be passed to Client
+ * Components from Server Components" from React's RSC serializer on every visit that has
+ * a reading. Both consuming forms already just coerce every field through String(v)
+ * (see their own toInput/toTimeInput helpers), so numbers/ISO-strings serialize
+ * identically to what they were already doing via Decimal/Date's own toString() -- this
+ * only removes the class-instance violation, it doesn't change any consumed value.
+ */
+function serializeReading(reading: VisitWaterReading | null) {
+  if (!reading) return null;
+  return {
+    ph: reading.ph != null ? Number(reading.ph) : null,
+    freeChlorinePpm: reading.freeChlorinePpm != null ? Number(reading.freeChlorinePpm) : null,
+    totalChlorinePpm: reading.totalChlorinePpm != null ? Number(reading.totalChlorinePpm) : null,
+    brominePpm: reading.brominePpm != null ? Number(reading.brominePpm) : null,
+    alkalinityPpm: reading.alkalinityPpm != null ? Number(reading.alkalinityPpm) : null,
+    cyanuricAcidPpm: reading.cyanuricAcidPpm != null ? Number(reading.cyanuricAcidPpm) : null,
+    temperatureF: reading.temperatureF != null ? Number(reading.temperatureF) : null,
+    filterPressurePsi: reading.filterPressurePsi != null ? Number(reading.filterPressurePsi) : null,
+    vacGaugeReading: reading.vacGaugeReading != null ? Number(reading.vacGaugeReading) : null,
+    pumpPressurePsi: reading.pumpPressurePsi != null ? Number(reading.pumpPressurePsi) : null,
+    filterGaugeReading: reading.filterGaugeReading != null ? Number(reading.filterGaugeReading) : null,
+    flowMeterGpm: reading.flowMeterGpm != null ? Number(reading.flowMeterGpm) : null,
+    backwashAt: reading.backwashAt ? reading.backwashAt.toISOString() : null,
+  };
+}
+
+export default async function VisitPage({ params, searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
   if (!appUser) {
     redirect("/login");
   }
 
   const { id } = await params;
+  const sp = (await searchParams) ?? {};
+  // Every link into this page from the Schedule tab (RouteDayView, both admin and
+  // technician) appends ?from=schedule -- anything else (alerts, customer detail, etc.)
+  // falls back to the Dashboard tab, which was this link's only destination before.
+  const backHref = sp.from === "schedule" ? "/dashboard/schedule" : "/dashboard";
+  const backLabel = sp.from === "schedule" ? "Back to schedule" : "Back to dashboard";
   const visit = await prisma.serviceVisit.findUnique({
     where: { id },
     include: {
@@ -106,8 +144,8 @@ export default async function VisitPage({ params }: PageProps) {
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
       <div className="mb-6">
-        <Link href="/dashboard" className="text-sm text-brand-primary underline">
-          Back to dashboard
+        <Link href={backHref} className="text-sm text-brand-primary underline">
+          {backLabel}
         </Link>
       </div>
       <header className="rounded-lg border border-brand-ink bg-brand-ink p-4 shadow-sm">
@@ -136,7 +174,7 @@ export default async function VisitPage({ params }: PageProps) {
             severity: i.severity,
             createdAt: i.createdAt.toISOString(),
           }))}
-          initialReading={visit.reading}
+          initialReading={serializeReading(visit.reading)}
           initialPhotoCount={visit.photos.length}
           initialPhotos={photosWithUrls}
           initialDoses={visit.doses.map((d) => ({
@@ -160,7 +198,7 @@ export default async function VisitPage({ params }: PageProps) {
             severity: i.severity,
             createdAt: i.createdAt.toISOString(),
           }))}
-          initialReading={visit.reading}
+          initialReading={serializeReading(visit.reading)}
           initialPhotoCount={visit.photos.length}
           initialPhotos={photosWithUrls}
           initialDoses={visit.doses.map((d) => ({
