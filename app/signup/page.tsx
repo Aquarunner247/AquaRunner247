@@ -100,6 +100,7 @@ export default async function SignupPage({ searchParams }: PageProps) {
           </div>
         </fieldset>
         <p className="text-xs text-brand-muted">
+
           You&rsquo;ll set a password after your card is confirmed on the next step.
         </p>
         <button

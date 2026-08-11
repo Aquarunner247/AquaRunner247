@@ -8,6 +8,9 @@ type ReadingPayload = {
   brominePpm?: number | null;
   alkalinityPpm?: number | null;
   cyanuricAcidPpm?: number | null;
+  /** Not required by any state's compliance log. */
+  calciumHardnessPpm?: number | null;
+  saltPpm?: number | null;
   temperatureF?: number | null;
   filterPressurePsi?: number | null;
   vacGaugeReading?: number | null;
@@ -45,7 +48,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "VISIT_ALREADY_COMPLETED" }, { status: 400 });
   }
 
-  const raw = (await request.json()) as ReadingPayload;
+  let raw: ReadingPayload;
+  try {
+    raw = (await request.json()) as ReadingPayload;
+  } catch {
+    return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+  }
 
   // backwashAt: if the technician says no backwash happened, clear it. If yes, use provided
   // time (or "now" if no time was given).
@@ -63,6 +71,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     brominePpm: numOrNull(raw.brominePpm),
     alkalinityPpm: numOrNull(raw.alkalinityPpm),
     cyanuricAcidPpm: numOrNull(raw.cyanuricAcidPpm),
+    calciumHardnessPpm: numOrNull(raw.calciumHardnessPpm),
+    saltPpm: numOrNull(raw.saltPpm),
     temperatureF: numOrNull(raw.temperatureF),
     filterPressurePsi: numOrNull(raw.filterPressurePsi),
     vacGaugeReading: numOrNull(raw.vacGaugeReading),

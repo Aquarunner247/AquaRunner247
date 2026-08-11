@@ -4,19 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { parseFormNumber as toDecimalOrNull } from "@/lib/form-utils";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN") redirect("/dashboard");
   return appUser;
-}
-
-function toDecimalOrNull(v: FormDataEntryValue | null): number | null {
-  const s = String(v ?? "").trim();
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
 }
 
 export async function createChemicalProduct(formData: FormData) {

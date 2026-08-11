@@ -9,7 +9,7 @@ import { addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/
 import { AdminSchedule } from "./admin-schedule";
 
 type PageProps = {
-  searchParams?: Promise<{ tab?: string; date?: string; tech?: string }>;
+  searchParams?: Promise<{ tab?: string; date?: string; tech?: string; status?: string }>;
 };
 
 function parseDateParam(raw: string | undefined): Date {
@@ -35,6 +35,15 @@ function startOfWeek(d: Date) {
 const TABS = ["day", "week", "map", "list"] as const;
 type Tab = (typeof TABS)[number];
 
+// The four stat tiles double as filters -- "all" (Total Jobs) is the unfiltered default.
+// Skipped/cancelled stops aren't one of the four tiles, so there's no filter value for
+// them; they still show up under "all", same as before this existed. The actual
+// filtering happens inside RouteDayView (see its statusFilter prop) rather than here --
+// filtering the list before it reaches that component would also hide stops from its GPS
+// auto-arrival watcher, which must always see the full day regardless of what's displayed.
+const STATUS_FILTERS = ["all", "completed", "in_progress", "pending"] as const;
+type StatusFilterValue = (typeof STATUS_FILTERS)[number];
+
 export default async function SchedulePage({ searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
@@ -50,6 +59,9 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
   const sp = (await spPromise) ?? {};
   const tab: Tab = TABS.includes((sp.tab ?? "") as Tab) ? ((sp.tab ?? "day") as Tab) : "day";
+  const statusFilter: StatusFilterValue = STATUS_FILTERS.includes((sp.status ?? "") as StatusFilterValue)
+    ? ((sp.status ?? "all") as StatusFilterValue)
+    : "all";
 
   const selectedDate = parseDateParam(sp.date);
   const startOfDay = new Date(selectedDate);
@@ -76,6 +88,20 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     params.set("tab", tab === "week" ? "day" : tab);
     params.set("date", ymd);
     return `/dashboard/schedule?${params.toString()}`;
+  }
+  // Deliberately doesn't preserve `status` -- a filter carried over to a newly-navigated
+  // day could silently show "no stops" with no visible reason (e.g. yesterday's
+  // "Completed" filter applied to a day nothing's finished yet). Toggling a stat tile is a
+  // same-page action; changing tab/date resets to the unfiltered view.
+  function statusHref(s: StatusFilterValue) {
+    const params = new URLSearchParams();
+    params.set("tab", tab);
+    if (sp.date) params.set("date", sp.date);
+    if (s !== "all") params.set("status", s);
+    return `/dashboard/schedule?${params.toString()}`;
+  }
+  function statTileClass(active: boolean) {
+    return `rounded-md px-1 py-1 transition ${active ? "bg-white/15 ring-1 ring-white/40" : "hover:bg-white/5"}`;
   }
 
   let weekData: { ymd: string; label: string; total: number; completed: number; skipped: number }[] = [];
@@ -159,6 +185,9 @@ export default async function SchedulePage({ searchParams }: PageProps) {
       : prisma.property.findMany({ where: { organizationId: appUser.organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
+  // Always computed from the full, unfiltered day -- the tile counts must stay stable
+  // regardless of which filter is currently active (same convention as an inbox's unread
+  // badge not changing depending on which folder is open).
   const stats = {
     total: routeStops.length,
     completed: routeStops.filter((v) => v.status === "COMPLETED").length,
@@ -202,22 +231,22 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
         {tab !== "week" ? (
           <div className="mt-4 grid grid-cols-4 gap-2 rounded-lg bg-white/5 p-3 text-center text-white">
-            <div>
+            <Link href={statusHref("all")} className={statTileClass(statusFilter === "all")}>
               <p className="font-[family-name:var(--font-display)] text-2xl font-bold">{stats.total}</p>
               <p className="text-[10px] uppercase tracking-wide text-brand-border">Total Jobs</p>
-            </div>
-            <div>
+            </Link>
+            <Link href={statusHref("completed")} className={statTileClass(statusFilter === "completed")}>
               <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-brand-okFill">{stats.completed}</p>
               <p className="text-[10px] uppercase tracking-wide text-brand-border">Completed</p>
-            </div>
-            <div>
+            </Link>
+            <Link href={statusHref("in_progress")} className={statTileClass(statusFilter === "in_progress")}>
               <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-white">{stats.inProgress}</p>
               <p className="text-[10px] uppercase tracking-wide text-brand-border">In Progress</p>
-            </div>
-            <div>
+            </Link>
+            <Link href={statusHref("pending")} className={statTileClass(statusFilter === "pending")}>
               <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-brand-warnFill">{stats.pending}</p>
               <p className="text-[10px] uppercase tracking-wide text-brand-border">Pending</p>
-            </div>
+            </Link>
           </div>
         ) : null}
       </header>
@@ -257,7 +286,13 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           <>
             <RouteDayView
               visits={routeStops}
-              readOnly={isPastDay}
+              statusFilter={statusFilter}
+              // Reordering a filtered subset doesn't have coherent semantics against the
+              // day's real underlying sequence (the API persists 0..N-1 across whatever
+              // list it's given -- doing that against a partial view would scramble the
+              // full day's order). Same reasoning as the existing multi-tech read-only
+              // gate, applied to status filtering.
+              readOnly={isPastDay || statusFilter !== "all"}
               isToday={isToday}
               dateYmd={selectedYmd}
               layout={tab === "map" ? "mapOnly" : tab === "list" ? "listOnly" : "both"}

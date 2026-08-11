@@ -352,8 +352,8 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
       ) : null}
 
       <p className="mt-6 text-xs text-brand-muted">
-        Target ranges shown are typical guidance for commercial pools and this property&rsquo;s configured
-        equipment requirements. Refer to {healthDepartmentLabel(ruleset)}&rsquo;s code for the authoritative standard.
+        Target ranges shown are typical guidance for commercial pools and this property&rsquo;s configured equipment
+        requirements. Refer to {healthDepartmentLabel(ruleset)}&rsquo;s code for the authoritative standard.
       </p>
     </main>
   );

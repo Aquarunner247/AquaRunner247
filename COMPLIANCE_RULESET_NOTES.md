@@ -7,13 +7,53 @@ against real data from Nevada + 8 new states.
 
 ## Current coverage (as of this pass)
 
-All 9 states from `state-compliance-data.md` are seeded via
+All 14 states with real data from `state-compliance-data.md` are seeded via
 `prisma/seed-compliance-data.ts` (run one at a time, one commit each, per the handoff's
 build order): Nevada, Connecticut, Alabama, Alaska, Arizona, Arkansas, California,
-Colorado, Florida. Every other state (all 50 + DC) has a bare stub row from
-`prisma/seed-compliance-rulesets.ts`.
+Colorado, Florida, Maryland, New Mexico, New York, Georgia, Hawaii. Every other state
+(all 50 + DC) has a bare stub row from `prisma/seed-compliance-rulesets.ts`.
 
-**Live (`isSupported: true`): Nevada, Arkansas, Arizona.** Everyone else stays off.
+**Live (`isSupported: true`): Nevada, Arkansas, Arizona, Alabama, Connecticut,
+California, Colorado, Maryland, New Mexico, New York, Georgia, Hawaii — 12 states.**
+Only Alaska and Florida remain `isSupported: false`. Flipping a state live is a
+deliberate rollout decision made separately from seeding its data (see the "Flip
+Arkansas and Arizona live" commit) -- the 9 states flipped in this pass were only
+flipped after ground-truthing exactly what `activeChemistryThresholds()` resolves for
+each one (see "Verifying isSupported readiness" below), not from eyeballing the seed
+data or trusting `state-compliance-data.md`'s own "no remaining open items" claims at
+face value.
+
+Florida stays off because its own source data explicitly leaves an open product
+decision unresolved (the DH 921 form's 3x/day cadence vs. the regulation's stated
+24-hour floor -- "a genuine product decision for AquaRunner... not a data gap that more
+sourcing would resolve," per `state-compliance-data.md`) -- not something to silently
+pick a default for. Alaska wasn't re-verified in this pass (it predates it) and is left
+as `isSupported: false` pending the same ground-truthing the other 9 states got.
+
+### This pass: re-checking already-seeded states against updated source data
+
+`state-compliance-data.md` was substantially revised after the first 9 states were
+seeded -- not just extended with 5 new states. Two categories of fix, both applied here:
+
+1. **Maryland was rebuilt from scratch, not patched.** It was never actually seeded to
+   the database before this pass (a bare stub only), so despite the original handoff
+   listing it as one of the first 9 states in spirit, no prior data existed to diff
+   against. The correct citation is COMAR 10.17.01, not the earlier secondary source's
+   wrong 10.17.04 -- several numbers (combined chlorine, alkalinity, calcium hardness)
+   and an entire fabricated "Class A-D" facility taxonomy were wrong in that earlier,
+   never-seeded draft.
+2. **Alabama's CYA indoor-ban conflict is resolved** -- checking the actual county rules
+   (Mobile, Jefferson, Baldwin) found no written indoor prohibition, only the flat
+   Appendix A/B numeric range. Flipped both CYA rows from `sourceConfidence: "conflict"`
+   to `"confirmed"`.
+3. **Connecticut, California, Colorado, and Florida's previously-open `GAP` notes are
+   now resolved** with real sourced data and updated in place (not just Maryland/Alabama):
+   Connecticut's two-tier discretionary/mandatory closure authority and real
+   local-district alkalinity/CYA numbers; California's full §65546 fecal/incident
+   protocol; Colorado's practically-enforced non-oxidizer chlorine floor and an
+   explicit note that Graph #1's curve is a permanent, accepted limitation rather than
+   an open item; Florida's real CDC-sourced fecal protocol numbers and a resolved
+   record-retention figure.
 
 `lib/compliance.ts`'s `activeChemistryThresholds()` was rewritten to be genuinely
 per-state safe before any state besides Nevada could go live: every field now returns
@@ -35,14 +75,63 @@ unconditional default) — the app doesn't track that per account/property yet, 
 still fully seeded and visible in the platform-admin compliance preview; only the
 *live* dashboard's alkalinity target picks one until the app tracks sanitizer/CYA use.
 
-Connecticut, Alabama, Alaska, California, Colorado, and Florida remain
-`isSupported: false` — each has at least one genuine gap in the four parameters the
-dashboard actually gates on (no closure threshold at all, an unresolved conflict, a
-curve with no extractable data points, etc.), documented as `ComplianceNote` rows and
-summarized in each state's section of `state-compliance-data.md`. Every state's real
-data is fully seeded and queryable today regardless of `isSupported` — that only gates
-what the *live* customer-facing UI does with it. The read-only preview at
+Alaska and Florida remain `isSupported: false` — see above. Every state's real data is
+fully seeded and queryable today regardless of `isSupported` — that only gates what the
+*live* customer-facing UI does with it. The read-only preview at
 `/platform-admin/compliance` shows any state's data regardless of this flag, for review.
+
+### Verifying isSupported readiness -- don't trust the seed data alone
+
+A state having real, sourced numbers in `ChemistryThreshold` rows is necessary but not
+sufficient for `isSupported: true` to be safe. `activeChemistryThresholds()` in
+`lib/compliance.ts` has its own lookup rules (`FREE_CHLORINE` always scoped by
+`bodyOfWaterCategory`; `PH`/`TOTAL_ALKALINITY`/`CYANURIC_ACID` always looked up
+unconditionally, `bodyOfWaterCategory: null`) that a state's seed data can silently fail
+to satisfy even when the underlying numbers are correct. Before flipping any state live,
+simulate `activeChemistryThresholds()` against that state's actual seeded rows (not just
+read the seed file) and confirm every one of the four gated parameters resolves to what
+you expect -- three real bugs surfaced exactly this way in this pass, none of which were
+visible from reading the seed data or `state-compliance-data.md` alone:
+
+- **Connecticut and Hawaii's pool chlorine rows were seeded without
+  `bodyOfWaterCategory: "POOL"`.** Since `FREE_CHLORINE` is always looked up per body
+  type, both states would have shown **no chlorine floor at all** on the dashboard
+  despite the real number sitting in the table. Fixed by tagging the rows explicitly
+  (Hawaii's single number, which the source doesn't split by body type, is now
+  duplicated across an explicit `POOL` and `SPA` row rather than left unscoped).
+- **Alabama's `PH`/`TOTAL_ALKALINITY`/`CYANURIC_ACID` were seeded scoped to
+  `POOL`/`SPA`** (faithfully mirroring Appendix A vs. B's layout), but those three
+  parameters are looked up unconditionally -- so all three resolved to `null` on the
+  dashboard even though real numbers existed for both body types. Since Alabama's
+  Appendix A and B give the *same* numbers for pool and spa on these three parameters,
+  the fix was to collapse to one unconditional row per parameter rather than duplicate
+  scoped rows (no number changed, just where it's structurally visible from).
+- **California, Georgia, New Mexico, and Colorado each have two `FREE_CHLORINE` rows
+  for the same body type with no unconditional default** (CYA-present vs. not; oxidizer
+  vs. not) -- `findThreshold()`'s old fallback (`matches[0]`) picked whichever row
+  Postgres happened to return first, an order Postgres doesn't guarantee. In a live
+  simulation this picked a *different* variant per state with no logic behind it --
+  once even landing on Colorado's 0.25 ppm oxidizer-only floor as the general default,
+  dangerously low for the majority of facilities that don't run a supplemental
+  oxidizer. Fixed with `DEFAULT_CONDITION_PRIORITY`, an ordered list of documented
+  default condition strings (`findThreshold()`'s `preferredAppliesWhen` now accepts a
+  string or string array) that `activeChemistryThresholds()` passes to both
+  `FREE_CHLORINE` lookups. Every state sharing a condition family needs matching
+  `appliesWhen` wording for this to work -- California's "no CYA present"/"with CYA
+  present" phrasing was standardized onto Georgia's and New Mexico's rows (previously
+  "without CYA"/"with CYA" and "no CYA in use"/"CYA in use" respectively), renaming
+  only, no numbers changed.
+
+**New York is the one case this mechanism papers over rather than cleanly resolves.**
+Its free-chlorine minimum is genuinely pH-dependent (0.6 mg/L below pH 7.8, 1.5 mg/L
+from 7.8-8.2) -- a two-band version of the same curve/lookup pattern Alaska's Table E
+has, which this app's one-flat-target-per-body-type model can't represent natively.
+`DEFAULT_CONDITION_PRIORITY` defaults to the lower, far more common band (`"pH <= 7.8"`),
+but a reading whose actual pH sits in the 7.8-8.2 band gets compared against the wrong
+(lower) floor -- a real accuracy tradeoff, not a clean missing-data null. Flagged via a
+`ComplianceNote` on New York's record. Properly fixing this means looking up the
+chlorine threshold per-reading based on that reading's own measured pH, not one static
+target per ruleset -- a real code change, not attempted this pass.
 
 ## Scope of this pass
 
@@ -198,6 +287,119 @@ ComplianceNote (many rows per state — flagged gaps/conflicts/assumptions)
 └── detail: nullable text
 ```
 
+## Patterns 16-38 (this pass) and the fields they needed
+
+The architecture-notes index in `state-compliance-data.md` grew from 15 patterns (the
+original handoff) to 38 by the time this pass started. Most of the new ones needed no
+schema change at all -- `ChemistryThreshold`/`EventProtocol`'s free-text
+`parameter`/`triggerType`/`closureKind`/`appliesWhen`/`notes` fields already cover them,
+which is the whole point of keeping those fields data-entry-extensible rather than enums.
+Four patterns genuinely needed new columns, added this pass:
+
+- **Pattern 17** (New Mexico: CYA cadence depends on delivery method, not just whether
+  it's used) → `FrequencyRule.appliesWhen`, mirroring the field `ChemistryThreshold`
+  already had.
+- **Pattern 19/29** (New York doubles treatment time when CYA is present; California
+  defines an entirely separate CYA-present target) → `EventProtocol.appliesWhen`, so a
+  state can have multiple protocol rows for the same `triggerType`, scoped by condition.
+  Previously `EventProtocol` had no equivalent of `ChemistryThreshold.appliesWhen` at all.
+- **Pattern 18/25** (New York's CT=15,300 as a real substitutable formula; Maryland's
+  cited CT diverges from that standard) → `EventProtocol.ctValue`/`ctValueUnit`, a real
+  comparable number instead of only prose in `reopeningCondition`. Used to flag Maryland's
+  discrepancy explicitly rather than "correcting" it toward the more common figure.
+- **Pattern 20** (New York/California: closure cascades to every body of water sharing
+  one filtration system) → `EventProtocol.cascadesToSharedFiltration`.
+
+Everything else maps onto existing fields or plain data:
+
+- **Pattern 16/35** (New Mexico's GREEN/RED unified status; Georgia's 10-item unified
+  closure checklist) -- non-numeric physical/equipment conditions (clarity, main drain,
+  filtration status) are seeded as `ChemistryThreshold` rows with no min/max, just a
+  `notes` description of the compliant/non-compliant condition; the shared reopen rule is
+  one `EventProtocol` row with a new descriptive `closureKind`
+  (`"UNTIL_GREEN_STATUS_RESTORED"`, `"ENUMERATED_CHECKLIST"`) rather than a new column --
+  `closureKind` was always a plain string, not an enum, specifically so new shapes like
+  this don't need a migration.
+- **Pattern 21** (New York: blood is exempt from closure entirely) -- a new `closureKind`
+  value, `"NO_CLOSURE_REQUIRED"`.
+- **Pattern 23** (Maryland: hold clock starts at verified even distribution, not at
+  target concentration) -- a new `closureKind` value,
+  `"HOLD_AFTER_VERIFIED_DISTRIBUTION"`, with the mechanic described in
+  `reopeningCondition`.
+- **Pattern 24** (Maryland: secondary disinfection *reduces* the primary threshold) --
+  fits the existing shape exactly: two `ChemistryThreshold` rows for the same parameter,
+  one unconditional and one `appliesWhen`-scoped with a lower range and a `relationalRule`
+  note.
+- **Pattern 26/27** (Connecticut: two-tier discretionary/mandatory closure authority;
+  state floor + local district additions) -- two new `closureKind` values
+  (`"AUTHORITY_DISCRETIONARY"`/`"AUTHORITY_MANDATORY"`); the state-floor/local-addition
+  shape uses `sourceConfidence: "assumption"` plus a `notes` explanation, the same
+  convention already used for Colorado's practically-enforced values.
+- **Pattern 30** (Florida: situational, non-numeric frequency triggers) -- captured as
+  prose in a `ComplianceNote`, not modeled as data (there's no fixed number to store).
+- **Pattern 33/34** (Georgia: two-tier operator staffing; rotating sample locations) --
+  neither is a reading, threshold, or closure trigger, so both stay as `ComplianceNote`
+  rows rather than forcing them into `ChemistryThreshold`/`FrequencyRule`. Revisit if a
+  future pass wants to track operator-visit compliance or reading-location metadata.
+- **Pattern 36/37/38** (Georgia's 6-point monitoring grid with an explicit contact-time
+  boundary; Hawaii's proactive quarterly submission duty; Hawaii's open/closed-system
+  reopening split) -- the monitoring grid is exactly what
+  `IncidentMonitoringReading`/`ContaminationIncident.targetConcentrationReachedAt`/
+  `contactTimeEndedAt` (new tables, this pass -- see below) are shaped around; the
+  submission duty is a `ComplianceNote` (no `FrequencyRule` change needed, it's already
+  representable as a frequency-rule row with a descriptive `parameter`); the open/closed
+  split is two `EventProtocol` rows scoped by `appliesWhen`.
+
+**One known, accepted limitation:** `DisinfectionMethod` (`CHLORINE` | `BROMINE` |
+`HYDROGEN_PEROXIDE` | `COPPER_ION` | `SILVER_ION` | `OZONE` | `NOT_APPLICABLE`) is a real
+Prisma enum, not free text like `parameter`. Maryland's PHMB (polyhexamethylene
+biguanide) reading is the first disinfectant type collected that doesn't fit it --
+seeded with `disinfectionMethod: NOT_APPLICABLE` and a `ComplianceNote` flagging the gap,
+rather than a migration for one state's one reading. If another state's data introduces
+a second non-enum disinfectant, that's the trigger to either add enum values as they
+appear or convert the field to free text like `parameter` already is.
+
+## ContaminationIncident / IncidentMonitoringReading (new tables, this pass)
+
+Contamination/fecal-vomit incidents are modeled as their own tables, not extra columns on
+`VisitWaterReading` -- schema only this pass, no UI/forms, per the same non-goals
+precedent as the rest of this build. Reasons, concretely:
+
+- **Different shape than a routine reading.** A `VisitWaterReading` is one timestamp and a
+  handful of values. An incident has a real lifecycle
+  (`ContaminationIncidentStatus`: `OPEN` → `UNDER_REMEDIATION` → `VERIFIED_CLEAN` →
+  `REOPENED`) with a closure time, a multi-point monitoring grid during remediation
+  (Georgia's is six checkpoints; California's is three), a defined contact-time window,
+  and free-text remediation notes -- bolting that onto the reading table would mean a
+  wide, mostly-null table 364 days a year.
+- **A different rule category.** Routine readings validate against `ChemistryThreshold`
+  (min/max/ideal). Incidents validate against `EventProtocol` (CT values, hold times,
+  contamination-type branches, CYA-presence modifiers) -- genuinely different validation
+  paths, not the same one with more columns.
+- **Two distinct clock-start moments, not one.** `targetConcentrationReachedAt` (when
+  disinfectant first hits target concentration) and `verifiedEvenDistributionAt`
+  (Maryland's every-15-ft perimeter check) are different moments in most states' protocols
+  -- some states' hold timer starts at the first, Maryland's starts at the second. Georgia
+  additionally defines `contactTimeEndedAt` precisely (when concentration begins being
+  reduced for reopening, not `reopenedAt` itself). Three separate timestamps because three
+  separate things actually happen at different times.
+- **Closure cascades belong to the incident, not one reading.** New York's and
+  California's "close every pool sharing the same filtration system" rule
+  (`EventProtocol.cascadesToSharedFiltration`) is a property of the incident event, so
+  `ContaminationIncident.affectedBodiesOfWater` is a many-to-many relation to
+  `BodyOfWater`, not a single foreign key -- a per-reading model can't represent "which
+  bodies were closed" once cascade rules apply.
+
+`IncidentMonitoringReading` is the child table for the checkpoint grid
+(`checkpointLabel` stays free text for the same reason `ChemistryThreshold.parameter`
+does -- California's 3-point grid and Georgia's 6-point grid have genuinely different
+shapes, and more states will likely add more shapes).
+
+Both new tables get `ENABLE ROW LEVEL SECURITY` explicitly in their migration, matching
+the `20260803194700_lock_down_public_schema_from_client_roles` precedent, even though that
+migration's default-privilege revocation already keeps `anon`/`authenticated` off any
+table created after it.
+
 This is deliberately a **structured record of every flagged item** from
 `state-compliance-data.md`, not prose buried in a comment — so "do not silently resolve or
 guess at any flagged item" is something the schema itself enforces (a `ComplianceNote` row
@@ -213,9 +415,13 @@ has to exist, it can't just be forgotten in a paragraph).
   looks like" — it lists representing the patterns, not evaluating all of them.
 - **No admin UI to edit these records** — seed script only, per the handoff's explicit
   non-goals list.
-- **No in-app state-code reference page changes** for the 8 new states — the existing
-  `/dashboard/compliance` page still only renders Nevada's `referenceContent`; extending it
-  to the other 8 states is a separate pass (also listed as a non-goal here).
+- **`referenceContent` is now written for every `isSupported: true` state** (12, as of
+  this pass), not just Nevada/Arizona/Arkansas — the original plan deferred this as a
+  separate pass, but shipping a state live with the reference page showing "No reference
+  content written yet" the moment closure banners go active isn't a real option, so
+  each of the 9 newly-flipped states got a page in the same commit that flipped it.
+  States that stay `isSupported: false` (Alaska, Florida) don't have `referenceContent`
+  yet — write it whenever a state gets flipped live, not before.
 - **No fabricated data.** Alaska's Table E and Colorado's Graph #1 curve points, Colorado's
   no-supplemental-oxidizer FC minimum, and Florida/California's externally-deferred
   protocols are all seeded as `null` + a `ComplianceNote`/`isCurveBased` flag, never a
@@ -257,5 +463,7 @@ so call sites don't change, only where the numbers come from.
    Never resolve one by picking a number — seed `null` and a note instead, and leave
    `isSupported: false` if the gaps are significant enough that showing this state's rules
    live would be misleading.
-6. Leave `referenceContent` for a follow-up pass (out of scope here) unless it's trivial to
-   write from the seeded data.
+6. Before flipping `isSupported: true`, simulate `activeChemistryThresholds()` against
+   the state's actual seeded rows (see "Verifying isSupported readiness" above) and
+   write `referenceContent` — both are part of "ready to go live," not a follow-up.
+   `referenceContent` can stay unwritten while a state is seeded-but-unsupported.

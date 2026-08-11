@@ -21,6 +21,9 @@ type Reading = {
   brominePpm: string;
   alkalinityPpm: string;
   cyanuricAcidPpm: string;
+  /** Not required by any state's compliance log. */
+  calciumHardnessPpm: string;
+  saltPpm: string;
   temperatureF: string;
   pumpPressurePsi: string;
   vacGaugeReading: string;
@@ -74,6 +77,13 @@ const EQUIPMENT_FIELDS: FieldConfig[] = [
   { key: "vacGaugeReading", label: "Pump Vacuum", unitLabel: "inHg", required: true, min: -30, max: 0, step: 1 },
   { key: "filterPressurePsi", label: "Filter Pressure", unitLabel: "psi", required: true, min: 0, max: 60, step: 1 },
   { key: "flowMeterGpm", label: "Flow Meter", unitLabel: "gpm", required: true, min: 0, max: 150, step: 1 },
+];
+
+/** Optional fields -- not part of activeReadingFields since no state's compliance log
+ * requires them. Always shown, never required, so entering them is purely opt-in. */
+const DOSING_ONLY_FIELDS: FieldConfig[] = [
+  { key: "calciumHardnessPpm", label: "Calcium Hardness", unitLabel: "ppm", required: false, min: 0, max: 1000, step: 10 },
+  { key: "saltPpm", label: "Salt", unitLabel: "ppm", required: false, min: 0, max: 6000, step: 50 },
 ];
 
 function pct(value: number, min: number, max: number) {
@@ -138,6 +148,8 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
     brominePpm: toInput(initialReading?.brominePpm),
     alkalinityPpm: toInput(initialReading?.alkalinityPpm),
     cyanuricAcidPpm: toInput(initialReading?.cyanuricAcidPpm),
+    calciumHardnessPpm: toInput(initialReading?.calciumHardnessPpm),
+    saltPpm: toInput(initialReading?.saltPpm),
     temperatureF: toInput(initialReading?.temperatureF),
     pumpPressurePsi: toInput(initialReading?.pumpPressurePsi),
     vacGaugeReading: toInput(initialReading?.vacGaugeReading),
@@ -193,6 +205,8 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
         brominePpm: reading.brominePpm || null,
         alkalinityPpm: reading.alkalinityPpm || null,
         cyanuricAcidPpm: reading.cyanuricAcidPpm || null,
+        calciumHardnessPpm: reading.calciumHardnessPpm || null,
+        saltPpm: reading.saltPpm || null,
         temperatureF: reading.temperatureF || null,
         pumpPressurePsi: reading.pumpPressurePsi || null,
         vacGaugeReading: reading.vacGaugeReading || null,
@@ -518,6 +532,8 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
       <div className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
         <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
+        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional</p>
+        <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
       </div>
 
       <div className="app-card">
@@ -583,11 +599,17 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
               className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
             >
               <option value="">Select chemical…</option>
-              {chemicalProducts.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.unit})
-                </option>
-              ))}
+              {/* Chemicals already dosed on this visit drop out of the picker -- adding
+                  the same chemical twice on one visit is normally a mistake, not a
+                  second real dose (unlike scheduling the same property twice a day for
+                  states that require it, which is a real, separate need). */}
+              {chemicalProducts
+                .filter((p) => !doses.some((d) => d.productName === p.name))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.unit})
+                  </option>
+                ))}
             </select>
             <input
               placeholder="Qty"

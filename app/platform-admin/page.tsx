@@ -97,7 +97,6 @@ export default async function PlatformAdminPage() {
                   <td className="px-3 py-2 text-brand-ink">{STATUS_LABELS[org.planStatus] ?? org.planStatus}</td>
                   <td className="px-3 py-2 text-brand-ink">{org.trialEndsAt ? org.trialEndsAt.toLocaleDateString() : "—"}</td>
                   <td className="px-3 py-2 text-brand-ink">
-
                     {org.stripeCustomerId ? (
                       <a
                         href={`https://dashboard.stripe.com/test/customers/${org.stripeCustomerId}`}

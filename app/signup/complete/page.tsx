@@ -147,7 +147,6 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
               </div>
             </fieldset>
           </>
-
         ) : null}
         <label className="flex flex-col gap-1 text-sm text-brand-ink">
           Password

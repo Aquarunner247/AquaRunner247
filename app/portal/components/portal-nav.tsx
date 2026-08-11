@@ -20,6 +20,7 @@ const LINKS = [
   { href: "/portal/reports", label: "Service Reports" },
   { href: "/portal/documents", label: "Documents" },
   { href: "/portal/alerts", label: "Alerts" },
+  { href: "/portal/compliance", label: "Compliance" },
 ];
 
 export function PortalNav() {
