@@ -79,6 +79,13 @@ const EQUIPMENT_FIELDS: FieldConfig[] = [
   { key: "flowMeterGpm", label: "Flow Meter", unitLabel: "gpm", required: true, min: 0, max: 150, step: 1 },
 ];
 
+/** Optional fields -- not part of activeReadingFields since no state's compliance log
+ * requires them. Always shown, never required, so entering them is purely opt-in. */
+const DOSING_ONLY_FIELDS: FieldConfig[] = [
+  { key: "calciumHardnessPpm", label: "Calcium Hardness", unitLabel: "ppm", required: false, min: 0, max: 1000, step: 10 },
+  { key: "saltPpm", label: "Salt", unitLabel: "ppm", required: false, min: 0, max: 6000, step: 50 },
+];
+
 function pct(value: number, min: number, max: number) {
   return ((value - min) / (max - min)) * 100;
 }
@@ -525,6 +532,8 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
       <div className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
         <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
+        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional</p>
+        <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
       </div>
 
       <div className="app-card">
