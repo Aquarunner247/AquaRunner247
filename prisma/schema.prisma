@@ -117,8 +117,6 @@ model Organization {
   recurringRoutes       RecurringRoute[]
   serviceVisits         ServiceVisit[]
   adHocStops            AdHocStop[]
-  dosingProductSettings OrgChemicalProductSetting[]
-  complianceTargets     OrgComplianceTarget[]
   technicianPayRates    TechnicianPayRate[]
   payrollSettings       OrgPayrollSettings?
 
@@ -615,7 +613,6 @@ model BodyOfWater {
   /// Other bodies of water closed as part of an incident cascade because they share this
   /// body's filtration system, without being the body where the incident was discovered.
   cascadedIncidents      ContaminationIncident[]     @relation("CascadedFiltrationClosure")
-  volumeCalculation      VolumeCalculation?
   payRates               TechnicianPayRate[]         @relation("TechnicianPayRateBody")
   bundledIntoPayRates    TechnicianPayRate[]         @relation("TechnicianPayRateBundledInto")
 
@@ -945,10 +942,9 @@ model VisitWaterReading {
   brominePpm         Decimal? @db.Decimal(6, 2)
   alkalinityPpm      Decimal? @db.Decimal(8, 2)
   cyanuricAcidPpm    Decimal? @db.Decimal(8, 2)
-  /// Not required by any state's compliance log -- captured only for orgs that want the
-  /// dosing calculator's Calcium Hardness recommendation (dosing-calculator-spec.md).
+  /// Not required by any state's compliance log.
   calciumHardnessPpm Decimal? @db.Decimal(8, 2)
-  /// Salt/SWG-generator level -- same as calciumHardnessPpm, dosing-calculator input only.
+  /// Salt/SWG-generator level.
   saltPpm            Decimal? @db.Decimal(8, 2)
   /// Optional — not required for your SNHD workflow
   temperatureF       Decimal? @db.Decimal(5, 2)
@@ -981,10 +977,7 @@ model ChemicalProduct {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  doses              VisitChemicalDose[]
-  /// Dosing-calculator settings that bill through this existing product, if the org
-  /// chose to link them (OrgChemicalProductSetting.linkedBillingProductId).
-  dosingSettingLinks OrgChemicalProductSetting[]
+  doses VisitChemicalDose[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -1098,218 +1091,6 @@ model WaitlistSignup {
   id        String   @id @default(cuid())
   email     String   @unique
   createdAt DateTime @default(now())
-}
-
-// ---------------------------------------------------------------------------
-// Dosing calculator — see dosing-calculator-spec.md for full design rationale.
-// ---------------------------------------------------------------------------
-
-enum VolumeShape {
-  RECTANGLE
-  CIRCLE
-  OVAL
-  KIDNEY_FREEFORM
-  MULTI_DEPTH
-}
-
-/// Bromine is deliberately out of scope for v1 (see dosing-calculator-spec.md's Overview:
-/// "Covers all standard chemicals: Free Chlorine, pH, Total Alkalinity, CYA, Calcium
-/// Hardness, Salt") -- bromine tablets are a different product family with their own
-/// dosing math, not represented in the Section 6 seed reference table. A body of water
-/// configured for BROMINE (BodyOfWater.disinfectionMethod) simply gets no dosing
-/// recommendation for its chlorine-family reading; every other chemical still works.
-enum ChemicalType {
-  FREE_CHLORINE
-  PH_UP
-  PH_DOWN
-  ALKALINITY_UP
-  CYA
-  CALCIUM_HARDNESS
-  SALT
-}
-
-enum PoolOrSpa {
-  POOL
-  SPA
-  BOTH
-}
-
-enum ChemicalProductForm {
-  LIQUID
-  GRANULAR
-  TABLET
-  PUCK
-}
-
-enum DosingUnit {
-  OZ
-  LB
-  GAL
-  QUART
-  TABLET
-  SCOOP
-  TSP
-  TBSP
-}
-
-enum ComplianceTargetMode {
-  STATE_MIDPOINT
-  ORG_CUSTOM
-}
-
-/// One-time (or geometry-changes-only) setup tool per body of water, not a per-visit
-/// record -- lets gallons be calculated from real dimensions instead of guessed. Kept as
-/// its own table rather than embedded on BodyOfWater so the shape-specific dimension
-/// fields don't permanently bloat every body-of-water row with columns only a handful of
-/// shapes use.
-model VolumeCalculation {
-  id            String      @id @default(cuid())
-  bodyOfWaterId String      @unique
-  bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
-
-  shape VolumeShape
-
-  lengthFt Decimal? @db.Decimal(8, 2)
-  widthFt  Decimal? @db.Decimal(8, 2)
-  radiusFt Decimal? @db.Decimal(8, 2)
-
-  shallowDepthFt Decimal? @db.Decimal(6, 2)
-  deepDepthFt    Decimal? @db.Decimal(6, 2)
-
-  /// Kidney/freeform approximation inputs -- see dosing-calculator-spec.md Section 1a.
-  freeformMeasurementA Decimal? @db.Decimal(8, 2)
-  freeformMeasurementB Decimal? @db.Decimal(8, 2)
-
-  /// Write-through snapshot of the last calculated result -- the actual gallons used
-  /// everywhere else in the app stays BodyOfWater.volumeGallons; this is just this tool's
-  /// own record of what it last computed and when, not a second source of truth.
-  calculatedGallons Decimal?  @db.Decimal(12, 2)
-  lastCalculatedAt  DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-/// Global, system-maintained chemical product reference catalog -- NOT org-scoped. Orgs
-/// never build this list from scratch; they enable/price/target rows via
-/// OrgChemicalProductSetting. See dosing-calculator-spec.md Section 1b for why (avoids
-/// every org re-entering the same industry-standard dosing math for the same 20-ish
-/// products).
-model ChemicalProductCatalog {
-  id String @id @default(cuid())
-
-  name         String
-  chemicalType ChemicalType
-  /// BOTH means the same product/dosingFactor works for either -- only the display unit
-  /// and rounding increment differ at spa scale (see dosing-calculator-spec.md Section 6).
-  poolOrSpa    PoolOrSpa           @default(BOTH)
-  form         ChemicalProductForm
-
-  /// Percent active ingredient, e.g. 12.5, 68.0. Null for count-based products (tabs/pucks)
-  /// with no meaningful "percent active" concept.
-  activePercent Decimal? @db.Decimal(5, 2)
-
-  dosingUnit       DosingUnit
-  /// Amount of dosingUnit needed to move 1 ppm per 10,000 gallons -- see
-  /// dosing-calculator-spec.md Section 6 for the full reference table and derivation.
-  /// EXCEPTION: for PH_UP/PH_DOWN products, this is per 1.0 pH unit (not 1 ppm) per
-  /// 10,000 gallons, since pH has no ppm concept -- the calculator's target-delta math is
-  /// identical either way (targetValue - currentValue), only the unit of that delta differs.
-  dosingFactor     Decimal    @db.Decimal(10, 4)
-  /// CYA ppm added per 1 ppm of Free Chlorine raised by this product -- the dichlor/
-  /// trichlor stabilizer cross-effect (Section 6: "also adds ~0.9 ppm CYA per ppm FC").
-  /// Null for products with no stabilizer content (liquid chlorine, cal-hypo). Drives the
-  /// "avoid stabilizer same visit as shock" sequencing warning without string-matching
-  /// product names.
-  cyaAddedPerFcPpm Decimal?   @db.Decimal(6, 3)
-
-  defaultMaxDosePerVisit   Decimal? @db.Decimal(10, 2)
-  defaultRoundingIncrement Decimal  @db.Decimal(10, 4)
-
-  isSystemDefault Boolean @default(true)
-  displayOrder    Int     @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  orgSettings OrgChemicalProductSetting[]
-
-  @@unique([name])
-  @@index([chemicalType])
-}
-
-/// Org-scoped settings for a single ChemicalProductCatalog row -- one per org per catalog
-/// product the org has actually touched (enabled, priced, or set primary). Rows the org
-/// never interacts with simply don't exist here, same "opt-in" convention as the rest of
-/// the org-scoping pattern in this schema.
-model OrgChemicalProductSetting {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  catalogProductId String
-  catalogProduct   ChemicalProductCatalog @relation(fields: [catalogProductId], references: [id], onDelete: Cascade)
-
-  /// "We use this" -- defaults false until the org confirms; only eligible products for
-  /// the dosing calc are isEnabled: true ones.
-  isEnabled Boolean  @default(false)
-  price     Decimal? @db.Decimal(10, 4)
-
-  /// Exactly one isPrimary: true row per org per (chemicalType, poolOrSpa) combo among
-  /// enabled rows -- the dosing calc uses this one automatically, no per-visit tech
-  /// product choice. Enforced at the service layer (see lib/dosing-calculator.ts), not a
-  /// DB constraint, since chemicalType/poolOrSpa live on the linked catalog row rather
-  /// than this one -- see dosing-calculator-spec.md's isPrimary enforcement note.
-  isPrimary Boolean @default(false)
-
-  maxDosePerVisit   Decimal? @db.Decimal(10, 2)
-  roundingIncrement Decimal? @db.Decimal(10, 4)
-
-  /// Optional link to the org's existing free-text ChemicalProduct billing/usage record
-  /// (app/dashboard/chemicals), if they want dosing-calculator usage to roll into that
-  /// same cost/charge reporting instead of staying separate.
-  linkedBillingProductId String?
-  linkedBillingProduct   ChemicalProduct? @relation(fields: [linkedBillingProductId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([organizationId, catalogProductId])
-  @@index([organizationId])
-  @@index([catalogProductId])
-  @@index([linkedBillingProductId])
-}
-
-/// Org-level override of a chemical's dosing target, layered on top of the state's own
-/// ComplianceRuleset numbers -- see dosing-calculator-spec.md Section 1c for resolution
-/// order. Only meaningful for chemicals the state's ComplianceRuleset actually regulates
-/// (FREE_CHLORINE, via chlorineFamilyThreshold; pH via PH_UP/PH_DOWN both resolving to the
-/// same PH threshold; ALKALINITY_UP via TOTAL_ALKALINITY; CYA via CYANURIC_ACID).
-/// CALCIUM_HARDNESS and SALT have no ComplianceRuleset backing at all (no health
-/// department regulates them) -- for those, ORG_CUSTOM is the ONLY way to get a target;
-/// with no row here, the dosing calc skips them rather than inventing an industry number.
-model OrgComplianceTarget {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  /// USPS 2-letter code, matching Organization.state / ComplianceRuleset.state scope.
-  state        String
-  chemicalType ChemicalType
-
-  targetMode ComplianceTargetMode @default(STATE_MIDPOINT)
-
-  orgTargetMin   Decimal? @db.Decimal(10, 3)
-  orgTargetMax   Decimal? @db.Decimal(10, 3)
-  /// Single-point target (e.g. Salt's generator-specified ppm), used instead of a
-  /// min/max range when the chemical's target is naturally one number, not a band.
-  orgTargetValue Decimal? @db.Decimal(10, 3)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([organizationId, state, chemicalType])
-  @@index([organizationId])
 }
 
 /// How an org's pay period resets -- see OrgPayrollSettings. tech-earnings-tracker-spec.md

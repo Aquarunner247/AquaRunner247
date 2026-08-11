@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { computeAndSaveDosingRecommendation } from "@/lib/dosing-calculator";
 
 type ReadingPayload = {
   ph?: number | null;
@@ -9,7 +8,7 @@ type ReadingPayload = {
   brominePpm?: number | null;
   alkalinityPpm?: number | null;
   cyanuricAcidPpm?: number | null;
-  /** Dosing-calculator inputs only -- not required by any state's compliance log. */
+  /** Not required by any state's compliance log. */
   calciumHardnessPpm?: number | null;
   saltPpm?: number | null;
   temperatureF?: number | null;
@@ -98,7 +97,5 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     },
   });
 
-  const dosing = await computeAndSaveDosingRecommendation(id);
-
-  return NextResponse.json({ ok: true, reading, dosing });
+  return NextResponse.json({ ok: true, reading });
 }

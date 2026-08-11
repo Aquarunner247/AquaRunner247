@@ -11,8 +11,6 @@ import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/cust
 import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
 import { sendCustomerAlertEmail } from "@/lib/email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
-import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
-import { VolumeShape } from "@/generated/prisma/client";
 import { parseFormNumber as numOrNull } from "@/lib/form-utils";
 import { createPayRateRow } from "@/lib/technician-pay";
 
@@ -307,7 +305,7 @@ export async function updateBodyOfWater(formData: FormData) {
       id: bodyId,
       property: { organizationId: appUser.organizationId, customerId },
     },
-    select: { id: true, property: { select: { propertyType: true } }, volumeCalculation: { select: { calculatedGallons: true } } },
+    select: { id: true, property: { select: { propertyType: true } } },
   });
   if (!body) return;
 
@@ -355,93 +353,9 @@ export async function updateBodyOfWater(formData: FormData) {
     },
   });
 
-  // A manually-entered gallons number that no longer matches the last "Calculate volume"
-  // snapshot means that snapshot's dimensions no longer describe this body -- clear it so
-  // reopening the calculator starts fresh instead of pre-filling stale dimensions that
-  // would silently recompute and overwrite this manual correction the next time "Save to
-  // property" is clicked with no edits.
-  if (body.volumeCalculation != null && Number(body.volumeCalculation.calculatedGallons) !== newVolumeGallons) {
-    await prisma.volumeCalculation.delete({ where: { bodyOfWaterId: body.id } });
-  }
-
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);
   redirect(`/dashboard/customers/${customerId}?tab=bodies`);
-}
-
-/**
- * "Calculate volume" tool -- dosing-calculator-spec.md Section 1a. Recomputes gallons
- * server-side from the submitted dimensions (rather than trusting a client-calculated
- * number) so the saved VolumeCalculation snapshot and BodyOfWater.volumeGallons can never
- * drift from the formula that actually produced them.
- */
-export async function saveVolumeCalculation(formData: FormData) {
-  const appUser = await requireAdmin();
-  const bodyId = String(formData.get("bodyId") ?? "").trim();
-  const customerId = String(formData.get("customerId") ?? "").trim();
-  const shapeRaw = String(formData.get("shape") ?? "").trim();
-  if (!bodyId || !customerId) return;
-
-  const body = await prisma.bodyOfWater.findFirst({
-    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
-    select: { id: true },
-  });
-  if (!body) return;
-
-  const shape = (Object.values(VolumeShape) as string[]).includes(shapeRaw) ? (shapeRaw as VolumeShapeKey) : null;
-  if (!shape) return;
-
-  const input = {
-    shape,
-    lengthFt: numOrNull(formData.get("lengthFt")),
-    widthFt: numOrNull(formData.get("widthFt")),
-    radiusFt: numOrNull(formData.get("radiusFt")),
-    shallowDepthFt: numOrNull(formData.get("shallowDepthFt")),
-    deepDepthFt: numOrNull(formData.get("deepDepthFt")),
-    freeformMeasurementA: numOrNull(formData.get("freeformMeasurementA")),
-    freeformMeasurementB: numOrNull(formData.get("freeformMeasurementB")),
-  };
-
-  const calculatedGallons = calculateGallons(input);
-  if (calculatedGallons == null) return; // incomplete dimensions for this shape -- nothing to save
-
-  await prisma.$transaction([
-    prisma.volumeCalculation.upsert({
-      where: { bodyOfWaterId: body.id },
-      create: {
-        bodyOfWaterId: body.id,
-        shape: input.shape as VolumeShape,
-        lengthFt: input.lengthFt,
-        widthFt: input.widthFt,
-        radiusFt: input.radiusFt,
-        shallowDepthFt: input.shallowDepthFt,
-        deepDepthFt: input.deepDepthFt,
-        freeformMeasurementA: input.freeformMeasurementA,
-        freeformMeasurementB: input.freeformMeasurementB,
-        calculatedGallons,
-        lastCalculatedAt: new Date(),
-      },
-      update: {
-        shape: input.shape as VolumeShape,
-        lengthFt: input.lengthFt,
-        widthFt: input.widthFt,
-        radiusFt: input.radiusFt,
-        shallowDepthFt: input.shallowDepthFt,
-        deepDepthFt: input.deepDepthFt,
-        freeformMeasurementA: input.freeformMeasurementA,
-        freeformMeasurementB: input.freeformMeasurementB,
-        calculatedGallons,
-        lastCalculatedAt: new Date(),
-      },
-    }),
-    prisma.bodyOfWater.update({
-      where: { id: body.id },
-      data: { volumeGallons: calculatedGallons },
-    }),
-  ]);
-
-  revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
-  redirect(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
 }
 
 /**

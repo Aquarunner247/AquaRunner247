@@ -8,9 +8,8 @@ import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { BodyQrCode } from "@/app/components/body-qr-code";
 import { EquipmentForm } from "./equipment-form";
 import { EquipmentItem } from "./equipment-item";
-import { updateBodyOfWater, deleteBodyOfWater, importVenueReadings, saveVolumeCalculation, setBodyPayRate } from "../../actions";
+import { updateBodyOfWater, deleteBodyOfWater, importVenueReadings, setBodyPayRate } from "../../actions";
 import { FilterTypeFields } from "@/app/components/filter-type-fields";
-import { VolumeCalculator } from "@/app/components/volume-calculator";
 
 type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
@@ -43,7 +42,6 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
     include: {
       property: { select: { id: true, name: true, propertyType: true, customer: { select: { id: true, name: true } } } },
       equipment: { orderBy: { createdAt: "desc" } },
-      volumeCalculation: true,
     },
   });
 
@@ -173,30 +171,6 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
             Save
           </button>
         </form>
-
-        <div className="mt-3">
-          <VolumeCalculator
-            action={saveVolumeCalculation}
-            bodyId={body.id}
-            customerId={customerId}
-            initial={
-              body.volumeCalculation
-                ? {
-                    shape: body.volumeCalculation.shape,
-                    lengthFt: body.volumeCalculation.lengthFt != null ? Number(body.volumeCalculation.lengthFt) : null,
-                    widthFt: body.volumeCalculation.widthFt != null ? Number(body.volumeCalculation.widthFt) : null,
-                    radiusFt: body.volumeCalculation.radiusFt != null ? Number(body.volumeCalculation.radiusFt) : null,
-                    shallowDepthFt: body.volumeCalculation.shallowDepthFt != null ? Number(body.volumeCalculation.shallowDepthFt) : null,
-                    deepDepthFt: body.volumeCalculation.deepDepthFt != null ? Number(body.volumeCalculation.deepDepthFt) : null,
-                    freeformMeasurementA:
-                      body.volumeCalculation.freeformMeasurementA != null ? Number(body.volumeCalculation.freeformMeasurementA) : null,
-                    freeformMeasurementB:
-                      body.volumeCalculation.freeformMeasurementB != null ? Number(body.volumeCalculation.freeformMeasurementB) : null,
-                  }
-                : null
-            }
-          />
-        </div>
       </section>
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">

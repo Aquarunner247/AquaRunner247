@@ -47,7 +47,7 @@ export default async function PlatformAdminPage() {
           <h1 className="text-2xl font-semibold text-brand-ink">Companies</h1>
           <p className="mt-1 text-sm text-brand-muted">Every company that has signed up, across all organizations.</p>
         </div>
-        <Link href="/platform-admin/compliance" className="rounded border border-brand-border px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-foam">
+        <Link href="/platform-admin/compliance" className="app-btn-secondary-sm">
           Compliance data preview →
         </Link>
       </header>
