@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { AddUserFormFields } from "@/app/components/add-user-form-fields";
+import { NameInput } from "@/app/components/name-input";
 import { createUser, deleteStaffUser, deleteCustomerUser, updateUserRole } from "./actions";
 
 type PageProps = {
@@ -143,7 +144,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
                 </p>
               ) : null}
               <div className="mt-2 grid gap-2 md:grid-cols-2">
-                <input name="name" required placeholder="Full name" className="app-field" />
+                <NameInput name="name" required placeholder="Full name" className="app-field" />
                 <input name="email" type="email" required placeholder="Email" className="app-field" />
                 <AddUserFormFields customers={customers} />
                 <input
@@ -208,7 +209,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
               </p>
             ) : null}
             <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <input name="name" required placeholder="Contact name" className="app-field" />
+              <NameInput name="name" required placeholder="Contact name" className="app-field" />
               <input name="email" type="email" required placeholder="Email" className="app-field" />
               <select name="customerId" required defaultValue="" className="app-field md:col-span-2">
                 <option value="" disabled>

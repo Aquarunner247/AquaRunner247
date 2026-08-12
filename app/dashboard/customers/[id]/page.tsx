@@ -23,6 +23,7 @@ import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { RouteSuggestionPanel } from "@/app/components/route-suggestion-panel";
 import { FilterTypeFields } from "@/app/components/filter-type-fields";
 import { PropertyContactFields } from "@/app/components/property-contact-fields";
+import { NameInput } from "@/app/components/name-input";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -320,7 +321,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 <form action={updateCustomerAndPrimaryProperty} className="mt-3 space-y-2">
                   <input type="hidden" name="customerId" value={customer.id} />
                   {primaryProperty ? <input type="hidden" name="propertyId" value={primaryProperty.id} /> : null}
-                  <input
+                  <NameInput
                     name="name"
                     required
                     defaultValue={customer.name}
@@ -498,7 +499,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 <p className="mb-2 text-sm text-brand-danger">That email already belongs to a different account.</p>
               ) : null}
               <div className="grid gap-2 md:grid-cols-2">
-                <input name="name" required placeholder="Contact name" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+                <NameInput name="name" required placeholder="Contact name" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
                 <input name="email" type="email" required placeholder="Email" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
                 <input
                   name="password"

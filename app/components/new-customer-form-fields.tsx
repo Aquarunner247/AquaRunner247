@@ -5,6 +5,7 @@ import { BodyOfWaterType, PropertyType } from "@/generated/prisma/enums";
 import { FilterTypeFields } from "./filter-type-fields";
 import { PropertyContactFields } from "./property-contact-fields";
 import { AddressFields } from "./address-fields";
+import { NameInput } from "./name-input";
 
 const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
 
@@ -24,7 +25,7 @@ export function NewCustomerFormFields({ managementCompanies }: { managementCompa
       <PropertyContactFields propertyType={propertyType} onPropertyTypeChange={setPropertyType} />
 
       <div className="mt-3 border-t border-brand-border pt-3">
-        <input name="name" required placeholder="Property/customer name" className={`w-full ${inputClass}`} />
+        <NameInput name="name" required placeholder="Property/customer name" className={`w-full ${inputClass}`} />
       </div>
 
       {propertyType === PropertyType.COMMERCIAL ? (

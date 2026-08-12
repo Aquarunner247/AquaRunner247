@@ -4,6 +4,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { completeSignup } from "../actions";
 import { US_STATES } from "@/lib/us-states";
+import { NameInput } from "@/app/components/name-input";
 
 type PageProps = {
   searchParams: Promise<{
@@ -108,7 +109,7 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
           <>
             <label className="flex flex-col gap-1 text-sm text-brand-ink">
               Your name
-              <input
+              <NameInput
                 name="name"
                 required
                 defaultValue={params.name ?? ""}

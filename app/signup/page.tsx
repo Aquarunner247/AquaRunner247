@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signUp } from "./actions";
 import { US_STATES } from "@/lib/us-states";
+import { NameInput } from "@/app/components/name-input";
+import { PhoneInput } from "@/app/components/phone-input";
 
 type PageProps = {
   searchParams: Promise<{ error?: string }>;
@@ -45,7 +47,7 @@ export default async function SignupPage({ searchParams }: PageProps) {
         </label>
         <label className="flex flex-col gap-1 text-sm text-brand-ink">
           Your name
-          <input
+          <NameInput
             name="name"
             required
             className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
@@ -63,7 +65,7 @@ export default async function SignupPage({ searchParams }: PageProps) {
         </label>
         <label className="flex flex-col gap-1 text-sm text-brand-ink">
           Phone (optional)
-          <input
+          <PhoneInput
             name="phone"
             className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
           />

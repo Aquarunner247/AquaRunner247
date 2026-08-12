@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { PropertyType } from "@/generated/prisma/enums";
+import { PhoneInput } from "./phone-input";
+import { NameInput } from "./name-input";
 
 const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
 
@@ -64,22 +66,22 @@ export function PropertyContactFields({
       {propertyType === PropertyType.RESIDENTIAL ? (
         <div className="mt-3 border-t border-brand-border pt-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Owner</p>
-          <input
+          <NameInput
             name="ownerName"
-            defaultValue={defaults.ownerName ?? ""}
+            defaultValue={defaults.ownerName}
             placeholder="Owner name"
             className={`mt-2 w-full ${inputClass}`}
           />
           <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-            <input
+            <PhoneInput
               name="ownerMobilePhone"
-              defaultValue={defaults.ownerMobilePhone ?? ""}
+              defaultValue={defaults.ownerMobilePhone}
               placeholder="Mobile phone"
               className={inputClass}
             />
-            <input
+            <PhoneInput
               name="ownerHomePhone"
-              defaultValue={defaults.ownerHomePhone ?? ""}
+              defaultValue={defaults.ownerHomePhone}
               placeholder="Home phone"
               className={inputClass}
             />
@@ -112,22 +114,22 @@ export function PropertyContactFields({
         <>
           <div className="mt-3 border-t border-brand-border pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Manager</p>
-            <input
+            <NameInput
               name="managerName"
-              defaultValue={defaults.managerName ?? ""}
+              defaultValue={defaults.managerName}
               placeholder="Manager name"
               className={`mt-2 w-full ${inputClass}`}
             />
             <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-              <input
+              <PhoneInput
                 name="managerBusinessPhone"
-                defaultValue={defaults.managerBusinessPhone ?? ""}
+                defaultValue={defaults.managerBusinessPhone}
                 placeholder="Manager business phone"
                 className={inputClass}
               />
-              <input
+              <PhoneInput
                 name="managerMobilePhone"
-                defaultValue={defaults.managerMobilePhone ?? ""}
+                defaultValue={defaults.managerMobilePhone}
                 placeholder="Manager mobile phone"
                 className={inputClass}
               />
@@ -143,15 +145,15 @@ export function PropertyContactFields({
 
           <div className="mt-3 border-t border-brand-border pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Maintenance contact</p>
-            <input
+            <NameInput
               name="maintenanceName"
-              defaultValue={defaults.maintenanceName ?? ""}
+              defaultValue={defaults.maintenanceName}
               placeholder="Maintenance name"
               className={`mt-2 w-full ${inputClass}`}
             />
-            <input
+            <PhoneInput
               name="maintenanceCellPhone"
-              defaultValue={defaults.maintenanceCellPhone ?? ""}
+              defaultValue={defaults.maintenanceCellPhone}
               placeholder="Maintenance cell phone"
               className={`mt-2 w-full ${inputClass}`}
             />

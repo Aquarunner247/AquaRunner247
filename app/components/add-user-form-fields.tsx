@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { UserRole } from "@/generated/prisma/enums";
+import { PhoneInput } from "./phone-input";
 
 /** Same UI-only value as CUSTOMER_ROLE_VALUE in app/dashboard/users/actions.ts -- not a
  * real UserRole, kept as a plain string constant here since this is a client component
@@ -44,7 +45,7 @@ export function AddUserFormFields({ customers }: { customers: CustomerOption[] }
           ))}
         </select>
       ) : (
-        <input name="phone" placeholder="Phone" className="app-field" />
+        <PhoneInput name="phone" placeholder="Phone" className="app-field" />
       )}
     </>
   );
