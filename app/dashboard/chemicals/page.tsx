@@ -242,7 +242,9 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
         <p className="mt-1 text-sm text-brand-muted">
           Enable the products you actually use, set your price, and pick which one the dosing calculator defaults to when more
           than one is enabled for the same chemical. Dosing amounts, active %, and form are sourced from Taylor Technologies&rsquo;
-          printed treatment tables and aren&rsquo;t editable here.
+          printed treatment tables and aren&rsquo;t editable here. Link a product to one of your own billing products above so a
+          technician can apply a recommended dose to a visit with one tap instead of re-entering it under &ldquo;Chemical
+          products.&rdquo;
         </p>
 
         <div className="mt-4 space-y-4">
@@ -283,6 +285,23 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
                         <label className="flex items-center gap-1 text-xs text-brand-muted">
                           <input type="radio" name="primary" value={p.id} defaultChecked={setting?.isPrimary ?? false} />
                           Primary
+                        </label>
+                        <label className="flex items-center gap-1 text-xs text-brand-muted">
+                          Billing product
+                          <select
+                            name={`billing_${p.id}`}
+                            defaultValue={setting?.linkedBillingProductId ?? ""}
+                            className="rounded border border-brand-control px-1.5 py-0.5 text-xs"
+                          >
+                            <option value="">— not linked —</option>
+                            {products
+                              .filter((prod) => prod.active)
+                              .map((prod) => (
+                                <option key={prod.id} value={prod.id}>
+                                  {prod.name} ({prod.unit})
+                                </option>
+                              ))}
+                          </select>
                         </label>
                       </div>
                     );

@@ -1,9 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import type { DosingResult } from "@/lib/dosing-calculator";
+import type { DosingResult, DosingBillingLink } from "@/lib/dosing-calculator";
+import type { DosingUnit } from "@/generated/prisma/enums";
 
 type BromineStatus = { current: number; min: number | null; max: number | null } | null;
+
+/** Applies a computed dose to the visit's own dose log. Returns whether it succeeded, so
+ * the button can show a brief confirmation without owning any dose-list state itself --
+ * that state lives in the parent visit form, which already had it before this feature. */
+type ApplyDose = (opts: { chemicalProductId: string; quantity: number }) => Promise<boolean>;
+
+/** Called when there's no direct-apply path (unlinked, or linked to a billing product
+ * whose unit doesn't auto-convert) -- opens/scrolls to the manual "Chemical Doses" form and
+ * pre-fills what it can: the product (if linked, even without a usable unit) and, once a
+ * product is selected, the quantity via the same conversion the direct-apply path uses. */
+type PrefillDoseForm = (opts: { chemicalProductId: string | null; rawAmount: number; dosingUnit: DosingUnit }) => void;
 
 type Props = {
   visitId: string;
@@ -13,6 +25,8 @@ type Props = {
    * is just whether the current bromine reading is outside this state's bounds. Null when
    * bromine wasn't read this visit or this body of water doesn't use bromine. */
   bromineStatus: BromineStatus;
+  onApplyDose: ApplyDose;
+  onPrefillDoseForm: PrefillDoseForm;
 };
 
 /**
@@ -21,7 +35,7 @@ type Props = {
  * pH is handled separately from `dosing.recommendations` -- see PhDemandPrompt below --
  * since it has no computed value until a technician performs an actual titration.
  */
-export function DosingCard({ visitId, dosing, bromineStatus }: Props) {
+export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPrefillDoseForm }: Props) {
   const hasPhPrompt = dosing != null; // pH prompt only makes sense once a reading exists at all; PhDemandPrompt itself checks range
   const nothingToShow =
     (!dosing || (dosing.recommendations.length === 0 && dosing.warnings.length === 0)) && !bromineStatus && !hasPhPrompt;
@@ -57,6 +71,15 @@ export function DosingCard({ visitId, dosing, bromineStatus }: Props) {
               <div className="mt-1.5">
                 <p className="text-sm font-medium text-brand-ink">{r.productName}</p>
                 <p className="app-metric text-sm text-brand-ink">{r.formattedDose}</p>
+                {r.rawAmount != null && r.dosingUnit != null ? (
+                  <ApplyButton
+                    rawAmount={r.rawAmount}
+                    dosingUnit={r.dosingUnit}
+                    billingLink={r.billingLink}
+                    onApplyDose={onApplyDose}
+                    onPrefillDoseForm={onPrefillDoseForm}
+                  />
+                ) : null}
               </div>
             ) : (
               <p className="mt-1.5 text-sm text-brand-warn">{r.note}</p>
@@ -68,7 +91,7 @@ export function DosingCard({ visitId, dosing, bromineStatus }: Props) {
           <p className="text-sm text-brand-muted">Every reading is within target range.</p>
         ) : null}
 
-        <PhDemandPrompt visitId={visitId} />
+        <PhDemandPrompt visitId={visitId} onApplyDose={onApplyDose} onPrefillDoseForm={onPrefillDoseForm} />
 
         {bromineStatus ? (
           <li className="rounded-lg border border-brand-warn/30 bg-brand-warnFill p-3">
@@ -91,6 +114,58 @@ export function DosingCard({ visitId, dosing, bromineStatus }: Props) {
 }
 
 /**
+ * One button, two behaviors depending on whether the computed dose has a usable link to
+ * the org's own billing catalog:
+ * - linked AND convertible -- applies immediately (POSTs the converted quantity as a
+ *   logged dose) and shows a brief confirmation.
+ * - otherwise -- defers to the manual "Chemical Doses" form instead of guessing: opens/
+ *   scrolls to it and pre-fills whatever it can (see PrefillDoseForm's doc comment).
+ * Same component serves both the ppm-based recommendations above and the pH demand-test
+ * result below -- one mechanism, not two parallel implementations.
+ */
+function ApplyButton({
+  rawAmount,
+  dosingUnit,
+  billingLink,
+  onApplyDose,
+  onPrefillDoseForm,
+}: {
+  rawAmount: number;
+  dosingUnit: DosingUnit;
+  billingLink: DosingBillingLink | null;
+  onApplyDose: ApplyDose;
+  onPrefillDoseForm: PrefillDoseForm;
+}) {
+  const [state, setState] = useState<"idle" | "applying" | "applied">("idle");
+
+  async function handleClick() {
+    if (billingLink && billingLink.convertedQuantity != null) {
+      setState("applying");
+      const ok = await onApplyDose({ chemicalProductId: billingLink.chemicalProductId, quantity: billingLink.convertedQuantity });
+      if (ok) {
+        setState("applied");
+        setTimeout(() => setState("idle"), 2500);
+      } else {
+        setState("idle");
+      }
+      return;
+    }
+    onPrefillDoseForm({ chemicalProductId: billingLink?.chemicalProductId ?? null, rawAmount, dosingUnit });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleClick()}
+      disabled={state === "applying"}
+      className="app-btn-secondary-sm mt-1.5 min-h-[44px]"
+    >
+      {state === "applied" ? "Added ✓" : state === "applying" ? "Adding…" : "Add to visit"}
+    </button>
+  );
+}
+
+/**
  * pH has no ppm-delta dose -- only Taylor's Base/Acid Demand titration produces one. This
  * always renders when a reading exists (its parent gates on that); it self-determines
  * whether pH is actually out of range from `dosing.recommendations`... except pH is
@@ -101,11 +176,25 @@ export function DosingCard({ visitId, dosing, bromineStatus }: Props) {
  * (the tech just wouldn't bother). Kept minimal rather than duplicating target-resolution
  * logic client-side just to decide whether to show a button.
  */
-function PhDemandPrompt({ visitId }: { visitId: string }) {
+function PhDemandPrompt({
+  visitId,
+  onApplyDose,
+  onPrefillDoseForm,
+}: {
+  visitId: string;
+  onApplyDose: ApplyDose;
+  onPrefillDoseForm: PrefillDoseForm;
+}) {
   const [open, setOpen] = useState(false);
   const [direction, setDirection] = useState<"RAISE" | "LOWER">("LOWER");
   const [drops, setDrops] = useState("");
-  const [result, setResult] = useState<{ productName: string; formattedDose: string } | null>(null);
+  const [result, setResult] = useState<{
+    productName: string;
+    formattedDose: string;
+    rawAmount: number;
+    dosingUnit: DosingUnit;
+    billingLink: DosingBillingLink | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -131,7 +220,13 @@ function PhDemandPrompt({ visitId }: { visitId: string }) {
               : "Couldn't calculate a dose.",
         );
       } else {
-        setResult({ productName: data.productName, formattedDose: data.formattedDose });
+        setResult({
+          productName: data.productName,
+          formattedDose: data.formattedDose,
+          rawAmount: data.rawAmount,
+          dosingUnit: data.dosingUnit,
+          billingLink: data.billingLink ?? null,
+        });
       }
     } catch {
       setError("Couldn't reach the server — try again.");
@@ -190,6 +285,13 @@ function PhDemandPrompt({ visitId }: { visitId: string }) {
         <div className="mt-2">
           <p className="text-sm font-medium text-brand-ink">{result.productName}</p>
           <p className="app-metric text-sm text-brand-ink">{result.formattedDose}</p>
+          <ApplyButton
+            rawAmount={result.rawAmount}
+            dosingUnit={result.dosingUnit}
+            billingLink={result.billingLink}
+            onApplyDose={onApplyDose}
+            onPrefillDoseForm={onPrefillDoseForm}
+          />
         </div>
       ) : null}
       {error ? <p className="mt-2 text-sm text-brand-danger">{error}</p> : null}

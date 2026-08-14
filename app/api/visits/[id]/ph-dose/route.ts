@@ -37,14 +37,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const setting = await prisma.orgChemicalProductSetting.findFirst({
     where: { organizationId: appUser.organizationId, isEnabled: true, catalogProduct: { chemicalType } },
     orderBy: { isPrimary: "desc" },
-    include: { catalogProduct: true },
+    include: { catalogProduct: true, linkedBillingProduct: { select: { id: true, unit: true, active: true } } },
   });
   if (!setting) {
     return NextResponse.json({ error: "NO_PRODUCT_CONFIGURED" }, { status: 400 });
   }
 
   const gallons = visit.bodyOfWater.volumeGallons != null ? Number(visit.bodyOfWater.volumeGallons) : null;
-  const result = computePhDose(drops, setting.catalogProduct, gallons);
+  const result = computePhDose(drops, setting.catalogProduct, gallons, setting.linkedBillingProduct);
   if (!result) return NextResponse.json({ error: "NO_VOLUME_CONFIGURED" }, { status: 400 });
 
   return NextResponse.json({ ok: true, ...result });

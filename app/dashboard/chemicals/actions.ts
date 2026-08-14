@@ -105,6 +105,15 @@ export async function updateChemicalTypeSettings(formData: FormData) {
   const catalogProducts = await prisma.chemicalProductCatalog.findMany({ where: { chemicalType }, select: { id: true } });
   const primaryPick = String(formData.get("primary") ?? "").trim();
 
+  // Re-fetch the org's own billing product ids rather than trusting the submitted
+  // `billing_${id}` value directly -- same "don't trust a client-submitted id" posture as
+  // catalogProducts being re-queried instead of read off the form.
+  const orgBillingProducts = await prisma.chemicalProduct.findMany({
+    where: { organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  const orgBillingProductIds = new Set(orgBillingProducts.map((p) => p.id));
+
   const existingSettings = await prisma.orgChemicalProductSetting.findMany({
     where: { organizationId: appUser.organizationId, catalogProductId: { in: catalogProducts.map((p) => p.id) } },
   });
@@ -114,6 +123,8 @@ export async function updateChemicalTypeSettings(formData: FormData) {
     const isEnabled = formData.get(`enabled_${p.id}`) != null;
     const price = toDecimalOrNull(formData.get(`price_${p.id}`));
     const isPrimary = isEnabled && primaryPick === p.id;
+    const billingRaw = String(formData.get(`billing_${p.id}`) ?? "").trim();
+    const linkedBillingProductId = billingRaw && orgBillingProductIds.has(billingRaw) ? billingRaw : null;
 
     // Skip the write entirely when nothing actually changed -- the isPrimary fallback
     // below relies on updatedAt reflecting the last REAL change to a row, which an
@@ -123,13 +134,14 @@ export async function updateChemicalTypeSettings(formData: FormData) {
       existing != null &&
       existing.isEnabled === isEnabled &&
       (existing.price != null ? Number(existing.price) : null) === price &&
-      existing.isPrimary === isPrimary;
+      existing.isPrimary === isPrimary &&
+      (existing.linkedBillingProductId ?? null) === linkedBillingProductId;
     if (unchanged) continue;
 
     await prisma.orgChemicalProductSetting.upsert({
       where: { organizationId_catalogProductId: { organizationId: appUser.organizationId, catalogProductId: p.id } },
-      create: { organizationId: appUser.organizationId, catalogProductId: p.id, isEnabled, price, isPrimary },
-      update: { isEnabled, price, isPrimary },
+      create: { organizationId: appUser.organizationId, catalogProductId: p.id, isEnabled, price, isPrimary, linkedBillingProductId },
+      update: { isEnabled, price, isPrimary, linkedBillingProductId },
     });
   }
 

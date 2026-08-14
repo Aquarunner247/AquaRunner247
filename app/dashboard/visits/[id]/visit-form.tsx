@@ -6,8 +6,10 @@ import { DosingCard } from "@/app/components/dosing-card";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 import { queuedSubmitJson } from "@/lib/client/offline-queue";
 import { useOfflineSync } from "@/lib/client/use-offline-sync";
+import { convertToBillingUnit } from "@/lib/dosing-units";
 import type { ReadingFieldSpec } from "@/lib/compliance";
 import type { DosingResult } from "@/lib/dosing-calculator";
+import type { DosingUnit } from "@/generated/prisma/enums";
 
 type Dose = {
   id: string;
@@ -167,9 +169,15 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
   const [doses, setDoses] = useState<Dose[]>(initialDoses);
   const [dosing, setDosing] = useState<DosingResult | null>(initialDosing);
   const [doseForm, setDoseForm] = useState({ chemicalProductId: "", quantity: "" });
+  /** Set when a Dosing Card "Add to visit" click can't apply directly (unlinked product,
+   * or a linked one whose billing unit doesn't auto-convert) and instead opens the manual
+   * form below. Kept around so picking a product AFTER opening still fills the quantity --
+   * see the dose-product <select>'s onChange. Cleared once a dose is actually submitted. */
+  const [pendingDoseHint, setPendingDoseHint] = useState<{ rawAmount: number; dosingUnit: DosingUnit } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const timerRef = useRef<number | null>(null);
   const isFirstRender = useRef(true);
+  const doseSectionRef = useRef<HTMLDivElement | null>(null);
   const { pendingCount, syncNow } = useOfflineSync();
 
   const isCompleted = visitStatus === "COMPLETED";
@@ -260,37 +268,64 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reading, backwashPerformed, backwashTime, isCompleted]);
 
-  async function addDose(e: FormEvent) {
-    e.preventDefault();
+  /** Shared by the manual "Chemical Doses" form submit and the Dosing Card's direct-apply
+   * button -- one POST/offline-queue/doses-list-update path for both, so they can't drift.
+   * Returns whether it succeeded (the Dosing Card's button uses this for its own
+   * confirmation state; it doesn't touch `doses` itself). */
+  async function submitDose(chemicalProductId: string, quantity: number): Promise<boolean> {
     const result = await queuedSubmitJson({
       url: `/api/visits/${visitId}/doses`,
       method: "POST",
       label: "Chemical dose",
       visitId,
-      body: {
-        chemicalProductId: doseForm.chemicalProductId,
-        quantity: Number(doseForm.quantity),
-      },
+      body: { chemicalProductId, quantity },
     });
     if (result.status === "failed") {
       setSaveState("error");
       setSaveMsg("Dose add failed");
-      return;
+      return false;
     }
     if (result.status === "queued") {
-      const product = chemicalProducts.find((p) => p.id === doseForm.chemicalProductId);
+      const product = chemicalProducts.find((p) => p.id === chemicalProductId);
       setDoses((prev) => [
-        { id: `pending-${Date.now()}`, productName: product?.name ?? "Chemical", quantity: doseForm.quantity, unit: product?.unit ?? "", pending: true },
+        { id: `pending-${Date.now()}`, productName: product?.name ?? "Chemical", quantity: String(quantity), unit: product?.unit ?? "", pending: true },
         ...prev,
       ]);
       setSaveState("saved");
       setSaveMsg("Saved offline — will sync");
-      setDoseForm({ chemicalProductId: "", quantity: "" });
-      return;
+      return true;
     }
     const data = (await result.response.json()) as { dose: Dose };
     setDoses((prev) => [data.dose, ...prev]);
-    setDoseForm({ chemicalProductId: "", quantity: "" });
+    return true;
+  }
+
+  async function addDose(e: FormEvent) {
+    e.preventDefault();
+    const ok = await submitDose(doseForm.chemicalProductId, Number(doseForm.quantity));
+    if (ok) {
+      setDoseForm({ chemicalProductId: "", quantity: "" });
+      setPendingDoseHint(null);
+    }
+  }
+
+  /** Dosing Card direct-apply path -- the recommendation already resolved a linked billing
+   * product and a convertible quantity, so this just logs it, no form involved. */
+  async function applyDoseFromCard(opts: { chemicalProductId: string; quantity: number }): Promise<boolean> {
+    return submitDose(opts.chemicalProductId, opts.quantity);
+  }
+
+  /** Dosing Card fallback path -- opens/scrolls to the manual form and pre-fills what it
+   * can. `rawAmount`/`dosingUnit` are kept in `pendingDoseHint` so picking a product
+   * (whether pre-selected here or chosen afterward) recomputes the quantity via the same
+   * conversion the direct-apply path uses -- one reactive behavior, not two. */
+  function prefillDoseForm(opts: { chemicalProductId: string | null; rawAmount: number; dosingUnit: DosingUnit }) {
+    setPendingDoseHint({ rawAmount: opts.rawAmount, dosingUnit: opts.dosingUnit });
+    const id = opts.chemicalProductId ?? "";
+    const product = id ? chemicalProducts.find((p) => p.id === id) : undefined;
+    const converted = product ? convertToBillingUnit(opts.rawAmount, opts.dosingUnit, product.unit) : null;
+    setDoseForm({ chemicalProductId: id, quantity: converted != null ? String(converted) : "" });
+    doseSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function uploadPhoto(file: File) {
@@ -552,7 +587,13 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
         <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
       </div>
 
-      <DosingCard visitId={visitId} dosing={dosing} bromineStatus={bromineStatus} />
+      <DosingCard
+        visitId={visitId}
+        dosing={dosing}
+        bromineStatus={bromineStatus}
+        onApplyDose={applyDoseFromCard}
+        onPrefillDoseForm={prefillDoseForm}
+      />
 
       <div className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Gauges</h2>
@@ -602,7 +643,7 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
         </div>
       </div>
 
-      <div className="app-card">
+      <div className="app-card" ref={doseSectionRef}>
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemical Doses</h2>
         {chemicalProducts.length === 0 ? (
           <p className="mt-2 text-sm text-brand-muted">
@@ -613,7 +654,19 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
             <select
               value={doseForm.chemicalProductId}
               disabled={isCompleted}
-              onChange={(e) => setDoseForm((d) => ({ ...d, chemicalProductId: e.target.value }))}
+              onChange={(e) => {
+                const id = e.target.value;
+                // Reactive quantity fill: only kicks in when a Dosing Card "Add to visit"
+                // click opened this form (pendingDoseHint set) -- picking a chemical
+                // outside that flow behaves exactly as before, no surprise auto-fill.
+                if (pendingDoseHint) {
+                  const product = chemicalProducts.find((p) => p.id === id);
+                  const converted = product ? convertToBillingUnit(pendingDoseHint.rawAmount, pendingDoseHint.dosingUnit, product.unit) : null;
+                  setDoseForm({ chemicalProductId: id, quantity: converted != null ? String(converted) : "" });
+                } else {
+                  setDoseForm((d) => ({ ...d, chemicalProductId: id }));
+                }
+              }}
               className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
             >
               <option value="">Select chemical…</option>

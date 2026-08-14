@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getOrganizationRuleset, isComplianceActive, chlorineFamilyThreshold, activeChemistryThresholds } from "@/lib/compliance";
+import { formatDose, convertToBillingUnit } from "@/lib/dosing-units";
 import type { ChemicalType, ChemicalProductForm, DosingUnit, DisinfectionMethod } from "@/generated/prisma/enums";
+
+export { formatLiquidOz, formatWeightOz, convertToBillingUnit } from "@/lib/dosing-units";
 
 /**
  * The chemicals this calculator can automatically recommend a dose for -- every one of
@@ -23,6 +26,17 @@ export const CHEMICAL_LABELS: Record<DosingChemicalKey, string> = {
   SALT: "Salt",
 };
 
+/** Present only when a computed dose has a usable link to the org's own billing catalog
+ * (see OrgChemicalProductSetting.linkedBillingProductId). `convertedQuantity` is null when
+ * a link exists but its unit isn't one convertToBillingUnit recognizes (e.g. "tablet") --
+ * still worth exposing chemicalProductId in that case so the UI can pre-select the right
+ * product in the manual-entry fallback even though it can't prefill the quantity. */
+export type DosingBillingLink = {
+  chemicalProductId: string;
+  unit: string;
+  convertedQuantity: number | null;
+};
+
 export type DosingRecommendation = {
   chemicalKey: DosingChemicalKey;
   label: string;
@@ -33,6 +47,12 @@ export type DosingRecommendation = {
   productName: string | null;
   formattedDose: string | null;
   note: string | null;
+  /** Raw amount + unit backing `formattedDose`, needed by the client to convert into
+   * whatever billing unit the technician ultimately applies this as. Null whenever
+   * formattedDose is (no product chosen, or dilution-only). */
+  rawAmount: number | null;
+  dosingUnit: DosingUnit | null;
+  billingLink: DosingBillingLink | null;
 };
 
 export type DosingResult = {
@@ -60,45 +80,6 @@ function readingValueFor(key: DosingChemicalKey, reading: Record<string, unknown
     case "SALT":
       return toNum(reading.saltPpm);
   }
-}
-
-// ---------------------------------------------------------------------------
-// Unit display -- see AskUserQuestion decision: liquids auto-scale to cups/qt/gal
-// (an exact unit conversion, no invented density), granular/dry stays in oz/lb
-// (scale-measured, matching Taylor's own tables -- no invented scoop/cup conversion).
-// ---------------------------------------------------------------------------
-
-function roundTo(value: number, nearest: number): number {
-  return Math.round(value / nearest) * nearest;
-}
-
-function trimTrailingZeros(n: number): string {
-  return Number(n.toFixed(4)).toString();
-}
-
-/** flOz -> "X fl oz" / "X cups" / "X qt" / "X gal", auto-scaled per the thresholds fixed
- * with the user (8 fl oz = 1 cup, 32 fl oz = 1 qt, 128 fl oz = 1 gal). */
-export function formatLiquidOz(flOz: number): string {
-  if (flOz < 8) return `${trimTrailingZeros(roundTo(flOz, 0.5))} fl oz`;
-  if (flOz < 32) {
-    const cups = roundTo(flOz / 8, 0.25);
-    return `${trimTrailingZeros(cups)} cup${cups === 1 ? "" : "s"}`;
-  }
-  if (flOz < 128) return `${trimTrailingZeros(roundTo(flOz / 32, 0.25))} qt`;
-  return `${trimTrailingZeros(roundTo(flOz / 128, 0.25))} gal`;
-}
-
-/** oz -> "X oz" under 16, "X lb Y oz" at/above -- weight, scale-measured. */
-export function formatWeightOz(oz: number): string {
-  const rounded = roundTo(oz, 0.25);
-  if (rounded < 16) return `${trimTrailingZeros(rounded)} oz`;
-  const lb = Math.floor(rounded / 16);
-  const remainderOz = roundTo(rounded - lb * 16, 0.25);
-  return remainderOz === 0 ? `${lb} lb` : `${lb} lb ${trimTrailingZeros(remainderOz)} oz`;
-}
-
-function formatDose(amount: number, unit: DosingUnit): string {
-  return unit === "FL_OZ" ? formatLiquidOz(amount) : formatWeightOz(amount);
 }
 
 // ---------------------------------------------------------------------------
@@ -199,12 +180,25 @@ function isInRange(current: number, resolved: ResolvedTarget): boolean {
 // ---------------------------------------------------------------------------
 
 type CatalogRow = { id: string; name: string; chemicalType: ChemicalType; form: ChemicalProductForm; dosingUnit: DosingUnit; dosingConstant: unknown; isDemandBased: boolean };
-type SettingWithCatalog = { id: string; isPrimary: boolean; catalogProduct: CatalogRow };
+type LinkedBillingProduct = { id: string; unit: string; active: boolean };
+type SettingWithCatalog = { id: string; isPrimary: boolean; catalogProduct: CatalogRow; linkedBillingProduct: LinkedBillingProduct | null };
+
+/** Builds the billingLink for a computed dose, or null if unlinked or the link points at a
+ * since-deactivated billing product. Shared by both the ppm-based pass below and
+ * computePhDose, so the two stay consistent. */
+function buildBillingLink(linkedBillingProduct: LinkedBillingProduct | null, rawAmount: number, dosingUnit: DosingUnit): DosingBillingLink | null {
+  if (!linkedBillingProduct || !linkedBillingProduct.active) return null;
+  return {
+    chemicalProductId: linkedBillingProduct.id,
+    unit: linkedBillingProduct.unit,
+    convertedQuantity: convertToBillingUnit(rawAmount, dosingUnit, linkedBillingProduct.unit),
+  };
+}
 
 async function loadEnabledProductsByType(organizationId: string): Promise<Map<ChemicalType, SettingWithCatalog[]>> {
   const settings = await prisma.orgChemicalProductSetting.findMany({
     where: { organizationId, isEnabled: true },
-    include: { catalogProduct: true },
+    include: { catalogProduct: true, linkedBillingProduct: { select: { id: true, unit: true, active: true } } },
   });
   const byType = new Map<ChemicalType, SettingWithCatalog[]>();
   for (const s of settings as unknown as SettingWithCatalog[]) {
@@ -242,6 +236,9 @@ function buildRecommendation(input: {
   productName?: string | null;
   formattedDose?: string | null;
   note?: string | null;
+  rawAmount?: number | null;
+  dosingUnit?: DosingUnit | null;
+  billingLink?: DosingBillingLink | null;
 }): DosingRecommendation {
   return {
     chemicalKey: input.chemicalKey,
@@ -253,6 +250,9 @@ function buildRecommendation(input: {
     productName: input.productName ?? null,
     formattedDose: input.formattedDose ?? null,
     note: input.note ?? null,
+    rawAmount: input.rawAmount ?? null,
+    dosingUnit: input.dosingUnit ?? null,
+    billingLink: input.billingLink ?? null,
   };
 }
 
@@ -350,6 +350,9 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
         targetMax: resolved.boundMax,
         productName: catalog.name,
         formattedDose: formatDose(rawDose, catalog.dosingUnit),
+        rawAmount: rawDose,
+        dosingUnit: catalog.dosingUnit,
+        billingLink: buildBillingLink(setting.linkedBillingProduct, rawDose, catalog.dosingUnit),
       }),
     );
 
@@ -397,14 +400,30 @@ export async function getSavedDosingRecommendation(visitId: string): Promise<Dos
 export type PhDoseResult = {
   productName: string;
   formattedDose: string;
+  rawAmount: number;
+  dosingUnit: DosingUnit;
+  billingLink: DosingBillingLink | null;
 };
 
 /** Computes a pH correction dose from a technician-entered Base/Acid Demand drop count --
  * the ONLY valid input for a pH dose, since acid/base demand isn't derivable from a pH
  * reading itself. Returns null if drops <= 0 or gallons is missing/invalid -- caller
- * should show nothing (not a fabricated dose) in that case. */
-export function computePhDose(drops: number, product: { name: string; dosingConstant: unknown; dosingUnit: DosingUnit }, gallons: number | null): PhDoseResult | null {
+ * should show nothing (not a fabricated dose) in that case. `linkedBillingProduct` mirrors
+ * the ppm-based pass's billingLink construction (see buildBillingLink) so applying a pH
+ * dose to the visit's dose log works the same way as any other recommendation. */
+export function computePhDose(
+  drops: number,
+  product: { name: string; dosingConstant: unknown; dosingUnit: DosingUnit },
+  gallons: number | null,
+  linkedBillingProduct?: LinkedBillingProduct | null,
+): PhDoseResult | null {
   if (!drops || drops <= 0 || !gallons || gallons <= 0) return null;
   const rawDose = Number(product.dosingConstant) * drops * (gallons / 10000);
-  return { productName: product.name, formattedDose: formatDose(rawDose, product.dosingUnit) };
+  return {
+    productName: product.name,
+    formattedDose: formatDose(rawDose, product.dosingUnit),
+    rawAmount: rawDose,
+    dosingUnit: product.dosingUnit,
+    billingLink: buildBillingLink(linkedBillingProduct ?? null, rawDose, product.dosingUnit),
+  };
 }

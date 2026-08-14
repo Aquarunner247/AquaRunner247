@@ -980,6 +980,9 @@ model ChemicalProduct {
   updatedAt DateTime @updatedAt
 
   doses VisitChemicalDose[]
+  /// Dosing-catalog settings that point at this product as their "apply as a logged dose"
+  /// target -- see OrgChemicalProductSetting.linkedBillingProductId.
+  dosingLinks OrgChemicalProductSetting[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -1198,12 +1201,22 @@ model OrgChemicalProductSetting {
   /// constraint, same convention as the prior version of this feature.
   isPrimary Boolean @default(false)
 
+  /// Optional link to the org's own free-text billing catalog (ChemicalProduct), so a
+  /// computed recommendation can be applied as a logged VisitChemicalDose without the
+  /// technician re-entering the amount in a second place. SetNull on delete -- losing the
+  /// linked billing product shouldn't break this dosing setting, just fall back to the
+  /// manual-entry path (see lib/dosing-units.ts's convertToBillingUnit, which is what
+  /// decides whether a given link's unit is even auto-convertible from the dosing amount).
+  linkedBillingProductId String?
+  linkedBillingProduct   ChemicalProduct? @relation(fields: [linkedBillingProductId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([organizationId, catalogProductId])
   @@index([organizationId])
   @@index([catalogProductId])
+  @@index([linkedBillingProductId])
 }
 
 /// Org-level override of a chemical's dosing target, layered on top of the state's own
