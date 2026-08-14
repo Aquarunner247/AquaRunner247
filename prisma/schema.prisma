@@ -617,8 +617,57 @@ model BodyOfWater {
   cascadedIncidents      ContaminationIncident[]     @relation("CascadedFiltrationClosure")
   payRates               TechnicianPayRate[]         @relation("TechnicianPayRateBody")
   bundledIntoPayRates    TechnicianPayRate[]         @relation("TechnicianPayRateBundledInto")
+  volumeCalculation      VolumeCalculation?
 
   @@index([propertyId])
+}
+
+enum VolumeShape {
+  RECTANGLE
+  CIRCLE
+  OVAL
+  KIDNEY_FREEFORM
+  MULTI_DEPTH
+}
+
+/// How a body of water's volumeGallons was derived, so a technician can come back and
+/// correct one dimension instead of re-measuring the whole pool from scratch.
+/// BodyOfWater.volumeGallons stays the single source of truth everything else (dosing,
+/// compliance) reads -- this table is just the derivation, kept in sync by
+/// saveVolumeCalculation, not read by anything else.
+model VolumeCalculation {
+  id            String      @id @default(cuid())
+  bodyOfWaterId String      @unique
+  bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+
+  shape VolumeShape
+
+  /// RECTANGLE, OVAL: both required. CIRCLE: neither used (see radiusFt).
+  lengthFt Decimal? @db.Decimal(8, 2)
+  widthFt  Decimal? @db.Decimal(8, 2)
+  /// CIRCLE only.
+  radiusFt Decimal? @db.Decimal(8, 2)
+
+  /// RECTANGLE/CIRCLE/OVAL/KIDNEY_FREEFORM only -- averaged for a sloped-floor pool.
+  /// MULTI_DEPTH does not use these; see its own per-section depths below.
+  shallowDepthFt Decimal? @db.Decimal(6, 2)
+  deepDepthFt    Decimal? @db.Decimal(6, 2)
+
+  /// KIDNEY_FREEFORM only -- the two width measurements the (A+B)*W approximation needs.
+  freeformMeasurementA Decimal? @db.Decimal(8, 2)
+  freeformMeasurementB Decimal? @db.Decimal(8, 2)
+
+  /// MULTI_DEPTH only -- two independent rectangular sections, each with its own
+  /// length/width/depth, summed after conversion rather than averaged into one shape.
+  shallowSectionLengthFt Decimal? @db.Decimal(8, 2)
+  shallowSectionWidthFt  Decimal? @db.Decimal(8, 2)
+  shallowSectionDepthFt  Decimal? @db.Decimal(6, 2)
+  deepSectionLengthFt    Decimal? @db.Decimal(8, 2)
+  deepSectionWidthFt     Decimal? @db.Decimal(8, 2)
+  deepSectionDepthFt     Decimal? @db.Decimal(6, 2)
+
+  calculatedGallons Decimal  @db.Decimal(12, 2)
+  lastCalculatedAt  DateTime
 }
 
 /// Open -> under remediation -> verified clean -> reopened. A real lifecycle, unlike a

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose, PropertyType, DisinfectionMethod } from "@/generated/prisma/client";
+import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose, PropertyType, DisinfectionMethod, VolumeShape } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
@@ -12,6 +12,7 @@ import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/
 import { sendCustomerAlertEmail } from "@/lib/email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
 import { parseFormNumber as numOrNull } from "@/lib/form-utils";
+import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
 import { createPayRateRow } from "@/lib/technician-pay";
 
 async function requireAdmin() {
@@ -356,6 +357,61 @@ export async function updateBodyOfWater(formData: FormData) {
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);
   redirect(`/dashboard/customers/${customerId}?tab=bodies`);
+}
+
+/**
+ * Persists a VolumeCalculation row AND writes the same number into
+ * BodyOfWater.volumeGallons (the field dosing/compliance actually reads) -- recomputes
+ * server-side from the submitted dimensions rather than trusting the client's live
+ * preview number, same "never trust client math for a persisted value" posture as the
+ * rest of this file.
+ */
+export async function saveVolumeCalculation(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  if (!bodyId || !customerId) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  const shapeRaw = String(formData.get("shape") ?? "").trim();
+  const shape = (Object.values(VolumeShape) as string[]).includes(shapeRaw) ? (shapeRaw as VolumeShapeKey) : "RECTANGLE";
+
+  const dims = {
+    lengthFt: numOrNull(formData.get("lengthFt")),
+    widthFt: numOrNull(formData.get("widthFt")),
+    radiusFt: numOrNull(formData.get("radiusFt")),
+    shallowDepthFt: numOrNull(formData.get("shallowDepthFt")),
+    deepDepthFt: numOrNull(formData.get("deepDepthFt")),
+    freeformMeasurementA: numOrNull(formData.get("freeformMeasurementA")),
+    freeformMeasurementB: numOrNull(formData.get("freeformMeasurementB")),
+    shallowSectionLengthFt: numOrNull(formData.get("shallowSectionLengthFt")),
+    shallowSectionWidthFt: numOrNull(formData.get("shallowSectionWidthFt")),
+    shallowSectionDepthFt: numOrNull(formData.get("shallowSectionDepthFt")),
+    deepSectionLengthFt: numOrNull(formData.get("deepSectionLengthFt")),
+    deepSectionWidthFt: numOrNull(formData.get("deepSectionWidthFt")),
+    deepSectionDepthFt: numOrNull(formData.get("deepSectionDepthFt")),
+  };
+
+  const gallons = calculateGallons({ shape, ...dims });
+  if (gallons == null) return;
+
+  await prisma.$transaction([
+    prisma.volumeCalculation.upsert({
+      where: { bodyOfWaterId: body.id },
+      create: { bodyOfWaterId: body.id, shape: shape as VolumeShape, ...dims, calculatedGallons: gallons, lastCalculatedAt: new Date() },
+      update: { shape: shape as VolumeShape, ...dims, calculatedGallons: gallons, lastCalculatedAt: new Date() },
+    }),
+    prisma.bodyOfWater.update({ where: { id: body.id }, data: { volumeGallons: gallons } }),
+  ]);
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
+  redirect(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
 }
 
 /**
