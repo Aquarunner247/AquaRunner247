@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CameraCapture } from "@/app/components/camera-capture";
 import { DosingCard } from "@/app/components/dosing-card";
+import { VisitVolumeCalculator } from "@/app/components/volume-calculator";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 import { convertToBillingUnit } from "@/lib/dosing-units";
 import type { DosingResult } from "@/lib/dosing-calculator";
@@ -71,6 +72,7 @@ type PhotoOption = { id: string; url: string | null; takenAt: string | null };
 type Props = {
   visitId: string;
   visitStatus: string;
+  hasVolume: boolean;
   requiresFC: boolean;
   requiresPH: boolean;
   requiresAlkalinity: boolean;
@@ -107,6 +109,7 @@ function roundToStep(value: number, step: number): number {
 export function ResidentialVisitForm({
   visitId,
   visitStatus,
+  hasVolume: initialHasVolume,
   requiresFC,
   requiresPH,
   requiresAlkalinity,
@@ -121,6 +124,7 @@ export function ResidentialVisitForm({
   initialStartedAt,
   initialDosing,
 }: Props) {
+  const [hasVolume, setHasVolume] = useState(initialHasVolume);
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
   const [arrivalSaving, setArrivalSaving] = useState(false);
   const [arrivalError, setArrivalError] = useState("");
@@ -425,13 +429,33 @@ export function ResidentialVisitForm({
         </div>
       ) : null}
 
-      <DosingCard
-        visitId={visitId}
-        dosing={dosing}
-        bromineStatus={null}
-        onApplyDose={applyDoseFromCard}
-        onPrefillDoseForm={prefillDoseForm}
-      />
+      {hasVolume ? (
+        <DosingCard
+          visitId={visitId}
+          dosing={dosing}
+          bromineStatus={null}
+          onApplyDose={applyDoseFromCard}
+          onPrefillDoseForm={prefillDoseForm}
+        />
+      ) : (
+        <div className="app-card">
+          <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
+            Recommended Dosing
+          </h2>
+          <p className="mt-1 text-sm text-brand-muted">
+            This body of water has no volume set — measure it now to get dosing recommendations.
+          </p>
+          <div className="mt-3">
+            <VisitVolumeCalculator
+              visitId={visitId}
+              onSaved={(result) => {
+                setHasVolume(true);
+                if (result.dosing) setDosing(result.dosing);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="app-card" ref={doseSectionRef}>
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemical Doses</h2>

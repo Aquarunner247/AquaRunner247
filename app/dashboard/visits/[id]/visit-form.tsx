@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CameraCapture } from "@/app/components/camera-capture";
 import { DosingCard } from "@/app/components/dosing-card";
+import { VisitVolumeCalculator } from "@/app/components/volume-calculator";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 import { queuedSubmitJson } from "@/lib/client/offline-queue";
 import { useOfflineSync } from "@/lib/client/use-offline-sync";
@@ -102,6 +103,7 @@ type PhotoOption = { id: string; url: string | null; takenAt: string | null };
 type Props = {
   visitId: string;
   visitStatus: string;
+  hasVolume: boolean;
   readingFields: ReadingFieldSpec[];
   chemicalProducts: ChemicalProductOption[];
   checklistItems: ChecklistItemOption[];
@@ -139,7 +141,8 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt, initialDosing }: Props) {
+export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt, initialDosing }: Props) {
+  const [hasVolume, setHasVolume] = useState(initialHasVolume);
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
   const [arrivalSaving, setArrivalSaving] = useState(false);
   const [arrivalError, setArrivalError] = useState("");
@@ -587,13 +590,33 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
         <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
       </div>
 
-      <DosingCard
-        visitId={visitId}
-        dosing={dosing}
-        bromineStatus={bromineStatus}
-        onApplyDose={applyDoseFromCard}
-        onPrefillDoseForm={prefillDoseForm}
-      />
+      {hasVolume ? (
+        <DosingCard
+          visitId={visitId}
+          dosing={dosing}
+          bromineStatus={bromineStatus}
+          onApplyDose={applyDoseFromCard}
+          onPrefillDoseForm={prefillDoseForm}
+        />
+      ) : (
+        <div className="app-card">
+          <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
+            Recommended Dosing
+          </h2>
+          <p className="mt-1 text-sm text-brand-muted">
+            This body of water has no volume set — measure it now to get dosing recommendations.
+          </p>
+          <div className="mt-3">
+            <VisitVolumeCalculator
+              visitId={visitId}
+              onSaved={(result) => {
+                setHasVolume(true);
+                if (result.dosing) setDosing(result.dosing);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Gauges</h2>

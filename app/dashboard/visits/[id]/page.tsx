@@ -72,6 +72,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           requiresPH: true,
           requiresAlkalinity: true,
           requiresCYA: true,
+          volumeGallons: true,
         },
       },
       reading: true,
@@ -165,6 +166,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
         <ResidentialVisitForm
           visitId={visit.id}
           visitStatus={visit.status}
+          hasVolume={visit.bodyOfWater.volumeGallons != null}
           requiresFC={visit.bodyOfWater.requiresFC}
           requiresPH={visit.bodyOfWater.requiresPH}
           requiresAlkalinity={visit.bodyOfWater.requiresAlkalinity}
@@ -193,6 +195,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
         <VisitForm
           visitId={visit.id}
           visitStatus={visit.status}
+          hasVolume={visit.bodyOfWater.volumeGallons != null}
           readingFields={readingFields}
           chemicalProducts={chemicalProducts}
           checklistItems={checklistItems}
