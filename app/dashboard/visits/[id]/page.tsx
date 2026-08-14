@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VisitForm } from "./visit-form";
 import { ResidentialVisitForm } from "./residential-visit-form";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
+import { getSavedDosingRecommendation } from "@/lib/dosing-calculator";
 import type { VisitWaterReading } from "@/generated/prisma/client";
 
 type PageProps = {
@@ -117,6 +118,8 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
     select: { id: true, name: true, unit: true },
   });
 
+  const dosing = await getSavedDosingRecommendation(visit.id);
+
   const isResidential = visit.property.propertyType === "RESIDENTIAL";
 
   const checklistItemDefs = isResidential
@@ -184,6 +187,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
             unit: d.unit,
           }))}
           initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
+          initialDosing={dosing}
         />
       ) : (
         <VisitForm
@@ -208,6 +212,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
             unit: d.unit,
           }))}
           initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
+          initialDosing={dosing}
         />
       )}
     </main>

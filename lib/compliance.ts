@@ -231,6 +231,10 @@ export function activeChemistryThresholds(ruleset: ComplianceRulesetWithRules) {
   // is the documented default tie-break (see findThreshold's doc comment).
   const alkalinity = findThreshold(ruleset.chemistryThresholds, "TOTAL_ALKALINITY", null, "unstabilized sanitizer (no CYA present)");
   const cya = findThreshold(ruleset.chemistryThresholds, "CYANURIC_ACID", null);
+  // Unlike Salt, Calcium Hardness genuinely does have real state-sourced thresholds for
+  // some states (e.g. Colorado) -- not every state, but enough that this can't default to
+  // "no compliance basis" the way Salt does. See OrgComplianceTarget's doc comment.
+  const calciumHardness = findThreshold(ruleset.chemistryThresholds, "CALCIUM_HARDNESS", null);
   const feeProtocol = ruleset.eventProtocols.find((e) => e.feeAmount != null);
 
   return {
@@ -242,6 +246,8 @@ export function activeChemistryThresholds(ruleset: ComplianceRulesetWithRules) {
     alkalinityTargetMaxPpm: toNumOrNull(alkalinity?.idealMax ?? alkalinity?.maxValue),
     cyaTargetMinPpm: toNumOrNull(cya?.idealMin ?? cya?.minValue),
     cyaTargetMaxPpm: toNumOrNull(cya?.idealMax ?? cya?.maxValue),
+    calciumHardnessTargetMinPpm: toNumOrNull(calciumHardness?.idealMin ?? calciumHardness?.minValue),
+    calciumHardnessTargetMaxPpm: toNumOrNull(calciumHardness?.idealMax ?? calciumHardness?.maxValue),
     cyaHazardMaxPpm: toNumOrNull(cya?.hazardMax),
     closureFeeAmount: feeProtocol?.feeAmount != null ? Number(feeProtocol.feeAmount) : null,
     closureFeeNote: feeProtocol?.feeNote ?? null,

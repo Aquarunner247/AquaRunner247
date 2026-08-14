@@ -2,10 +2,12 @@
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CameraCapture } from "@/app/components/camera-capture";
+import { DosingCard } from "@/app/components/dosing-card";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 import { queuedSubmitJson } from "@/lib/client/offline-queue";
 import { useOfflineSync } from "@/lib/client/use-offline-sync";
 import type { ReadingFieldSpec } from "@/lib/compliance";
+import type { DosingResult } from "@/lib/dosing-calculator";
 
 type Dose = {
   id: string;
@@ -107,6 +109,7 @@ type Props = {
   initialPhotos?: PhotoOption[];
   initialDoses: Dose[];
   initialStartedAt: string | null;
+  initialDosing: DosingResult | null;
 };
 
 function toInput(v: unknown): string {
@@ -134,7 +137,7 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt }: Props) {
+export function VisitForm({ visitId, visitStatus, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt, initialDosing }: Props) {
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
   const [arrivalSaving, setArrivalSaving] = useState(false);
   const [arrivalError, setArrivalError] = useState("");
@@ -162,6 +165,7 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
   const [saveMsg, setSaveMsg] = useState("");
   const [photoCount, setPhotoCount] = useState(initialPhotoCount);
   const [doses, setDoses] = useState<Dose[]>(initialDoses);
+  const [dosing, setDosing] = useState<DosingResult | null>(initialDosing);
   const [doseForm, setDoseForm] = useState({ chemicalProductId: "", quantity: "" });
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -185,6 +189,16 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
     }
   }
   const chemistryFields = useMemo(() => readingFields.map(toFieldConfig), [readingFields]);
+  // Bromine never gets a computed dosing recommendation (see DosingCard's doc comment) --
+  // just an out-of-range flag, reusing the same zoneMin/zoneMax this body's own state
+  // ruleset already resolved for the reading form's own field spec, rather than
+  // duplicating that lookup.
+  const bromineField = readingFields.find((f) => f.key === "brominePpm");
+  const bromineValue = reading.brominePpm ? Number(reading.brominePpm) : null;
+  const bromineStatus =
+    bromineField && bromineValue != null && ((bromineField.zoneMin != null && bromineValue < bromineField.zoneMin) || (bromineField.zoneMax != null && bromineValue > bromineField.zoneMax))
+      ? { current: bromineValue, min: bromineField.zoneMin, max: bromineField.zoneMax }
+      : null;
   const allFields = [...chemistryFields, ...EQUIPMENT_FIELDS];
 
   const requiredMissing = useMemo(() => {
@@ -222,6 +236,8 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
     } else if (result.status === "sent") {
       setSaveState("saved");
       setSaveMsg(source === "auto" ? "Autosaved" : "Saved");
+      const data = (await result.response.json().catch(() => null)) as { dosing?: DosingResult | null } | null;
+      if (data && "dosing" in data) setDosing(data.dosing ?? null);
     } else {
       setSaveState("error");
       setSaveMsg("Save failed");
@@ -535,6 +551,8 @@ export function VisitForm({ visitId, visitStatus, readingFields, chemicalProduct
         <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional</p>
         <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
       </div>
+
+      <DosingCard visitId={visitId} dosing={dosing} bromineStatus={bromineStatus} />
 
       <div className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Gauges</h2>

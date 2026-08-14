@@ -119,6 +119,8 @@ model Organization {
   adHocStops            AdHocStop[]
   technicianPayRates    TechnicianPayRate[]
   payrollSettings       OrgPayrollSettings?
+  dosingProductSettings OrgChemicalProductSetting[]
+  complianceTargets     OrgComplianceTarget[]
 
   @@index([complianceRulesetId])
 }
@@ -1091,6 +1093,152 @@ model WaitlistSignup {
   id        String   @id @default(cuid())
   email     String   @unique
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Dosing calculator -- built from real Taylor Technologies pool-chemistry manual tables,
+// not unsourced approximations (a prior version of this feature was removed for exactly
+// that reason). ALKALINITY_DOWN and PH_DOWN are each their own ChemicalType (not just a
+// "direction" flag on ALKALINITY_UP/PH_UP) because Taylor's tables give each a genuinely
+// different product choice (muriatic acid vs. dry acid) with its own dosing constant.
+//
+// pH is fundamentally different from every other chemical here: there is no ppm-delta
+// formula for it at all, only a titration a technician actually performs (Taylor's Base/
+// Acid Demand test). isDemandBased marks the 3 pH catalog rows so the calculator knows
+// their dosingConstant is per-drop, not per-ppm -- see computePhDose in
+// lib/dosing-calculator.ts, which is deliberately NOT part of the automatic
+// computeDosingRecommendations pass the other chemicals go through.
+//
+// Bromine has no ChemicalType at all and never will for this feature -- Taylor's own
+// materials explicitly say to follow the sanitizer manufacturer's label for bromine
+// dosing, not a chart. The Dosing Card shows an advisory note for bromine, computed from
+// nothing in this schema.
+enum ChemicalType {
+  FREE_CHLORINE
+  PH_UP
+  PH_DOWN
+  ALKALINITY_UP
+  ALKALINITY_DOWN
+  CYA
+  CALCIUM_HARDNESS
+  SALT
+}
+
+enum ChemicalProductForm {
+  LIQUID
+  GRANULAR
+}
+
+enum DosingUnit {
+  OZ
+  FL_OZ
+}
+
+/// Global, system-seeded chemical product reference catalog -- NOT org-scoped. Orgs never
+/// build this list from scratch; they enable/price/primary-pick rows via
+/// OrgChemicalProductSetting. See prisma/seed-chemical-product-catalog.ts for the sourced
+/// constants and lib/dosing-calculator.ts for how dosingConstant is used.
+model ChemicalProductCatalog {
+  id String @id @default(cuid())
+
+  name         String
+  chemicalType ChemicalType
+  /// Percent active ingredient, e.g. 65.0, 31.45. Null for the 100%-active products
+  /// (chlorine gas, sodium thiosulfate, soda ash, baking soda) where it'd be redundant.
+  activePercent Decimal? @db.Decimal(6, 2)
+  form          ChemicalProductForm
+  dosingUnit    DosingUnit
+
+  /// Amount of dosingUnit per 1 ppm of target-current delta, per 10,000 gallons --
+  /// EXCEPT when isDemandBased is true, where this is per 1 drop of Taylor Base/Acid
+  /// Demand Reagent, per 10,000 gallons, instead. Sourced directly from Taylor
+  /// Technologies' printed treatment tables (Tables A, C, D, E, F, G, H, I, J, K, L),
+  /// cross-validated against the tables' own additive-column property before being
+  /// transcribed here -- see the seed script for the per-table citation.
+  dosingConstant Decimal @db.Decimal(10, 4)
+  /// True only for the 3 pH products (PH_UP soda ash, PH_DOWN muriatic acid, PH_DOWN dry
+  /// acid) -- see this model's own doc comment and computePhDose.
+  isDemandBased  Boolean @default(false)
+
+  isSystemDefault Boolean @default(true)
+  displayOrder    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgSettings OrgChemicalProductSetting[]
+
+  @@unique([name])
+  @@index([chemicalType])
+}
+
+/// Org-scoped settings for a single ChemicalProductCatalog row -- one per org per catalog
+/// product the org has actually touched (enabled, priced, or set primary). A row the org
+/// never interacts with simply doesn't exist here.
+model OrgChemicalProductSetting {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  catalogProductId String
+  catalogProduct   ChemicalProductCatalog @relation(fields: [catalogProductId], references: [id], onDelete: Cascade)
+
+  /// "We use this" -- defaults false until the org confirms; only isEnabled: true rows are
+  /// eligible for the dosing calculator at all.
+  isEnabled Boolean  @default(false)
+  /// Org's own cost, same Decimal(10,4) convention as ChemicalProduct.costPerUnit -- kept
+  /// as a plain field rather than linked to that org's separate free-text billing catalog,
+  /// since the two catalogs serve different purposes (this one drives dose math, that one
+  /// drives invoicing) and forcing a link would couple them for no functional benefit.
+  price     Decimal? @db.Decimal(10, 4)
+
+  /// Exactly one isPrimary: true row per org per chemicalType among enabled rows -- the
+  /// dosing calculator uses this one automatically, no per-visit tech product choice.
+  /// Enforced at the service layer (app/dashboard/chemicals/actions.ts), not a DB
+  /// constraint, same convention as the prior version of this feature.
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, catalogProductId])
+  @@index([organizationId])
+  @@index([catalogProductId])
+}
+
+/// Org-level override of a chemical's dosing target, layered on top of the state's own
+/// ComplianceRuleset numbers (see lib/compliance.ts's activeChemistryThresholds/
+/// chlorineFamilyThreshold, reused directly by lib/dosing-calculator.ts's target
+/// resolution -- this schema does not duplicate that data). Only meaningful for chemicals
+/// with real compliance-relevant bounds: FREE_CHLORINE, PH, ALKALINITY, CYA, and
+/// CALCIUM_HARDNESS (some states, e.g. Colorado, do regulate it -- unlike Salt, it is NOT
+/// blanket "no compliance basis"). SALT has no ComplianceRuleset backing anywhere in the
+/// seeded data -- for it, this is the ONLY way to get a target, always a single point
+/// value, never a min/max range.
+model OrgComplianceTarget {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// USPS 2-letter code, matching Organization.state / ComplianceRuleset.state scope. Null
+  /// for SALT, which has no state basis to key off of at all.
+  state        String?
+  /// PH_DOWN and ALKALINITY_DOWN never get their own row -- pH and Alkalinity are each one
+  /// target range regardless of correction direction; PH_UP/ALKALINITY_UP are the
+  /// canonical rows. Enforced in app/dashboard/chemicals/actions.ts, not the DB.
+  chemicalType ChemicalType
+
+  orgTargetMin   Decimal? @db.Decimal(10, 3)
+  orgTargetMax   Decimal? @db.Decimal(10, 3)
+  /// Single-point target (Salt's generator-specified ppm), used instead of a min/max range
+  /// when the chemical's target is naturally one number, not a band.
+  orgTargetValue Decimal? @db.Decimal(10, 3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, chemicalType])
+  @@index([organizationId])
 }
 
 /// How an org's pay period resets -- see OrgPayrollSettings. tech-earnings-tracker-spec.md

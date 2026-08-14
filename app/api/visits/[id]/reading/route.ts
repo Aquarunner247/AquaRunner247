@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { computeAndSaveDosingRecommendation } from "@/lib/dosing-calculator";
 
 type ReadingPayload = {
   ph?: number | null;
@@ -97,5 +98,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     },
   });
 
-  return NextResponse.json({ ok: true, reading });
+  const dosing = await computeAndSaveDosingRecommendation(id);
+
+  return NextResponse.json({ ok: true, reading, dosing });
 }
