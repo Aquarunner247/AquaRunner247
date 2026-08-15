@@ -14,9 +14,9 @@ export { formatLiquidOz, formatWeightOz, convertToBillingUnit } from "@/lib/dosi
  * a chart; the Dosing Card renders a plain advisory note for it computed from nothing
  * here.
  */
-export type DosingChemicalKey = "FREE_CHLORINE" | "ALKALINITY" | "CYA" | "CALCIUM_HARDNESS" | "SALT";
+export type DosingChemicalKey = "FREE_CHLORINE" | "ALKALINITY" | "CYA" | "CALCIUM_HARDNESS" | "SALT" | "PH";
 
-const DOSING_CHEMICAL_KEYS: DosingChemicalKey[] = ["FREE_CHLORINE", "ALKALINITY", "CYA", "CALCIUM_HARDNESS", "SALT"];
+const DOSING_CHEMICAL_KEYS: Exclude<DosingChemicalKey, "PH">[] = ["FREE_CHLORINE", "ALKALINITY", "CYA", "CALCIUM_HARDNESS", "SALT"];
 
 export const CHEMICAL_LABELS: Record<DosingChemicalKey, string> = {
   FREE_CHLORINE: "Free Chlorine",
@@ -24,6 +24,20 @@ export const CHEMICAL_LABELS: Record<DosingChemicalKey, string> = {
   CYA: "Cyanuric Acid",
   CALCIUM_HARDNESS: "Calcium Hardness",
   SALT: "Salt",
+  PH: "pH",
+};
+
+/** pH's out-of-range status -- NOT a dose, since there's no ppm-delta formula for pH (see
+ * computePhDose below). This just tells the UI whether/which-direction to prompt a
+ * technician to run a demand test, computed server-side from the same target-resolution
+ * logic every other chemical uses, instead of the UI showing a generic always-there button
+ * regardless of whether pH actually needs correcting. */
+export type PhRangeStatus = {
+  currentValue: number;
+  targetValue: number;
+  targetMin: number | null;
+  targetMax: number | null;
+  direction: "RAISE" | "LOWER";
 };
 
 /** Present only when a computed dose has a usable link to the org's own billing catalog
@@ -59,6 +73,7 @@ export type DosingResult = {
   visitId: string;
   bodyOfWaterId: string;
   recommendations: DosingRecommendation[];
+  phStatus: PhRangeStatus | null;
   warnings: string[];
   computedAt: string;
 };
@@ -79,6 +94,8 @@ function readingValueFor(key: DosingChemicalKey, reading: Record<string, unknown
       return toNum(reading.calciumHardnessPpm);
     case "SALT":
       return toNum(reading.saltPpm);
+    case "PH":
+      return toNum(reading.ph);
   }
 }
 
@@ -112,6 +129,7 @@ async function boundsFor(
   if (key === "ALKALINITY") return { min: thresholds.alkalinityTargetMinPpm, max: thresholds.alkalinityTargetMaxPpm };
   if (key === "CYA") return { min: thresholds.cyaTargetMinPpm, max: thresholds.cyaTargetMaxPpm };
   if (key === "CALCIUM_HARDNESS") return { min: thresholds.calciumHardnessTargetMinPpm, max: thresholds.calciumHardnessTargetMaxPpm };
+  if (key === "PH") return { min: thresholds.phTargetMin, max: thresholds.phTargetMax };
   return { min: null, max: null }; // SALT: no ComplianceRuleset backing anywhere, see OrgComplianceTarget's doc comment
 }
 
@@ -120,6 +138,7 @@ async function boundsFor(
  * variant is canonical. See OrgComplianceTarget's schema doc comment. */
 function orgTargetChemicalType(key: DosingChemicalKey): ChemicalType {
   if (key === "ALKALINITY") return "ALKALINITY_UP";
+  if (key === "PH") return "PH_UP";
   return key;
 }
 
@@ -220,7 +239,7 @@ function pickPrimaryProduct(byType: Map<ChemicalType, SettingWithCatalog[]>, che
  * -- now actually provides, so FC-too-high IS handled, unlike Salt-too-high which still
  * has no product). ALKALINITY/CYA/CALCIUM_HARDNESS/SALT map to their own *_DOWN type only
  * where Taylor's tables provide one. */
-function productChemicalTypeFor(key: DosingChemicalKey, direction: "UP" | "DOWN"): ChemicalType | null {
+function productChemicalTypeFor(key: Exclude<DosingChemicalKey, "PH">, direction: "UP" | "DOWN"): ChemicalType | null {
   if (key === "FREE_CHLORINE") return "FREE_CHLORINE"; // Table A (raise) or Table C (lower, sodium thiosulfate) -- same product family either way, see seed
   if (key === "ALKALINITY") return direction === "UP" ? "ALKALINITY_UP" : "ALKALINITY_DOWN";
   if (direction === "DOWN") return null; // CYA/Calcium Hardness too-high: no chemical corrects it, dilution only -- see below
@@ -360,16 +379,36 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     if (key === "ALKALINITY") alkalinityRecommended = true;
   }
 
-  if (alkalinityRecommended) {
-    const phCurrent = toNum((visit.reading as unknown as Record<string, unknown>).ph);
-    if (phCurrent != null) warnings.push("Adjust alkalinity before pH for best results.");
+  // pH gets its own status (in/out of range + which direction), NOT a computed dose --
+  // there's no ppm-delta formula for it, only a titration a technician performs (see
+  // computePhDose). This is what lets the Dosing Card prompt automatically ("pH is low --
+  // run a Base Demand test") instead of always showing a generic button regardless of
+  // whether pH actually needs correcting.
+  let phStatus: PhRangeStatus | null = null;
+  const phCurrent = toNum((visit.reading as unknown as Record<string, unknown>).ph);
+  if (phCurrent != null) {
+    const phBounds = await boundsFor("PH", visit.organizationId, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod);
+    const phOrgTarget = orgTargetByType.get(orgTargetChemicalType("PH")) ?? null;
+    const phResolved = resolveTarget("PH", phBounds, phOrgTarget, warnings);
+    if (phResolved && !isInRange(phCurrent, phResolved)) {
+      phStatus = {
+        currentValue: phCurrent,
+        targetValue: phResolved.targetValue,
+        targetMin: phResolved.boundMin,
+        targetMax: phResolved.boundMax,
+        direction: phCurrent < phResolved.targetValue ? "RAISE" : "LOWER",
+      };
+    }
   }
+
+  if (alkalinityRecommended && phCurrent != null) warnings.push("Adjust alkalinity before pH for best results.");
   void cyaOutOfRange; // reserved for a future stabilizer-cross-effect warning if a product ever carries one again
 
   const result: DosingResult = {
     visitId,
     bodyOfWaterId: visit.bodyOfWater.id,
     recommendations,
+    phStatus,
     warnings,
     computedAt: new Date().toISOString(),
   };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { DosingResult, DosingBillingLink } from "@/lib/dosing-calculator";
+import type { DosingResult, DosingBillingLink, PhRangeStatus } from "@/lib/dosing-calculator";
 import type { DosingUnit } from "@/generated/prisma/enums";
 
 type BromineStatus = { current: number; min: number | null; max: number | null } | null;
@@ -33,12 +33,15 @@ type Props = {
  * Recommended Dosing card. Renders nothing when there is nothing to show at all (no
  * reading yet, every chemical in range, and no bromine flag) rather than an empty card.
  * pH is handled separately from `dosing.recommendations` -- see PhDemandPrompt below --
- * since it has no computed value until a technician performs an actual titration.
+ * since it has no computed value until a technician performs an actual titration. Unlike
+ * the other chemicals, `phStatus` is resolved server-side (same target-resolution logic as
+ * everything else) so the prompt only appears when pH is actually out of range, instead of
+ * a generic always-there button the technician has to notice and open themselves.
  */
 export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPrefillDoseForm }: Props) {
-  const hasPhPrompt = dosing != null; // pH prompt only makes sense once a reading exists at all; PhDemandPrompt itself checks range
+  const phStatus = dosing?.phStatus ?? null;
   const nothingToShow =
-    (!dosing || (dosing.recommendations.length === 0 && dosing.warnings.length === 0)) && !bromineStatus && !hasPhPrompt;
+    (!dosing || (dosing.recommendations.length === 0 && dosing.warnings.length === 0)) && !bromineStatus && !phStatus;
   if (nothingToShow) return null;
 
   return (
@@ -87,11 +90,11 @@ export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPref
           </li>
         ))}
 
-        {dosing && dosing.recommendations.length === 0 && !hasPhPrompt && !bromineStatus ? (
+        {dosing && dosing.recommendations.length === 0 && !phStatus && !bromineStatus ? (
           <p className="text-sm text-brand-muted">Every reading is within target range.</p>
         ) : null}
 
-        <PhDemandPrompt visitId={visitId} onApplyDose={onApplyDose} onPrefillDoseForm={onPrefillDoseForm} />
+        {phStatus ? <PhDemandPrompt visitId={visitId} phStatus={phStatus} onApplyDose={onApplyDose} onPrefillDoseForm={onPrefillDoseForm} /> : null}
 
         {bromineStatus ? (
           <li className="rounded-lg border border-brand-warn/30 bg-brand-warnFill p-3">
@@ -166,27 +169,23 @@ function ApplyButton({
 }
 
 /**
- * pH has no ppm-delta dose -- only Taylor's Base/Acid Demand titration produces one. This
- * always renders when a reading exists (its parent gates on that); it self-determines
- * whether pH is actually out of range from `dosing.recommendations`... except pH is
- * deliberately never IN that array (see lib/dosing-calculator.ts). So instead this reads
- * the pH out-of-range signal the same way the rest of the visit form already does --
- * simplest correct approach here is to always offer the prompt once a body of water has a
- * reading, since a demand test is harmless to run even if pH turns out to be in range
- * (the tech just wouldn't bother). Kept minimal rather than duplicating target-resolution
- * logic client-side just to decide whether to show a button.
+ * pH has no ppm-delta dose -- only Taylor's Base/Acid Demand titration produces one. Only
+ * rendered by the parent when `dosing.phStatus` is non-null, i.e. pH is actually out of
+ * range (resolved server-side, same target-resolution logic as every other chemical) --
+ * direction (Raise/Lower) comes from that resolved status, not a manual toggle, since it's
+ * fully determined by whether the reading is below or above target.
  */
 function PhDemandPrompt({
   visitId,
+  phStatus,
   onApplyDose,
   onPrefillDoseForm,
 }: {
   visitId: string;
+  phStatus: PhRangeStatus;
   onApplyDose: ApplyDose;
   onPrefillDoseForm: PrefillDoseForm;
 }) {
-  const [open, setOpen] = useState(false);
-  const [direction, setDirection] = useState<"RAISE" | "LOWER">("LOWER");
   const [drops, setDrops] = useState("");
   const [result, setResult] = useState<{
     productName: string;
@@ -208,7 +207,7 @@ function PhDemandPrompt({
       const res = await fetch(`/api/visits/${visitId}/ph-dose`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ drops: dropsNum, direction }),
+        body: JSON.stringify({ drops: dropsNum, direction: phStatus.direction }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -235,34 +234,20 @@ function PhDemandPrompt({
     }
   }
 
-  if (!open) {
-    return (
-      <li>
-        <button type="button" onClick={() => setOpen(true)} className="app-btn-secondary-sm min-h-[44px]">
-          pH out of range? Run a demand test
-        </button>
-      </li>
-    );
-  }
+  const testName = phStatus.direction === "RAISE" ? "Base Demand" : "Acid Demand";
 
   return (
-    <li className="rounded-lg border border-brand-anchor/30 bg-brand-foam p-3">
-      <p className="text-sm font-semibold text-brand-ink">pH Demand Test</p>
-      <p className="mt-1 text-xs text-brand-muted">
-        Taylor&rsquo;s dosing chart requires an actual titration — there&rsquo;s no formula from the pH reading alone. Run a Base Demand
-        test (to raise pH) or an Acid Demand test (to lower it), then enter the drop count.
-      </p>
-
-      <div className="mt-2 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-1.5 text-sm text-brand-ink">
-          <input type="radio" name={`ph-direction-${visitId}`} checked={direction === "LOWER"} onChange={() => setDirection("LOWER")} />
-          Lower (Acid Demand)
-        </label>
-        <label className="flex items-center gap-1.5 text-sm text-brand-ink">
-          <input type="radio" name={`ph-direction-${visitId}`} checked={direction === "RAISE"} onChange={() => setDirection("RAISE")} />
-          Raise (Base Demand)
-        </label>
+    <li className="rounded-lg border border-brand-warn/30 bg-brand-warnFill p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-brand-ink">pH</span>
+        <span className="app-metric text-xs text-brand-muted">
+          {phStatus.currentValue} → {phStatus.targetValue}
+          {phStatus.targetMin != null && phStatus.targetMax != null ? ` (target ${phStatus.targetMin}–${phStatus.targetMax})` : ""}
+        </span>
       </div>
+      <p className="mt-1.5 text-sm text-brand-warn">
+        pH is {phStatus.direction === "RAISE" ? "low" : "high"} — run a {testName} test, then enter the drop count for an exact dose.
+      </p>
 
       <div className="mt-2 flex items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-brand-ink">
