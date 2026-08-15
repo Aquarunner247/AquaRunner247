@@ -97,7 +97,7 @@ this page documents them in one place rather than asserting new rules.
 
 ### Chemistry targets (routine range)
 - **Free chlorine:** 2 ppm minimum (pools), 3 ppm minimum (spas), 10 ppm maximum
-- **pH:** 7.2 – 7.8
+- **pH:** 7.0 – 7.8
 - **Total alkalinity:** 60 – 180 ppm
 - **Cyanuric acid:** 30 – 50 ppm, tested at least once every 30 days
 
@@ -119,7 +119,7 @@ published code. Verify against the authoritative source for anything compliance-
   chemistryThresholds: [
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "POOL", minValue: 2, maxValue: 10, unit: "ppm", sourceConfidence: "confirmed" },
     { parameter: "FREE_CHLORINE", disinfectionMethod: "CHLORINE", bodyOfWaterCategory: "SPA", minValue: 3, maxValue: 10, unit: "ppm", sourceConfidence: "confirmed" },
-    { parameter: "PH", idealMin: 7.2, idealMax: 7.8, hazardMin: 6.5, hazardMax: 8.0, unit: "", sourceConfidence: "confirmed" },
+    { parameter: "PH", idealMin: 7.0, idealMax: 7.8, hazardMin: 6.5, hazardMax: 8.0, unit: "", sourceConfidence: "confirmed" },
     { parameter: "TOTAL_ALKALINITY", idealMin: 60, idealMax: 180, unit: "ppm", sourceConfidence: "confirmed" },
     { parameter: "CYANURIC_ACID", idealMin: 30, idealMax: 50, hazardMax: 100, unit: "ppm", sourceConfidence: "confirmed" },
   ],
