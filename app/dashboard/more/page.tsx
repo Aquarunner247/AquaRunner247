@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { prisma } from "@/lib/prisma";
 import { signOut } from "@/app/dashboard/actions";
@@ -19,6 +20,13 @@ export default async function MorePage() {
         <p className="text-sm text-brand-muted">{appUser.email}</p>
         {organization?.name ? <p className="mt-2 text-xs text-brand-muted">{organization.name}</p> : null}
       </section>
+
+      <Link
+        href="/dashboard/safety-data-sheets"
+        className="mt-4 block rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm"
+      >
+        Safety Data Sheets
+      </Link>
 
       <form action={signOut} className="mt-4">
         <button type="submit" className="w-full rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm">
