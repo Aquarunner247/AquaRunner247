@@ -25,19 +25,19 @@ export default async function CompliancePage() {
   const active = isComplianceActive(ruleset);
   const hasCommercialPools = await organizationHasCommercialPools(appUser.organizationId, organization?.hasCommercialPools ?? null);
 
-  // Not every unsupported state is "not built yet" -- a few (Idaho, Mississippi) have no
-  // state-level pool code to build against at all: zero ChemistryThreshold/EventProtocol
-  // rows, a genuine regulatory gap rather than a pending feature. This must be "no data at
-  // all," not just "has any GAP note" -- Florida, for example, is unsupported but has full
-  // confirmed chemistry data and a GAP note only about an unresolved test-cadence default,
-  // which would be actively misleading to present as "no regulation exists."
-  const isStubOnly = ruleset != null && !ruleset.isSupported && ruleset.chemistryThresholds.length === 0 && ruleset.eventProtocols.length === 0;
-  const gapNotes = isStubOnly
-    ? await prisma.complianceNote.findMany({
-        where: { complianceRulesetId: ruleset!.id, kind: "GAP" },
-        select: { summary: true },
-      })
-    : [];
+  // Not every unsupported state is "not built yet" -- a few (Idaho, Mississippi) have a
+  // confirmed regulatory vacuum, not a pending feature. This is ComplianceRuleset's own
+  // explicit hasNoLegalRequirement flag, not inferred from data presence -- these two
+  // states DO carry real ChemistryThreshold rows now (CDC MAHC advisory reference values,
+  // optional for technicians to log against), so "has any data" stopped being a reliable
+  // signal for this the moment that data was seeded.
+  const gapNotes =
+    ruleset != null && !ruleset.isSupported && ruleset.hasNoLegalRequirement
+      ? await prisma.complianceNote.findMany({
+          where: { complianceRulesetId: ruleset.id, kind: "GAP" },
+          select: { summary: true },
+        })
+      : [];
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
@@ -122,7 +122,9 @@ export default async function CompliancePage() {
             <p className="mt-1">
               This isn&rsquo;t a feature we haven&rsquo;t built yet — there&rsquo;s no state code for AquaRunner to apply, so
               closure-risk banners and the inspector log aren&rsquo;t available for this reason specifically. Your
-              service data is still being logged normally.
+              service data is still being logged normally, and technicians can optionally log against CDC Model
+              Aquatic Health Code reference values on the visit chemistry form — not a legal requirement, just a
+              commonly-used national standard to track against.
             </p>
             <div className="mt-3 space-y-2 border-t border-brand-border pt-3">
               {gapNotes.map((n, i) => (

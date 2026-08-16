@@ -2590,10 +2590,80 @@ const IDAHO: StateSeed = {
     stateName: "Idaho",
     healthDepartmentName: "None at the state level as of 2025-07-01 -- Idaho Department of Health and Welfare no longer has statutory authority over public pools",
     isSupported: false,
+    hasNoLegalRequirement: true,
     officialCitation: "N/A (repealed). Historical reference only: the repealed rule was IDAPA 16.02.14; the repealing act is 2025 Idaho Session Laws, Chapter 47 (House Bill 202), amending Idaho Code §56-1003.",
     sourceDocument: "House Bill 202 (2025 session, Session Law Chapter 47); confirmed via Idaho State Legislature bill text and Central District Health's own public statement that the pool inspection program ends 2025-07-01.",
   },
-  chemistryThresholds: [],
+  // Idaho has no state-level pool code at all (see the GAP note below) -- these are NOT
+  // Idaho's law. They're the CDC's Model Aquatic Health Code (MAHC), the national
+  // reference standard most state codes derive from, sourced directly from the Council
+  // for the MAHC's own published code text (cmahc.org) rather than the old repealed
+  // IDAPA 16.02.14 numbers the GAP note explicitly says not to use. isSupported stays
+  // false -- lib/compliance.ts's activeReadingFields() renders these as optional
+  // reference values (never required, never gating closure risk or the public inspector
+  // log) precisely because isSupported is false, not despite it.
+  chemistryThresholds: [
+    { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "CDC MAHC §5.7.3.4. Advisory reference only -- not an Idaho legal requirement." },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
+      appliesWhen: "no CYA present",
+      minValue: 1.0,
+      maxValue: 10.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.1.5. Advisory reference only.",
+    },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
+      appliesWhen: "CYA present",
+      minValue: 2.0,
+      maxValue: 10.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.3.1 (\"minimum chlorine levels should be increased by a factor of at least two when using CYA\"). Advisory reference only.",
+    },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "SPA",
+      minValue: 3.0,
+      maxValue: 10.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.1.5. Advisory reference only.",
+    },
+    {
+      parameter: "BROMINE",
+      disinfectionMethod: "BROMINE",
+      bodyOfWaterCategory: "POOL",
+      minValue: 3.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.2.2. No MAHC-cited maximum located this pass -- left null rather than guessed. Advisory reference only.",
+    },
+    {
+      parameter: "BROMINE",
+      disinfectionMethod: "BROMINE",
+      bodyOfWaterCategory: "SPA",
+      minValue: 4.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.2.2. Advisory reference only.",
+    },
+    {
+      parameter: "CYANURIC_ACID",
+      maxValue: 100,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes:
+        "CDC MAHC §5.7.3.1.3.1. MAHC prohibits CYA entirely in spas/therapy pools, but this app doesn't yet track that distinction per body of water (same limitation as other states' body-subtype CYA notes), so this cap also shows for spas. Advisory reference only.",
+    },
+    { parameter: "TOTAL_ALKALINITY", minValue: 60, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed", notes: "CDC MAHC §5.7.4.4.1. Advisory reference only." },
+  ],
   frequencyRules: [],
   eventProtocols: [],
   complianceNotes: [
@@ -2603,6 +2673,13 @@ const IDAHO: StateSeed = {
         "Idaho repealed all state-level public pool/spa regulation effective 2025-07-01 (HB 202) -- no chemistry standard, closure trigger, or fecal/vomit/blood protocol exists at the state level. Confirmed repeal, not unresearched.",
       detail:
         "Do not seed a ChemistryThreshold row using the old IDAPA 16.02.14 numbers (pH 7.2-7.8 target / closure outside 6.8-8.2, CYA max 100 ppm, alkalinity 80-200 ppm) as if they're current -- they carry no regulatory force today. Idaho now has ~7 independent local health districts (e.g. Southwest District Health, Central District Health), each free to write or decline to write its own pool rule. A real value for an Idaho customer has to come from whichever local health district or municipality covers that specific property -- a county/city-level lookup, not a single Idaho state row, and out of scope for this pass. Revisit if any Idaho local health district publishes its own numeric standard AquaRunner customers in that district would be bound by.",
+    },
+    {
+      kind: "ASSUMPTION",
+      summary:
+        "The chemistry thresholds on this ruleset are CDC Model Aquatic Health Code (MAHC) reference values, not Idaho law -- Idaho has none. Shown to technicians as optional logging fields only.",
+      detail:
+        "Sourced directly from the Council for the MAHC's own published code text (cmahc.org): pH §5.7.3.4, free chlorine/CYA §5.7.3.1.1.5 and §5.7.3.1.3.1, bromine §5.7.3.1.2.2, total alkalinity §5.7.4.4.1. isSupported stays false so closure-risk banners and the public inspector log stay off (there's nothing to enforce), but activeReadingFields() still renders these as non-required fields so a technician can optionally log against a real, commonly-referenced standard instead of nothing.",
     },
   ],
 };
@@ -4046,9 +4123,13 @@ anything compliance-critical.*`,
 // numbers. Binding regulation is instead promulgated separately by each of Mississippi's
 // 9 Public Health Districts (confirmed count via MSDH's own district-listing page) -- the
 // same county/district-fragmented shape as Nevada/SNHD, split nine ways. No specific
-// district's actual rule text was located and verified, so isSupported stays false and no
-// ChemistryThreshold rows are seeded -- inventing numbers, or borrowing another state's,
-// would misrepresent a structure that's genuinely fragmented, not merely unresearched.
+// district's actual rule text was located and verified, so isSupported stays false --
+// inventing numbers, or borrowing another state's, would misrepresent a structure that's
+// genuinely fragmented, not merely unresearched. The CDC Model Aquatic Health Code (MAHC)
+// values below are a different thing entirely: MSDH's own guidance page points operators
+// to the CDC MAHC directly, so seeding its actual numbers (sourced from cmahc.org, not
+// invented) as advisory reference data is representing what MSDH itself already points
+// to, not fabricating a Mississippi-specific number that doesn't exist.
 // ---------------------------------------------------------------------------
 const MISSISSIPPI: StateSeed = {
   state: "MS",
@@ -4057,10 +4138,72 @@ const MISSISSIPPI: StateSeed = {
     healthDepartmentName:
       "Mississippi State Department of Health (MSDH) -- state-level oversight and model-code role only; actual enforcement and numeric standards belong to whichever of the 9 local Public Health Districts covers a given property.",
     isSupported: false,
+    hasNoLegalRequirement: true,
     sourceDocument:
       "MSDH 'Swimming and Aquatic Health Model Code' page (confirms reference/model-document status, links to CDC MAHC); MSDH 'Regulations' index (confirms pools isn't among MSDH's five codified statewide regulations); MSDH 'Public Health Districts' page (confirms the 9-district structure).",
   },
-  chemistryThresholds: [],
+  chemistryThresholds: [
+    { parameter: "PH", minValue: 7.2, maxValue: 7.8, unit: "", sourceConfidence: "confirmed", notes: "CDC MAHC §5.7.3.4. Advisory reference only -- not a Mississippi legal requirement (no statewide code exists; see GAP note)." },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
+      appliesWhen: "no CYA present",
+      minValue: 1.0,
+      maxValue: 10.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.1.5. Advisory reference only.",
+    },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "POOL",
+      appliesWhen: "CYA present",
+      minValue: 2.0,
+      maxValue: 10.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.3.1 (\"minimum chlorine levels should be increased by a factor of at least two when using CYA\"). Advisory reference only.",
+    },
+    {
+      parameter: "FREE_CHLORINE",
+      disinfectionMethod: "CHLORINE",
+      bodyOfWaterCategory: "SPA",
+      minValue: 3.0,
+      maxValue: 10.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.1.5. Advisory reference only.",
+    },
+    {
+      parameter: "BROMINE",
+      disinfectionMethod: "BROMINE",
+      bodyOfWaterCategory: "POOL",
+      minValue: 3.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.2.2. No MAHC-cited maximum located this pass -- left null rather than guessed. Advisory reference only.",
+    },
+    {
+      parameter: "BROMINE",
+      disinfectionMethod: "BROMINE",
+      bodyOfWaterCategory: "SPA",
+      minValue: 4.0,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes: "CDC MAHC §5.7.3.1.2.2. Advisory reference only.",
+    },
+    {
+      parameter: "CYANURIC_ACID",
+      maxValue: 100,
+      unit: "ppm",
+      sourceConfidence: "confirmed",
+      notes:
+        "CDC MAHC §5.7.3.1.3.1. MAHC prohibits CYA entirely in spas/therapy pools, but this app doesn't yet track that distinction per body of water (same limitation as other states' body-subtype CYA notes), so this cap also shows for spas. Advisory reference only.",
+    },
+    { parameter: "TOTAL_ALKALINITY", minValue: 60, maxValue: 180, unit: "ppm", sourceConfidence: "confirmed", notes: "CDC MAHC §5.7.4.4.1. Advisory reference only." },
+  ],
   frequencyRules: [],
   eventProtocols: [],
   complianceNotes: [
@@ -4069,7 +4212,14 @@ const MISSISSIPPI: StateSeed = {
       summary:
         "Mississippi has no statewide numeric pool chemistry regulation -- MSDH's own site confirms pools aren't among its five codified rules and its pool guidance page only links to the CDC Model Aquatic Health Code, not a Mississippi-specific standard.",
       detail:
-        "Binding regulation is promulgated separately by each of Mississippi's 9 Public Health Districts. No specific district's rule text was located and verified this pass -- do not seed any ChemistryThreshold row without first locating and confirming the actual document from the district covering a given AquaRunner customer's property. The 9 districts are not confirmed to use matching numbers, and no cross-district assumption should be made. This is the confirmed structure, not unresearched territory -- revisit per-district if/when a specific district's rule is sourced.",
+        "Binding regulation is promulgated separately by each of Mississippi's 9 Public Health Districts. No specific district's rule text was located and verified this pass -- do not treat the CDC MAHC values on this ruleset as any specific district's actual rule. The 9 districts are not confirmed to use matching numbers, and no cross-district assumption should be made. This is the confirmed structure, not unresearched territory -- revisit per-district if/when a specific district's rule is sourced.",
+    },
+    {
+      kind: "ASSUMPTION",
+      summary:
+        "The chemistry thresholds on this ruleset are CDC Model Aquatic Health Code (MAHC) reference values, not Mississippi law -- no statewide code exists. Shown to technicians as optional logging fields only.",
+      detail:
+        "Sourced directly from the Council for the MAHC's own published code text (cmahc.org): pH §5.7.3.4, free chlorine/CYA §5.7.3.1.1.5 and §5.7.3.1.3.1, bromine §5.7.3.1.2.2, total alkalinity §5.7.4.4.1. MSDH's own guidance page points operators to the CDC MAHC directly, so this represents what MSDH already references, not a fabricated Mississippi-specific number. isSupported stays false so closure-risk banners and the public inspector log stay off (there's nothing to enforce), but activeReadingFields() still renders these as non-required fields so a technician can optionally log against a real, commonly-referenced standard instead of nothing.",
     },
   ],
 };

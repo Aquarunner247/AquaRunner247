@@ -287,8 +287,17 @@ function fallbackReadingFields(bodyOfWaterType: string): ReadingFieldSpec[] {
  * when this state's own data defines a threshold for it (never a generic pool-industry
  * checklist) -- e.g. California/New Mexico/New York have no TOTAL_ALKALINITY row at all,
  * so their technicians don't see an Alkalinity field; Hawaii has no CYANURIC_ACID row, so
- * no CYA field. Falls back to the old fixed field set when compliance isn't active for
- * this account, so unsupported-state/no-state accounts see no behavior change.
+ * no CYA field. Falls back to the old fixed field set when there's no ruleset at all
+ * (unlinked account) or one that's neither active nor carries any advisory data (a state
+ * simply not built yet), so those accounts see no behavior change.
+ *
+ * A ruleset can also be unsupported (no legal requirement exists -- Idaho, Mississippi)
+ * while still carrying real ChemistryThreshold rows sourced from the CDC's Model Aquatic
+ * Health Code, seeded deliberately for states with a confirmed regulatory vacuum rather
+ * than left blank (see each state's ComplianceNote of kind "GAP"). Those fields render
+ * from the same real data as any supported state, just with every field forced optional
+ * -- there's no state law requiring them, so a technician entering nothing can't block
+ * visit completion, but the CDC reference numbers are still there to log against.
  *
  * Free Chlorine and Bromine are mutually exclusive, not both shown -- a body of water
  * uses one disinfectant at a time (see BodyOfWater.disinfectionMethod's doc comment).
@@ -303,9 +312,11 @@ export function activeReadingFields(
   disinfectionMethod: DisinfectionMethod,
   cyaRequired: boolean,
 ): ReadingFieldSpec[] {
-  if (!isComplianceActive(ruleset)) {
+  const hasAdvisoryData = ruleset != null && !ruleset.isSupported && ruleset.chemistryThresholds.length > 0;
+  if (ruleset == null || (!ruleset.isSupported && !hasAdvisoryData)) {
     return fallbackReadingFields(bodyOfWaterType);
   }
+  const forceOptional = !ruleset.isSupported;
 
   const bodyCategory = bodyOfWaterType === "SPA" ? "SPA" : "POOL";
   const fields: ReadingFieldSpec[] = [];
@@ -396,5 +407,5 @@ export function activeReadingFields(
     });
   }
 
-  return fields;
+  return forceOptional ? fields.map((f) => ({ ...f, required: false })) : fields;
 }

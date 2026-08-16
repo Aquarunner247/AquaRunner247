@@ -144,6 +144,17 @@ model ComplianceRuleset {
   /// compliance features (QR inspector logs, closure-risk banners, rule engine) show at
   /// all for accounts linked to this ruleset.
   isSupported          Boolean @default(false)
+  /// True only for a confirmed regulatory vacuum -- a state with NO state-level pool code
+  /// to build against at all (Idaho: repealed 2025; Mississippi: no statewide code,
+  /// regulation is set per health district), never inferred from isSupported or whether
+  /// chemistryThresholds is empty. Idaho/Mississippi still carry real ChemistryThreshold
+  /// rows (CDC Model Aquatic Health Code reference values, sourced from cmahc.org) shown
+  /// to technicians as optional logging fields via activeReadingFields() -- this flag is
+  /// what lets the compliance reference page distinguish "no law exists" from "just not
+  /// built yet" (e.g. Florida while it was isSupported: false with full confirmed data)
+  /// without depending on data presence, which stops being a reliable signal the moment a
+  /// legally-unsupported state gets real advisory data seeded onto it.
+  hasNoLegalRequirement Boolean @default(false)
 
   /// STATE: genuinely state-level (Alaska, Arkansas, Colorado, Florida).
   /// COUNTY: source regulation is a county health department's own code (Nevada/SNHD =
@@ -171,8 +182,7 @@ model ComplianceRuleset {
   codeReferenceLabel String?
   codeReferenceUrl   String?
   /// Markdown body rendered on the in-app state code reference page. Only populated for
-  /// Nevada so far -- extending the reference page to the other 8 states is a separate
-  /// pass (see COMPLIANCE_RULESET_NOTES.md).
+  /// Nevada so far -- extending the reference page to the other states is a separate pass.
   referenceContent   String? @db.Text
 
   chemistryThresholds ChemistryThreshold[]
@@ -263,9 +273,9 @@ model ChemistryThreshold {
   @@index([complianceRulesetId])
 }
 
-/// One row per testing cadence. See COMPLIANCE_RULESET_NOTES.md for why intervalMinutes
-/// is a single canonical field covering both sub-day (Colorado's 2-hour spa bundle) and
-/// supra-day (Nevada's 30-day CYA cycle) frequencies.
+/// One row per testing cadence. intervalMinutes is a single canonical field covering both
+/// sub-day (Colorado's 2-hour spa bundle) and supra-day (Nevada's 30-day CYA cycle)
+/// frequencies.
 model FrequencyRule {
   id                  String            @id @default(cuid())
   complianceRulesetId String
