@@ -10,12 +10,19 @@ export function PortalLoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    // Read the submitted values straight from the form's own FormData rather than the
+    // `email`/`password` state -- some browsers/password managers fill the fields at the
+    // DOM level without firing the input's change event, leaving React state empty even
+    // though the field looks filled in. FormData always reflects the actual DOM value.
+    const formData = new FormData(e.currentTarget);
+    const submittedEmail = String(formData.get("email") ?? "").trim();
+    const submittedPassword = String(formData.get("password") ?? "");
     const supabase = createClient();
-    const { error: signError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signError } = await supabase.auth.signInWithPassword({ email: submittedEmail, password: submittedPassword });
     setLoading(false);
     if (signError) {
       setError(signError.message);
@@ -29,6 +36,7 @@ export function PortalLoginForm() {
       <label className="flex flex-col gap-1 text-sm text-brand-ink">
         Email
         <input
+          name="email"
           type="email"
           autoComplete="email"
           required
@@ -45,6 +53,7 @@ export function PortalLoginForm() {
           </Link>
         </span>
         <input
+          name="password"
           type="password"
           autoComplete="current-password"
           required
