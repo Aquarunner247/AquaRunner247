@@ -10,6 +10,7 @@ export type NavIconKind =
   | "settings"
   | "billing"
   | "alerts"
+  | "phone"
   | "more";
 
 /** Shared stroke-icon set for every staff nav surface (desktop rail, admin/office
@@ -106,6 +107,15 @@ export function NavIcon({ kind, className = "h-5 w-5" }: { kind: NavIconKind; cl
             strokeLinejoin="round"
           />
           <path d="M9.5 19a2.5 2.5 0 0 0 5 0" strokeLinecap="round" />
+        </svg>
+      );
+    case "phone":
+      return (
+        <svg {...common} className={className}>
+          <path
+            d="M5.5 4.5h3l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5A15.5 15.5 0 0 1 4 6.1a1.5 1.5 0 0 1 1.5-1.6Z"
+            strokeLinejoin="round"
+          />
         </svg>
       );
     case "more":

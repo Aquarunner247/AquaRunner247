@@ -127,6 +127,16 @@ export default async function SettingsPage() {
           Manage pay rates →
         </a>
       </section>
+
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-brand-ink">AI Phone Agent</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          Answers a missed call — after-hours or just busy — with an interactive voicemail that turns into a ticket.
+        </p>
+        <a href="/dashboard/settings/phone-agent" className="app-link mt-2 inline-block text-sm">
+          Manage phone agent settings →
+        </a>
+      </section>
     </main>
   );
 }

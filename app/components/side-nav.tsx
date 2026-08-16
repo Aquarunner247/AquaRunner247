@@ -27,6 +27,7 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/dashboard/compliance", label: "Compliance", icon: "compliance" },
   { href: "/dashboard/settings", label: "Settings", icon: "settings" },
   { href: "/dashboard/billing", label: "Billing", icon: "billing" },
+  { href: "/dashboard/phone-agent", label: "Phone Agent", icon: "phone" },
 ];
 // The first 4 are what the bottom bar shows directly on mobile; the rest live behind "More".
 const ADMIN_PRIMARY_COUNT = 4;
