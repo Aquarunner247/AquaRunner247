@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { createChemicalProduct, updateChemicalProduct, deleteChemicalProduct, updateChemicalTypeSettings, uploadChemicalSds, removeChemicalSds } from "./actions";
+import { AddChemicalProductForm } from "./add-chemical-product-form";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { getOrganizationRuleset, isComplianceActive, chlorineFamilyThreshold, activeChemistryThresholds } from "@/lib/compliance";
 import { getSdsSignedUrl, resolveSds } from "@/lib/sds-documents";
@@ -235,18 +236,10 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
           {products.length === 0 ? <p className="app-card-inset text-sm text-brand-ink/60">No chemical products yet — add one below.</p> : null}
         </div>
 
-        <form action={createChemicalProduct} className="app-card-inset mt-4">
-          <p className="text-sm font-medium text-brand-ink">Add chemical product</p>
-          <div className="mt-2 grid grid-cols-4 gap-2">
-            <input name="name" required placeholder="Name (e.g. Cal Hypo)" className="app-field" />
-            <input name="unit" required placeholder="Unit (e.g. lb, gal)" className="app-field" />
-            <input name="costPerUnit" type="number" step="0.0001" required placeholder="Your cost/unit ($)" className="app-field" />
-            <input name="chargePerUnit" type="number" step="0.0001" required placeholder="Charge/unit ($)" className="app-field" />
-          </div>
-          <button className="app-btn-primary-sm mt-2" type="submit">
-            Add product
-          </button>
-        </form>
+        <AddChemicalProductForm
+          action={createChemicalProduct}
+          catalogOptions={catalog.map((c) => ({ id: c.id, name: c.name, dosingUnit: c.dosingUnit }))}
+        />
       </section>
 
       {/* Dosing Product Catalog */}

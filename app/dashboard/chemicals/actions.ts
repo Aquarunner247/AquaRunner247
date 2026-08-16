@@ -20,9 +20,10 @@ export async function createChemicalProduct(formData: FormData) {
   const unit = String(formData.get("unit") ?? "").trim();
   const costPerUnit = toDecimalOrNull(formData.get("costPerUnit"));
   const chargePerUnit = toDecimalOrNull(formData.get("chargePerUnit"));
+  const catalogProductId = String(formData.get("catalogProductId") ?? "").trim();
   if (!name || !unit || costPerUnit == null || chargePerUnit == null) return;
 
-  await prisma.chemicalProduct.upsert({
+  const product = await prisma.chemicalProduct.upsert({
     where: { organizationId_name: { organizationId: appUser.organizationId, name } },
     create: {
       organizationId: appUser.organizationId,
@@ -39,6 +40,22 @@ export async function createChemicalProduct(formData: FormData) {
       active: true,
     },
   });
+
+  // Client-side typeahead (see add-chemical-product-form.tsx) sends this when the typed
+  // name matched a Dosing Product Catalog product -- link this billing product to it in
+  // the same submit rather than requiring a second trip to the "Billing product" dropdown
+  // below. Re-verify the id is a real catalog product rather than trusting the client.
+  // Doesn't touch isEnabled/price/isPrimary on an existing row -- only the link.
+  if (catalogProductId) {
+    const catalogProduct = await prisma.chemicalProductCatalog.findUnique({ where: { id: catalogProductId }, select: { id: true } });
+    if (catalogProduct) {
+      await prisma.orgChemicalProductSetting.upsert({
+        where: { organizationId_catalogProductId: { organizationId: appUser.organizationId, catalogProductId: catalogProduct.id } },
+        create: { organizationId: appUser.organizationId, catalogProductId: catalogProduct.id, linkedBillingProductId: product.id },
+        update: { linkedBillingProductId: product.id },
+      });
+    }
+  }
 
   revalidatePath("/dashboard/chemicals");
 }
