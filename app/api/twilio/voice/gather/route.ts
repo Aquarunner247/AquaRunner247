@@ -57,10 +57,11 @@ export async function POST(req: Request) {
   await prisma.phoneAgentCall.update({ where: { id: call.id }, data: { phoneTreeSelection: selection } });
 
   const recordUrl = new URL("/api/twilio/voice/recording", url);
+  const transcribeUrl = new URL("/api/twilio/voice/transcription", url);
   const prompt =
     selection === "URGENT"
       ? "Please describe the urgent issue and your address after the tone. We'll prioritize a callback."
       : "Please describe your request, including your name, address, and a good callback number, after the tone.";
-  const twiml = recordTwiml(recordUrl.toString(), maxSeconds, prompt);
+  const twiml = recordTwiml(recordUrl.toString(), transcribeUrl.toString(), maxSeconds, prompt);
   return xmlResponse(twiml);
 }

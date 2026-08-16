@@ -140,6 +140,88 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   }
 }
 
+type PhoneAgentTicketEmailInput = {
+  to: string;
+  organizationName: string;
+  routedAs: "AFTER_HOURS" | "BUSY_OVERFLOW";
+  callerNumber: string;
+  callerName: string | null;
+  callerCallbackNumber: string | null;
+  propertyAddress: string | null;
+  issueType: string | null;
+  urgency: string | null;
+  requestedCallbackTime: string | null;
+  /** Null when transcription failed/came back empty -- the email still goes out (with the
+   * recording link) rather than silently dropping the ticket. */
+  summary: string | null;
+  recordingUrl: string | null;
+  dashboardUrl: string;
+};
+
+/** One call per recipient, same convention as sendCustomerAlertEmail -- the caller
+ * (voice/transcription/route.ts) loops over OrgPhoneAgentSettings.escalationEmails. */
+export async function sendPhoneAgentTicketEmail(input: PhoneAgentTicketEmailInput): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
+  }
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+
+  const resend = new Resend(apiKey);
+
+  const routedLabel = input.routedAs === "AFTER_HOURS" ? "After-hours" : "Overflow — rang during business hours, unanswered";
+  const urgencyLabel = input.urgency ?? "—";
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
+      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">New Phone Agent Ticket — ${routedLabel}</p>
+        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.callerName ?? "Unknown caller"} — ${input.callerNumber}</h1>
+        <p style="color:#9CC3C6; font-size:13px; margin:6px 0 0;">${input.organizationName}</p>
+      </div>
+      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <table style="width:100%; border-collapse:collapse; font-size:14px; margin-bottom:16px;">
+          <tr><td style="padding:4px 0; color:#55696C;">Urgency</td><td style="text-align:right;">${urgencyLabel}</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">Issue type</td><td style="text-align:right;">${input.issueType ?? "—"}</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">Property address</td><td style="text-align:right;">${input.propertyAddress ?? "—"}</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">Callback number</td><td style="text-align:right;">${input.callerCallbackNumber ?? input.callerNumber}</td></tr>
+          <tr><td style="padding:4px 0; color:#55696C;">Requested callback time</td><td style="text-align:right;">${input.requestedCallbackTime ?? "—"}</td></tr>
+        </table>
+
+        <p style="font-size:13px; font-weight:bold; margin:0 0 4px;">Summary</p>
+        <p style="font-size:14px; margin:0 0 16px; white-space:pre-wrap;">${input.summary ?? "Transcription wasn't available for this call — listen to the recording below."}</p>
+
+        ${
+          input.recordingUrl
+            ? `<p style="font-size:13px; margin:0 0 16px;"><a href="${input.recordingUrl}" style="color:#0A6E7C;">Listen to the recording</a></p>`
+            : ""
+        }
+
+        <p style="font-size:13px; margin:0 0 16px;"><a href="${input.dashboardUrl}" style="color:#0A6E7C;">View in AquaRunner</a></p>
+
+        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+          This is an automated ticket from AquaRunner 24/7 Pro's phone agent.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: fromAddress,
+      to: input.to,
+      subject: `New ${urgencyLabel !== "—" ? urgencyLabel.toLowerCase() + " " : ""}ticket — ${input.callerName ?? input.callerNumber}`,
+      html,
+    });
+    if (result.error) {
+      return { ok: false, error: result.error.message };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
+  }
+}
+
 type CustomerAlertEmailInput = {
   to: string;
   customerName: string;

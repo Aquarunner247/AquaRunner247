@@ -90,10 +90,26 @@ export function phoneTreeTwiml(
   return response.toString();
 }
 
-export function recordTwiml(recordActionUrl: string, maxDurationSeconds: number, prompt: string): string {
+export function recordTwiml(
+  recordActionUrl: string,
+  transcribeCallbackUrl: string,
+  maxDurationSeconds: number,
+  prompt: string,
+): string {
   const response = new VoiceResponse();
   response.say(prompt);
-  response.record({ action: recordActionUrl, method: "POST", maxLength: maxDurationSeconds, playBeep: true });
+  response.record({
+    action: recordActionUrl,
+    method: "POST",
+    maxLength: maxDurationSeconds,
+    playBeep: true,
+    // Twilio's own transcription -- async, arrives later via transcribeCallback (a
+    // separate webhook, voice/transcription/route.ts) once processing finishes, not
+    // synchronously within this call. recordActionUrl (recording/route.ts) only ever
+    // sees the audio metadata, never transcript text.
+    transcribe: true,
+    transcribeCallback: transcribeCallbackUrl,
+  });
   // If the caller hangs up without ever triggering <Record>'s action (e.g. mid-prompt),
   // the call simply ends here -- the PhoneAgentCall row stays callStatus: IN_PROGRESS,
   // which is exactly the "still visible, not silently lost" behavior the ABANDONED status
