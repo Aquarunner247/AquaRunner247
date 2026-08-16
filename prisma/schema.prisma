@@ -1215,6 +1215,19 @@ model ChemicalProductCatalog {
   isSystemDefault Boolean @default(true)
   displayOrder    Int     @default(0)
 
+  /// System-default Safety Data Sheet -- a link to the document as published on the
+  /// manufacturer/distributor's own site, NOT a copy we downloaded and re-host, so orgs
+  /// always see the current version. Sourced and individually verified (real PDF, correct
+  /// chemical/concentration match) rather than industry-generic filler -- null where no
+  /// verified source was found (e.g. Cal-Hypo at 45%/60%/75%), in which case an org must
+  /// upload their own before anything shows for that product (see
+  /// OrgChemicalProductSetting's sds* fields). Never substitute a mismatched-concentration
+  /// document here -- no default is safer than a wrong one for a hazard document.
+  sdsDocumentUrl String?
+  /// Short citation shown next to the linked document, e.g. "HASA Inc." or "Olin Chlor
+  /// Alkali" -- who actually published it, for transparency.
+  sdsSourceLabel String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1258,6 +1271,18 @@ model OrgChemicalProductSetting {
   /// decides whether a given link's unit is even auto-convertible from the dosing amount).
   linkedBillingProductId String?
   linkedBillingProduct   ChemicalProduct? @relation(fields: [linkedBillingProductId], references: [id], onDelete: SetNull)
+
+  /// Org's own uploaded Safety Data Sheet, overriding the catalog product's system-default
+  /// sdsDocumentUrl -- e.g. their actual supplier's formulation differs from the generic
+  /// default. Stored the same way CustomerDocument stores files (see
+  /// lib/customer-documents.ts): a private Supabase Storage object, not a public URL.
+  /// Resolution order (see lib/sds-documents.ts): this upload, if present, else the
+  /// catalog's sdsDocumentUrl, else nothing to show.
+  sdsStoragePath  String?
+  sdsFileName     String?
+  sdsContentType  String?
+  sdsFileSize     Int?
+  sdsUploadedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

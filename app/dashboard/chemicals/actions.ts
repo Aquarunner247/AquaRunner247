@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { parseFormNumber as toDecimalOrNull } from "@/lib/form-utils";
+import { uploadSdsForOrgProduct, removeSdsForOrgProduct } from "@/lib/sds-documents";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -174,5 +175,21 @@ export async function updateChemicalTypeSettings(formData: FormData) {
     }
   }
 
+  revalidatePath("/dashboard/chemicals");
+}
+
+export async function uploadChemicalSds(formData: FormData) {
+  const appUser = await requireAdmin();
+  const catalogProductId = String(formData.get("catalogProductId") ?? "").trim();
+  if (!catalogProductId) return;
+  await uploadSdsForOrgProduct(appUser.organizationId, catalogProductId, formData);
+  revalidatePath("/dashboard/chemicals");
+}
+
+export async function removeChemicalSds(formData: FormData) {
+  const appUser = await requireAdmin();
+  const catalogProductId = String(formData.get("catalogProductId") ?? "").trim();
+  if (!catalogProductId) return;
+  await removeSdsForOrgProduct(appUser.organizationId, catalogProductId);
   revalidatePath("/dashboard/chemicals");
 }

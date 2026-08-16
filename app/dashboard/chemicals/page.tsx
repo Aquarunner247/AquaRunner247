@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { createChemicalProduct, updateChemicalProduct, deleteChemicalProduct, updateChemicalTypeSettings } from "./actions";
+import { createChemicalProduct, updateChemicalProduct, deleteChemicalProduct, updateChemicalTypeSettings, uploadChemicalSds, removeChemicalSds } from "./actions";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { getOrganizationRuleset, isComplianceActive, chlorineFamilyThreshold, activeChemistryThresholds } from "@/lib/compliance";
+import { getSdsSignedUrl, resolveSds } from "@/lib/sds-documents";
 import type { ChemicalType } from "@/generated/prisma/enums";
 
 type PageProps = {
@@ -118,6 +119,18 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
   const ruleset = await getOrganizationRuleset(appUser.organizationId);
 
   const settingByProductId = new Map(orgSettings.map((s) => [s.catalogProductId, s]));
+
+  // Signed URLs are per-request, not cached -- only fetch one for products that actually
+  // have an org upload to view.
+  const sdsUrlByProductId = new Map<string, string>();
+  await Promise.all(
+    orgSettings
+      .filter((s) => s.sdsStoragePath)
+      .map(async (s) => {
+        const url = await getSdsSignedUrl(s.sdsStoragePath!);
+        if (url) sdsUrlByProductId.set(s.catalogProductId, url);
+      }),
+  );
   const targetByChemicalType = new Map(orgTargets.map((t) => [t.chemicalType, t]));
 
   const catalogGroups = new Map<ChemicalType, typeof catalog>();
@@ -365,6 +378,70 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
               </form>
             );
           })}
+        </div>
+      </section>
+
+      {/* Safety Data Sheets -- own section, not nested inside the settings form above
+          (upload/remove need their own <form>s, and HTML doesn't allow nested forms). */}
+      <section className="app-card mt-6">
+        <h2 className="text-base font-semibold text-brand-ink">Safety Data Sheets</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          Every product below links to its manufacturer&rsquo;s own published SDS where one was verified. If your actual
+          supplier&rsquo;s formulation differs, upload your own PDF to override it — customers only ever see documents for
+          products you&rsquo;ve enabled above.
+        </p>
+
+        <div className="mt-4 space-y-4">
+          {Array.from(catalogGroups.entries()).map(([chemicalType, groupProducts]) => (
+            <div key={chemicalType} className="app-card-inset">
+              <h3 className="text-sm font-semibold text-brand-ink">{CHEMICAL_GROUP_LABELS[chemicalType]}</h3>
+              <div className="mt-2 space-y-2">
+                {groupProducts.map((p) => {
+                  const setting = settingByProductId.get(p.id);
+                  const resolved = resolveSds(p, setting, sdsUrlByProductId.get(p.id) ?? null);
+                  return (
+                    <div key={p.id} className="flex flex-wrap items-center gap-3 rounded border border-brand-border px-3 py-2 text-sm">
+                      <span className="font-medium text-brand-ink">{p.name}</span>
+
+                      {resolved.kind === "org-upload" ? (
+                        <a href={resolved.url} target="_blank" rel="noreferrer" className="text-brand-primary underline">
+                          {resolved.fileName}
+                        </a>
+                      ) : resolved.kind === "system-default" ? (
+                        <a href={resolved.url} target="_blank" rel="noreferrer" className="text-brand-primary underline">
+                          View SDS {resolved.sourceLabel ? <span className="text-xs text-brand-muted">({resolved.sourceLabel})</span> : null}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-brand-ink/60">No SDS available yet — upload one.</span>
+                      )}
+
+                      <div className="ml-auto flex items-center gap-2">
+                        <form action={uploadChemicalSds} className="flex items-center gap-1">
+                          <input type="hidden" name="catalogProductId" value={p.id} />
+                          <input type="file" name="file" accept="application/pdf" required className="w-40 text-xs" />
+                          <button type="submit" className="app-btn-secondary-sm">
+                            {resolved.kind === "org-upload" ? "Replace" : "Upload"}
+                          </button>
+                        </form>
+                        {resolved.kind === "org-upload" ? (
+                          <form action={removeChemicalSds}>
+                            <input type="hidden" name="catalogProductId" value={p.id} />
+                            <ConfirmSubmitButton
+                              label="Remove"
+                              confirmMessage={`Remove your uploaded SDS for "${p.name}"? ${
+                                p.sdsDocumentUrl ? "The system default will show again." : "No document will show until you upload another."
+                              }`}
+                              className="app-btn-danger-sm"
+                            />
+                          </form>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
