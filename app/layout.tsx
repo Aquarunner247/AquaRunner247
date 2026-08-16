@@ -64,7 +64,7 @@ export default async function RootLayout({
       <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased md:flex">
         <ServiceWorkerRegister />
         <SideNav
-          isLoggedIn={Boolean(user)}
+          isLoggedIn={Boolean(appUser)}
           role={appUser?.role ?? null}
           userName={appUser?.name ?? appUser?.email ?? null}
           orgName={organization?.name ?? null}
