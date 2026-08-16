@@ -484,6 +484,7 @@ model CustomerAlert {
   createdAt DateTime @default(now())
 
   @@index([customerId])
+  @@index([createdByUserId])
 }
 
 /// Uploaded files (inspection reports, contracts, etc.) shown on a customer's Overview tab.
@@ -738,6 +739,7 @@ model ContaminationIncident {
   @@index([propertyId])
   @@index([bodyOfWaterId])
   @@index([status])
+  @@index([recordedByUserId])
 }
 
 /// One row per checkpoint in an incident's monitoring grid -- California requires 3
@@ -899,6 +901,7 @@ model RecurringStop {
 
   @@index([routeId])
   @@index([propertyId])
+  @@index([bodyOfWaterId])
 }
 
 /// A one-off stop that isn't a chemistry service visit — e.g. "pool store", "drop off
@@ -930,6 +933,8 @@ model AdHocStop {
   @@index([organizationId])
   @@index([technicianId])
   @@index([scheduledDate])
+  @@index([propertyId])
+  @@index([createdByUserId])
 }
 
 model ServiceVisit {
@@ -1383,6 +1388,8 @@ model OrgPayrollSettings {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([updatedByUserId])
 }
 
 /// Per-(technician, body of water) flat pay rate -- what THIS tech is paid for completing
@@ -1439,4 +1446,6 @@ model TechnicianPayRate {
   @@index([organizationId])
   @@index([technicianId, bodyOfWaterId, effectiveDate])
   @@index([bodyOfWaterId])
+  @@index([bundledIntoBodyOfWaterId])
+  @@index([createdByUserId])
 }
