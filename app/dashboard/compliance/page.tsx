@@ -26,16 +26,18 @@ export default async function CompliancePage() {
   const hasCommercialPools = await organizationHasCommercialPools(appUser.organizationId, organization?.hasCommercialPools ?? null);
 
   // Not every unsupported state is "not built yet" -- a few (Idaho, Mississippi) have no
-  // state-level pool code to build against at all, a genuine regulatory gap rather than a
-  // pending feature. ComplianceNote rows of kind "GAP" carry that distinction; only
-  // queried when there's actually an inactive ruleset to check, not on every page load.
-  const gapNotes =
-    ruleset && !ruleset.isSupported
-      ? await prisma.complianceNote.findMany({
-          where: { complianceRulesetId: ruleset.id, kind: "GAP" },
-          select: { summary: true },
-        })
-      : [];
+  // state-level pool code to build against at all: zero ChemistryThreshold/EventProtocol
+  // rows, a genuine regulatory gap rather than a pending feature. This must be "no data at
+  // all," not just "has any GAP note" -- Florida, for example, is unsupported but has full
+  // confirmed chemistry data and a GAP note only about an unresolved test-cadence default,
+  // which would be actively misleading to present as "no regulation exists."
+  const isStubOnly = ruleset != null && !ruleset.isSupported && ruleset.chemistryThresholds.length === 0 && ruleset.eventProtocols.length === 0;
+  const gapNotes = isStubOnly
+    ? await prisma.complianceNote.findMany({
+        where: { complianceRulesetId: ruleset!.id, kind: "GAP" },
+        select: { summary: true },
+      })
+    : [];
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
