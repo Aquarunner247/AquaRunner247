@@ -1186,7 +1186,7 @@ const FLORIDA: StateSeed = {
   ruleset: {
     stateName: "Florida",
     healthDepartmentName: "Florida Department of Health, Bureau of Environmental Health",
-    isSupported: false,
+    isSupported: true,
     jurisdictionLevel: "STATE",
     officialCitation: "Fla. Admin. Code Ann. R. 64E-9.004 (Operational Requirements); log form incorporated by reference at 64E-9.003",
     recordRetentionMonths: 24,
@@ -1373,9 +1373,9 @@ const FLORIDA: StateSeed = {
   ],
   complianceNotes: [
     {
-      kind: "GAP",
+      kind: "ASSUMPTION",
       summary: "The DH 921 log form has three timestamped columns per day (9 AM/1 PM/4 PM), but the regulatory text only requires manual testing once per 24 hours.",
-      detail: "The 3x/day structure appears to be the state's standard practice/form design, not a hard regulatory minimum. Worth deciding whether the in-app default should follow the form's implied cadence or the regulation's stated floor -- not resolved here.",
+      detail: "The 3x/day structure appears to be the state's standard practice/form design, not a hard regulatory minimum. The seeded FrequencyRule defaults to the regulation's actual floor (once per 24 hours, matching the enforceable requirement) rather than the form's stricter implied cadence -- resolved in favor of the regulation text, not the form design.",
     },
     {
       kind: "ASSUMPTION",
