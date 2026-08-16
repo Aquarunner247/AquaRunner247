@@ -108,6 +108,12 @@ model Organization {
   complianceRulesetId String?
   complianceRuleset   ComplianceRuleset? @relation(fields: [complianceRulesetId], references: [id])
 
+  /// Opt-in, paid add-on -- gates whether the Twilio voice webhook does anything beyond
+  /// a generic "not available" TwiML response for this org's assigned number. Defaults
+  /// false for every org; flipped per-org by a human once they're a paying customer for
+  /// this feature. See OrgPhoneAgentSettings for the actual per-org configuration.
+  aiPhoneAgentEnabled Boolean @default(false)
+
   users                 User[]
   customers             Customer[]
   properties            Property[]
@@ -121,6 +127,9 @@ model Organization {
   payrollSettings       OrgPayrollSettings?
   dosingProductSettings OrgChemicalProductSetting[]
   complianceTargets     OrgComplianceTarget[]
+  phoneAgentSettings    OrgPhoneAgentSettings?
+  phoneAgentCalls       PhoneAgentCall[]
+  phoneAgentDailyUsage  PhoneAgentDailyUsage[]
 
   @@index([complianceRulesetId])
 }
@@ -437,6 +446,7 @@ model User {
   payRatesAsTechnician           TechnicianPayRate[]     @relation("TechnicianPayRateTechnician")
   payRatesCreated                TechnicianPayRate[]     @relation("TechnicianPayRateCreatedBy")
   payrollSettingsUpdates         OrgPayrollSettings[]
+  phoneAgentSettingsUpdates      OrgPhoneAgentSettings[]
 
   @@index([organizationId])
 }
@@ -1458,4 +1468,180 @@ model TechnicianPayRate {
   @@index([bodyOfWaterId])
   @@index([bundledIntoBodyOfWaterId])
   @@index([createdByUserId])
+}
+
+/// AI Interactive Answering Agent -- opt-in add-on. Whether a call falls to the fallback
+/// flow because nobody's there (after-hours) or because the primary line rang unanswered
+/// during business hours (overflow) -- both land in the same interactive-voicemail flow,
+/// just with different greeting/callback-promise text (see below).
+enum PhoneAgentRouteReason {
+  AFTER_HOURS
+  BUSY_OVERFLOW
+}
+
+/// Lifecycle of a single call's own record, independent of ticketStatus below (which
+/// tracks the ops-workflow state of the resulting ticket, not whether the call itself
+/// completed). ABANDONED covers a caller hanging up mid-flow -- that call should still
+/// show up in the dashboard, not vanish silently.
+enum PhoneAgentCallStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum PhoneAgentTicketStatus {
+  NEW
+  REVIEWED
+  RESOLVED
+}
+
+enum PhoneAgentUrgency {
+  ROUTINE
+  SAME_DAY
+  EMERGENCY
+}
+
+/// Deliberately a small, developer-controlled enum, not a free string -- unlike
+/// ChemistryThreshold.parameter (which stays free-text because state regulations keep
+/// naming new ones), the set of phone-intake issue types is stable and benefits from
+/// being constrained: better LLM classification accuracy, and a filterable dashboard.
+enum PhoneAgentIssueType {
+  EQUIPMENT_FAILURE
+  CHEMICAL_WATER_QUALITY
+  LEAK
+  NO_SHOW_COMPLAINT
+  BILLING
+  OTHER
+}
+
+enum PhoneAgentPhoneTreeSelection {
+  NEW_REQUEST
+  EXISTING_CUSTOMER
+  URGENT
+  MESSAGE
+}
+
+/// Per-org configuration for the AI phone agent -- same 1:1-with-Organization shape as
+/// OrgPayrollSettings (organizationId unique + reciprocal field + updatedByUser audit
+/// pair), not a composite id.
+model OrgPhoneAgentSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// The Twilio number assigned to this org -- how an inbound call's `To` field resolves
+  /// to the right org's settings in the voice webhook. Unique: one Twilio number routes
+  /// to exactly one org.
+  twilioPhoneNumber String? @unique
+  /// The org's real business/owner line, dialed first before ever falling through to
+  /// this agent.
+  primaryPhoneNumber String?
+  ringTimeoutSeconds Int     @default(20)
+
+  /// Per-weekday "HH:MM-HH:MM" (24h) open/close string, keyed "mon".."sun"; a missing or
+  /// null key means closed that day. Only used to decide AFTER_HOURS vs BUSY_OVERFLOW
+  /// framing/copy at call time -- never gates whether the agent answers (it always does,
+  /// on no-answer/busy/failed, regardless of configured hours).
+  businessHours Json?
+
+  /// First String[] columns in this schema -- every other "multiple recipients" case
+  /// (e.g. sendCustomerAlertEmail's loop) derives its list from related rows, not a raw
+  /// array column. Deliberate deviation for this rarely-edited settings form, not an
+  /// oversight: a join table would be more consistent with the rest of the schema but is
+  /// more ceremony than this MVP settings surface needs.
+  escalationPhones String[]
+  escalationEmails String[]
+
+  serviceTerritoryDescription String? @db.Text
+
+  /// Genuinely different messages -- "we're closed for the day" vs. "we're just away
+  /// from the phone" -- never collapsed into one generic greeting.
+  afterHoursGreeting          String? @db.Text
+  busyOverflowGreeting        String? @db.Text
+  afterHoursCallbackPromise   String? @db.Text
+  busyOverflowCallbackPromise String? @db.Text
+
+  allowedIssueTypes PhoneAgentIssueType[]
+
+  /// Server-side caps, enforced in the voice webhook itself (never just a UI limit) --
+  /// see PhoneAgentDailyUsage, which makes checking these cheap without scanning every
+  /// PhoneAgentCall row.
+  maxCallsPerDay          Int?
+  maxMinutesPerDay        Int?
+  maxCallDurationSeconds  Int?
+
+  updatedByUserId String?
+  updatedByUser   User?   @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// One row per inbound call that falls through to the agent -- created early (as soon as
+/// the primary-line Dial comes back no-answer/busy/failed) and updated across the
+/// call-flow's subsequent webhook steps, not created fresh at the very end. This is what
+/// lets a caller who hangs up mid-flow (before ever reaching <Record>) still leave a
+/// visible ABANDONED row instead of vanishing with no trace.
+model PhoneAgentCall {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Twilio's own call identifier -- stable across every webhook step for one call, and
+  /// the idempotency key for PhoneAgentDailyUsage increments (Twilio retries a webhook on
+  /// timeout/5xx; without this, a retry would double-count usage and double-send the
+  /// notification email).
+  twilioCallSid String @unique
+  callerNumber  String
+  startedAt     DateTime @default(now())
+
+  routedAs   PhoneAgentRouteReason
+  callStatus PhoneAgentCallStatus  @default(IN_PROGRESS)
+
+  phoneTreeSelection PhoneAgentPhoneTreeSelection?
+
+  recordingUrl String?
+  /// Kept as two separate fields, never merged -- if the AI misreads something, there
+  /// has to be a way to check it against what the caller actually said.
+  rawTranscript String? @db.Text
+  aiSummary     String? @db.Text
+
+  callerName           String?
+  callerCallbackNumber String?
+  propertyAddress      String?
+  issueType            PhoneAgentIssueType?
+  urgency              PhoneAgentUrgency?
+  requestedCallbackTime String? @db.Text
+
+  ticketStatus PhoneAgentTicketStatus @default(NEW)
+
+  durationSeconds Int?
+  /// Decimal, matching every other cost field in this schema (feeAmount, pay-rate
+  /// amounts, etc.) -- no cents-as-Int convention exists here, so this doesn't introduce
+  /// one for future billing/metering use.
+  estimatedCost   Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+/// Per-org, per-day aggregate -- lets the voice webhook cheaply check daily call/minute
+/// caps (a single row lookup) instead of scanning every PhoneAgentCall row on every
+/// incoming call.
+model PhoneAgentDailyUsage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  date DateTime @db.Date
+
+  callCount            Int @default(0)
+  totalDurationSeconds Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, date])
 }
