@@ -1,11 +1,10 @@
 /**
  * Simulates activeChemistryThresholds()/chlorineFamilyThreshold() against every
- * isSupported:true state's seed data, without touching the database. Exists because
- * COMPLIANCE_RULESET_NOTES.md's "Verifying isSupported readiness" section documents three
- * real bugs (Alabama, Connecticut, Hawaii) where a state's numbers were correct in the
- * seed file but silently resolved to null in the app due to a scoping mismatch --
- * invisible from reading the seed data alone. Run this before flipping any new state's
- * isSupported to true.
+ * isSupported:true state's seed data, without touching the database. Exists because three
+ * real bugs (Alabama, Connecticut, Hawaii) were found this way -- a state's numbers were
+ * correct in the seed file but silently resolved to null in the app due to a scoping
+ * mismatch, invisible from reading the seed data alone. Run this before flipping any new
+ * state's isSupported to true.
  *
  * Usage: node --env-file=.env node_modules/.bin/tsx prisma/verify-compliance-seed.ts
  * (needs DATABASE_URL because seed-compliance-data.ts imports lib/prisma at module load

@@ -25,6 +25,18 @@ export default async function CompliancePage() {
   const active = isComplianceActive(ruleset);
   const hasCommercialPools = await organizationHasCommercialPools(appUser.organizationId, organization?.hasCommercialPools ?? null);
 
+  // Not every unsupported state is "not built yet" -- a few (Idaho, Mississippi) have no
+  // state-level pool code to build against at all, a genuine regulatory gap rather than a
+  // pending feature. ComplianceNote rows of kind "GAP" carry that distinction; only
+  // queried when there's actually an inactive ruleset to check, not on every page load.
+  const gapNotes =
+    ruleset && !ruleset.isSupported
+      ? await prisma.complianceNote.findMany({
+          where: { complianceRulesetId: ruleset.id, kind: "GAP" },
+          select: { summary: true },
+        })
+      : [];
+
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
       <header className="border-b border-brand-border pb-5">
@@ -100,6 +112,22 @@ export default async function CompliancePage() {
               </div>
             ) : null}
           </>
+        ) : gapNotes.length > 0 ? (
+          <div className="text-sm text-brand-muted">
+            <p className="font-medium text-brand-ink">
+              {rulesetStateName ?? organization?.state ?? "Your state"} has no state-level pool chemistry regulation
+            </p>
+            <p className="mt-1">
+              This isn&rsquo;t a feature we haven&rsquo;t built yet — there&rsquo;s no state code for AquaRunner to apply, so
+              closure-risk banners and the inspector log aren&rsquo;t available for this reason specifically. Your
+              service data is still being logged normally.
+            </p>
+            <div className="mt-3 space-y-2 border-t border-brand-border pt-3">
+              {gapNotes.map((n, i) => (
+                <p key={i}>{n.summary}</p>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="text-sm text-brand-muted">
             <p className="font-medium text-brand-ink">

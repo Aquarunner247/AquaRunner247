@@ -29,9 +29,10 @@ export default async function ComplianceDataPreviewPage() {
           Read-only view of every state&rsquo;s seeded compliance data, regardless of{" "}
           <code className="rounded bg-slate-100 px-1">isSupported</code>. This is a review tool, not what any live
           account sees — the actual customer-facing gating (closure banners, the QR inspector log) still runs off{" "}
-          <code className="rounded bg-slate-100 px-1">isSupported</code> alone. See{" "}
-          <code className="rounded bg-slate-100 px-1">COMPLIANCE_RULESET_NOTES.md</code> in the repo for why other
-          states stay off by default.
+          <code className="rounded bg-slate-100 px-1">isSupported</code> alone. Any state below with a{" "}
+          <code className="rounded bg-slate-100 px-1">GAP</code>-kind note is off because there&rsquo;s genuinely no
+          state-level regulation to apply, not because it hasn&rsquo;t been built yet — click into a state to see its
+          notes.
         </p>
       </header>
 

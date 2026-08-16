@@ -73,9 +73,8 @@ async function seedState(seed: StateSeed) {
 // Nevada -- migrated from the previous pass's flat ComplianceRuleset fields, which were
 // themselves migrated from the hardcoded values in app/dashboard/page.tsx,
 // app/p/[publicSlug]/page.tsx, app/components/alerts-bell.tsx, and the visit-completion
-// CYA-freshness check. See COMPLIANCE_RULESET_NOTES.md's "Migrating Nevada off the flat
-// fields" section. This is the regression-check state: the app's existing behavior must
-// be unchanged after reading from these rows instead of flat fields.
+// CYA-freshness check. This is the regression-check state: the app's existing behavior
+// must be unchanged after reading from these rows instead of flat fields.
 // ---------------------------------------------------------------------------
 const NEVADA: StateSeed = {
   state: "NV",
@@ -146,7 +145,7 @@ published code. Verify against the authoritative source for anything compliance-
 // CYA cadence are real local-health-district conventions (Newtown, Franklin, Meriden,
 // etc.), not business-decision placeholders, though still not *state*-code numbers --
 // isSupported stays false since the state code itself still leaves alkalinity range and
-// CYA cadence genuinely unstated at the state level (see COMPLIANCE_RULESET_NOTES.md).
+// CYA cadence genuinely unstated at the state level.
 // ---------------------------------------------------------------------------
 const CONNECTICUT: StateSeed = {
   state: "CT",
@@ -393,9 +392,9 @@ source for anything compliance-critical.*`,
 // architecture notes resolved the graph against the HOCl dissociation equilibrium,
 // pKa ~7.5) -- real curveDataPoints and a computable relationalRule formula replace the
 // old placeholder gap, so isSupported flips to true. (2) FREE_CHLORINE/BROMINE previously
-// had no bodyOfWaterCategory at all -- the same silent-null scoping bug documented for
-// Connecticut/Hawaii in COMPLIANCE_RULESET_NOTES.md, just never caught because this state
-// was never flipped live before. Both now duplicated onto explicit POOL/SPA rows (the
+// had no bodyOfWaterCategory at all -- the same silent-null scoping bug previously found
+// for Connecticut/Hawaii, just never caught because this state was never flipped live
+// before. Both now duplicated onto explicit POOL/SPA rows (the
 // source gives one undifferentiated figure for both, per state-compliance-data.md).
 // ---------------------------------------------------------------------------
 const ALASKA: StateSeed = {
@@ -1505,7 +1504,7 @@ source for anything compliance-critical.*`,
       unit: "ppm",
       sourceConfidence: "confirmed",
       notes:
-        "First PHMB (polyhexamethylene biguanide) disinfectant collected across any state so far. Incompatible with jets/sprays, halogens, or ozone -- an equipment/chemical incompatibility rule, not just a threshold. Stored with disinfectionMethod=NOT_APPLICABLE since the DisinfectionMethod enum doesn't yet have a PHMB value; not worth a schema migration for a single state's single reading -- see COMPLIANCE_RULESET_NOTES.md.",
+        "First PHMB (polyhexamethylene biguanide) disinfectant collected across any state so far. Incompatible with jets/sprays, halogens, or ozone -- an equipment/chemical incompatibility rule, not just a threshold. Stored with disinfectionMethod=NOT_APPLICABLE since the DisinfectionMethod enum doesn't yet have a PHMB value; not worth a schema migration for a single state's single reading.",
     },
     {
       parameter: "CYANURIC_ACID",
@@ -1688,7 +1687,7 @@ compliance-critical.*`,
       unit: "ppm",
       sourceConfidence: "confirmed",
       notes:
-        "The only body-of-water/indoor-outdoor combination where CYA is permitted at all in New Mexico -- see the two ban rows below and ComplianceNote. FIXED (bug found via activeChemistryThresholds() simulation, same class as the documented Alabama/Connecticut/Hawaii bugs in COMPLIANCE_RULESET_NOTES.md): this row previously carried bodyOfWaterCategory: \"POOL\" AND an appliesWhen string, but CYANURIC_ACID is always looked up unconditionally (bodyOfWaterCategory: null) by lib/compliance.ts, and findThreshold() picks the first row with appliesWhen == null as \"the\" unconditional default -- with bodyOfWaterCategory removed but appliesWhen still set, the indoor-ban row below (which has no appliesWhen at all) was instead being picked as the default, resolving null since it carries no numeric bounds. This row is now the one with no appliesWhen, so it resolves correctly; the ban rows below now carry explicit appliesWhen strings so they no longer race for the unconditional slot.",
+        "The only body-of-water/indoor-outdoor combination where CYA is permitted at all in New Mexico -- see the two ban rows below and ComplianceNote. FIXED (bug found via activeChemistryThresholds() simulation, same class as the previously documented Alabama/Connecticut/Hawaii bugs): this row previously carried bodyOfWaterCategory: \"POOL\" AND an appliesWhen string, but CYANURIC_ACID is always looked up unconditionally (bodyOfWaterCategory: null) by lib/compliance.ts, and findThreshold() picks the first row with appliesWhen == null as \"the\" unconditional default -- with bodyOfWaterCategory removed but appliesWhen still set, the indoor-ban row below (which has no appliesWhen at all) was instead being picked as the default, resolving null since it carries no numeric bounds. This row is now the one with no appliesWhen, so it resolves correctly; the ban rows below now carry explicit appliesWhen strings so they no longer race for the unconditional slot.",
     },
     {
       parameter: "CYANURIC_ACID",
@@ -2903,7 +2902,7 @@ for anything compliance-critical.*`,
       cascadesToSharedFiltration: true,
       reopeningCondition: "Raise and maintain free chlorine at 20 ppm for 765 minutes (12h45m) -- or equivalent to CT=15,300 -- or completely drain the pool. pH <=7.5 and water temperature >=77°F throughout.",
       sourceConfidence: "confirmed",
-      notes: "CT=15,300 for the unstabilized diarrheal-stool case independently matches New York's identical figure -- per COMPLIANCE_RULESET_NOTES.md, cross-state confirmation this specific value is a real recurring CDC/MAHC-derived standard, not a one-state idiosyncrasy.",
+      notes: "CT=15,300 for the unstabilized diarrheal-stool case independently matches New York's identical figure -- cross-state confirmation this specific value is a real recurring CDC/MAHC-derived standard, not a one-state idiosyncrasy.",
     },
     {
       triggerType: "FECAL_DIARRHEAL",

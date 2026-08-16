@@ -11,8 +11,7 @@ import { prisma } from "@/lib/prisma";
  * Nevada is NOT special-cased here anymore -- it gets the same bare-stub treatment as
  * every other state in this script; its full data now lives in
  * prisma/seed-compliance-data.ts alongside the other 8 states with real data, since it's
- * no longer a flat-field special case in the schema either (see
- * COMPLIANCE_RULESET_NOTES.md).
+ * no longer a flat-field special case in the schema either.
  *
  * Usage:
  *   DATABASE_URL="<connection string>" npx tsx prisma/seed-compliance-rulesets.ts

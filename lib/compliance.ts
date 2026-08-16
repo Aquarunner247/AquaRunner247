@@ -10,9 +10,9 @@ export const GENERIC_HEALTH_DEPARTMENT_LABEL = "your state/local health departme
  * feature, so it isn't hidden by isComplianceActive the way hazard/target numbers are. */
 export const DEFAULT_CYA_TEST_FREQUENCY_DAYS = 30;
 
-/** A ComplianceRuleset with the child rows the app actually reads. See
- * COMPLIANCE_RULESET_NOTES.md -- ChemistryThreshold/FrequencyRule/EventProtocol hold
- * many rows per state now (per parameter x body-type x method), not flat fields. */
+/** A ComplianceRuleset with the child rows the app actually reads --
+ * ChemistryThreshold/FrequencyRule/EventProtocol hold many rows per state (per parameter x
+ * body-type x method), not flat fields. */
 export type ComplianceRulesetWithRules = ComplianceRuleset & {
   chemistryThresholds: ChemistryThreshold[];
   frequencyRules: FrequencyRule[];
@@ -89,8 +89,8 @@ export function healthDepartmentLabel(ruleset: ComplianceRulesetWithRules | null
 
 /** How often CYA needs re-testing, in days. Applies to every account uniformly (see the
  * const's doc comment) -- independent of isComplianceActive. Reads FrequencyRule's
- * intervalMinutes (the schema's single canonical cadence field, see
- * COMPLIANCE_RULESET_NOTES.md) rather than a dedicated flat field. */
+ * intervalMinutes (the schema's single canonical cadence field) rather than a dedicated
+ * flat field. */
 export function cyaTestFrequencyDays(ruleset: ComplianceRulesetWithRules | null): number {
   const rule = ruleset?.frequencyRules.find((r) => r.parameter === "CYANURIC_ACID" && !r.isPerformanceBased);
   if (rule?.intervalMinutes) return Math.round(rule.intervalMinutes / (60 * 24));
@@ -109,9 +109,8 @@ function toNumOrNull(v: unknown): number | null {
  * conditional -- a state whose rule genuinely always depends on something the app
  * doesn't track yet (Arkansas's alkalinity depends on whether CYA is in use, which
  * isn't tracked per account/property) -- falls back to `preferredAppliesWhen` if given,
- * otherwise the first match. This tie-break is a deliberate, documented simplification
- * (see COMPLIANCE_RULESET_NOTES.md), not a data gap -- the underlying data isn't lost,
- * just not fully condition-aware yet.
+ * otherwise the first match. This tie-break is a deliberate, documented simplification,
+ * not a data gap -- the underlying data isn't lost, just not fully condition-aware yet.
  */
 function findThreshold(
   thresholds: ChemistryThreshold[],
@@ -210,8 +209,7 @@ export function chlorineFamilyThreshold(
  * directly comparable). Only call this once isComplianceActive(ruleset) is true --
  * callers gate on that first, so this never runs for an unsupported/unlinked account.
  *
- * Derives pH/alkalinity/CYA from this state's OWN ChemistryThreshold rows -- see
- * COMPLIANCE_RULESET_NOTES.md's "Migrating Nevada off the flat fields" section. Every
+ * Derives pH/alkalinity/CYA from this state's OWN ChemistryThreshold rows. Every
  * field can genuinely be `null`: a state's regulation may simply not define a hazard
  * tier, a minimum, or a target sub-range for a given parameter (Arizona has no hazard
  * tier on anything; Arkansas's CYA has no hazard cap at all). `null` here means "this
