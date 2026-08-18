@@ -17,7 +17,6 @@ function navClass(active: boolean) {
 
 const LINKS = [
   { href: "/portal", label: "Dashboard" },
-  { href: "/portal/reports", label: "Service Reports" },
   { href: "/portal/documents", label: "Documents" },
   { href: "/portal/chemicals", label: "Chemicals" },
   { href: "/portal/alerts", label: "Alerts" },
