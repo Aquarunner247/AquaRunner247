@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
-import { createChecklistItem, deleteChecklistItem } from "./actions";
+import { createChecklistItem, deleteChecklistItem, moveChecklistItem } from "./actions";
 
 export default async function ChecklistPage() {
   const appUser = await getCurrentAppUser();
@@ -24,12 +24,38 @@ export default async function ChecklistPage() {
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         <ul className="space-y-2">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <li
               key={item.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-border bg-brand-surface px-3 py-2 text-sm"
             >
-              <span className="text-brand-ink">{item.label}</span>
+              <span className="flex items-center gap-1">
+                <span className="flex flex-col">
+                  {index > 0 ? (
+                    <form action={moveChecklistItem}>
+                      <input type="hidden" name="id" value={item.id} />
+                      <input type="hidden" name="direction" value="up" />
+                      <button type="submit" aria-label={`Move "${item.label}" up`} className="block px-1 leading-none text-brand-muted hover:text-brand-ink">
+                        ▲
+                      </button>
+                    </form>
+                  ) : (
+                    <span className="block px-1 leading-none text-brand-border">▲</span>
+                  )}
+                  {index < items.length - 1 ? (
+                    <form action={moveChecklistItem}>
+                      <input type="hidden" name="id" value={item.id} />
+                      <input type="hidden" name="direction" value="down" />
+                      <button type="submit" aria-label={`Move "${item.label}" down`} className="block px-1 leading-none text-brand-muted hover:text-brand-ink">
+                        ▼
+                      </button>
+                    </form>
+                  ) : (
+                    <span className="block px-1 leading-none text-brand-border">▼</span>
+                  )}
+                </span>
+                <span className="text-brand-ink">{item.label}</span>
+              </span>
               <form action={deleteChecklistItem}>
                 <input type="hidden" name="id" value={item.id} />
                 <ConfirmSubmitButton
