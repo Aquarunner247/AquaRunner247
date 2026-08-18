@@ -30,14 +30,34 @@ const FEATURES = [
     body: "Chemical readings, photos, and notes are saved the moment your tech enters them. No more digging through paper when you need to look something up.",
   },
   {
-    n: "05",
+    n: "03",
     title: "Proof of service",
-    body: "Techs snap a photo right in the app at each stop. Real proof it happened today, not an old photo pulled from a camera roll.",
+    body: "Techs snap a photo right in the app at each stop. Real proof it happened today, not an old photo pulled from a camera roll — tap any photo to pull it up full-size.",
+  },
+  {
+    n: "04",
+    title: "Routes that build themselves",
+    body: "Add a new customer and the app suggests which tech and route makes the most sense based on where your team already is. You always get the final say.",
+  },
+  {
+    n: "05",
+    title: "Never miss another call",
+    body: "After hours or too busy to pick up? Our AI phone agent answers, asks what's needed, and turns it into a ticket — caller info, urgency, and a summary — waiting in your dashboard before you're back at your desk.",
   },
   {
     n: "06",
-    title: "Routes that build themselves",
-    body: "Add a new customer and the app suggests which tech and route makes the most sense based on where your team already is. You always get the final say.",
+    title: "A checklist that's actually yours",
+    body: "Comes prefilled with a real technician checklist to start. Add, remove, or reorder anything — and turn off individual items for the clients who don't need them, without changing what everyone else sees.",
+  },
+  {
+    n: "07",
+    title: "A portal just for your customers",
+    body: "Give each customer their own login. They see the day's readings, what was dosed, and photos from the visit — plus a link to the full historical log and a CSV download for their records.",
+  },
+  {
+    n: "08",
+    title: "Inspections tracked pool by pool",
+    body: "Log the current inspector's contact info, the last inspection date, and upload the actual report — per body of water, since a property with more than one pool doesn't get inspected all at once. HOA community manager contacts live right alongside it.",
   },
 ];
 
