@@ -25,6 +25,10 @@ export async function createCustomer(formData: FormData) {
   const maintenanceName = String(formData.get("maintenanceName") ?? "").trim();
   const maintenanceCellPhone = String(formData.get("maintenanceCellPhone") ?? "").trim();
   const maintenanceEmail = String(formData.get("maintenanceEmail") ?? "").trim();
+  const isHOA = formData.get("isHOA") != null;
+  const hoaManagerName = String(formData.get("hoaManagerName") ?? "").trim();
+  const hoaManagerPhone = String(formData.get("hoaManagerPhone") ?? "").trim();
+  const hoaManagerEmail = String(formData.get("hoaManagerEmail") ?? "").trim();
   const managementCompanyId = String(formData.get("managementCompanyId") ?? "").trim();
   const newManagementCompanyName = String(formData.get("newManagementCompanyName") ?? "").trim();
   const addressLine1 = String(formData.get("addressLine1") ?? "").trim();
@@ -64,6 +68,10 @@ export async function createCustomer(formData: FormData) {
           maintenanceName: maintenanceName || null,
           maintenanceCellPhone: maintenanceCellPhone || null,
           maintenanceEmail: maintenanceEmail || null,
+          isHOA,
+          hoaManagerName: isHOA ? hoaManagerName || null : null,
+          hoaManagerPhone: isHOA ? hoaManagerPhone || null : null,
+          hoaManagerEmail: isHOA ? hoaManagerEmail || null : null,
         };
 
   const customer = await prisma.customer.create({

@@ -301,6 +301,15 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                             {primaryProperty.maintenanceEmail ? <p>Email: {primaryProperty.maintenanceEmail}</p> : null}
                           </div>
                         ) : null}
+
+                        {primaryProperty.isHOA ? (
+                          <div className="mt-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">HOA manager</p>
+                            {primaryProperty.hoaManagerName ? <p>{primaryProperty.hoaManagerName}</p> : null}
+                            {primaryProperty.hoaManagerPhone ? <p>Phone: {primaryProperty.hoaManagerPhone}</p> : null}
+                            {primaryProperty.hoaManagerEmail ? <p>Email: {primaryProperty.hoaManagerEmail}</p> : null}
+                          </div>
+                        ) : null}
                       </>
                     )}
 
@@ -608,6 +617,15 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                               {property.maintenanceName ? <p>{property.maintenanceName}</p> : null}
                               {property.maintenanceCellPhone ? <p>Cell: {property.maintenanceCellPhone}</p> : null}
                               {property.maintenanceEmail ? <p>Email: {property.maintenanceEmail}</p> : null}
+                            </div>
+                          ) : null}
+
+                          {property.isHOA ? (
+                            <div className="mt-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">HOA manager</p>
+                              {property.hoaManagerName ? <p>{property.hoaManagerName}</p> : null}
+                              {property.hoaManagerPhone ? <p>Phone: {property.hoaManagerPhone}</p> : null}
+                              {property.hoaManagerEmail ? <p>Email: {property.hoaManagerEmail}</p> : null}
                             </div>
                           ) : null}
                         </>

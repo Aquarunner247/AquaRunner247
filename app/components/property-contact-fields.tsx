@@ -15,6 +15,10 @@ export type PropertyContactDefaults = {
   maintenanceName?: string | null;
   maintenanceCellPhone?: string | null;
   maintenanceEmail?: string | null;
+  isHOA?: boolean | null;
+  hoaManagerName?: string | null;
+  hoaManagerPhone?: string | null;
+  hoaManagerEmail?: string | null;
   ownerName?: string | null;
   ownerMobilePhone?: string | null;
   ownerHomePhone?: string | null;
@@ -47,6 +51,7 @@ export function PropertyContactFields({
   const [internalType, setInternalType] = useState<PropertyType>(initialPropertyType);
   const propertyType = controlledType ?? internalType;
   const setPropertyType = onPropertyTypeChange ?? setInternalType;
+  const [isHOA, setIsHOA] = useState<boolean>(defaults.isHOA ?? false);
 
   return (
     <>
@@ -164,6 +169,44 @@ export function PropertyContactFields({
               placeholder="Maintenance email"
               className={`mt-2 w-full ${inputClass}`}
             />
+          </div>
+
+          <div className="mt-3 border-t border-brand-border pt-3">
+            <label className="flex items-center gap-1.5 text-sm text-brand-ink">
+              <input
+                type="checkbox"
+                name="isHOA"
+                checked={isHOA}
+                onChange={(e) => setIsHOA(e.target.checked)}
+                className="rounded border-brand-control"
+              />
+              This property is a Homeowners Association (HOA)
+            </label>
+
+            {isHOA ? (
+              <div className="mt-3 border-t border-brand-border pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">HOA manager</p>
+                <NameInput
+                  name="hoaManagerName"
+                  defaultValue={defaults.hoaManagerName}
+                  placeholder="HOA manager name"
+                  className={`mt-2 w-full ${inputClass}`}
+                />
+                <PhoneInput
+                  name="hoaManagerPhone"
+                  defaultValue={defaults.hoaManagerPhone}
+                  placeholder="HOA manager phone"
+                  className={`mt-2 w-full ${inputClass}`}
+                />
+                <input
+                  name="hoaManagerEmail"
+                  type="email"
+                  defaultValue={defaults.hoaManagerEmail ?? ""}
+                  placeholder="HOA manager email"
+                  className={`mt-2 w-full ${inputClass}`}
+                />
+              </div>
+            ) : null}
           </div>
         </>
       )}

@@ -144,15 +144,15 @@ model Organization {
 /// regulatory data revealed rule shapes -- curves, cross-method dependencies, event
 /// protocols, repeated-failure closures -- that a flat per-state row can't represent).
 model ComplianceRuleset {
-  id                   String  @id @default(cuid())
+  id                    String  @id @default(cuid())
   /// USPS 2-letter code, e.g. "NV". "DC" included alongside the 50 states.
-  state                String  @unique
-  stateName            String
-  healthDepartmentName String?
+  state                 String  @unique
+  stateName             String
+  healthDepartmentName  String?
   /// False until this state's actual rules/sheets have been built out -- gates whether
   /// compliance features (QR inspector logs, closure-risk banners, rule engine) show at
   /// all for accounts linked to this ruleset.
-  isSupported          Boolean @default(false)
+  isSupported           Boolean @default(false)
   /// True only for a confirmed regulatory vacuum -- a state with NO state-level pool code
   /// to build against at all (Idaho: repealed 2025; Mississippi: no statewide code,
   /// regulation is set per health district), never inferred from isSupported or whether
@@ -544,6 +544,14 @@ model Property {
   maintenanceName      String?
   maintenanceCellPhone String?
   maintenanceEmail     String?
+  /// Commercial only: whether this property's governing body is a Homeowners Association.
+  /// Gates a separate HOA manager contact block below, distinct from the on-site
+  /// Manager/Maintenance contacts above -- an HOA's community manager is frequently a
+  /// different person/company than whoever manages day-to-day pool operations.
+  isHOA                Boolean            @default(false)
+  hoaManagerName       String?
+  hoaManagerPhone      String?
+  hoaManagerEmail      String?
   /// Residential-only: replaces Manager/Maintenance above for propertyType RESIDENTIAL.
   ownerName            String?
   ownerMobilePhone     String?
@@ -985,13 +993,13 @@ model ServiceVisit {
   serviceComplete Boolean     @default(false)
   techNotes       String?
 
-  startedAt   DateTime?
+  startedAt             DateTime?
   /// GPS location captured at the moment arrival was logged (geofence auto-detect or the
   /// manual "I've arrived" button, best-effort — null if the device denied/lacked location).
-  arrivalLatitude       Decimal? @db.Decimal(10, 7)
-  arrivalLongitude      Decimal? @db.Decimal(10, 7)
-  arrivalAccuracyMeters Decimal? @db.Decimal(8, 2)
-  completedAt DateTime?
+  arrivalLatitude       Decimal?  @db.Decimal(10, 7)
+  arrivalLongitude      Decimal?  @db.Decimal(10, 7)
+  arrivalAccuracyMeters Decimal?  @db.Decimal(8, 2)
+  completedAt           DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1058,7 +1066,7 @@ model ChemicalProduct {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  doses VisitChemicalDose[]
+  doses       VisitChemicalDose[]
   /// Dosing-catalog settings that point at this product as their "apply as a logged dose"
   /// target -- see OrgChemicalProductSetting.linkedBillingProductId.
   dosingLinks OrgChemicalProductSetting[]
@@ -1223,11 +1231,11 @@ enum DosingUnit {
 model ChemicalProductCatalog {
   id String @id @default(cuid())
 
-  name         String
-  chemicalType ChemicalType
+  name          String
+  chemicalType  ChemicalType
   /// Percent active ingredient, e.g. 65.0, 31.45. Null for the 100%-active products
   /// (chlorine gas, sodium thiosulfate, soda ash, baking soda) where it'd be redundant.
-  activePercent Decimal? @db.Decimal(6, 2)
+  activePercent Decimal?            @db.Decimal(6, 2)
   form          ChemicalProductForm
   dosingUnit    DosingUnit
 
@@ -1308,11 +1316,11 @@ model OrgChemicalProductSetting {
   /// lib/customer-documents.ts): a private Supabase Storage object, not a public URL.
   /// Resolution order (see lib/sds-documents.ts): this upload, if present, else the
   /// catalog's sdsDocumentUrl, else nothing to show.
-  sdsStoragePath  String?
-  sdsFileName     String?
-  sdsContentType  String?
-  sdsFileSize     Int?
-  sdsUploadedAt   DateTime?
+  sdsStoragePath String?
+  sdsFileName    String?
+  sdsContentType String?
+  sdsFileSize    Int?
+  sdsUploadedAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1537,7 +1545,7 @@ model OrgPhoneAgentSettings {
   /// The Twilio number assigned to this org -- how an inbound call's `To` field resolves
   /// to the right org's settings in the voice webhook. Unique: one Twilio number routes
   /// to exactly one org.
-  twilioPhoneNumber String? @unique
+  twilioPhoneNumber  String? @unique
   /// The org's real business/owner line, dialed first before ever falling through to
   /// this agent.
   primaryPhoneNumber String?
@@ -1571,9 +1579,9 @@ model OrgPhoneAgentSettings {
   /// Server-side caps, enforced in the voice webhook itself (never just a UI limit) --
   /// see PhoneAgentDailyUsage, which makes checking these cheap without scanning every
   /// PhoneAgentCall row.
-  maxCallsPerDay          Int?
-  maxMinutesPerDay        Int?
-  maxCallDurationSeconds  Int?
+  maxCallsPerDay         Int?
+  maxMinutesPerDay       Int?
+  maxCallDurationSeconds Int?
 
   updatedByUserId String?
   updatedByUser   User?   @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
@@ -1596,7 +1604,7 @@ model PhoneAgentCall {
   /// the idempotency key for PhoneAgentDailyUsage increments (Twilio retries a webhook on
   /// timeout/5xx; without this, a retry would double-count usage and double-send the
   /// notification email).
-  twilioCallSid String @unique
+  twilioCallSid String   @unique
   callerNumber  String
   startedAt     DateTime @default(now())
 
@@ -1605,18 +1613,18 @@ model PhoneAgentCall {
 
   phoneTreeSelection PhoneAgentPhoneTreeSelection?
 
-  recordingUrl String?
+  recordingUrl  String?
   /// Kept as two separate fields, never merged -- if the AI misreads something, there
   /// has to be a way to check it against what the caller actually said.
   rawTranscript String? @db.Text
   aiSummary     String? @db.Text
 
-  callerName           String?
-  callerCallbackNumber String?
-  propertyAddress      String?
-  issueType            PhoneAgentIssueType?
-  urgency              PhoneAgentUrgency?
-  requestedCallbackTime String? @db.Text
+  callerName            String?
+  callerCallbackNumber  String?
+  propertyAddress       String?
+  issueType             PhoneAgentIssueType?
+  urgency               PhoneAgentUrgency?
+  requestedCallbackTime String?              @db.Text
 
   ticketStatus PhoneAgentTicketStatus @default(NEW)
 
