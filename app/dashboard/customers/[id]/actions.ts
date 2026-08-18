@@ -8,6 +8,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
 import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/geocode";
 import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/customer-documents";
+import { uploadInspectionReport, deleteInspectionReport } from "@/lib/inspection-reports";
 import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
 import { sendCustomerAlertEmail } from "@/lib/email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
@@ -373,6 +374,75 @@ export async function updateBodyOfWater(formData: FormData) {
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);
   redirect(`/dashboard/customers/${customerId}?tab=bodies`);
+}
+
+/** Inspector contact info + last inspection date -- optional, added post-signup, per body of water. */
+export async function updateBodyInspection(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  if (!bodyId || !customerId) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  const inspectorName = String(formData.get("inspectorName") ?? "").trim();
+  const inspectorPhone = String(formData.get("inspectorPhone") ?? "").trim();
+  const inspectorEmail = String(formData.get("inspectorEmail") ?? "").trim();
+  const lastInspectionDateRaw = String(formData.get("lastInspectionDate") ?? "").trim();
+  const lastInspectionDate = lastInspectionDateRaw ? new Date(`${lastInspectionDateRaw}T00:00:00`) : null;
+
+  await prisma.bodyOfWater.update({
+    where: { id: body.id },
+    data: {
+      inspectorName: inspectorName || null,
+      inspectorPhone: inspectorPhone || null,
+      inspectorEmail: inspectorEmail || null,
+      lastInspectionDate: lastInspectionDate && !Number.isNaN(lastInspectionDate.getTime()) ? lastInspectionDate : null,
+    },
+  });
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
+}
+
+export async function uploadInspectionReportAction(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  if (!bodyId || !customerId) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  await uploadInspectionReport(bodyId, formData);
+  revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function deleteInspectionReportAction(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const reportId = String(formData.get("reportId") ?? "").trim();
+  if (!bodyId || !customerId || !reportId) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  await deleteInspectionReport(bodyId, reportId);
+  revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
+  revalidatePath(`/dashboard/customers/${customerId}`);
 }
 
 /**

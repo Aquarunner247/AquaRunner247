@@ -8,9 +8,19 @@ import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { BodyQrCode } from "@/app/components/body-qr-code";
 import { EquipmentForm } from "./equipment-form";
 import { EquipmentItem } from "./equipment-item";
-import { updateBodyOfWater, deleteBodyOfWater, importVenueReadings, setBodyPayRate } from "../../actions";
+import {
+  updateBodyOfWater,
+  deleteBodyOfWater,
+  importVenueReadings,
+  setBodyPayRate,
+  updateBodyInspection,
+  uploadInspectionReportAction,
+  deleteInspectionReportAction,
+} from "../../actions";
 import { FilterTypeFields } from "@/app/components/filter-type-fields";
 import { VolumeCalculator } from "@/app/components/volume-calculator";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { INSPECTION_REPORTS_BUCKET } from "@/lib/inspection-reports";
 
 type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
@@ -44,10 +54,22 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
       property: { select: { id: true, name: true, propertyType: true, customer: { select: { id: true, name: true } } } },
       equipment: { orderBy: { createdAt: "desc" } },
       volumeCalculation: true,
+      inspectionReports: { orderBy: { createdAt: "desc" } },
     },
   });
 
   if (!body) notFound();
+
+  const inspectionReportsWithUrls = await (async () => {
+    if (!body.inspectionReports.length) return [];
+    const supabaseAdmin = createSupabaseAdminClient();
+    return Promise.all(
+      body.inspectionReports.map(async (report) => {
+        const { data } = await supabaseAdmin.storage.from(INSPECTION_REPORTS_BUCKET).createSignedUrl(report.storagePath, 3600);
+        return { ...report, url: data?.signedUrl ?? null };
+      }),
+    );
+  })();
 
   // Pay rate -- tech-earnings-tracker-spec.md Section 4's inline entry point. The route
   // assignment (if any) is shown for context since a rate is meaningless without knowing
@@ -290,6 +312,106 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         )}
 
         <EquipmentForm customerId={customerId} bodyId={body.id} isSpa={body.type === "SPA"} />
+      </section>
+
+      <section id="inspections" className="mt-6 scroll-mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-brand-ink">Inspections</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          Optional — the current inspector&rsquo;s contact info, the last inspection date, and any inspection reports
+          for this specific venue.
+        </p>
+
+        <form action={updateBodyInspection} className="mt-3 space-y-2">
+          <input type="hidden" name="bodyId" value={body.id} />
+          <input type="hidden" name="customerId" value={customerId} />
+          <div className="grid gap-2 md:grid-cols-2">
+            <input
+              name="inspectorName"
+              defaultValue={body.inspectorName ?? ""}
+              placeholder="Inspector name"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm"
+            />
+            <input
+              name="inspectorPhone"
+              defaultValue={body.inspectorPhone ?? ""}
+              placeholder="Inspector phone"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm"
+            />
+            <input
+              name="inspectorEmail"
+              type="email"
+              defaultValue={body.inspectorEmail ?? ""}
+              placeholder="Inspector email"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm"
+            />
+            <label className="flex flex-col gap-1 text-xs text-brand-muted">
+              Last inspection date
+              <input
+                name="lastInspectionDate"
+                type="date"
+                defaultValue={body.lastInspectionDate ? body.lastInspectionDate.toISOString().slice(0, 10) : ""}
+                className="rounded border border-brand-control px-2 py-1.5 text-sm text-brand-ink"
+              />
+            </label>
+          </div>
+          <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+            Save
+          </button>
+        </form>
+
+        <div className="mt-4 border-t border-brand-border pt-3">
+          <p className="text-sm font-medium text-brand-ink">Inspection reports</p>
+          {inspectionReportsWithUrls.length ? (
+            <ul className="mt-2 space-y-1 text-sm text-brand-ink">
+              {inspectionReportsWithUrls.map((report) => (
+                <li
+                  key={report.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-border bg-brand-surface px-2 py-1.5"
+                >
+                  <span>
+                    {report.url ? (
+                      <a href={report.url} target="_blank" rel="noreferrer" className="font-medium text-brand-primary underline">
+                        {report.label}
+                      </a>
+                    ) : (
+                      <span className="font-medium text-brand-ink">{report.label}</span>
+                    )}
+                    <span className="ml-2 text-xs text-brand-muted">{report.createdAt.toLocaleDateString()}</span>
+                  </span>
+                  <form action={deleteInspectionReportAction}>
+                    <input type="hidden" name="bodyId" value={body.id} />
+                    <input type="hidden" name="customerId" value={customerId} />
+                    <input type="hidden" name="reportId" value={report.id} />
+                    <ConfirmSubmitButton
+                      label="🗑"
+                      confirmMessage={`Delete "${report.label}"?`}
+                      className="rounded px-2 py-1 text-base hover:bg-brand-border"
+                    />
+                  </form>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-brand-muted">No inspection reports uploaded yet.</p>
+          )}
+
+          <form
+            action={uploadInspectionReportAction}
+            className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2"
+          >
+            <input type="hidden" name="bodyId" value={body.id} />
+            <input type="hidden" name="customerId" value={customerId} />
+            <input
+              name="label"
+              placeholder="Label (e.g. 2026 Annual Inspection)"
+              className="rounded border border-brand-control px-2 py-1.5 text-sm"
+            />
+            <input type="file" name="file" required className="text-sm" />
+            <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+              Upload
+            </button>
+          </form>
+        </div>
       </section>
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">

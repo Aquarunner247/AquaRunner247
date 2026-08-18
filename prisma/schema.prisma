@@ -633,6 +633,14 @@ model BodyOfWater {
   /// Public, unguessable slug used for this body of water's QR code / inspector log page
   publicSlug String @unique @default(cuid())
 
+  /// Optional, post-signup only -- the org fills these in later, never required at intake.
+  /// Per body of water (not per property) because a multi-venue property is often inspected
+  /// one venue at a time, not all at once.
+  inspectorName      String?
+  inspectorPhone     String?
+  inspectorEmail     String?
+  lastInspectionDate DateTime? @db.Date
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -647,8 +655,27 @@ model BodyOfWater {
   payRates               TechnicianPayRate[]         @relation("TechnicianPayRateBody")
   bundledIntoPayRates    TechnicianPayRate[]         @relation("TechnicianPayRateBundledInto")
   volumeCalculation      VolumeCalculation?
+  inspectionReports      InspectionReport[]
 
   @@index([propertyId])
+}
+
+/// A single uploaded inspection report file for one body of water -- kept as its own list
+/// (like CustomerDocument) rather than a single field, since a venue accumulates one of
+/// these per real-world inspection over time.
+model InspectionReport {
+  id            String      @id @default(cuid())
+  bodyOfWaterId String
+  bodyOfWater   BodyOfWater @relation(fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+
+  label       String
+  storagePath String
+  contentType String?
+  fileSize    Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([bodyOfWaterId])
 }
 
 enum VolumeShape {

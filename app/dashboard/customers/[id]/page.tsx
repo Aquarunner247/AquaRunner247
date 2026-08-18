@@ -51,7 +51,10 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         orderBy: { createdAt: "asc" },
         include: {
           managementCompany: { select: { id: true, name: true } },
-          bodiesOfWater: { orderBy: { createdAt: "desc" }, include: { equipment: { orderBy: { createdAt: "desc" } } } },
+          bodiesOfWater: {
+            orderBy: { createdAt: "desc" },
+            include: { equipment: { orderBy: { createdAt: "desc" } }, _count: { select: { inspectionReports: true } } },
+          },
           recurringStops: {
             where: { route: { active: true } },
             include: {
@@ -67,6 +70,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
   const primaryProperty = customer.properties[0];
   const extraProperties = customer.properties.slice(1);
+
+  // Flat list across every property's venues -- inspections are tracked per body of water
+  // (a multi-venue property is often inspected one venue at a time), so this summary spans
+  // all of them rather than just the primary property's.
+  const allBodiesOfWater = customer.properties.flatMap((property) =>
+    property.bodiesOfWater.map((body) => ({ ...body, propertyName: property.name })),
+  );
 
   const documents = await prisma.customerDocument.findMany({
     where: { customerId: customer.id },
@@ -467,6 +477,46 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 Upload
               </button>
             </form>
+          </section>
+
+          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-brand-ink">Inspections</h2>
+            <p className="mt-1 text-sm text-brand-muted">
+              Optional — not part of intake. Add the current inspector and last inspection date per aquatic venue
+              from that venue&rsquo;s own page.
+            </p>
+
+            {allBodiesOfWater.length ? (
+              <ul className="mt-3 space-y-1 text-sm text-brand-ink">
+                {allBodiesOfWater.map((body) => (
+                  <li
+                    key={body.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-border bg-brand-surface px-2 py-1.5"
+                  >
+                    <span>
+                      <span className="font-medium text-brand-ink">{body.name}</span>
+                      {customer.properties.length > 1 ? <span className="ml-1 text-brand-muted">({body.propertyName})</span> : null}
+                      <span className="ml-2 text-brand-muted">
+                        {body.inspectorName ? `Inspector: ${body.inspectorName}` : "No inspector on file"}
+                      </span>
+                      <span className="ml-2 text-brand-muted">
+                        {body.lastInspectionDate
+                          ? `Last inspection: ${body.lastInspectionDate.toLocaleDateString()}`
+                          : "No inspections logged"}
+                      </span>
+                      <span className="ml-2 text-xs text-brand-muted">
+                        {body._count.inspectionReports} report{body._count.inspectionReports === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                    <Link href={`/dashboard/customers/${customer.id}/bodies/${body.id}#inspections`} className="app-link text-sm font-medium">
+                      Manage →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-brand-muted">No aquatic venues yet.</p>
+            )}
           </section>
 
           <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
