@@ -5,6 +5,7 @@ import { CameraCapture } from "@/app/components/camera-capture";
 import { DosingCard } from "@/app/components/dosing-card";
 import { VisitVolumeCalculator } from "@/app/components/volume-calculator";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
+import { getBestEffortLocation } from "@/lib/client/get-geolocation";
 import { queuedSubmitJson } from "@/lib/client/offline-queue";
 import { useOfflineSync } from "@/lib/client/use-offline-sync";
 import { convertToBillingUnit } from "@/lib/dosing-units";
@@ -189,6 +190,10 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     setArrivalSaving(true);
     setArrivalError("");
     try {
+      // Fires immediately, without waiting on the geolocation prompt -- "Arrived" should
+      // confirm instantly. Location (if available) attaches via a background follow-up
+      // call below, which the arrival route accepts as a location-only update once
+      // startedAt is already set.
       const response = await fetch(`/api/visits/${visitId}/arrival`, { method: "PATCH" });
       if (!response.ok) throw new Error("Couldn't log arrival — try again.");
       const data = (await response.json()) as { visit: { startedAt: string | null } };
@@ -197,6 +202,18 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       setArrivalError(err instanceof Error ? err.message : "Couldn't log arrival — try again.");
     } finally {
       setArrivalSaving(false);
+    }
+
+    const location = await getBestEffortLocation();
+    if (!location) return;
+    try {
+      await fetch(`/api/visits/${visitId}/arrival`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(location),
+      });
+    } catch {
+      // Best-effort -- a failed location attach shouldn't surface an error to the tech.
     }
   }
   const chemistryFields = useMemo(() => readingFields.map(toFieldConfig), [readingFields]);

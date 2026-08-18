@@ -986,6 +986,11 @@ model ServiceVisit {
   techNotes       String?
 
   startedAt   DateTime?
+  /// GPS location captured at the moment arrival was logged (geofence auto-detect or the
+  /// manual "I've arrived" button, best-effort — null if the device denied/lacked location).
+  arrivalLatitude       Decimal? @db.Decimal(10, 7)
+  arrivalLongitude      Decimal? @db.Decimal(10, 7)
+  arrivalAccuracyMeters Decimal? @db.Decimal(8, 2)
   completedAt DateTime?
 
   createdAt DateTime @default(now())

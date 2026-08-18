@@ -10,6 +10,7 @@ const PHOTO_ERROR_MESSAGES: Record<string, string> = {
 };
 
 import { queuedSubmitFormData } from "./offline-queue";
+import { getBestEffortLocation } from "./get-geolocation";
 
 export type UploadVisitPhotoResult =
   | { ok: true; photoId: string }
@@ -27,19 +28,11 @@ export async function uploadVisitPhoto(visitId: string, file: File): Promise<Upl
   formData.append("photo", file);
   formData.append("capturedAt", new Date().toISOString());
 
-  if (typeof navigator !== "undefined" && navigator.geolocation) {
-    await new Promise<void>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          formData.append("latitude", String(position.coords.latitude));
-          formData.append("longitude", String(position.coords.longitude));
-          formData.append("accuracyMeters", String(position.coords.accuracy));
-          resolve();
-        },
-        () => resolve(),
-        { enableHighAccuracy: true, timeout: 7000 },
-      );
-    });
+  const location = await getBestEffortLocation();
+  if (location) {
+    formData.append("latitude", String(location.latitude));
+    formData.append("longitude", String(location.longitude));
+    formData.append("accuracyMeters", String(location.accuracyMeters));
   }
 
   const result = await queuedSubmitFormData({
