@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe, mapSubscriptionStatus } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
 
 export const runtime = "nodejs";
 
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
         const stateRuleset = state ? await prisma.complianceRuleset.findUnique({ where: { state }, select: { id: true } }) : null;
 
         try {
-          await prisma.organization.create({
+          const org = await prisma.organization.create({
             data: {
               name: businessName,
               businessName,
@@ -68,6 +69,14 @@ export async function POST(req: Request) {
               hasCommercialPools,
               complianceRulesetId: stateRuleset?.id ?? null,
             },
+          });
+          await prisma.checklistItemDefinition.createMany({
+            data: DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
+              organizationId: org.id,
+              label,
+              sortOrder: index + 1,
+              active: true,
+            })),
           });
         } catch (err) {
           // Unique constraint on stripeCustomerId means `completeSignup` won a race and

@@ -6,6 +6,7 @@ import { createOrFindAuthUser, createSupabaseAdminClient } from "@/lib/supabase/
 import { stripe, mapSubscriptionStatus } from "@/lib/stripe";
 import type { OrganizationPlanStatus } from "@/generated/prisma/client";
 import { isValidStateCode } from "@/lib/us-states";
+import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
 
 const TRIAL_DAYS = 14;
 
@@ -356,6 +357,14 @@ export async function completeSignup(formData: FormData) {
             role: "ADMIN",
             active: true,
           },
+        });
+        await tx.checklistItemDefinition.createMany({
+          data: DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
+            organizationId: org.id,
+            label,
+            sortOrder: index + 1,
+            active: true,
+          })),
         });
       });
     }
