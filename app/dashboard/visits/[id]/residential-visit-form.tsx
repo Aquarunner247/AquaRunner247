@@ -6,6 +6,7 @@ import { DosingCard } from "@/app/components/dosing-card";
 import { VisitVolumeCalculator } from "@/app/components/volume-calculator";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 import { getBestEffortLocation } from "@/lib/client/get-geolocation";
+import { PhotoThumbnail } from "@/app/components/photo-thumbnail";
 import { convertToBillingUnit } from "@/lib/dosing-units";
 import type { DosingResult } from "@/lib/dosing-calculator";
 import type { DosingUnit } from "@/generated/prisma/enums";
@@ -602,8 +603,7 @@ export function ResidentialVisitForm({
           <div className="mt-2 flex flex-wrap gap-2">
             {initialPhotos.map((p) =>
               p.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <PhotoThumbnail
                   key={p.id}
                   src={p.url}
                   alt="Service visit photo"

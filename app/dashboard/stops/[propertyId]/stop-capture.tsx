@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CameraCapture } from "@/app/components/camera-capture";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
+import { PhotoThumbnail } from "@/app/components/photo-thumbnail";
 
 export type StopBody = {
   visitId: string;
@@ -74,8 +75,7 @@ export function StopCapture({ propertyName, bodies: initialBodies }: Props) {
                 {body.thumbnails.slice(0, 6).map((t) =>
                   t.url ? (
                     <div key={t.id} className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={t.url} alt="" className="h-16 w-16 rounded border border-brand-border object-cover" />
+                      <PhotoThumbnail src={t.url} alt="Visit photo" className="h-16 w-16 rounded border border-brand-border object-cover" />
                       {t.pending ? (
                         <span className="absolute -right-1 -top-1 rounded-full bg-brand-warn px-1.5 py-0.5 text-[9px] font-bold text-white">
                           sync

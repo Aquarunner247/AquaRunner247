@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
+import { PhotoThumbnail } from "@/app/components/photo-thumbnail";
 
 type PageProps = {
   searchParams?: Promise<{ date?: string }>;
@@ -248,8 +249,7 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
                     <div className="mt-1 flex flex-wrap gap-2">
                       {v.photos.map((p) =>
                         p.url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <PhotoThumbnail
                             key={p.id}
                             src={p.url}
                             alt="Service visit photo"

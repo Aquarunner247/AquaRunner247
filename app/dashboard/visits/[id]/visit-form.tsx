@@ -8,6 +8,7 @@ import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 import { getBestEffortLocation } from "@/lib/client/get-geolocation";
 import { queuedSubmitJson } from "@/lib/client/offline-queue";
 import { useOfflineSync } from "@/lib/client/use-offline-sync";
+import { PhotoThumbnail } from "@/app/components/photo-thumbnail";
 import { convertToBillingUnit } from "@/lib/dosing-units";
 import type { ReadingFieldSpec } from "@/lib/compliance";
 import type { DosingResult } from "@/lib/dosing-calculator";
@@ -818,8 +819,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
           <div className="mt-2 flex flex-wrap gap-2">
             {initialPhotos.map((p) =>
               p.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <PhotoThumbnail
                   key={p.id}
                   src={p.url}
                   alt="Service visit photo"
