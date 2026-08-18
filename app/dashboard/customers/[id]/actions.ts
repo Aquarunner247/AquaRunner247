@@ -376,6 +376,42 @@ export async function updateBodyOfWater(formData: FormData) {
   redirect(`/dashboard/customers/${customerId}?tab=bodies`);
 }
 
+/**
+ * Every org checklist item applies to a customer by default -- this sets which ones DON'T
+ * (see CustomerChecklistExclusion's own doc comment). Checkbox names on the form are
+ * `item_<checklistItemId>`; an unchecked/absent box means "excluded for this customer".
+ */
+export async function updateCustomerChecklist(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  if (!customerId) return;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!customer) return;
+
+  const items = await prisma.checklistItemDefinition.findMany({
+    where: { organizationId: appUser.organizationId, active: true },
+    select: { id: true },
+  });
+  const excludedItemIds = items.filter((item) => formData.get(`item_${item.id}`) == null).map((item) => item.id);
+
+  await prisma.$transaction([
+    prisma.customerChecklistExclusion.deleteMany({ where: { customerId } }),
+    ...(excludedItemIds.length
+      ? [
+          prisma.customerChecklistExclusion.createMany({
+            data: excludedItemIds.map((checklistItemId) => ({ customerId, checklistItemId })),
+          }),
+        ]
+      : []),
+  ]);
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
 /** Inspector contact info + last inspection date -- optional, added post-signup, per body of water. */
 export async function updateBodyInspection(formData: FormData) {
   const appUser = await requireAdmin();

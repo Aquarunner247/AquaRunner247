@@ -61,7 +61,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   const visit = await prisma.serviceVisit.findUnique({
     where: { id },
     include: {
-      property: { select: { name: true, propertyType: true } },
+      property: { select: { name: true, propertyType: true, customerId: true } },
       bodyOfWater: {
         select: {
           id: true,
@@ -126,7 +126,14 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   const checklistItemDefs = isResidential
     ? []
     : await prisma.checklistItemDefinition.findMany({
-        where: { organizationId: appUser.organizationId, active: true },
+        where: {
+          organizationId: appUser.organizationId,
+          active: true,
+          // Opt-out per customer -- an item applies unless this customer has excluded it.
+          // property.customerId can be null (no customer linked), in which case nothing
+          // is ever excluded and every active item still shows, matching prior behavior.
+          customerExclusions: visit.property.customerId ? { none: { customerId: visit.property.customerId } } : undefined,
+        },
         orderBy: { sortOrder: "asc" },
         select: { id: true, label: true },
       });

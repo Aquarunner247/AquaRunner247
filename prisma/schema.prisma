@@ -462,10 +462,11 @@ model Customer {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  properties    Property[]
-  documents     CustomerDocument[]
-  customerUsers CustomerUser[]
-  alerts        CustomerAlert[]
+  properties          Property[]
+  documents           CustomerDocument[]
+  customerUsers       CustomerUser[]
+  alerts              CustomerAlert[]
+  checklistExclusions CustomerChecklistExclusion[]
 
   @@index([organizationId])
 }
@@ -1180,9 +1181,28 @@ model ChecklistItemDefinition {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  completions VisitChecklistCompletion[]
+  completions        VisitChecklistCompletion[]
+  customerExclusions CustomerChecklistExclusion[]
 
   @@index([organizationId])
+}
+
+/// Opt-out, not opt-in: a checklist item applies to every customer by default (matches the
+/// behavior before this model existed), so a row here means "this item does NOT apply to
+/// this customer" -- absence of a row is the common case, not customization.
+model CustomerChecklistExclusion {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  checklistItemId String
+  checklistItem   ChecklistItemDefinition @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([customerId, checklistItemId])
+  @@index([customerId])
+  @@index([checklistItemId])
 }
 
 model VisitChecklistCompletion {

@@ -16,6 +16,7 @@ import {
   createCustomerLogin,
   deleteCustomerLogin,
   sendCustomerAlert,
+  updateCustomerChecklist,
 } from "./actions";
 import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -105,6 +106,16 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
     orderBy: { createdAt: "desc" },
     take: 10,
     select: { id: true, subject: true, message: true, createdAt: true },
+  });
+
+  const checklistItems = await prisma.checklistItemDefinition.findMany({
+    where: { organizationId: appUser.organizationId, active: true },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      id: true,
+      label: true,
+      customerExclusions: { where: { customerId: customer.id }, select: { id: true } },
+    },
   });
 
   const managementCompanies = await prisma.managementCompany.findMany({
@@ -516,6 +527,48 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               </ul>
             ) : (
               <p className="mt-2 text-sm text-brand-muted">No aquatic venues yet.</p>
+            )}
+          </section>
+
+          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-brand-ink">Service checklist</h2>
+            <p className="mt-1 text-sm text-brand-muted">
+              Every item applies by default — uncheck anything this customer doesn&rsquo;t require. Only affects
+              this customer&rsquo;s visits; edit the full item list on the{" "}
+              <Link href="/dashboard/checklist" className="app-link">
+                Checklist
+              </Link>{" "}
+              settings page.
+            </p>
+
+            {checklistItems.length ? (
+              <form action={updateCustomerChecklist} className="mt-3 space-y-2">
+                <input type="hidden" name="customerId" value={customer.id} />
+                <div className="grid gap-1.5 sm:grid-cols-2">
+                  {checklistItems.map((item) => (
+                    <label key={item.id} className="flex items-center gap-1.5 text-sm text-brand-ink">
+                      <input
+                        type="checkbox"
+                        name={`item_${item.id}`}
+                        defaultChecked={item.customerExclusions.length === 0}
+                        className="rounded border-brand-control"
+                      />
+                      {item.label}
+                    </label>
+                  ))}
+                </div>
+                <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                  Save
+                </button>
+              </form>
+            ) : (
+              <p className="mt-2 text-sm text-brand-muted">
+                No checklist items yet — add some on the{" "}
+                <Link href="/dashboard/checklist" className="app-link">
+                  Checklist
+                </Link>{" "}
+                settings page first.
+              </p>
             )}
           </section>
 
