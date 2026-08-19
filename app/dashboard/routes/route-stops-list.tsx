@@ -44,7 +44,7 @@ export function RouteStopsList({ routeId, stops: initialStops }: Props) {
   return (
     <ol className="mt-3 space-y-2">
       {stops.map((stop, idx) => {
-        const { className: handleTouchClass, ...handleProps } = dragHandleProps(idx);
+        const handleProps = dragHandleProps(idx);
         return (
         <li
           key={stop.id}
@@ -58,7 +58,7 @@ export function RouteStopsList({ routeId, stops: initialStops }: Props) {
               {...handleProps}
               aria-label={`Drag to reorder ${stop.propertyName}`}
               title="Drag to reorder"
-              className={`${handleTouchClass} shrink-0 cursor-grab select-none px-1 text-brand-muted active:cursor-grabbing`}
+              className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-brand-muted cursor-grab select-none active:cursor-grabbing"
             >
               ⠿
             </span>

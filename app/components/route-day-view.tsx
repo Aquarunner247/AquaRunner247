@@ -469,7 +469,7 @@ export function RouteDayView({
               const idx = trueIndexById.get(v.id) ?? 0;
               const isSkipped = v.status === "CANCELLED";
               const techGroup = technicianGroupStarts.get(v.id);
-              const { className: handleTouchClass, ...handleProps } = dragHandleProps(idx);
+              const handleProps = dragHandleProps(idx);
               return (
                 <Fragment key={v.id}>
                   {techGroup ? (
@@ -489,7 +489,7 @@ export function RouteDayView({
                         {...handleProps}
                         aria-label="Drag to reorder"
                         title="Drag to reorder"
-                        className={`${handleTouchClass} shrink-0 cursor-grab select-none text-brand-muted active:cursor-grabbing`}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-brand-muted cursor-grab select-none active:cursor-grabbing"
                       >
                         ⠿
                       </span>

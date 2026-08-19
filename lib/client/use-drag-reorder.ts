@@ -35,7 +35,12 @@ export function useDragReorder<T>(items: T[], onReorder: (next: T[]) => void, di
 
   function dragHandleProps(index: number) {
     return {
-      className: "touch-none",
+      // Inline style, not a Tailwind class -- this hook lives under lib/, which isn't in
+      // tailwind.config.ts's `content` glob (app/, components/, pages/ only), so a
+      // "touch-none" className string here would never actually get compiled into the
+      // stylesheet. Without touch-action: none, a touch drag on the handle gets swallowed
+      // by the page's normal scroll instead of reaching onPointerMove below.
+      style: { touchAction: "none" as const },
       onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
         if (disabled) return;
         e.preventDefault();

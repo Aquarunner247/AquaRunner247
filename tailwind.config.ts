@@ -5,6 +5,11 @@ const config: Config = {
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    // className strings can live in plain .ts/.tsx helper modules too (e.g. hooks that
+    // return JSX props) -- without this, Tailwind's build-time scanner silently never
+    // generates CSS for classes defined only here, even though they get applied at
+    // runtime. See use-drag-reorder.ts's own history for exactly this bug.
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
