@@ -43,6 +43,20 @@ export async function uploadInspectionReport(bodyOfWaterId: string, formData: Fo
   });
 }
 
+/** Downloads a previously-uploaded report's raw bytes back out of storage, for the LLM
+ * extraction step. Throws on failure (missing file, storage error) -- callers are
+ * expected to catch, same convention as extractInspectionReportData. Callers are also
+ * responsible for authorizing access to the report before calling this. */
+export async function downloadInspectionReportFile(storagePath: string): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { data, error } = await supabaseAdmin.storage.from(INSPECTION_REPORTS_BUCKET).download(storagePath);
+  if (error || !data) {
+    throw new Error(`Failed to download inspection report at ${storagePath}: ${error?.message ?? "no data"}`);
+  }
+  const arrayBuffer = await data.arrayBuffer();
+  return { bytes: new Uint8Array(arrayBuffer), contentType: data.type || null };
+}
+
 /** Callers are responsible for authorizing access to `bodyOfWaterId` before calling this. */
 export async function deleteInspectionReport(bodyOfWaterId: string, reportId: string) {
   const report = await prisma.inspectionReport.findFirst({

@@ -482,6 +482,73 @@ export async function deleteInspectionReportAction(formData: FormData) {
 }
 
 /**
+ * Writes the admin's confirmed selections from the inspection-report review screen --
+ * only fields whose `apply*` checkbox was checked get written to BodyOfWater (Inspections'
+ * own inspectorName/lastInspectionDate, and Details' volumeGallons/maximumOccupancy), and
+ * only equipment rows whose own `include` checkbox was checked get created. Nothing here
+ * ever runs without the admin explicitly submitting this form -- extraction itself
+ * (the /api/inspection-reports/[reportId]/extract route) never writes to the database.
+ */
+export async function applyInspectionReportExtraction(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyId = String(formData.get("bodyId") ?? "").trim();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  if (!bodyId || !customerId) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  const applyInspectorName = formData.get("applyInspectorName") != null;
+  const applyLastInspectionDate = formData.get("applyLastInspectionDate") != null;
+  const applyVolumeGallons = formData.get("applyVolumeGallons") != null;
+  const applyMaximumOccupancy = formData.get("applyMaximumOccupancy") != null;
+
+  const lastInspectionDateRaw = String(formData.get("lastInspectionDate") ?? "").trim();
+  const lastInspectionDate = lastInspectionDateRaw ? new Date(`${lastInspectionDateRaw}T00:00:00`) : null;
+  const volumeGallons = numOrNull(formData.get("volumeGallons"));
+  const maximumOccupancy = numOrNull(formData.get("maximumOccupancy"));
+
+  if (applyInspectorName || applyLastInspectionDate || applyVolumeGallons || applyMaximumOccupancy) {
+    await prisma.bodyOfWater.update({
+      where: { id: body.id },
+      data: {
+        ...(applyInspectorName ? { inspectorName: String(formData.get("inspectorName") ?? "").trim() || null } : {}),
+        ...(applyLastInspectionDate
+          ? { lastInspectionDate: lastInspectionDate && !Number.isNaN(lastInspectionDate.getTime()) ? lastInspectionDate : null }
+          : {}),
+        ...(applyVolumeGallons ? { volumeGallons } : {}),
+        ...(applyMaximumOccupancy ? { maximumOccupancy: maximumOccupancy != null ? Math.round(maximumOccupancy) : null } : {}),
+      },
+    });
+  }
+
+  const equipmentCount = Number(formData.get("equipmentCount") ?? 0);
+  const equipmentToCreate = [];
+  for (let i = 0; i < equipmentCount; i++) {
+    if (formData.get(`equipment_${i}_include`) == null) continue;
+    const kindRaw = String(formData.get(`equipment_${i}_kind`) ?? "").trim();
+    const kind = (Object.values(EquipmentKind) as string[]).includes(kindRaw) ? (kindRaw as EquipmentKind) : EquipmentKind.OTHER;
+    equipmentToCreate.push({
+      bodyOfWaterId: body.id,
+      kind,
+      make: String(formData.get(`equipment_${i}_make`) ?? "").trim() || null,
+      model: String(formData.get(`equipment_${i}_model`) ?? "").trim() || null,
+      serialNumber: String(formData.get(`equipment_${i}_serialNumber`) ?? "").trim() || null,
+    });
+  }
+  if (equipmentToCreate.length > 0) {
+    await prisma.equipment.createMany({ data: equipmentToCreate });
+  }
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
+}
+
+/**
  * Persists a VolumeCalculation row AND writes the same number into
  * BodyOfWater.volumeGallons (the field dosing/compliance actually reads) -- recomputes
  * server-side from the submitted dimensions rather than trusting the client's live

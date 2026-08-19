@@ -21,6 +21,7 @@ import { FilterTypeFields } from "@/app/components/filter-type-fields";
 import { VolumeCalculator } from "@/app/components/volume-calculator";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { INSPECTION_REPORTS_BUCKET } from "@/lib/inspection-reports";
+import { InspectionReportReview } from "./inspection-report-review";
 
 type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
@@ -411,6 +412,23 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               Upload
             </button>
           </form>
+
+          <InspectionReportReview
+            customerId={customerId}
+            bodyId={body.id}
+            reports={inspectionReportsWithUrls.map((r) => ({ id: r.id, label: r.label }))}
+            existingEquipment={body.equipment.map((eq) => ({
+              id: eq.id,
+              kind: eq.kind,
+              make: eq.make,
+              model: eq.model,
+              serialNumber: eq.serialNumber,
+            }))}
+            currentInspectorName={body.inspectorName}
+            currentLastInspectionDate={body.lastInspectionDate ? body.lastInspectionDate.toISOString().slice(0, 10) : null}
+            currentVolumeGallons={body.volumeGallons != null ? Number(body.volumeGallons) : null}
+            currentMaximumOccupancy={body.maximumOccupancy}
+          />
         </div>
       </section>
 
