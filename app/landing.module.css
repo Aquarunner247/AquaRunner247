@@ -942,20 +942,42 @@
   margin-top: 26px;
 }
 
-.states span {
+.states span,
+.states button {
+  font-family: inherit;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   border: 1px solid color-mix(in srgb, var(--warm-surface) 30%, transparent);
+  background: none;
   padding: 7px 10px;
   color: var(--text-light);
+}
+
+.states button {
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.states button:hover:not(.stateOn) {
+  border-color: var(--warm-surface);
+  color: var(--ink);
 }
 
 .states .stateOn {
   background: var(--warm-surface);
   color: var(--ink);
   border-color: var(--warm-surface);
+}
+
+.stateMore {
+  align-self: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--text-light);
+  opacity: 0.7;
+  padding: 7px 4px;
 }
 
 .checks {

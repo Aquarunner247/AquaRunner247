@@ -3,6 +3,7 @@ import Image from "next/image";
 import { AppPreview } from "./components/landing/app-preview";
 import { LogoMark } from "./components/landing/logo-mark";
 import { InspectorRecord, QrPlacard } from "./components/landing/scan-flow";
+import { StateShowcase } from "./components/landing/state-showcase";
 import { WaitlistForm } from "./components/landing/waitlist-form";
 import styles from "./landing.module.css";
 
@@ -60,8 +61,6 @@ const FEATURES = [
     body: "Log the current inspector's contact info, the last inspection date, and upload the actual report — per body of water, since a property with more than one pool doesn't get inspected all at once. HOA community manager contacts live right alongside it.",
   },
 ];
-
-const STATES = ["Arizona", "California", "Texas", "Florida", "Your state"];
 
 function Brand({ className }: { className?: string }) {
   return (
@@ -221,17 +220,7 @@ export default function Home() {
                   rules, so the technician logs exactly what that state requires at every visit — nothing missed,
                   nothing memorized.
                 </p>
-                <div className={styles.states} aria-label="Configured per state">
-                  <span className={styles.stateOn}>Nevada · SNHD</span>
-                  {STATES.map((state) => (
-                    <span key={state}>{state}</span>
-                  ))}
-                </div>
-                <ul className={styles.checks}>
-                  <li>Required readings and fields set by your state and local health department.</li>
-                  <li>The tech sees only what that body of water needs, in the order it&rsquo;s asked for.</li>
-                  <li>Built in Nevada under SNHD rules — and built to handle any state&rsquo;s requirements.</li>
-                </ul>
+                <StateShowcase />
                 <div className={styles.visual}>
                   <InspectorRecord />
                 </div>
