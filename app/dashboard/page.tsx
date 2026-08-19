@@ -531,18 +531,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 {overdueVisits.length === 0 ? (
                   <p className="mt-2 text-sm text-brand-ink/60">Nothing overdue — every stop is on schedule.</p>
                 ) : (
-                  <ul className="mt-3 space-y-2">
-                    {overdueVisits.map((v) => (
-                      <li key={v.id} className="app-card-inset flex items-center justify-between gap-2 text-sm">
-                        <span className="min-w-0 truncate text-brand-ink">
-                          {v.property} — {v.body} <span className="text-brand-ink/60">· {v.tech}</span>
-                        </span>
-                        <span className="app-pill-attention shrink-0">
-                          Due {v.scheduledStart.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm font-medium text-brand-ink">
+                      {overdueVisits.length} stop{overdueVisits.length === 1 ? "" : "s"} overdue — click to view
+                    </summary>
+                    <ul className="mt-3 space-y-2">
+                      {overdueVisits.map((v) => (
+                        <li key={v.id} className="app-card-inset flex items-center justify-between gap-2 text-sm">
+                          <span className="min-w-0 truncate text-brand-ink">
+                            {v.property} — {v.body} <span className="text-brand-ink/60">· {v.tech}</span>
+                          </span>
+                          <span className="app-pill-attention shrink-0">
+                            Due {v.scheduledStart.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 )}
               </div>
             </div>
@@ -553,18 +558,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               {activity.length === 0 ? (
                 <p className="mt-2 text-sm text-brand-ink/60">No recent activity yet — completed visits and new customers will show up here.</p>
               ) : (
-                <ul className="mt-2 space-y-2 text-sm">
-                  {activity.map((a) => (
-                    <li key={a.id} className="flex items-center justify-between gap-2 border-b border-brand-border pb-2 last:border-0 last:pb-0">
-                      <span className="text-brand-ink/80">
-                        <span className="font-medium text-brand-ink">{a.label}</span> — {a.detail}
-                      </span>
-                      <span className="app-metric shrink-0 text-xs text-brand-icon">
-                        {a.at.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-sm font-medium text-brand-ink">
+                    {activity.length} recent update{activity.length === 1 ? "" : "s"} — click to view
+                  </summary>
+                  <ul className="mt-3 space-y-2 text-sm">
+                    {activity.map((a) => (
+                      <li key={a.id} className="flex items-center justify-between gap-2 border-b border-brand-border pb-2 last:border-0 last:pb-0">
+                        <span className="text-brand-ink/80">
+                          <span className="font-medium text-brand-ink">{a.label}</span> — {a.detail}
+                        </span>
+                        <span className="app-metric shrink-0 text-xs text-brand-icon">
+                          {a.at.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               )}
             </div>
           </>
