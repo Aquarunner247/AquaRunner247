@@ -34,6 +34,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# service account keys / other raw credential files dropped into the repo root for
+# local use -- never meant to be committed (this repo is public)
+/DialogFlow/
+*.json.key
+service-account*.json
+
 # typescript
 *.tsbuildinfo
 
