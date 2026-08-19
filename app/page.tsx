@@ -33,7 +33,7 @@ const FEATURES = [
   {
     n: "03",
     title: "Proof of service",
-    body: "Techs snap a photo right in the app at each stop, timestamped the moment it's taken. Real proof it happened today, not an old photo pulled from a camera roll — tap any photo to pull it up full-size.",
+    body: "Techs snap a photo right in the app at each stop, timestamped and geotagged automatically. Real proof it happened today, not an old photo pulled from a camera roll — tap any photo to pull it up full-size.",
   },
   {
     n: "04",
@@ -59,6 +59,26 @@ const FEATURES = [
     n: "08",
     title: "Inspections tracked pool by pool",
     body: "Log the current inspector's contact info, the last inspection date, and upload the actual report — per body of water, since properties with more than one pool don't always get inspected on the same day. HOA community manager contacts live right alongside it.",
+  },
+  {
+    n: "09",
+    title: "Know exactly how much to add",
+    body: "Enter today's reading and the app calculates the exact dose to hit target — free chlorine, alkalinity, cyanuric acid, calcium hardness, salt — linked to your chemical catalog so it logs in the right units automatically.",
+  },
+  {
+    n: "10",
+    title: "Keeps working with no signal",
+    body: "Backyards and mechanical rooms don't always have bars. Readings, photos, and doses queue right on the phone and sync the moment a connection comes back — nothing lost, nothing re-entered.",
+  },
+  {
+    n: "11",
+    title: "Pay techs on what they actually did",
+    body: "Set a rate per technician, per body of water, and watch real earnings total up as visits get logged — no separate spreadsheet, no guessing at the end of the pay period.",
+  },
+  {
+    n: "12",
+    title: "Equipment records and safety data sheets",
+    body: "Pumps, filters, drain covers, and service dates logged per body of water. Safety data sheets for every chemical pull up right on a tech's phone, on site — no digging through a binder.",
   },
 ];
 
