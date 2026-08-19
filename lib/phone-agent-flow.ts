@@ -94,8 +94,12 @@ export function phoneTreeTwiml(
     timeout: 8,
   });
   gather.say(
-    `${greeting} Briefly tell me why you're calling, or press 1 for a new service request, 2 if you're an existing customer, 3 if this is urgent, or 4 to leave a message.`,
+    `${greeting} Tell me briefly why you're calling -- for example, a new service request, a question about your existing service, if this is urgent, or if you'd just like to leave a message.`,
   );
+  // DTMF is still accepted (input includes "dtmf" above) as a silent fallback for anyone
+  // who presses a digit out of habit, but deliberately isn't announced anymore now that
+  // speech recognition is confirmed working -- saying both "tell me" and "press 1/2/3/4"
+  // read as confusing/redundant once natural speech is the primary path.
   // If Gather's own timeout elapses with neither speech nor a digit, Twilio still calls
   // `action` with both empty -- gather/route.ts treats that the same as pressing 4.
   return response.toString();
