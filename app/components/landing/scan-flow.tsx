@@ -15,7 +15,7 @@ export function QrPlacard() {
         <QrGraphic />
       </div>
       <p className={styles.placardFoot}>
-        <b>Techs:</b> scan to log this visit. <b>Inspectors:</b> scan to view the current record.
+        Scan to view the current, complete record for this pool — no login needed.
       </p>
     </div>
   );

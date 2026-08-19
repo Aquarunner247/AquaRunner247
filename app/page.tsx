@@ -137,7 +137,7 @@ export default function Home() {
             <div className={styles.heroStrip}>
               <div>
                 <b>Every body of water gets a QR code</b>
-                Techs scan it, log the visit, and it&rsquo;s on the record.
+                Scan it and the current record&rsquo;s right there — for an inspector on site, or a customer checking in.
               </div>
               <div>
                 <b>Configured to your state&rsquo;s rules</b>
@@ -202,9 +202,10 @@ export default function Home() {
                 <span className={styles.diffNum}>Paperless records</span>
                 <h3>A QR code on every body of water</h3>
                 <p>
-                  Each pool, spa, and water feature gets its own QR code. Techs scan it to pull up that exact body of
-                  water and log the visit — fully paperless. An inspector on site scans the same code and instantly sees
-                  the complete, current record for that pool. No binder, no filing cabinet, no waiting on the office.
+                  Each pool, spa, and water feature gets its own QR code. Your techs log every visit right in the app
+                  as they work their route — no scanning required. Scan that same code and anyone else — an
+                  inspector on site, a customer checking in — sees the complete, current record for that exact pool
+                  instantly. No binder, no filing cabinet, no waiting on the office.
                 </p>
                 <div className={styles.visual}>
                   <QrPlacard />

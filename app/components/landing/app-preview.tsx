@@ -88,7 +88,7 @@ export function AppPreview() {
                 Visit logged <span className={styles.metric}>6:42 AM</span> · Nevada requirement set
               </span>
             </div>
-            <span className={styles.qrChip}>Opened by QR scan</span>
+            <span className={styles.qrChip}>From today&rsquo;s route</span>
           </div>
 
           <dl className={styles.reads}>
@@ -148,7 +148,7 @@ export function AppPreview() {
               <h4>Truck 2 — north valley</h4>
               <span>9 stops · 12 bodies of water</span>
             </div>
-            <span className={styles.qrChip}>Scan to start</span>
+            <span className={styles.qrChip}>Tap a stop to start</span>
           </div>
 
           <ul className={styles.route}>
