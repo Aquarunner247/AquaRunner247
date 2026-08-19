@@ -33,7 +33,7 @@ const FEATURES = [
   {
     n: "03",
     title: "Proof of service",
-    body: "Techs snap a photo right in the app at each stop. Real proof it happened today, not an old photo pulled from a camera roll — tap any photo to pull it up full-size.",
+    body: "Techs snap a photo right in the app at each stop, timestamped the moment it's taken. Real proof it happened today, not an old photo pulled from a camera roll — tap any photo to pull it up full-size.",
   },
   {
     n: "04",
