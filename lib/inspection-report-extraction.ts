@@ -2,12 +2,15 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { EquipmentKind } from "@/generated/prisma/enums";
 
-/** Claude Sonnet 5 -- confirmed against the AI Gateway's own model catalog to support
- * both `pdf` and `image` input modalities in one code path, so the same call handles a
- * digital PDF report and a photographed/scanned one without a separate conversion step.
- * Via Vercel AI Gateway (plain "provider/model" string; resolves automatically via
+/** Same model already used for the phone agent's transcript parsing (lib/phone-agent-intake.ts)
+ * -- proven working on this account's Gateway tier. Originally tried anthropic/claude-sonnet-5,
+ * which supports pdf/image input too, but is gated behind a paid-credits tier on the Gateway
+ * ("Free tier users do not have access to this model", confirmed live in production logs) --
+ * gpt-4o-mini also supports both `pdf` and `image` input modalities, so the same call still
+ * handles a digital PDF report and a photographed/scanned one without a separate conversion
+ * step. Via Vercel AI Gateway (plain "provider/model" string; resolves automatically via
  * Vercel's OIDC token in production, needs AI_GATEWAY_API_KEY for local dev). */
-const MODEL = "anthropic/claude-sonnet-5";
+const MODEL = "openai/gpt-4o-mini";
 
 const EQUIPMENT_KIND_VALUES = Object.values(EquipmentKind) as [string, ...string[]];
 
