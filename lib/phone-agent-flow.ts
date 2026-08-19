@@ -68,9 +68,13 @@ export async function ensureFallbackCall(
   });
 }
 
-/** The DTMF phone-tree prompt. Every branch (including a no-digit timeout) converges on
- * the same <Record> step in gather/route.ts -- this only decides which greeting plays and
- * what phoneTreeSelection gets recorded. */
+/** The phone-tree prompt -- listens for BOTH speech and DTMF at once (Twilio's Gather
+ * `input: ["speech", "dtmf"]`), so a caller can either say why they're calling (routed
+ * through the Dialogflow agent, see lib/dialogflow.ts) or press a digit (the original,
+ * still fully-supported path -- kept as a guaranteed fallback for anyone who'd rather not
+ * talk, or whose speech doesn't get recognized). Every branch, including a total timeout
+ * with neither, converges on the same <Record> step in gather/route.ts -- this only
+ * decides which greeting plays and what phoneTreeSelection eventually gets recorded. */
 export function phoneTreeTwiml(
   settings: Pick<OrgPhoneAgentSettings, "afterHoursGreeting" | "busyOverflowGreeting">,
   routedAs: PhoneAgentRouteReason,
@@ -81,12 +85,19 @@ export function phoneTreeTwiml(
   const greeting = configuredGreeting ?? defaultGreeting;
 
   const response = new VoiceResponse();
-  const gather = response.gather({ numDigits: 1, action: gatherActionUrl, method: "POST", timeout: 8 });
+  const gather = response.gather({
+    input: ["speech", "dtmf"],
+    numDigits: 1,
+    speechTimeout: "auto",
+    action: gatherActionUrl,
+    method: "POST",
+    timeout: 8,
+  });
   gather.say(
-    `${greeting} For a new service request, press 1. If you're an existing customer, press 2. If this is urgent, press 3. To leave a message, press 4.`,
+    `${greeting} Briefly tell me why you're calling, or press 1 for a new service request, 2 if you're an existing customer, 3 if this is urgent, or 4 to leave a message.`,
   );
-  // If Gather's own timeout elapses with no digits pressed, Twilio still calls
-  // `action` with empty Digits -- gather/route.ts treats that the same as pressing 4.
+  // If Gather's own timeout elapses with neither speech nor a digit, Twilio still calls
+  // `action` with both empty -- gather/route.ts treats that the same as pressing 4.
   return response.toString();
 }
 

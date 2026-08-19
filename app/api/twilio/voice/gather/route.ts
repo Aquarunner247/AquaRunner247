@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyTwilioSignature, publicRequestUrl, readTwilioParams } from "@/lib/twilio-verify";
 import { unavailableTwiml, recordTwiml } from "@/lib/phone-agent-flow";
+import { detectIntent } from "@/lib/dialogflow";
 import type { PhoneAgentPhoneTreeSelection } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
@@ -13,9 +14,8 @@ function xmlResponse(body: string) {
 const DEFAULT_MAX_RECORD_SECONDS = 120;
 
 /** 1=new request, 2=existing customer, 3=urgent, 4=leave a message. Anything else
- * (invalid digit, or no digit -- Gather's own timeout still calls this action with empty
- * Digits) defaults to MESSAGE rather than failing the call. */
-function mapDigitToSelection(digits: string | undefined): PhoneAgentPhoneTreeSelection {
+ * (invalid digit, or no digit) defaults to MESSAGE rather than failing the call. */
+function mapDigitToSelection(digits: string): PhoneAgentPhoneTreeSelection {
   switch (digits) {
     case "1":
       return "NEW_REQUEST";
@@ -29,9 +29,11 @@ function mapDigitToSelection(digits: string | undefined): PhoneAgentPhoneTreeSel
 }
 
 /**
- * Handles the DTMF digit pressed in the phone tree (or its absence, on Gather timeout).
- * Every branch converges on the same <Record> step -- the digit only decides what gets
- * stored as phoneTreeSelection and a short tailored prompt before recording.
+ * Handles whatever the caller gave the phone-tree Gather step -- a DTMF digit (checked
+ * first, since it's the original, still fully-supported path) or spoken words (routed
+ * through the Dialogflow ES agent -- see lib/dialogflow.ts), or neither on a total
+ * timeout. Every branch converges on the same <Record> step; the selection only decides
+ * what gets stored as phoneTreeSelection and a short tailored prompt before recording.
  */
 export async function POST(req: Request) {
   const url = publicRequestUrl(req);
@@ -53,15 +55,30 @@ export async function POST(req: Request) {
   const settings = await prisma.orgPhoneAgentSettings.findUnique({ where: { organizationId: call.organizationId } });
   const maxSeconds = settings?.maxCallDurationSeconds ?? DEFAULT_MAX_RECORD_SECONDS;
 
-  const selection = mapDigitToSelection(params.Digits);
+  let selection: PhoneAgentPhoneTreeSelection;
+  let spokenConfirmation: string | null = null;
+
+  if (params.Digits) {
+    selection = mapDigitToSelection(params.Digits);
+  } else if (params.SpeechResult) {
+    const result = await detectIntent(callSid, params.SpeechResult);
+    selection = result?.selection ?? "MESSAGE";
+    spokenConfirmation = result?.fulfillmentText ?? null;
+  } else {
+    // Gather's own timeout elapsed with neither a digit nor speech -- same default as an
+    // unrecognized digit.
+    selection = "MESSAGE";
+  }
+
   await prisma.phoneAgentCall.update({ where: { id: call.id }, data: { phoneTreeSelection: selection } });
 
   const recordUrl = new URL("/api/twilio/voice/recording", url);
   const transcribeUrl = new URL("/api/twilio/voice/transcription", url);
-  const prompt =
+  const instructions =
     selection === "URGENT"
       ? "Please describe the urgent issue and your address after the tone. We'll prioritize a callback."
       : "Please describe your request, including your name, address, and a good callback number, after the tone.";
+  const prompt = spokenConfirmation ? `${spokenConfirmation} ${instructions}` : instructions;
   const twiml = recordTwiml(recordUrl.toString(), transcribeUrl.toString(), maxSeconds, prompt);
   return xmlResponse(twiml);
 }
