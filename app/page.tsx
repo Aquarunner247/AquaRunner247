@@ -58,7 +58,7 @@ const FEATURES = [
   {
     n: "08",
     title: "Inspections tracked pool by pool",
-    body: "Log the current inspector's contact info, the last inspection date, and upload the actual report — per body of water, since a property with more than one pool doesn't get inspected all at once. HOA community manager contacts live right alongside it.",
+    body: "Log the current inspector's contact info, the last inspection date, and upload the actual report — per body of water, since properties with more than one pool don't always get inspected on the same day. HOA community manager contacts live right alongside it.",
   },
 ];
 
