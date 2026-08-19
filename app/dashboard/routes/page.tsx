@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ScheduleFrequency } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -28,6 +29,19 @@ export default async function RoutesPage() {
     where: { organizationId: appUser.organizationId, active: true },
     orderBy: { name: "asc" },
     select: { id: true, name: true, email: true },
+  });
+
+  const propertiesMissingCoordinates = await prisma.property.findMany({
+    where: { organizationId: appUser.organizationId, OR: [{ latitude: null }, { longitude: null }] },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      addressLine1: true,
+      city: true,
+      region: true,
+      customer: { select: { name: true } },
+    },
   });
 
   const routes = await prisma.recurringRoute.findMany({
@@ -106,6 +120,32 @@ export default async function RoutesPage() {
           </p>
         </form>
       </header>
+
+      {propertiesMissingCoordinates.length > 0 ? (
+        <section className="app-card mt-6 border-l-4 border-l-brand-warn">
+          <p className="text-sm font-semibold text-brand-ink">
+            {propertiesMissingCoordinates.length} propert{propertiesMissingCoordinates.length === 1 ? "y" : "ies"} missing map coordinates
+          </p>
+          <p className="mt-1 text-xs text-brand-muted">
+            The bulk geocode button above guesses from the street address, which can land on the wrong side of a large
+            property. Click one below to see it on a satellite map and drop the pin exactly on the pool.
+          </p>
+          <ul className="mt-3 divide-y divide-brand-border">
+            {propertiesMissingCoordinates.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="min-w-0 truncate text-brand-ink">
+                  <span className="font-medium">{p.name}</span>
+                  {p.customer?.name ? <span className="text-brand-muted"> — {p.customer.name}</span> : null}
+                  <span className="text-brand-muted"> · {[p.addressLine1, p.city, p.region].filter(Boolean).join(", ") || "No address on file"}</span>
+                </span>
+                <Link href={`/dashboard/routes/locate/${p.id}`} className="app-btn-secondary-sm shrink-0">
+                  Set on map →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="mt-6 space-y-5">
         {routes.map((route) => (

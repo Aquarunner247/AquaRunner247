@@ -312,3 +312,29 @@ export async function geocodeAllProperties() {
 
   revalidatePath("/dashboard/routes");
 }
+
+/** Saves a manually-picked pin from the satellite locator page -- always a real, deliberate
+ * click/drag, so this overwrites any existing (possibly address-level, not pool-exact)
+ * coordinates without further confirmation. */
+export async function setPropertyLocation(formData: FormData) {
+  const appUser = await requireAdmin();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  const latitude = Number(formData.get("latitude"));
+  const longitude = Number(formData.get("longitude"));
+  if (!propertyId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+  const property = await prisma.property.findFirst({
+    where: { id: propertyId, organizationId: appUser.organizationId },
+    select: { id: true, customerId: true },
+  });
+  if (!property) return;
+
+  await prisma.property.update({
+    where: { id: property.id },
+    data: { latitude, longitude },
+  });
+
+  revalidatePath("/dashboard/routes");
+  if (property.customerId) revalidatePath(`/dashboard/customers/${property.customerId}`);
+  redirect("/dashboard/routes");
+}
