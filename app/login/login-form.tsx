@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { hasStaffAccess } from "./actions";
+import { hasStaffAccess, getPostLoginPath } from "./actions";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -43,8 +43,9 @@ export function LoginForm() {
       setShowPortalLink(true);
       return;
     }
+    const postLoginPath = await getPostLoginPath();
     setLoading(false);
-    window.location.href = "/dashboard";
+    window.location.href = postLoginPath;
   }
 
   return (

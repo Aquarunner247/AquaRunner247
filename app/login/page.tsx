@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { resolvePostLoginPath } from "@/lib/auth/post-login-path";
 import { LoginForm } from "./login-form";
 
 type PageProps = {
@@ -11,7 +12,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const params = await searchParams;
 
   const appUser = await getCurrentAppUser();
-  if (appUser) redirect("/dashboard");
+  if (appUser) redirect(await resolvePostLoginPath(appUser));
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
