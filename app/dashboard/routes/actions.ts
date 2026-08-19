@@ -151,14 +151,12 @@ export async function duplicateRoute(formData: FormData) {
   });
   if (!source) return;
 
-  // "Unscheduled" means no route at all exists yet for that weekday -- checked here too,
-  // not just filtered out of the dropdown, so this can't be bypassed by stale page state.
-  const targetAlreadyHasRoute = await prisma.recurringRoute.findFirst({
-    where: { organizationId: appUser.organizationId, dayOfWeek: targetDayOfWeek },
-    select: { id: true },
-  });
-  if (targetAlreadyHasRoute) return;
-
+  // Any day is a valid target, including one that already has a route (for this or
+  // another technician) -- createRoute already allows more than one route per weekday
+  // per org (e.g. two technicians each running their own Monday route), so restricting
+  // duplication to unscheduled-only days was inconsistent with what manual creation
+  // already supports. This just adds another route for that day, same as creating one
+  // by hand would.
   await prisma.recurringRoute.create({
     data: {
       organizationId: appUser.organizationId,

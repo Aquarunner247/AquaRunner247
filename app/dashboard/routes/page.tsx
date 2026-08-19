@@ -102,9 +102,6 @@ export default async function RoutesPage() {
     );
   }
 
-  const daysWithRoute = new Set(routes.map((r) => r.dayOfWeek ?? 0));
-  const unscheduledDays = [1, 2, 3, 4, 5, 6, 7].filter((d) => !daysWithRoute.has(d));
-
   return (
     <main className="app-page-wide">
       <header className="app-page-head">
@@ -188,24 +185,22 @@ export default async function RoutesPage() {
                 </form>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {unscheduledDays.length > 0 ? (
-                  <form action={duplicateRoute} className="flex items-center gap-1.5">
-                    <input type="hidden" name="routeId" value={route.id} />
-                    <select name="targetDayOfWeek" required defaultValue="" className="app-field w-auto py-1 text-xs">
-                      <option value="" disabled>
-                        Duplicate to…
+                <form action={duplicateRoute} className="flex items-center gap-1.5">
+                  <input type="hidden" name="routeId" value={route.id} />
+                  <select name="targetDayOfWeek" required defaultValue="" className="app-field w-auto py-1 text-xs">
+                    <option value="" disabled>
+                      Duplicate to…
+                    </option>
+                    {DAY_NAMES.slice(1).map((d, i) => (
+                      <option key={d} value={i + 1}>
+                        {d}
                       </option>
-                      {unscheduledDays.map((d) => (
-                        <option key={d} value={d}>
-                          {DAY_NAMES[d]}
-                        </option>
-                      ))}
-                    </select>
-                    <button type="submit" className="app-btn-secondary-sm">
-                      Duplicate
-                    </button>
-                  </form>
-                ) : null}
+                    ))}
+                  </select>
+                  <button type="submit" className="app-btn-secondary-sm">
+                    Duplicate
+                  </button>
+                </form>
                 <form action={deleteRoute}>
                   <input type="hidden" name="routeId" value={route.id} />
                   <ConfirmSubmitButton
