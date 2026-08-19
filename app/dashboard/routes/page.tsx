@@ -7,11 +7,11 @@ import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compl
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
 import { WaveProgress } from "@/app/components/wave-progress";
+import { RouteStopsList } from "./route-stops-list";
 import {
   createRoute,
   deleteRoute,
   addRouteStop,
-  removeRouteStop,
   geocodeAllProperties,
   updateRouteTechnician,
   updateRouteCapacity,
@@ -228,25 +228,15 @@ export default async function RoutesPage() {
               </div>
             ) : null}
 
-            <ol className="mt-3 space-y-2">
-              {route.stops.map((stop, idx) => (
-                <li key={stop.id} className="app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span>
-                    <span className="font-semibold text-brand-primaryHover">{idx + 1}.</span> {stop.property.name} — {stop.bodyOfWater?.name ?? "Property-level"}
-                    {stop.etaOffsetMinutes ? ` · +${stop.etaOffsetMinutes} min` : ""}
-                  </span>
-                  <form action={removeRouteStop}>
-                    <input type="hidden" name="stopId" value={stop.id} />
-                    <ConfirmSubmitButton
-                      label="Remove"
-                      confirmMessage="Remove this stop from the route?"
-                      className="app-btn-ghost-sm"
-                    />
-                  </form>
-                </li>
-              ))}
-              {route.stops.length === 0 ? <p className="text-sm text-brand-muted">No stops yet.</p> : null}
-            </ol>
+            <RouteStopsList
+              routeId={route.id}
+              stops={route.stops.map((stop) => ({
+                id: stop.id,
+                propertyName: stop.property.name,
+                bodyName: stop.bodyOfWater?.name ?? null,
+                etaOffsetMinutes: stop.etaOffsetMinutes,
+              }))}
+            />
 
             <form action={addRouteStop} className="app-card-inset mt-3 flex flex-wrap items-center gap-2">
               <input type="hidden" name="routeId" value={route.id} />

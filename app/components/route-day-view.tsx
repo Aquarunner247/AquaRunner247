@@ -6,6 +6,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_PRIMARY } from "@/app/lib/chart-colors";
+import { useDragReorder } from "@/lib/client/use-drag-reorder";
 
 export type RouteStop = {
   id: string;
@@ -187,7 +188,6 @@ export function RouteDayView({
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
-  const dragIndex = useRef<number | null>(null);
   const visitsRef = useRef<RouteStop[]>(initialVisits);
   const notifiedRef = useRef<Set<string>>(new Set());
 
@@ -346,15 +346,7 @@ export function RouteDayView({
     }
   }
 
-  function onDrop(index: number) {
-    const from = dragIndex.current;
-    dragIndex.current = null;
-    if (from == null || from === index) return;
-    const next = [...visits];
-    const [moved] = next.splice(from, 1);
-    next.splice(index, 0, moved);
-    void persistOrder(next);
-  }
+  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(visits, persistOrder, effectiveReadOnly);
 
   async function toggleSkip(visit: RouteStop) {
     const nextStatus = visit.status === "CANCELLED" ? "SCHEDULED" : "CANCELLED";
@@ -477,6 +469,7 @@ export function RouteDayView({
               const idx = trueIndexById.get(v.id) ?? 0;
               const isSkipped = v.status === "CANCELLED";
               const techGroup = technicianGroupStarts.get(v.id);
+              const { className: handleTouchClass, ...handleProps } = dragHandleProps(idx);
               return (
                 <Fragment key={v.id}>
                   {techGroup ? (
@@ -486,16 +479,21 @@ export function RouteDayView({
                     </li>
                   ) : null}
                   <li
-                    draggable={!effectiveReadOnly}
-                    onDragStart={() => {
-                      dragIndex.current = idx;
-                    }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => onDrop(idx)}
+                    ref={setItemRef(idx)}
                     className={`flex items-center gap-3 rounded border p-2 ${
                       isSkipped ? "border-brand-danger bg-brand-dangerFill" : "border-brand-border bg-white"
-                    } ${!effectiveReadOnly ? "cursor-move" : ""}`}
+                    } ${draggingIndex === idx ? "opacity-60" : ""}`}
                   >
+                    {!effectiveReadOnly ? (
+                      <span
+                        {...handleProps}
+                        aria-label="Drag to reorder"
+                        title="Drag to reorder"
+                        className={`${handleTouchClass} shrink-0 cursor-grab select-none text-brand-muted active:cursor-grabbing`}
+                      >
+                        ⠿
+                      </span>
+                    ) : null}
                     <span
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
                         isSkipped ? "bg-brand-danger" : isMultiTech ? "" : "bg-brand-primary"

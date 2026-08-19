@@ -1,0 +1,85 @@
+"use client";
+
+import { useState } from "react";
+import { useDragReorder } from "@/lib/client/use-drag-reorder";
+import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
+import { removeRouteStop } from "./actions";
+
+export type RouteStopItem = {
+  id: string;
+  propertyName: string;
+  bodyName: string | null;
+  etaOffsetMinutes: number;
+};
+
+type Props = {
+  routeId: string;
+  stops: RouteStopItem[];
+};
+
+export function RouteStopsList({ routeId, stops: initialStops }: Props) {
+  const [stops, setStops] = useState(initialStops);
+  const [saving, setSaving] = useState(false);
+
+  async function persistOrder(next: RouteStopItem[]) {
+    setStops(next);
+    setSaving(true);
+    try {
+      await fetch(`/api/routes/${routeId}/stops/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stopIds: next.map((s) => s.id) }),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(stops, persistOrder);
+
+  if (stops.length === 0) {
+    return <p className="text-sm text-brand-muted">No stops yet.</p>;
+  }
+
+  return (
+    <ol className="mt-3 space-y-2">
+      {stops.map((stop, idx) => {
+        const { className: handleTouchClass, ...handleProps } = dragHandleProps(idx);
+        return (
+        <li
+          key={stop.id}
+          ref={setItemRef(idx)}
+          className={`app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm ${
+            draggingIndex === idx ? "opacity-60" : ""
+          }`}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              {...handleProps}
+              aria-label={`Drag to reorder ${stop.propertyName}`}
+              title="Drag to reorder"
+              className={`${handleTouchClass} shrink-0 cursor-grab select-none px-1 text-brand-muted active:cursor-grabbing`}
+            >
+              ⠿
+            </span>
+            <span className="min-w-0 truncate">
+              <span className="font-semibold text-brand-primaryHover">{idx + 1}.</span> {stop.propertyName} —{" "}
+              {stop.bodyName ?? "Property-level"}
+              {stop.etaOffsetMinutes ? ` · +${stop.etaOffsetMinutes} min` : ""}
+            </span>
+          </span>
+          <form action={removeRouteStop}>
+            <input type="hidden" name="stopId" value={stop.id} />
+            <ConfirmSubmitButton
+              label="Remove"
+              confirmMessage="Remove this stop from the route?"
+              className="app-btn-ghost-sm"
+            />
+          </form>
+        </li>
+        );
+      })}
+      {saving ? <p className="text-xs text-brand-muted">Saving order…</p> : null}
+    </ol>
+  );
+}
