@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { removeRouteStop } from "./actions";
@@ -20,6 +20,14 @@ type Props = {
 export function RouteStopsList({ routeId, stops: initialStops }: Props) {
   const [stops, setStops] = useState(initialStops);
   const [saving, setSaving] = useState(false);
+
+  // The server re-sends a fresh `stops` prop after add/remove-stop actions revalidate
+  // this page, but React reuses this already-mounted instance rather than remounting it,
+  // so the initial useState seed above never sees that update on its own -- without this,
+  // a newly added (or removed) stop wouldn't show up until a manual page reload.
+  useEffect(() => {
+    setStops(initialStops);
+  }, [initialStops]);
 
   async function persistOrder(next: RouteStopItem[]) {
     setStops(next);
