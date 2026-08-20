@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
+import { RouteBuilderMap } from "@/app/components/route-builder-map";
 import { removeRouteStop } from "./actions";
 
 export type RouteStopItem = {
@@ -10,6 +11,8 @@ export type RouteStopItem = {
   propertyName: string;
   bodyName: string | null;
   etaOffsetMinutes: number;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 type Props = {
@@ -50,44 +53,54 @@ export function RouteStopsList({ routeId, stops: initialStops }: Props) {
   }
 
   return (
-    <ol className="mt-3 space-y-2">
-      {stops.map((stop, idx) => {
-        const handleProps = dragHandleProps(idx);
-        return (
-        <li
-          key={stop.id}
-          ref={setItemRef(idx)}
-          className={`app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm ${
-            draggingIndex === idx ? "opacity-60" : ""
-          }`}
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <span
-              {...handleProps}
-              aria-label={`Drag to reorder ${stop.propertyName}`}
-              title="Drag to reorder"
-              className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-brand-muted cursor-grab select-none active:cursor-grabbing"
-            >
-              ⠿
+    <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_360px]">
+      <ol className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+        {stops.map((stop, idx) => {
+          const handleProps = dragHandleProps(idx);
+          return (
+          <li
+            key={stop.id}
+            ref={setItemRef(idx)}
+            className={`app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm ${
+              draggingIndex === idx ? "opacity-60" : ""
+            }`}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <span
+                {...handleProps}
+                aria-label={`Drag to reorder ${stop.propertyName}`}
+                title="Drag to reorder"
+                className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-brand-muted cursor-grab select-none active:cursor-grabbing"
+              >
+                ⠿
+              </span>
+              <span className="min-w-0 truncate">
+                <span className="font-semibold text-brand-primaryHover">{idx + 1}.</span> {stop.propertyName} —{" "}
+                {stop.bodyName ?? "Property-level"}
+                {stop.etaOffsetMinutes ? ` · +${stop.etaOffsetMinutes} min` : ""}
+              </span>
             </span>
-            <span className="min-w-0 truncate">
-              <span className="font-semibold text-brand-primaryHover">{idx + 1}.</span> {stop.propertyName} —{" "}
-              {stop.bodyName ?? "Property-level"}
-              {stop.etaOffsetMinutes ? ` · +${stop.etaOffsetMinutes} min` : ""}
-            </span>
-          </span>
-          <form action={removeRouteStop}>
-            <input type="hidden" name="stopId" value={stop.id} />
-            <ConfirmSubmitButton
-              label="Remove"
-              confirmMessage="Remove this stop from the route?"
-              className="app-btn-ghost-sm"
-            />
-          </form>
-        </li>
-        );
-      })}
-      {saving ? <p className="text-xs text-brand-muted">Saving order…</p> : null}
-    </ol>
+            <form action={removeRouteStop}>
+              <input type="hidden" name="stopId" value={stop.id} />
+              <ConfirmSubmitButton
+                label="Remove"
+                confirmMessage="Remove this stop from the route?"
+                className="app-btn-ghost-sm"
+              />
+            </form>
+          </li>
+          );
+        })}
+        {saving ? <p className="text-xs text-brand-muted">Saving order…</p> : null}
+      </ol>
+      <RouteBuilderMap
+        stops={stops.map((stop) => ({
+          id: stop.id,
+          label: `${stop.propertyName} — ${stop.bodyName ?? "Property-level"}`,
+          latitude: stop.latitude,
+          longitude: stop.longitude,
+        }))}
+      />
+    </div>
   );
 }

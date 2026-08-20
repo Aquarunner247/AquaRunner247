@@ -52,7 +52,7 @@ export default async function RoutesPage() {
       stops: {
         orderBy: { sortOrder: "asc" },
         include: {
-          property: { select: { name: true } },
+          property: { select: { name: true, latitude: true, longitude: true } },
           bodyOfWater: { select: { name: true } },
         },
       },
@@ -230,6 +230,8 @@ export default async function RoutesPage() {
                 propertyName: stop.property.name,
                 bodyName: stop.bodyOfWater?.name ?? null,
                 etaOffsetMinutes: stop.etaOffsetMinutes,
+                latitude: stop.property.latitude != null ? Number(stop.property.latitude) : null,
+                longitude: stop.property.longitude != null ? Number(stop.property.longitude) : null,
               }))}
             />
 
