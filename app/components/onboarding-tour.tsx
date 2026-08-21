@@ -24,16 +24,42 @@ const POLL_INTERVAL_MS = 100;
 const POLL_ATTEMPTS = 10;
 const BUBBLE_WIDTH_FALLBACK = 320;
 const BUBBLE_HEIGHT_FALLBACK = 150;
+// Leaflet's own panes use z-index up to 1000 (leaflet.css) -- comfortably clear of that so a
+// map elsewhere on the page never paints over the tour.
+const TOUR_Z_INDEX = 2000;
+
+function queryStep(step: TourStep): Element | null {
+  return document.querySelector(`[data-tour="${step.target}"]`);
+}
+
+function waitForStep(step: TourStep): Promise<boolean> {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    function poll() {
+      if (queryStep(step)) {
+        resolve(true);
+        return;
+      }
+      attempts += 1;
+      if (attempts >= POLL_ATTEMPTS) {
+        resolve(false);
+        return;
+      }
+      setTimeout(poll, POLL_INTERVAL_MS);
+    }
+    poll();
+  });
+}
 
 /**
  * Generic popup-callout tour engine -- no role-specific knowledge, just walks `steps`
  * pointing at `[data-tour="..."]` elements. Portals to document.body (like
  * camera-capture.tsx) since dashboard pages are full of backdrop-blur cards, which
- * break `position: fixed` for descendants. Missing targets (empty-state cards, slow
- * client data) are skipped rather than crashing or showing a spotlight on nothing.
+ * break `position: fixed` for descendants.
  */
 export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
   const [mounted, setMounted] = useState(false);
+  const [resolvedSteps, setResolvedSteps] = useState<TourStep[] | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -41,63 +67,65 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
 
   useEffect(() => setMounted(true), []);
 
-  const step = steps[stepIndex];
-
   const finish = useCallback(() => {
     void markSeenAction();
     onFinish();
   }, [markSeenAction, onFinish]);
 
+  // Resolve which of this page's steps actually have a present target before showing
+  // anything, so the visible tour is numbered "1 of N" against only the steps that will
+  // really appear on this load -- rather than silently starting mid-count when an early
+  // step (e.g. a conditional banner) doesn't apply right now. A step whose target never
+  // shows up is left out entirely instead of pinning a spotlight to nothing.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const present: TourStep[] = [];
+      for (const step of steps) {
+        const found = await waitForStep(step);
+        if (cancelled) return;
+        if (found) present.push(step);
+      }
+      if (cancelled) return;
+      if (present.length === 0) {
+        finish();
+        return;
+      }
+      setResolvedSteps(present);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [steps]);
+
+  const step = resolvedSteps?.[stepIndex];
+
   const goNext = useCallback(() => {
-    if (stepIndex + 1 >= steps.length) {
+    if (!resolvedSteps) return;
+    if (stepIndex + 1 >= resolvedSteps.length) {
       finish();
     } else {
       setStepIndex(stepIndex + 1);
     }
-  }, [stepIndex, steps.length, finish]);
+  }, [stepIndex, resolvedSteps, finish]);
 
-  // Find (and keep tracking) the current step's target element. Polls briefly since some
-  // anchors mount after client data loads; auto-advances past a step whose target never
-  // shows up rather than pinning a spotlight to nothing.
+  // Track the current (already-confirmed-present) step's target position through resize/scroll.
   useEffect(() => {
-    let cancelled = false;
-    let attempts = 0;
-    let pollTimer: ReturnType<typeof setTimeout> | undefined;
-    setRect(null);
-
-    const selector = `[data-tour="${step.target}"]`;
-
+    if (!step) return;
+    const currentStep = step;
     function updateRect() {
-      const el = document.querySelector(selector);
+      const el = queryStep(currentStep);
       if (el) setRect(el.getBoundingClientRect());
     }
-
-    function poll() {
-      if (cancelled) return;
-      const el = document.querySelector(selector);
-      if (el) {
-        setRect(el.getBoundingClientRect());
-        window.addEventListener("resize", updateRect);
-        document.addEventListener("scroll", updateRect, true);
-        return;
-      }
-      attempts += 1;
-      if (attempts >= POLL_ATTEMPTS) {
-        goNext();
-        return;
-      }
-      pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
-    }
-    poll();
-
+    updateRect();
+    window.addEventListener("resize", updateRect);
+    document.addEventListener("scroll", updateRect, true);
     return () => {
-      cancelled = true;
-      if (pollTimer) clearTimeout(pollTimer);
       window.removeEventListener("resize", updateRect);
       document.removeEventListener("scroll", updateRect, true);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIndex]);
+  }, [step]);
 
   useLayoutEffect(() => {
     if (bubbleRef.current) {
@@ -113,7 +141,7 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [finish]);
 
-  if (!mounted || !rect) return null;
+  if (!mounted || !resolvedSteps || !step || !rect) return null;
 
   const placement = step.placement ?? "bottom";
   let top: number;
@@ -136,7 +164,7 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
   left = Math.min(Math.max(left, VIEWPORT_MARGIN), window.innerWidth - bubbleSize.width - VIEWPORT_MARGIN);
 
   return createPortal(
-    <div className="fixed inset-0 z-[60]">
+    <div className="fixed inset-0" style={{ zIndex: TOUR_Z_INDEX }}>
       <div
         className="app-tour-spotlight pointer-events-none fixed rounded-lg transition-all duration-150"
         style={{
@@ -155,7 +183,7 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
         style={{ top, left }}
       >
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
-          Step {stepIndex + 1} of {steps.length}
+          Step {stepIndex + 1} of {resolvedSteps.length}
         </p>
         <h2 className="mt-1 font-display text-lg font-semibold text-brand-ink">{step.title}</h2>
         <p className="mt-1.5 text-sm text-brand-muted">{step.body}</p>
@@ -170,7 +198,7 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
               </button>
             ) : null}
             <button type="button" onClick={goNext} className="app-btn-accent-sm">
-              {stepIndex + 1 === steps.length ? "Got it" : "Next"}
+              {stepIndex + 1 === resolvedSteps.length ? "Got it" : "Next"}
             </button>
           </div>
         </div>
