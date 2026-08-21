@@ -152,7 +152,7 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
         <p className="mt-1 text-sm text-brand-muted">{customerUser.name ?? customerUser.email}</p>
       </header>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+      <div data-tour="portal-day-nav" className="mt-6 flex flex-wrap items-center justify-between gap-2">
         <div>
           {prevVisit ? (
             <Link href={`/portal?date=${toYmd(prevVisit.completedAt!)}`} className="app-btn-secondary-sm">
@@ -178,10 +178,14 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
         {visitsWithPhotoUrls.length === 0 ? (
           <p className="app-card text-sm text-brand-muted">No completed service visits on this day.</p>
         ) : (
-          visitsWithPhotoUrls.map((v) => {
+          visitsWithPhotoUrls.map((v, index) => {
             const qrEligible = complianceActive && v.property.propertyType !== "RESIDENTIAL";
             return (
-              <div key={v.id} className="rounded-lg border border-brand-border bg-white p-4 text-sm shadow-sm">
+              <div
+                key={v.id}
+                data-tour={index === 0 ? "portal-visit-card" : undefined}
+                className="rounded-lg border border-brand-border bg-white p-4 text-sm shadow-sm"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium text-brand-ink">
                     {v.property.name} — {v.bodyOfWater.name}
@@ -262,7 +266,7 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
                 ) : null}
 
                 {qrEligible ? (
-                  <div className="mt-3 border-t border-brand-border pt-3">
+                  <div data-tour="portal-qr-link" className="mt-3 border-t border-brand-border pt-3">
                     <a href={`/p/${v.bodyOfWater.publicSlug}`} target="_blank" rel="noreferrer" className="app-link text-sm font-medium">
                       View full history &amp; download readings for {v.bodyOfWater.name} →
                     </a>
@@ -274,7 +278,7 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
         )}
       </section>
 
-      <section className="mt-10 border-t border-brand-border pt-6">
+      <section data-tour="portal-upcoming" className="mt-10 border-t border-brand-border pt-6">
         <h2 className="text-lg font-semibold text-brand-ink">Upcoming service days</h2>
         <div className="mt-3 space-y-4">
           {upcomingByProperty.size === 0 ? (

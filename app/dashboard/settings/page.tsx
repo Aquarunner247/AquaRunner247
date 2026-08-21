@@ -4,6 +4,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { updateBusinessIdentity, updateComplianceProfile } from "./actions";
 import { US_STATES } from "@/lib/us-states";
 import { organizationHasCommercialPools } from "@/lib/compliance";
+import { ReplayTourButton } from "@/app/components/replay-tour-button";
 
 export default async function SettingsPage() {
   const appUser = await getCurrentAppUser();
@@ -29,6 +30,12 @@ export default async function SettingsPage() {
           information your own customers and inspectors see.
         </p>
       </header>
+
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-brand-ink">Getting-started tour</h2>
+        <p className="mt-1 text-sm text-brand-muted">Revisit the dashboard walkthrough shown when you first signed in.</p>
+        <ReplayTourButton returnTo="/dashboard" className="app-btn-secondary-sm mt-2" />
+      </section>
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         <form action={updateBusinessIdentity} className="space-y-3">

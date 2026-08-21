@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ReplayTourButton } from "@/app/components/replay-tour-button";
 
 function isActive(currentPath: string, href: string) {
   return currentPath === href || (href !== "/portal" && currentPath.startsWith(`${href}/`));
@@ -74,11 +75,15 @@ export function PortalNav() {
         </nav>
 
         <div className="border-t border-white/10 px-3 py-3">
+          <ReplayTourButton
+            returnTo="/portal"
+            className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-brand-border hover:bg-white/5 hover:text-white"
+          />
           <button
             type="button"
             onClick={() => void onSignOut()}
             disabled={signingOut}
-            className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-brand-accent hover:bg-white/5 disabled:opacity-60"
+            className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-brand-accent hover:bg-white/5 disabled:opacity-60"
           >
             {signingOut ? "Signing out..." : "Sign out"}
           </button>

@@ -437,6 +437,9 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  /// Null until the user finishes or skips their one-time onboarding tour.
+  onboardingTourSeenAt DateTime?
+
   assignedVisits                 ServiceVisit[]          @relation("VisitTechnician")
   assignedRoutes                 RecurringRoute[]        @relation("RouteTechnician")
   sentAlerts                     CustomerAlert[]
@@ -486,6 +489,9 @@ model CustomerUser {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Null until the customer finishes or skips their one-time portal onboarding tour.
+  onboardingTourSeenAt DateTime?
 
   @@index([customerId])
 }

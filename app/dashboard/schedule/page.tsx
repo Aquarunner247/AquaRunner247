@@ -201,7 +201,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
       <header className="bg-brand-ink px-4 pb-4 pt-6">
         <h1 className="font-[family-name:var(--font-display)] text-xl font-bold uppercase tracking-wide text-white">Schedule</h1>
 
-        <div className="mt-4 grid grid-cols-4 gap-1 rounded-lg bg-white/10 p-1">
+        <div data-tour="schedule-tabs" className="mt-4 grid grid-cols-4 gap-1 rounded-lg bg-white/10 p-1">
           {TABS.map((t) => (
             <Link
               key={t}
@@ -230,7 +230,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
         ) : null}
 
         {tab !== "week" ? (
-          <div className="mt-4 grid grid-cols-4 gap-2 rounded-lg bg-white/5 p-3 text-center text-white">
+          <div data-tour="schedule-stat-tiles" className="mt-4 grid grid-cols-4 gap-2 rounded-lg bg-white/5 p-3 text-center text-white">
             <Link href={statusHref("all")} className={statTileClass(statusFilter === "all")}>
               <p className="font-[family-name:var(--font-display)] text-2xl font-bold">{stats.total}</p>
               <p className="text-[10px] uppercase tracking-wide text-brand-border">Total Jobs</p>
@@ -299,7 +299,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             />
 
             {tab !== "map" ? (
-              <div className="app-card mt-4">
+              <div data-tour="schedule-extra-stops" className="app-card mt-4">
                 <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-brand-primary">Extra stops</p>
                 {adHocStops.length === 0 ? (
                   <p className="mt-2 text-sm text-brand-muted">No extra stops for this day.</p>

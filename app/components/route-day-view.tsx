@@ -457,6 +457,7 @@ export function RouteDayView({
           {!effectiveReadOnly ? (
             <button
               type="button"
+              data-tour="schedule-optimize-route"
               onClick={optimizeRoute}
               disabled={saving}
               className="app-btn-primary-sm mb-2"
@@ -480,6 +481,7 @@ export function RouteDayView({
                   ) : null}
                   <li
                     ref={setItemRef(idx)}
+                    data-tour={idx === 0 ? "schedule-first-stop" : undefined}
                     className={`flex items-center gap-3 rounded border p-2 ${
                       isSkipped ? "border-brand-danger bg-brand-dangerFill" : "border-brand-border bg-white"
                     } ${draggingIndex === idx ? "opacity-60" : ""}`}

@@ -427,7 +427,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ) : appUser.role === "ADMIN" && stats ? (
           <>
             {/* Quick stats — card grid */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div data-tour="admin-quick-stats" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <div className="app-card app-card-hover">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Customers</p>
                 <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.customers}</p>
@@ -459,7 +459,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             ) : null}
 
             {/* Week progress — the signature water-level motif, doing real work: share of this week's stops completed */}
-            <div className="app-card">
+            <div data-tour="admin-week-progress" className="app-card">
               <WaveProgress
                 percent={weekPercent}
                 label="This week's stops"
@@ -497,7 +497,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* Out-of-range readings — signature chemistry gauge instead of a plain number */}
-              <div className="app-card">
+              <div data-tour="admin-out-of-range" className="app-card">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Out-of-range readings (last 7 days)</p>
                 {outOfRangeReadings.length === 0 ? (
                   <p className="mt-2 text-sm text-brand-ink/60">Every commercial reading this week is in range.</p>
@@ -526,7 +526,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
 
               {/* Overdue stops */}
-              <div className="app-card">
+              <div data-tour="admin-overdue-stops" className="app-card">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Overdue stops</p>
                 {overdueVisits.length === 0 ? (
                   <p className="mt-2 text-sm text-brand-ink/60">Nothing overdue — every stop is on schedule.</p>
@@ -553,7 +553,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
 
             {/* Recent activity */}
-            <div className="app-card">
+            <div data-tour="admin-recent-activity" className="app-card">
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Recent activity</p>
               {activity.length === 0 ? (
                 <p className="mt-2 text-sm text-brand-ink/60">No recent activity yet — completed visits and new customers will show up here.</p>

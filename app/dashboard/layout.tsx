@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { prisma } from "@/lib/prisma";
 import { TechBottomNav } from "@/app/components/tech-bottom-nav";
+import { OnboardingTourLauncher } from "@/app/components/onboarding-tour-launcher";
 
 function toYmd(date: Date): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
@@ -38,6 +39,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           touching every page individually. */}
       {appUser.role === "TECHNICIAN" ? children : <div className="pb-20 md:pb-0">{children}</div>}
       {appUser.role === "TECHNICIAN" ? <TechBottomNav dateYmd={toYmd(new Date())} /> : null}
+      <OnboardingTourLauncher role={appUser.role} tourSeen={Boolean(appUser.onboardingTourSeenAt)} />
     </>
   );
 }

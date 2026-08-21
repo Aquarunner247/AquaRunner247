@@ -202,4 +202,10 @@
   .app-metric {
     @apply font-[family-name:var(--font-mono)] tabular-nums;
   }
+
+  /* Onboarding-tour spotlight: a single box-shadow dims the whole viewport except the
+     highlighted element, sourced from the brand palette (not a new hex) via color-mix. */
+  .app-tour-spotlight {
+    box-shadow: 0 0 0 9999px color-mix(in srgb, theme("colors.brand.ink") 55%, transparent);
+  }
 }
