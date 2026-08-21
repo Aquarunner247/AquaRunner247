@@ -7,6 +7,7 @@ import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_PRIMARY } from "@/app/lib/chart-colors";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
+import { fetchDrivingRoute } from "@/lib/routing";
 
 export type RouteStop = {
   id: string;
@@ -248,10 +249,10 @@ export function RouteDayView({
 
   // Initialize the map once
   useEffect(() => {
-    let cancelled = false;
+    const state = { cancelled: false };
     (async () => {
       const L = await import("leaflet");
-      if (cancelled || !mapDivRef.current || mapRef.current) return;
+      if (state.cancelled || !mapDivRef.current || mapRef.current) return;
       const map = L.map(mapDivRef.current).setView([36.17, -115.14], 10);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "&copy; OpenStreetMap contributors",
@@ -259,29 +260,29 @@ export function RouteDayView({
       }).addTo(map);
       mapRef.current = map;
       layerRef.current = L.layerGroup().addTo(map);
-      drawMarkers(L);
+      await drawMarkers(L, state);
     })();
     return () => {
-      cancelled = true;
+      state.cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function drawMarkers(L: typeof import("leaflet")) {
+  async function drawMarkers(L: typeof import("leaflet"), state: { cancelled: boolean }) {
     if (!mapRef.current || !layerRef.current) return;
     layerRef.current.clearLayers();
     const points: [number, number][] = [];
     // Multi-tech mode: one polyline per technician, built from that tech's contiguous
     // subsequence — safe because the "All Technicians" query is pre-ordered by technicianId,
     // so each tech's stops are already a contiguous run in `visits`.
-    let currentTechPolyline: [number, number][] = [];
-    let currentTechId: string | null | undefined = undefined;
-    const flushTechPolyline = () => {
-      if (isMultiTech && currentTechPolyline.length > 1 && currentTechId !== undefined) {
-        const color = technicianColors?.[currentTechId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR;
-        L.polyline(currentTechPolyline, { color, weight: 3, opacity: 0.45 }).addTo(layerRef.current!);
+    type Segment = { techId: string | null | undefined; points: [number, number][]; color: string; opacity: number };
+    const segments: Segment[] = [];
+    let currentSegment: Segment | null = null;
+    const flushSegment = () => {
+      if (isMultiTech && currentSegment && currentSegment.points.length > 1) {
+        segments.push(currentSegment);
       }
-      currentTechPolyline = [];
+      currentSegment = null;
     };
 
     displayedVisits.forEach((v) => {
@@ -303,31 +304,47 @@ export function RouteDayView({
       points.push([v.latitude, v.longitude]);
 
       if (isMultiTech) {
-        if (v.technicianId !== currentTechId) {
-          flushTechPolyline();
-          currentTechId = v.technicianId;
+        if (!currentSegment || v.technicianId !== currentSegment.techId) {
+          flushSegment();
+          currentSegment = { techId: v.technicianId, points: [], color, opacity: 0.45 };
         }
-        currentTechPolyline.push([v.latitude, v.longitude]);
+        currentSegment.points.push([v.latitude, v.longitude]);
       }
     });
-    flushTechPolyline();
+    flushSegment();
+
+    if (!isMultiTech && points.length > 1) {
+      segments.push({ techId: undefined, points, color: BRAND_PRIMARY, opacity: 0.6 });
+    }
+
+    // Draw a straight line immediately for instant feedback, then try to replace each
+    // segment with a real road-following route -- the free routing server this hits can
+    // be slow or occasionally rate-limited, so this degrades gracefully back to the
+    // straight line on any failure rather than leaving the map blank.
+    const straightLayers = segments.map((seg) => L.polyline(seg.points, { color: seg.color, weight: 3, opacity: seg.opacity }).addTo(layerRef.current!));
 
     if (points.length) {
-      if (!isMultiTech) {
-        L.polyline(points, { color: BRAND_PRIMARY, weight: 3, opacity: 0.6 }).addTo(layerRef.current!);
-      }
       mapRef.current.fitBounds(points, { padding: [30, 30] });
     }
+
+    await Promise.all(
+      segments.map(async (seg, i) => {
+        const road = await fetchDrivingRoute(seg.points.map(([latitude, longitude]) => ({ latitude, longitude })));
+        if (state.cancelled || !road || !layerRef.current) return;
+        straightLayers[i].remove();
+        L.polyline(road, { color: seg.color, weight: 3, opacity: seg.opacity }).addTo(layerRef.current);
+      }),
+    );
   }
 
   useEffect(() => {
-    let cancelled = false;
+    const state = { cancelled: false };
     (async () => {
       const L = await import("leaflet");
-      if (!cancelled) drawMarkers(L);
+      if (!state.cancelled) await drawMarkers(L, state);
     })();
     return () => {
-      cancelled = true;
+      state.cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visits, statusFilter]);
