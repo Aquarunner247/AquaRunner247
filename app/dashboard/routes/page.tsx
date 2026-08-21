@@ -119,7 +119,7 @@ export default async function RoutesPage() {
       </header>
 
       {propertiesMissingCoordinates.length > 0 ? (
-        <section className="app-card mt-6 border-l-4 border-l-brand-warn">
+        <section data-tour="routes-missing-coords" className="app-card mt-6 border-l-4 border-l-brand-warn">
           <p className="text-sm font-semibold text-brand-ink">
             {propertiesMissingCoordinates.length} propert{propertiesMissingCoordinates.length === 1 ? "y" : "ies"} missing map coordinates
           </p>
@@ -146,7 +146,11 @@ export default async function RoutesPage() {
 
       <section className="mt-6 space-y-5">
         {routes.map((route) => (
-          <div key={route.id} className="app-card-muted app-card-hover border-l-4 border-l-brand-primary">
+          <div
+            key={route.id}
+            data-tour={route.id === routes[0]?.id ? "routes-stop-list" : undefined}
+            className="app-card-muted app-card-hover border-l-4 border-l-brand-primary"
+          >
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-brand-border/70 pb-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-display text-lg font-semibold text-brand-ink">{DAY_NAMES[route.dayOfWeek ?? 0]}</h2>
@@ -270,7 +274,7 @@ export default async function RoutesPage() {
         {routes.length === 0 ? <p className="text-sm text-brand-muted">No routes yet.</p> : null}
       </section>
 
-      <form action={createRoute} className="app-card mt-6">
+      <form action={createRoute} data-tour="routes-add-form" className="app-card mt-6">
         <p className="text-sm font-semibold text-brand-ink">Add route</p>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           <select name="dayOfWeek" required defaultValue="1" className="app-field">

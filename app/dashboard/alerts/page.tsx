@@ -35,7 +35,7 @@ export default async function TechnicianAlertsPage() {
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-6 pb-24">
       <h1 className="font-display text-xl font-bold uppercase tracking-wide text-brand-ink">Alerts</h1>
 
-      <section className="app-card mt-4">
+      <section data-tour="tech-alerts-issues" className="app-card mt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Open issues you&rsquo;ve reported</p>
         {openIssues.length === 0 ? (
           <p className="mt-2 text-sm text-brand-ink/60">Nothing open right now.</p>
@@ -64,7 +64,7 @@ export default async function TechnicianAlertsPage() {
         )}
       </section>
 
-      <section className="app-card mt-4">
+      <section data-tour="tech-alerts-overdue" className="app-card mt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Overdue stops</p>
         {overdueVisits.length === 0 ? (
           <p className="mt-2 text-sm text-brand-ink/60">Nothing overdue — every stop is on schedule.</p>

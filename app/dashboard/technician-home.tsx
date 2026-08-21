@@ -79,6 +79,7 @@ export async function TechnicianHome({
       <div className="space-y-4 px-4 py-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 lg:px-8 lg:py-6">
         <Link
           href="/dashboard/schedule"
+          data-tour="tech-home-schedule-link"
           className="app-card flex items-center justify-between lg:col-span-2"
         >
           <div>
@@ -88,7 +89,7 @@ export async function TechnicianHome({
           <span className="text-xl text-brand-primary">›</span>
         </Link>
 
-        <section className="app-card lg:col-span-2">
+        <section data-tour="tech-home-earnings" className="app-card lg:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Estimated earnings</p>
           <div className="mt-3 grid grid-cols-2 gap-3 text-center">
             <div>
@@ -106,7 +107,7 @@ export async function TechnicianHome({
           <p className="mt-3 text-center text-xs text-brand-muted">Estimated — confirmed amount appears on your paycheck.</p>
         </section>
 
-        <section className="app-card">
+        <section data-tour="tech-home-week-stats" className="app-card">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">This week</p>
           <p className="text-xs text-brand-muted">
             {weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })} –{" "}
@@ -124,7 +125,7 @@ export async function TechnicianHome({
           </div>
         </section>
 
-        <section className="app-card">
+        <section data-tour="tech-home-month-stats" className="app-card">
           <div className="flex items-center justify-between">
             <Link href={`/dashboard?month=${toMonthParam(prevMonth)}`} className="rounded px-2 py-1 text-lg text-brand-primary" aria-label="Previous month">
               ‹

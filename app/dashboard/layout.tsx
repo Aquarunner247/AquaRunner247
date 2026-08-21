@@ -39,7 +39,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           touching every page individually. */}
       {appUser.role === "TECHNICIAN" ? children : <div className="pb-20 md:pb-0">{children}</div>}
       {appUser.role === "TECHNICIAN" ? <TechBottomNav dateYmd={toYmd(new Date())} /> : null}
-      <OnboardingTourLauncher role={appUser.role} tourSeen={Boolean(appUser.onboardingTourSeenAt)} />
+      <OnboardingTourLauncher role={appUser.role} seenPages={appUser.seenTourPages} />
     </>
   );
 }

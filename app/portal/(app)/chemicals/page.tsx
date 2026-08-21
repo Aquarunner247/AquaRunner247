@@ -41,7 +41,7 @@ export default async function PortalChemicalsPage() {
         </p>
       </header>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section data-tour="portal-chemicals-list" className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         {settings.length === 0 ? (
           <p className="text-sm text-brand-muted">No chemical products configured yet.</p>
         ) : (

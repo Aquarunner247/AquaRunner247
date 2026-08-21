@@ -23,7 +23,7 @@ export default async function ChecklistPage() {
       </header>
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <ul className="space-y-2">
+        <ul data-tour="checklist-list" className="space-y-2">
           {items.map((item, index) => (
             <li
               key={item.id}
@@ -69,7 +69,11 @@ export default async function ChecklistPage() {
           {items.length === 0 ? <p className="text-sm text-brand-muted">No checklist items yet.</p> : null}
         </ul>
 
-        <form action={createChecklistItem} className="mt-4 flex items-center gap-2 rounded border border-brand-border bg-brand-surface p-3">
+        <form
+          action={createChecklistItem}
+          data-tour="checklist-add-form"
+          className="mt-4 flex items-center gap-2 rounded border border-brand-border bg-brand-surface p-3"
+        >
           <input
             name="label"
             required

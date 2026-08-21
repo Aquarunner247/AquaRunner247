@@ -47,7 +47,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
         <p className="app-subhead">Add team members and customer portal logins, and manage their access.</p>
       </header>
 
-      <div className="app-tabs mt-6">
+      <div data-tour="users-tabs" className="app-tabs mt-6">
         <Link href="/dashboard/users?tab=staff" className={tabClass("staff")}>
           Staff
         </Link>
@@ -58,7 +58,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
 
       {tab === "staff" ? (
         <>
-          <section className="app-card-muted mt-4 text-sm">
+          <section data-tour="users-roles" className="app-card-muted mt-4 text-sm">
             <p className="font-medium text-brand-ink">Roles</p>
             <dl className="mt-2 space-y-2">
               <div>
@@ -97,7 +97,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
             </dl>
           </section>
 
-          <section className="app-card mt-4">
+          <section data-tour="users-team-list" className="app-card mt-4">
             <ul className="space-y-2">
               {users.map((u) => (
                 <li key={u.id} className="app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm">

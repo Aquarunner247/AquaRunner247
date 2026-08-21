@@ -569,7 +569,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       </div>
 
       {checklistItems.length > 0 ? (
-        <div className="app-card">
+        <div data-tour="visit-checklist" className="app-card">
           <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
             Service Checklist
           </h2>
@@ -601,7 +601,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         </div>
       ) : null}
 
-      <div className="app-card">
+      <div data-tour="visit-chemistry" className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
         <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
         <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional</p>
@@ -684,7 +684,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         </div>
       </div>
 
-      <div className="app-card" ref={doseSectionRef}>
+      <div data-tour="visit-doses" className="app-card" ref={doseSectionRef}>
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemical Doses</h2>
         {chemicalProducts.length === 0 ? (
           <p className="mt-2 text-sm text-brand-muted">
@@ -809,7 +809,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         </form>
       </div>
 
-      <div className="app-card">
+      <div data-tour="visit-photos" className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Photo Capture</h2>
         <p className="mt-1 text-sm text-brand-muted">
           At least 1 photo is required to complete this visit. Photos must be taken live with the camera — uploading an existing image isn&rsquo;t allowed.
@@ -833,7 +833,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         {uploadingPhoto ? <p className="mt-2 text-sm text-brand-muted">Uploading photo...</p> : null}
       </div>
 
-      <div className="app-card">
+      <div data-tour="visit-complete" className="app-card">
         <button
           type="button"
           onClick={() => void completeVisit()}

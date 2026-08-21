@@ -172,7 +172,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
         </p>
       ) : null}
 
-      <section className="app-card mt-6">
+      <section data-tour="chemicals-products" className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Chemical products</h2>
         <div className="mt-3 space-y-2">
           {products.map((p) => {
@@ -243,7 +243,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
       </section>
 
       {/* Dosing Product Catalog */}
-      <section className="app-card mt-6">
+      <section data-tour="chemicals-catalog" className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Dosing Product Catalog</h2>
         <p className="mt-1 text-sm text-brand-muted">
           Enable the products you actually use, set your price, and pick which one the dosing calculator defaults to when more
@@ -376,7 +376,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
 
       {/* Safety Data Sheets -- own section, not nested inside the settings form above
           (upload/remove need their own <form>s, and HTML doesn't allow nested forms). */}
-      <section className="app-card mt-6">
+      <section data-tour="chemicals-sds" className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Safety Data Sheets</h2>
         <p className="mt-1 text-sm text-brand-muted">
           Every product below links to its manufacturer&rsquo;s own published SDS where one was verified. If your actual
@@ -439,7 +439,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
       </section>
 
       {/* Usage / billing report */}
-      <section className="app-card mt-6">
+      <section data-tour="chemicals-usage" className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Usage &amp; billing by property</h2>
 
         <form className="mt-3 flex flex-wrap items-center gap-2" method="GET">

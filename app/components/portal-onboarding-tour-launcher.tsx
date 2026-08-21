@@ -1,25 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { OnboardingTour } from "./onboarding-tour";
-import { PORTAL_TOUR_STEPS } from "@/lib/onboarding-tour-steps";
-import { markPortalOnboardingTourSeen } from "@/lib/onboarding-actions";
+import { PORTAL_TOURS } from "@/lib/onboarding-tour-steps";
+import { markPortalOnboardingTourPageSeen } from "@/lib/onboarding-actions";
 
 type Props = {
-  tourSeen: boolean;
+  seenPages: string[];
 };
 
-export function PortalOnboardingTourLauncher({ tourSeen }: Props) {
+export function PortalOnboardingTourLauncher({ seenPages }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [closed, setClosed] = useState(false);
 
-  const forced = searchParams.get("tour") === "1";
+  useEffect(() => setClosed(false), [pathname]);
 
-  if (pathname !== "/portal" || closed || (!forced && tourSeen)) return null;
+  const forced = searchParams.get("tour") === "1";
+  const steps = PORTAL_TOURS[pathname] ?? null;
+
+  if (!steps || closed || (!forced && seenPages.includes(pathname))) return null;
 
   return (
-    <OnboardingTour steps={PORTAL_TOUR_STEPS} onFinish={() => setClosed(true)} markSeenAction={markPortalOnboardingTourSeen} />
+    <OnboardingTour
+      steps={steps}
+      onFinish={() => setClosed(true)}
+      markSeenAction={() => markPortalOnboardingTourPageSeen(pathname)}
+    />
   );
 }

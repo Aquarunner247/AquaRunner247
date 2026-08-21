@@ -19,7 +19,7 @@ export default async function PortalAlertsPage() {
         <h1 className="text-2xl font-semibold text-brand-ink">Alerts</h1>
       </header>
 
-      <section className="mt-6 space-y-3">
+      <section data-tour="portal-alerts-section" className="mt-6 space-y-3">
         {alerts.length ? (
           alerts.map((a) => (
             <div key={a.id} className="rounded-lg border border-brand-border bg-white p-4 text-sm shadow-sm">

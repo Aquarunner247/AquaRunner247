@@ -68,7 +68,7 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
         </div>
         <div className="flex items-center gap-3">
           {!showAddForm ? (
-            <Link href="/dashboard/customers?new=1" className="app-btn-primary-sm">
+            <Link href="/dashboard/customers?new=1" data-tour="customers-add" className="app-btn-primary-sm">
               + Add customer
             </Link>
           ) : null}
@@ -97,7 +97,7 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
         </section>
       ) : null}
 
-      <section className="mt-6 space-y-6">
+      <section data-tour="customers-list" className="mt-6 space-y-6">
         {customers.length === 0 ? (
           <p className="app-card-inset text-sm text-brand-muted">No customers yet.</p>
         ) : (

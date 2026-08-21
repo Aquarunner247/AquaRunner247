@@ -36,7 +36,7 @@ export default async function PortalDocumentsPage() {
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         {documentsWithUrls.length ? (
-          <ul className="space-y-1 text-sm text-brand-ink">
+          <ul data-tour="portal-documents-list" className="space-y-1 text-sm text-brand-ink">
             {documentsWithUrls.map((doc) => (
               <li
                 key={doc.id}
@@ -67,7 +67,11 @@ export default async function PortalDocumentsPage() {
           <p className="text-sm text-brand-muted">No documents yet.</p>
         )}
 
-        <form action={uploadDocumentAsCustomer} className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2">
+        <form
+          action={uploadDocumentAsCustomer}
+          data-tour="portal-documents-upload"
+          className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2"
+        >
           <input
             name="label"
             placeholder="Label (e.g. Pool Contract)"

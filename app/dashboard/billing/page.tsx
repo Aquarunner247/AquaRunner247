@@ -42,7 +42,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         {errorMessage ? <p className="mb-3 text-sm text-brand-danger">{errorMessage}</p> : null}
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <dl data-tour="billing-status" className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-xs uppercase tracking-wide text-brand-muted">Status</dt>
             <dd className="text-brand-ink">{organization ? STATUS_LABELS[organization.planStatus] : "—"}</dd>
@@ -62,7 +62,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
         </dl>
 
         {organization?.stripeCustomerId ? (
-          <form action={openBillingPortal} className="mt-4">
+          <form action={openBillingPortal} data-tour="billing-manage" className="mt-4">
             <button
               type="submit"
               className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-primaryHover"

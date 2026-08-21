@@ -11,7 +11,7 @@ export default async function PortalAppLayout({ children }: { children: React.Re
     <div className="min-h-screen bg-brand-surface md:flex">
       <PortalNav />
       <div className="min-w-0 flex-1">{children}</div>
-      <PortalOnboardingTourLauncher tourSeen={Boolean(customerUser.onboardingTourSeenAt)} />
+      <PortalOnboardingTourLauncher seenPages={customerUser.seenTourPages} />
     </div>
   );
 }

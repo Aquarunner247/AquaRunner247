@@ -277,7 +277,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
           ))}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-white/5 p-2">
+        <div data-tour="admin-schedule-tech-filter" className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-white/5 p-2">
           <TechnicianFilterSelect
             technicians={technicianOptions}
             selectedId={selectedTechnicianId}
@@ -311,7 +311,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
         ) : null}
 
         {tab !== "week" ? (
-          <div className="mt-4 rounded-xl bg-white/5 p-3 text-white">
+          <div data-tour="admin-schedule-stats" className="mt-4 rounded-xl bg-white/5 p-3 text-white">
             <div className="grid grid-cols-4 gap-2 text-center">
               <Link href={statusHref("all")} className={statTileClass(statusFilter === "all")}>
                 <p className="app-metric text-2xl font-bold">{stats.total}</p>

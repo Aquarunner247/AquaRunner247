@@ -50,7 +50,7 @@ export default async function CompliancePage() {
         </p>
       </header>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section data-tour="compliance-rules" className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         {!hasCommercialPools ? (
           <div className="text-sm text-brand-muted">
             <p className="font-medium text-brand-ink">Not applicable for this account</p>

@@ -55,7 +55,7 @@ export default async function PhoneAgentTicketsPage() {
           ) : null}
         </p>
         {!hasSettings?.twilioPhoneNumber || !hasSettings?.primaryPhoneNumber ? (
-          <p className="mt-3 rounded border border-brand-warn/30 bg-brand-warnFill px-3 py-2 text-sm text-brand-warn">
+          <p data-tour="phone-agent-setup" className="mt-3 rounded border border-brand-warn/30 bg-brand-warnFill px-3 py-2 text-sm text-brand-warn">
             Setup isn&rsquo;t finished yet — {!hasSettings?.twilioPhoneNumber ? "no Twilio number" : "no primary business number"} configured.{" "}
             {appUser.role === "ADMIN" ? (
               <Link href="/dashboard/settings/phone-agent" className="underline">
@@ -68,7 +68,7 @@ export default async function PhoneAgentTicketsPage() {
         ) : null}
       </header>
 
-      <section className="mt-6 space-y-3">
+      <section data-tour="phone-agent-calls" className="mt-6 space-y-3">
         {calls.length === 0 ? (
           <p className="app-card text-sm text-brand-muted">No calls yet.</p>
         ) : (
