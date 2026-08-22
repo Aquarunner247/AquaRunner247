@@ -8,6 +8,60 @@ type Props = {
   disabled?: boolean;
 };
 
+/** Below this Laplacian-variance score (computed on a downscaled grayscale copy of the
+ * capture) a photo is flagged as likely blurry. A heuristic, not a hard rule -- scene
+ * content affects the score too (e.g. a plain pool deck has fewer edges than a busy
+ * equipment pad), so this only ever warns, never blocks; "Use anyway" is always one tap
+ * away. Worth revisiting after real-world use if it's flagging too many good photos. */
+const BLUR_VARIANCE_THRESHOLD = 40;
+const ANALYSIS_WIDTH = 200;
+
+/** Laplacian-variance sharpness score of a captured frame: downscales to a small analysis
+ * canvas (blur detection doesn't need full resolution, and this keeps the convolution
+ * trivially fast), converts to grayscale, convolves with a 3x3 edge-detection kernel, and
+ * returns the variance of the result -- a photo with few/soft edges (blurry) scores low,
+ * one with lots of crisp edges (sharp) scores high. Returns null if analysis fails for any
+ * reason (e.g. canvas API unavailable) so callers can just skip the blur check entirely
+ * rather than block a real capture on a heuristic that couldn't run.
+ */
+function computeBlurScore(source: HTMLCanvasElement): number | null {
+  try {
+    const scale = ANALYSIS_WIDTH / source.width;
+    const height = Math.max(1, Math.round(source.height * scale));
+    const small = document.createElement("canvas");
+    small.width = ANALYSIS_WIDTH;
+    small.height = height;
+    const ctx = small.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(source, 0, 0, ANALYSIS_WIDTH, height);
+    const { data } = ctx.getImageData(0, 0, ANALYSIS_WIDTH, height);
+
+    const width = ANALYSIS_WIDTH;
+    const gray = new Float32Array(width * height);
+    for (let i = 0; i < width * height; i++) {
+      gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
+    }
+
+    let sum = 0;
+    let sumSq = 0;
+    let count = 0;
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = y * width + x;
+        const lap = 4 * gray[idx] - gray[idx - 1] - gray[idx + 1] - gray[idx - width] - gray[idx + width];
+        sum += lap;
+        sumSq += lap * lap;
+        count++;
+      }
+    }
+    if (count === 0) return null;
+    const mean = sum / count;
+    return sumSq / count - mean * mean;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * A real getUserMedia video stream, deliberately NOT an
  * `<input type="file" accept="image/*" capture="environment">` picker. `capture` is only
@@ -26,6 +80,7 @@ export function CameraCapture({ onCapture, disabled }: Props) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [preview, setPreview] = useState<{ dataUrl: string; isLikelyBlurry: boolean } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,6 +92,7 @@ export function CameraCapture({ onCapture, disabled }: Props) {
 
   async function openCamera() {
     setError(null);
+    setPreview(null);
     setOpen(true);
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Camera access isn't available in this browser.");
@@ -61,9 +117,13 @@ export function CameraCapture({ onCapture, disabled }: Props) {
     stopStream();
     setOpen(false);
     setError(null);
+    setPreview(null);
   }
 
-  async function capture() {
+  /** Draws the current frame and shows a review step (with a blur warning if it looks
+   * soft) instead of submitting immediately -- the stream stays alive so "Retake" is
+   * instant, no re-requesting camera permission. */
+  function capture() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || !streamRef.current || video.videoWidth === 0) return;
@@ -71,12 +131,25 @@ export function CameraCapture({ onCapture, disabled }: Props) {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    const blurScore = computeBlurScore(canvas);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
     setCapturing(false);
+    setPreview({ dataUrl, isLikelyBlurry: blurScore != null && blurScore < BLUR_VARIANCE_THRESHOLD });
+  }
+
+  function retake() {
+    setPreview(null);
+  }
+
+  async function confirmPhoto() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
     if (!blob) return;
     const file = new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
     stopStream();
     setOpen(false);
+    setPreview(null);
     await onCapture(file);
   }
 
@@ -102,7 +175,7 @@ export function CameraCapture({ onCapture, disabled }: Props) {
             // blur/filter/transform.
             <div className="fixed inset-0 z-50 flex flex-col bg-brand-ink" role="dialog" aria-modal="true" aria-label="Camera">
               <div className="flex items-center justify-between px-4 py-3">
-                <p className="text-sm font-semibold text-white">Take photo</p>
+                <p className="text-sm font-semibold text-white">{preview ? "Review photo" : "Take photo"}</p>
                 <button
                   type="button"
                   onClick={closeCamera}
@@ -115,6 +188,9 @@ export function CameraCapture({ onCapture, disabled }: Props) {
               <div className="relative min-h-0 flex-1 overflow-hidden">
                 {error ? (
                   <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white">{error}</div>
+                ) : preview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={preview.dataUrl} alt="Captured preview" className="h-full w-full object-cover" />
                 ) : (
                   // eslint-disable-next-line jsx-a11y/media-has-caption
                   <video ref={videoRef} playsInline autoPlay muted className="h-full w-full object-cover" />
@@ -122,14 +198,31 @@ export function CameraCapture({ onCapture, disabled }: Props) {
                 <canvas ref={canvasRef} className="hidden" />
               </div>
 
-              <div className="flex items-center justify-center px-4 py-6">
-                <button
-                  type="button"
-                  onClick={() => void capture()}
-                  disabled={!!error || capturing}
-                  aria-label="Capture photo"
-                  className="h-16 w-16 shrink-0 rounded-full border-4 border-white bg-white/20 transition active:bg-white/40 disabled:opacity-50"
-                />
+              {preview?.isLikelyBlurry ? (
+                <div className="mx-4 mb-3 rounded-lg border border-brand-warn/40 bg-brand-warnFill px-3 py-2 text-center text-sm font-medium text-brand-warn">
+                  This looks blurry — retake for a clearer shot?
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-center gap-4 px-4 py-6">
+                {preview ? (
+                  <>
+                    <button type="button" onClick={retake} className="app-btn-secondary-sm">
+                      Retake
+                    </button>
+                    <button type="button" onClick={() => void confirmPhoto()} className="app-btn-primary-sm">
+                      {preview.isLikelyBlurry ? "Use anyway" : "Use photo"}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={capture}
+                    disabled={!!error || capturing}
+                    aria-label="Capture photo"
+                    className="h-16 w-16 shrink-0 rounded-full border-4 border-white bg-white/20 transition active:bg-white/40 disabled:opacity-50"
+                  />
+                )}
               </div>
             </div>,
             document.body,
