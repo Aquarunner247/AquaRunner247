@@ -126,6 +126,27 @@ export function phoneTreeTwiml(
   return response.toString();
 }
 
+/** For a caller who flagged their call as urgent -- instead of funneling straight to
+ * voicemail like every other selection, tries the org's real business line one more time.
+ * `dialStatusUrl` should point at emergency-dial-status/route.ts, which falls back to
+ * <Record> (skipping the phone tree entirely, since we already know this is urgent) if
+ * this second attempt also goes unanswered. */
+export function emergencyRedialTwiml(
+  primaryPhoneNumber: string,
+  ringTimeoutSeconds: number,
+  dialStatusUrl: string,
+  spokenConfirmation: string | null,
+): string {
+  const response = new VoiceResponse();
+  const message = spokenConfirmation
+    ? `${spokenConfirmation} Let me try connecting you to our team right now.`
+    : "This sounds urgent -- let me try connecting you to our team right now.";
+  say(response, message);
+  const dial = response.dial({ timeout: ringTimeoutSeconds, action: dialStatusUrl, method: "POST" });
+  dial.number(primaryPhoneNumber);
+  return response.toString();
+}
+
 export function recordTwiml(
   recordActionUrl: string,
   transcribeCallbackUrl: string,
