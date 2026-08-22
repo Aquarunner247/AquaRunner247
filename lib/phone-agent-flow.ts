@@ -2,23 +2,43 @@ import twilio from "twilio";
 import { prisma } from "@/lib/prisma";
 import { resolveRouteReason } from "@/lib/phone-agent";
 import type { OrgPhoneAgentSettings, PhoneAgentRouteReason } from "@/generated/prisma/client";
+import type VoiceResponseNamespace from "twilio/lib/twiml/VoiceResponse";
 
 const { VoiceResponse } = twilio.twiml;
+
+/** Chosen in Dialogflow's voice picker, then matched to Twilio's <Say> support -- Twilio's
+ * Google Chirp3-HD offering only covers 8 voice names (Aoede, Charon, Fenrir, Kore, Leda,
+ * Orus, Puck, Zephyr) per locale, not Google's full Chirp3-HD roster, so the exact voice
+ * saved in Dialogflow (en-US-Chirp3-HD-Laomedeia) isn't available here -- Aoede was picked
+ * as the closest available match. Dialogflow's own voice setting has no effect on what
+ * callers actually hear: this app only uses Dialogflow's detectIntent for text-based intent
+ * classification, never its TTS/audio output -- all spoken audio comes from Twilio's <Say>. */
+const AGENT_VOICE = "Google.en-US-Chirp3-HD-Aoede" as const;
+/** 1.1x speaking rate / +3dB volume, as configured in Dialogflow -- applied here via SSML
+ * <prosody> since that's what actually reaches callers. rate uses Twilio/SSML's percentage
+ * format (Dialogflow's 1.1x multiplier -> "110%"), not Dialogflow's own rate scale. */
+const AGENT_PROSODY = { rate: "110%", volume: "+3dB" } as const;
+
+/** Speaks `text` in the configured agent voice/rate/volume. Works on both VoiceResponse
+ * itself and a <Gather> (both expose the same .say() shape) -- matches every call site in
+ * this file, which alternates between the two depending on whether the prompt needs to
+ * also collect input. */
+function say(container: InstanceType<typeof VoiceResponse> | VoiceResponseNamespace.Gather, text: string) {
+  container.say({ voice: AGENT_VOICE }, "").prosody(AGENT_PROSODY, text);
+}
 
 /** Defense-in-depth beyond the aiPhoneAgentEnabled flag itself -- every route falls back
  * to this if it somehow receives a call for a number with no enabled org attached. */
 export function unavailableTwiml(): string {
   const response = new VoiceResponse();
-  response.say("This service is not available. Goodbye.");
+  say(response, "This service is not available. Goodbye.");
   response.hangup();
   return response.toString();
 }
 
 export function capExceededTwiml(): string {
   const response = new VoiceResponse();
-  response.say(
-    "We're unable to take your call right now. Please call back during business hours, or try again later. Goodbye.",
-  );
+  say(response, "We're unable to take your call right now. Please call back during business hours, or try again later. Goodbye.");
   response.hangup();
   return response.toString();
 }
@@ -93,7 +113,8 @@ export function phoneTreeTwiml(
     method: "POST",
     timeout: 8,
   });
-  gather.say(
+  say(
+    gather,
     `${greeting} Tell me briefly why you're calling -- for example, a new service request, a question about your existing service, if this is urgent, or if you'd just like to leave a message.`,
   );
   // DTMF is still accepted (input includes "dtmf" above) as a silent fallback for anyone
@@ -112,7 +133,7 @@ export function recordTwiml(
   prompt: string,
 ): string {
   const response = new VoiceResponse();
-  response.say(prompt);
+  say(response, prompt);
   response.record({
     action: recordActionUrl,
     method: "POST",
@@ -148,7 +169,7 @@ export async function handleFallthrough(
 
 export function callCompleteTwiml(): string {
   const response = new VoiceResponse();
-  response.say("Thanks, we've got your message and will get back to you. Goodbye.");
+  say(response, "Thanks, we've got your message and will get back to you. Goodbye.");
   response.hangup();
   return response.toString();
 }
