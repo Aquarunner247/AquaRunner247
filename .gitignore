@@ -40,6 +40,10 @@ yarn-error.log*
 *.json.key
 service-account*.json
 
+# Taylor Technologies' Water Chemistry testing/dosing book reference images -- local
+# reference material, likely copyrighted, never meant to be committed (this repo is public)
+/TaylorWC/
+
 # typescript
 *.tsbuildinfo
 
