@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
 
 export type TourStep = {
   /** Value of a `data-tour="..."` attribute on the element this step points at. */
@@ -24,9 +25,6 @@ const POLL_INTERVAL_MS = 100;
 const POLL_ATTEMPTS = 10;
 const BUBBLE_WIDTH_FALLBACK = 320;
 const BUBBLE_HEIGHT_FALLBACK = 150;
-// Leaflet's own panes use z-index up to 1000 (leaflet.css) -- comfortably clear of that so a
-// map elsewhere on the page never paints over the tour.
-const TOUR_Z_INDEX = 2000;
 
 function queryStep(step: TourStep): Element | null {
   return document.querySelector(`[data-tour="${step.target}"]`);
@@ -164,7 +162,7 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
   left = Math.min(Math.max(left, VIEWPORT_MARGIN), window.innerWidth - bubbleSize.width - VIEWPORT_MARGIN);
 
   return createPortal(
-    <div className="fixed inset-0" style={{ zIndex: TOUR_Z_INDEX }}>
+    <div className="fixed inset-0" style={{ zIndex: ABOVE_MAP_Z_INDEX }}>
       <div
         className="app-tour-spotlight pointer-events-none fixed rounded-lg transition-all duration-150"
         style={{
