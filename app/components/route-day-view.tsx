@@ -479,7 +479,7 @@ export function RouteDayView({
               disabled={saving}
               className="app-btn-primary-sm mb-2"
             >
-              Optimize route (straight-line)
+              Optimize stop order
             </button>
           ) : null}
           <ul className="space-y-2">
