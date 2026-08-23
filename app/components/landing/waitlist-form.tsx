@@ -58,7 +58,7 @@ export function WaitlistForm({
         <p>
           {status === "duplicate"
             ? "We have this address already — no need to sign up twice. We'll email you when AquaRunner is ready."
-            : "We'll email you when AquaRunner is ready for you — early access and founding-customer pricing at launch."}
+            : "We'll email you when AquaRunner is ready for you — first access to the 14-day free trial at launch."}
         </p>
       </div>
     );
@@ -90,7 +90,7 @@ export function WaitlistForm({
         {error}
       </p>
       <p className={styles.formNote} id={noteId}>
-        No spam. Just a note when we&rsquo;re ready for you.
+        We won&rsquo;t spam you. You&rsquo;ll only hear from us when it&rsquo;s time.
       </p>
     </form>
   );

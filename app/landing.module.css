@@ -1025,14 +1025,31 @@
   border-top: 1px solid var(--ink);
 }
 
+.featHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
 .featNum {
   font-family: var(--body);
   font-weight: 700;
   font-size: 0.72rem;
   letter-spacing: 0.18em;
   color: var(--cta);
-  display: block;
-  margin-bottom: 18px;
+}
+
+.featPro {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: var(--cta);
+  color: #fff;
+  padding: 4px 8px;
+  white-space: nowrap;
 }
 
 .featItem h3 {
@@ -1052,6 +1069,109 @@
   border-top: 1px solid var(--ink);
   font-size: 1.02rem;
   max-width: 60ch;
+}
+
+/* ---------- pricing ---------- */
+
+.priceIntro {
+  font-size: clamp(1.05rem, 1.4vw, 1.3rem);
+  color: var(--warm-muted);
+  max-width: 56ch;
+  margin-bottom: clamp(32px, 4vw, 48px);
+}
+
+.priceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 2.6vw, 28px);
+  align-items: stretch;
+}
+
+.priceCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--warm-foam);
+  border: 1.5px solid var(--warm-border);
+  padding: clamp(24px, 2.6vw, 32px);
+}
+
+.priceCardFeatured {
+  background: var(--warm-surface);
+  border-color: var(--cta);
+  border-width: 2px;
+}
+
+.priceBadge {
+  position: absolute;
+  top: 0;
+  right: clamp(20px, 2.6vw, 28px);
+  transform: translateY(-50%);
+  background: var(--cta);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+}
+
+.priceCardHead h3 {
+  font-size: clamp(1.5rem, 2vw, 1.9rem);
+}
+
+.priceFor {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: var(--warm-muted);
+  min-height: 2.7em;
+}
+
+.priceAmount {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 3.4vw, 2.9rem);
+  letter-spacing: -0.02em;
+  margin: 18px 0 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--warm-border);
+}
+
+.priceAmount span {
+  font-family: var(--body);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0;
+  color: var(--warm-muted);
+}
+
+.priceList {
+  display: grid;
+  gap: 11px;
+  margin-bottom: clamp(24px, 3vw, 32px);
+  flex: 1;
+}
+
+.priceList li {
+  display: flex;
+  gap: 10px;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.priceList li::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 0.4em;
+  background: var(--cta);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+.priceCard .btn {
+  align-self: flex-start;
 }
 
 /* ---------- in the field ---------- */
@@ -1605,6 +1725,15 @@
   .quoteGrid,
   .ctaGrid {
     grid-template-columns: 1fr;
+  }
+
+  .priceGrid {
+    grid-template-columns: 1fr;
+    max-width: 460px;
+  }
+
+  .priceCardFeatured {
+    order: -1;
   }
 
   .fieldGrid .photoOffset {

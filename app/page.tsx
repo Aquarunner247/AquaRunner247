@@ -8,13 +8,13 @@ import { WaitlistForm } from "./components/landing/waitlist-form";
 import styles from "./landing.module.css";
 
 export const metadata: Metadata = {
-  title: "AquaRunner 24/7 — One app to run your entire pool business",
+  title: "AquaRunner 24/7 — Simple pricing for pool operators",
   description:
-    "Software built by a Las Vegas commercial pool maintenance company, for pool service companies. Log every visit, stay inspection-ready, and build routes that build themselves. Join the waitlist.",
+    "No per-pool fees, ever. A QR code on every pool and compliance logs built for your state put the record in an inspector's hands on site. Join the waitlist.",
   openGraph: {
-    title: "AquaRunner 24/7 — One app to run your entire pool business",
+    title: "AquaRunner 24/7 — Simple pricing for pool operators",
     description:
-      "Commercial, residential, or both. Built by real pool service professionals in Las Vegas, Nevada. Join the waitlist.",
+      "No per-pool fees, ever. State-specific compliance and a QR code on every pool, built by real pool service professionals in Las Vegas, Nevada.",
     type: "website",
   },
 };
@@ -39,11 +39,13 @@ const FEATURES = [
     n: "04",
     title: "Routes that build themselves",
     body: "Add a new customer and the app suggests which tech and route makes the most sense based on where your team already is. You always get the final say.",
+    pro: true,
   },
   {
     n: "05",
     title: "Never miss another call",
     body: "After hours or too busy to pick up? Our AI phone agent answers, asks what's needed, and turns it into a ticket — caller info, urgency, and a summary — waiting in your dashboard before you're back at your desk.",
+    pro: true,
   },
   {
     n: "06",
@@ -64,6 +66,7 @@ const FEATURES = [
     n: "09",
     title: "Know exactly how much to add",
     body: "Enter today's reading and the app calculates the exact dose to hit target — free chlorine, alkalinity, cyanuric acid, calcium hardness, salt — linked to your chemical catalog so it logs in the right units automatically.",
+    pro: true,
   },
   {
     n: "10",
@@ -74,6 +77,7 @@ const FEATURES = [
     n: "11",
     title: "Pay techs on what they actually did",
     body: "Set a rate per technician, per body of water, and watch real earnings total up as visits get logged — no separate spreadsheet, no guessing at the end of the pay period.",
+    pro: true,
   },
   {
     n: "12",
@@ -123,11 +127,11 @@ export default function Home() {
                   In development — built by real pool service professionals, not programmers
                 </p>
                 <h1 className={styles.displayXl}>
-                  One app to run your entire pool business — <em>commercial, residential, or both.</em>
+                  Simple pricing for pool operators. <em>No per-pool fees. Ever.</em>
                 </h1>
                 <p className={`${styles.lede} ${styles.heroSub}`}>
-                  Track every visit, build smarter routes, and keep your commercial pools ready for inspection — all
-                  without a stack of paper logs.
+                  Every pool gets a QR code and a compliance log built for your state&rsquo;s rules — so an inspector
+                  sees the complete record on site, not a promise to email it later.
                 </p>
 
                 <WaitlistForm label="Get on the waitlist" />
@@ -174,13 +178,13 @@ export default function Home() {
         <section className={`${styles.onInk} ${styles.band}`}>
           <div className={`${styles.wrap} ${styles.bandGrid}`}>
             <p className={styles.bandQuote}>
-              Paper logs, a truck full of binders, and a filing cabinet nobody wants to open. That was us too.
+              When skimming isn&rsquo;t enough — and it&rsquo;s what&rsquo;s below the surface that matters — dive
+              deeper with AquaRunner 24/7.
             </p>
             <div className={styles.bandSide}>
               <p>
-                We run a commercial pool maintenance company in Las Vegas. We built AquaRunner because nothing on the
-                market did the job the way the work actually happens — a quick chemical check at a backyard pool one
-                stop, a fully logged commercial visit the next.
+                We run a commercial pool maintenance company in Las Vegas. AquaRunner is the tool we wished existed —
+                built around what actually gets checked: what&rsquo;s in the water, and whether you can prove it.
               </p>
               <p>It&rsquo;s in final development now. Waitlist members get in first.</p>
             </div>
@@ -249,12 +253,92 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ---------- pricing ---------- */}
+        <section className={styles.sec} id="pricing">
+          <div className={styles.wrap}>
+            <div className={styles.secHead}>
+              <span className={styles.secNum} aria-hidden="true">
+                02
+              </span>
+              <div className={styles.secHeadText}>
+                <p className={styles.eyebrow}>Pricing</p>
+                <h2 className={styles.displayL}>One flat price. Every pool included.</h2>
+              </div>
+            </div>
+
+            <p className={styles.priceIntro}>
+              No per-pool fees. Ever. Pricing scales with your crew, not with how many pools you service. Every plan
+              starts with a 14-day free trial.
+            </p>
+
+            <div className={styles.priceGrid}>
+              <article className={styles.priceCard}>
+                <div className={styles.priceCardHead}>
+                  <h3>Starter</h3>
+                  <p className={styles.priceFor}>Best for smaller commercial and residential routes</p>
+                </div>
+                <p className={styles.priceAmount}>
+                  $99<span>/month</span>
+                </p>
+                <ul className={styles.priceList}>
+                  <li>Unlimited pools</li>
+                  <li>Up to 10 users</li>
+                  <li>Full chemical logging, service reports, and photos</li>
+                  <li>State-specific compliance log sheets</li>
+                  <li>Printable, laminate-ready sheets + QR codes for pump rooms</li>
+                </ul>
+                <a className={styles.btn} href="#waitlist">
+                  Join the waitlist
+                </a>
+              </article>
+
+              <article className={`${styles.priceCard} ${styles.priceCardFeatured}`}>
+                <span className={styles.priceBadge}>Most popular</span>
+                <div className={styles.priceCardHead}>
+                  <h3>Pro</h3>
+                  <p className={styles.priceFor}>For multi-tech commercial operators</p>
+                </div>
+                <p className={styles.priceAmount}>
+                  $149<span>/month</span>
+                </p>
+                <ul className={styles.priceList}>
+                  <li>Unlimited pools</li>
+                  <li>Up to 25 users</li>
+                  <li>Everything in Starter, plus:</li>
+                  <li>Route optimization</li>
+                  <li>Advanced custom reports</li>
+                  <li>Full work order tools</li>
+                  <li>Priority support</li>
+                </ul>
+                <a className={styles.btn} href="#waitlist">
+                  Join the waitlist
+                </a>
+              </article>
+
+              <article className={styles.priceCard}>
+                <div className={styles.priceCardHead}>
+                  <h3>Enterprise</h3>
+                  <p className={styles.priceFor}>Large commercial operations</p>
+                </div>
+                <p className={styles.priceAmount}>Custom</p>
+                <ul className={styles.priceList}>
+                  <li>Volume pricing for large multi-crew operations</li>
+                  <li>Dedicated onboarding and support</li>
+                </ul>
+                <a className={styles.btn} href="mailto:hello@aquarunner247.com">
+                  Contact us
+                </a>
+              </article>
+            </div>
+          </div>
+        </section>
+
         {/* ---------- the rest of the features ---------- */}
         <section className={styles.sec} id="features">
           <div className={styles.wrap}>
             <div className={styles.secHead}>
               <span className={styles.secNum} aria-hidden="true">
-                02
+                03
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>The rest of the job</p>
@@ -265,7 +349,10 @@ export default function Home() {
             <div className={styles.feat}>
               {FEATURES.map((feature) => (
                 <article className={styles.featItem} key={feature.n}>
-                  <span className={styles.featNum}>{feature.n}</span>
+                  <div className={styles.featHead}>
+                    <span className={styles.featNum}>{feature.n}</span>
+                    {feature.pro && <span className={styles.featPro}>Pro</span>}
+                  </div>
                   <h3>{feature.title}</h3>
                   <p>{feature.body}</p>
                 </article>
@@ -287,7 +374,7 @@ export default function Home() {
           <div className={styles.wrap}>
             <div className={styles.secHead}>
               <span className={styles.secNum} aria-hidden="true">
-                03
+                04
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>In the field</p>
@@ -350,7 +437,7 @@ export default function Home() {
           <div className={styles.wrap}>
             <div className={styles.secHead}>
               <span className={styles.secNum} aria-hidden="true">
-                04
+                05
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>Waitlist</p>
@@ -361,8 +448,8 @@ export default function Home() {
               <div>
                 <h2 className={styles.displayL}>Get in before launch.</h2>
                 <p className={styles.lede}>
-                  AquaRunner is in final development. Waitlist members get early access and founding-customer pricing at
-                  launch.
+                  AquaRunner is in final development. Every plan starts with a 14-day free trial — waitlist members
+                  just get first access.
                 </p>
 
                 <div className={styles.ctaForm}>
@@ -370,8 +457,8 @@ export default function Home() {
                 </div>
 
                 <ul className={styles.ctaList}>
-                  <li>Early access before public launch.</li>
-                  <li>Founding-customer pricing at launch.</li>
+                  <li>First access to the 14-day free trial at launch.</li>
+                  <li>No per-pool fees. Ever.</li>
                   <li>Built by people who service commercial pools every day.</li>
                 </ul>
               </div>
