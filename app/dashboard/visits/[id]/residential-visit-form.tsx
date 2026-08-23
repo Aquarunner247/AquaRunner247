@@ -150,6 +150,7 @@ export function ResidentialVisitForm({
    * (pre-existing, separately duplicated) component rather than a shared one. */
   const [pendingDoseHint, setPendingDoseHint] = useState<{ rawAmount: number; dosingUnit: DosingUnit } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [completingVisit, setCompletingVisit] = useState(false);
   const timerRef = useRef<number | null>(null);
   const isFirstRender = useRef(true);
   const doseSectionRef = useRef<HTMLDivElement | null>(null);
@@ -311,24 +312,38 @@ export function ResidentialVisitForm({
   }
 
   async function completeVisit() {
-    const response = await fetch(`/api/visits/${visitId}/complete`, { method: "POST" });
-    if (response.ok) {
-      window.location.reload();
-      return;
-    }
-    const data = (await response.json()) as { error?: string };
-    if (data.error === "MISSING_REQUIRED_PHOTO") {
+    setCompletingVisit(true);
+    try {
+      const response = await fetch(`/api/visits/${visitId}/complete`, { method: "POST" });
+      if (response.ok) {
+        window.location.reload();
+        return;
+      }
+      const data = (await response.json()) as { error?: string };
+      if (data.error === "MISSING_REQUIRED_PHOTO") {
+        setSaveState("error");
+        setSaveMsg("Need at least 1 photo before completion");
+        return;
+      }
+      if (data.error === "MISSING_REQUIRED_READINGS") {
+        setSaveState("error");
+        setSaveMsg("Missing required readings");
+        return;
+      }
       setSaveState("error");
-      setSaveMsg("Need at least 1 photo before completion");
-      return;
-    }
-    if (data.error === "MISSING_REQUIRED_READINGS") {
+      setSaveMsg("Completion failed");
+    } catch {
+      // fetch itself can throw (network drop, tab backgrounded) instead of resolving with
+      // a non-ok response -- confirmed via Sentry (JAVASCRIPT-NEXTJS-3, Mobile Safari,
+      // "TypeError: Load failed") on the sibling commercial form: the POST had already
+      // succeeded server-side by the time the connection dropped, so the visit was
+      // actually completed even though the technician saw nothing happen. Safe to just
+      // retry either way -- /api/visits/[id]/complete is idempotent once COMPLETED.
       setSaveState("error");
-      setSaveMsg("Missing required readings");
-      return;
+      setSaveMsg("Connection issue — tap Complete again to confirm");
+    } finally {
+      setCompletingVisit(false);
     }
-    setSaveState("error");
-    setSaveMsg("Completion failed");
   }
 
   function renderSlider(f: FieldConfig) {
@@ -621,10 +636,10 @@ export function ResidentialVisitForm({
         <button
           type="button"
           onClick={() => void completeVisit()}
-          disabled={isCompleted || requiredMissing || photoCount < 1}
+          disabled={isCompleted || requiredMissing || photoCount < 1 || completingVisit}
           className="rounded bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primaryHover disabled:cursor-not-allowed disabled:bg-brand-control"
         >
-          {isCompleted ? "Visit completed" : "Complete service visit"}
+          {isCompleted ? "Visit completed" : completingVisit ? "Completing..." : "Complete service visit"}
         </button>
         {!isCompleted && (requiredMissing || photoCount < 1) ? (
           <p className="mt-2 text-sm text-brand-warn">Completion requires all required (*) readings and at least one photo.</p>
