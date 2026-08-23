@@ -56,3 +56,10 @@ prisma/*.db-journal
 .env.save
 .env.*
 .env*
+
+# Claude Code: settings.json is shared project config (checked in below); these are
+# personal/machine-specific (settings.local.json accumulates this machine's own
+# auto-approved permission rules, including local absolute paths) or ephemeral runtime
+# state, never meant to be shared across branches or machines.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

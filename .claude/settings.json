@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "sentry@claude-plugins-official": true,
+    "sentry-cli@claude-plugins-official": true
+  }
+}
