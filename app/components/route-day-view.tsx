@@ -185,7 +185,7 @@ export function RouteDayView({
   const effectiveReadOnly = readOnly || isMultiTech;
   const [visits, setVisits] = useState<RouteStop[]>(initialVisits);
   const [saving, setSaving] = useState(false);
-  const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported">("idle");
+  const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported" | "unavailable">("idle");
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
@@ -227,6 +227,9 @@ export function RouteDayView({
     setLocationState("watching");
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
+        // A fix came back -- clear any earlier "signal lost" state so the banner
+        // doesn't stay stuck showing an error the phone has since recovered from.
+        setLocationState("watching");
         const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
         const eligibleIds = computeAutoArrivalEligibleIds(visitsRef.current);
         for (const v of visitsRef.current) {
@@ -239,7 +242,12 @@ export function RouteDayView({
         }
       },
       (err) => {
+        // Previously only PERMISSION_DENIED was surfaced -- TIMEOUT/POSITION_UNAVAILABLE
+        // (a lost GPS fix, common in a parking garage or near tall buildings) were
+        // silently swallowed, leaving the "Location on" banner showing while no position
+        // updates were actually arriving and nothing was being auto-stamped.
         if (err.code === err.PERMISSION_DENIED) setLocationState("denied");
+        else setLocationState("unavailable");
       },
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 20_000 },
     );
@@ -464,6 +472,13 @@ export function RouteDayView({
         <p className="mb-2 text-xs text-brand-warn">
           Location access is off, so arrival times won&rsquo;t log automatically — enable location for this site in your browser
           settings to turn it back on.
+        </p>
+      ) : null}
+      {locationState === "unavailable" ? (
+        <p className="mb-2 text-xs text-brand-warn">
+          Location signal lost, so arrival won&rsquo;t log automatically right now — this can happen in parking garages or near
+          tall buildings. It&rsquo;ll pick back up once your signal returns, or tap &ldquo;I&rsquo;ve arrived&rdquo; on the stop
+          yourself.
         </p>
       ) : null}
       {locationState === "watching" ? (
