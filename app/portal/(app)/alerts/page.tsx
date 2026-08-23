@@ -1,16 +1,21 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
+import { timeZoneForState, formatLocalDateTime } from "@/lib/timezone";
 
 export default async function PortalAlertsPage() {
   const customerUser = await getCurrentCustomerUser();
   if (!customerUser) redirect("/portal/login");
 
-  const alerts = await prisma.customerAlert.findMany({
-    where: { customerId: customerUser.customerId },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, subject: true, message: true, createdAt: true },
-  });
+  const [alerts, customer] = await Promise.all([
+    prisma.customerAlert.findMany({
+      where: { customerId: customerUser.customerId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, subject: true, message: true, createdAt: true },
+    }),
+    prisma.customer.findUnique({ where: { id: customerUser.customerId }, select: { organization: { select: { state: true } } } }),
+  ]);
+  const tz = timeZoneForState(customer?.organization.state);
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
@@ -25,7 +30,7 @@ export default async function PortalAlertsPage() {
             <div key={a.id} className="rounded-lg border border-brand-border bg-white p-4 text-sm shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium text-brand-ink">{a.subject}</p>
-                <p className="text-xs text-brand-muted">{a.createdAt.toLocaleString()}</p>
+                <p className="text-xs text-brand-muted">{formatLocalDateTime(a.createdAt, tz)}</p>
               </div>
               <p className="mt-1 whitespace-pre-wrap text-brand-ink">{a.message}</p>
             </div>

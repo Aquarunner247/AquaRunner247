@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export type VisitOption = { id: string; label: string; timeLabel: string };
+export type VisitOption = { id: string; label: string; stopLabel: string };
 
 export function ReportIssueForm({ visits }: { visits: VisitOption[] }) {
   const router = useRouter();
@@ -62,7 +62,7 @@ export function ReportIssueForm({ visits }: { visits: VisitOption[] }) {
         >
           {visits.map((v) => (
             <option key={v.id} value={v.id}>
-              {v.timeLabel} — {v.label}
+              {v.stopLabel} — {v.label}
             </option>
           ))}
         </select>

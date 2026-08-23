@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { formatLocalTime } from "@/lib/timezone";
 
 export type MonthlyReadingRow = {
   day: number;
@@ -23,7 +24,7 @@ function daysInMonth(year: number, monthIndex: number) {
 
 const num = (d: unknown) => (d == null ? null : Number(d));
 
-export async function getMonthlyReadingRows(bodyId: string, year: number, monthIndex: number) {
+export async function getMonthlyReadingRows(bodyId: string, year: number, monthIndex: number, timeZone: string) {
   const monthStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
   const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
   const totalDays = daysInMonth(year, monthIndex);
@@ -64,9 +65,7 @@ export async function getMonthlyReadingRows(bodyId: string, year: number, monthI
       filterPressurePsi: num(r?.filterPressurePsi),
       flowMeterGpm: num(r?.flowMeterGpm),
       backwashed: Boolean(backwashAt),
-      backwashTime: backwashAt
-        ? backwashAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-        : null,
+      backwashTime: backwashAt ? formatLocalTime(backwashAt, timeZone) : null,
     };
   });
 

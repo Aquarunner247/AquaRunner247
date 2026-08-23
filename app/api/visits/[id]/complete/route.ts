@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { sendServiceSummaryEmail } from "@/lib/email";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
+import { timeZoneForState } from "@/lib/timezone";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
@@ -14,6 +15,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     include: {
       reading: true,
       photos: { select: { id: true } },
+      organization: { select: { state: true } },
       property: { select: { name: true, managerEmail: true, propertyType: true } },
       bodyOfWater: {
         select: {
@@ -116,6 +118,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         bodyOfWaterName: visit.bodyOfWater.name,
         technicianName: visit.technician?.name ?? visit.technician?.email ?? null,
         completedAt,
+        timeZone: timeZoneForState(visit.organization.state),
         reading: visit.reading
           ? {
               ph: visit.reading.ph != null ? Number(visit.reading.ph) : null,

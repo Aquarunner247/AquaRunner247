@@ -5,6 +5,7 @@ import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
 import { PhotoThumbnail } from "@/app/components/photo-thumbnail";
+import { timeZoneForState, formatLocalTime } from "@/lib/timezone";
 
 type PageProps = {
   searchParams?: Promise<{ date?: string }>;
@@ -46,10 +47,11 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
   const organization = customer
     ? await prisma.organization.findUnique({
         where: { id: customer.organizationId },
-        select: { complianceRuleset: { select: { isSupported: true } } },
+        select: { state: true, complianceRuleset: { select: { isSupported: true } } },
       })
     : null;
   const complianceActive = organization?.complianceRuleset?.isSupported === true;
+  const tz = timeZoneForState(organization?.state);
 
   const visitWhere = { property: { customerId: customerUser.customerId }, status: "COMPLETED" as const, serviceComplete: true };
 
@@ -190,9 +192,7 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
                   <p className="font-medium text-brand-ink">
                     {v.property.name} — {v.bodyOfWater.name}
                   </p>
-                  <p className="text-xs text-brand-muted">
-                    {v.completedAt ? v.completedAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "—"}
-                  </p>
+                  <p className="text-xs text-brand-muted">{formatLocalTime(v.completedAt, tz)}</p>
                 </div>
                 <p className="mt-0.5 text-xs text-brand-muted">Technician: {v.technician?.name ?? "—"}</p>
 
@@ -211,10 +211,7 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
                   <span>Cyanuric acid: {fmt(v.reading?.cyanuricAcidPpm != null ? Number(v.reading.cyanuricAcidPpm) : null, 0)} ppm</span>
                   <span>Water temp: {fmt(v.reading?.temperatureF != null ? Number(v.reading.temperatureF) : null, 0)}°F</span>
                   <span>
-                    Backwashed:{" "}
-                    {v.reading?.backwashAt
-                      ? `Yes (${new Date(v.reading.backwashAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })})`
-                      : "No"}
+                    Backwashed: {v.reading?.backwashAt ? `Yes (${formatLocalTime(v.reading.backwashAt, tz)})` : "No"}
                   </span>
                 </div>
 
@@ -293,8 +290,6 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
                       <p className="font-medium text-brand-ink">{v.bodyOfWater.name}</p>
                       <p className="text-brand-muted">
                         {v.scheduledStart.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
-                        {" · "}
-                        {v.scheduledStart.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                       </p>
                       <p className="text-xs text-brand-muted">{v.status === "IN_PROGRESS" ? "In progress" : "Scheduled"}</p>
                     </li>

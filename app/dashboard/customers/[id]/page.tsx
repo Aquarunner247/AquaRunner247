@@ -25,6 +25,7 @@ import { RouteSuggestionPanel } from "@/app/components/route-suggestion-panel";
 import { FilterTypeFields } from "@/app/components/filter-type-fields";
 import { PropertyContactFields } from "@/app/components/property-contact-fields";
 import { NameInput } from "@/app/components/name-input";
+import { timeZoneForState, formatLocalDateTime, formatLocalTime } from "@/lib/timezone";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -160,27 +161,31 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
     }
   }
 
-  const completedVisits = await prisma.serviceVisit.findMany({
-    where: {
-      property: { customerId: customer.id, organizationId: appUser.organizationId },
-      status: "COMPLETED",
-      serviceComplete: true,
-    },
-    orderBy: { completedAt: "desc" },
-    take: 50,
-    include: {
-      property: { select: { name: true } },
-      bodyOfWater: { select: { name: true, disinfectionMethod: true } },
-      technician: { select: { name: true } },
-      reading: { select: { ph: true, freeChlorinePpm: true, brominePpm: true, alkalinityPpm: true, backwashAt: true } },
-      doses: { select: { productName: true, quantity: true, unit: true } },
-      _count: { select: { photos: true } },
-      checklistCompletions: {
-        where: { completed: true },
-        select: { label: true },
+  const [org, completedVisits] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: appUser.organizationId }, select: { state: true } }),
+    prisma.serviceVisit.findMany({
+      where: {
+        property: { customerId: customer.id, organizationId: appUser.organizationId },
+        status: "COMPLETED",
+        serviceComplete: true,
       },
-    },
-  });
+      orderBy: { completedAt: "desc" },
+      take: 50,
+      include: {
+        property: { select: { name: true } },
+        bodyOfWater: { select: { name: true, disinfectionMethod: true } },
+        technician: { select: { name: true } },
+        reading: { select: { ph: true, freeChlorinePpm: true, brominePpm: true, alkalinityPpm: true, backwashAt: true } },
+        doses: { select: { productName: true, quantity: true, unit: true } },
+        photos: { select: { takenAt: true, createdAt: true }, orderBy: { createdAt: "asc" } },
+        checklistCompletions: {
+          where: { completed: true },
+          select: { label: true },
+        },
+      },
+    }),
+  ]);
+  const tz = timeZoneForState(org?.state);
 
   const tabLinkClass = (target: string) =>
     tab === target
@@ -427,10 +432,12 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   <input type="hidden" name="customerId" value={customer.id} />
                   <ConfirmSubmitButton
                     label="Delete customer"
-                    confirmMessage="Delete this customer and all linked properties/data?"
+                    confirmMessage="This permanently deletes this customer and everything linked to it — properties, visits, readings, photos — this cannot be undone. Export your data first (Billing page) if you want a copy."
                     className="rounded bg-brand-danger px-3 py-1.5 text-sm font-medium text-white"
                   />
-                  <p className="mt-1 text-xs text-brand-danger">Deletes this customer and linked properties/data.</p>
+                  <p className="mt-1 text-xs text-brand-danger">
+                    Permanently deletes this customer and linked properties/data. Export your data first if you want a copy.
+                  </p>
                 </form>
               </>
             )}
@@ -661,7 +668,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   <li key={a.id} className="rounded border border-brand-border bg-brand-surface px-2 py-1.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium text-brand-ink">{a.subject}</span>
-                      <span className="text-xs text-brand-muted">{a.createdAt.toLocaleString()}</span>
+                      <span className="text-xs text-brand-muted">{formatLocalDateTime(a.createdAt, tz)}</span>
                     </div>
                     <p className="mt-0.5 whitespace-pre-wrap text-brand-muted">{a.message}</p>
                   </li>
@@ -893,24 +900,26 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     <p className="font-medium text-brand-ink">
                       {v.property.name} — {v.bodyOfWater.name}
                     </p>
-                    <p className="text-xs text-brand-muted">{v.completedAt ? v.completedAt.toLocaleString() : "—"}</p>
+                    <p className="text-xs text-brand-muted">{formatLocalDateTime(v.completedAt, tz)}</p>
                   </div>
                   <p className="mt-0.5 text-xs text-brand-muted">Tech: {v.technician?.name ?? "—"}</p>
 
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-brand-ink">
+                    <span>Arrived: {formatLocalTime(v.startedAt, tz)}</span>
+                    <span>Completed: {formatLocalTime(v.completedAt, tz)}</span>
                     <span>pH: {v.reading?.ph?.toString() ?? "—"}</span>
                     <span>
                       {v.bodyOfWater.disinfectionMethod === "BROMINE" ? "Br" : "FC"}:{" "}
                       {(v.bodyOfWater.disinfectionMethod === "BROMINE" ? v.reading?.brominePpm : v.reading?.freeChlorinePpm)?.toString() ?? "—"} ppm
                     </span>
                     <span>Alk: {v.reading?.alkalinityPpm?.toString() ?? "—"} ppm</span>
+                    <span>Backwash: {v.reading?.backwashAt ? `Yes (${formatLocalTime(v.reading.backwashAt, tz)})` : "No"}</span>
                     <span>
-                      Backwash:{" "}
-                      {v.reading?.backwashAt
-                        ? `Yes (${new Date(v.reading.backwashAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })})`
-                        : "No"}
+                      Photos:{" "}
+                      {v.photos.length
+                        ? v.photos.map((p) => formatLocalTime(p.takenAt ?? p.createdAt, tz)).join(", ")
+                        : "0"}
                     </span>
-                    <span>Photos: {v._count.photos}</span>
                   </div>
 
                   <div className="mt-2">
@@ -996,8 +1005,8 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                           </Link>
                         </td>
                         <td className="py-2 pr-3 text-brand-ink">{v.technician?.name ?? "—"}</td>
-                        <td className="py-2 pr-3 text-brand-ink">{arrivedAt ? arrivedAt.toLocaleString() : "—"}</td>
-                        <td className="py-2 pr-3 text-brand-ink">{finishedAt ? finishedAt.toLocaleString() : "—"}</td>
+                        <td className="py-2 pr-3 text-brand-ink">{formatLocalDateTime(arrivedAt, tz)}</td>
+                        <td className="py-2 pr-3 text-brand-ink">{formatLocalDateTime(finishedAt, tz)}</td>
                         <td className="py-2 font-medium text-brand-ink">{durationLabel}</td>
                       </tr>
                     );

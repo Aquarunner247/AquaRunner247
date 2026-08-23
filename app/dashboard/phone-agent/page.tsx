@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { updateTicketStatus } from "../settings/phone-agent/actions";
+import { timeZoneForState, formatLocalDateTime } from "@/lib/timezone";
 
 const STATUS_STYLES: Record<string, string> = {
   NEW: "bg-brand-warnFill text-brand-warn",
@@ -21,20 +22,21 @@ const CALL_STATUS_LABEL: Record<string, string> = {
   ABANDONED: "Abandoned",
 };
 
-function fmtDateTime(d: Date): string {
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-}
-
 export default async function PhoneAgentTicketsPage() {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN" && appUser.role !== "OFFICE") redirect("/dashboard");
 
-  const calls = await prisma.phoneAgentCall.findMany({
-    where: { organizationId: appUser.organizationId },
-    orderBy: { startedAt: "desc" },
-    take: 100,
-  });
+  const [calls, org] = await Promise.all([
+    prisma.phoneAgentCall.findMany({
+      where: { organizationId: appUser.organizationId },
+      orderBy: { startedAt: "desc" },
+      take: 100,
+    }),
+    prisma.organization.findUnique({ where: { id: appUser.organizationId }, select: { state: true } }),
+  ]);
+  const tz = timeZoneForState(org?.state);
+  const fmtDateTime = (d: Date) => formatLocalDateTime(d, tz);
 
   const hasSettings = await prisma.orgPhoneAgentSettings.findUnique({
     where: { organizationId: appUser.organizationId },

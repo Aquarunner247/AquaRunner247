@@ -9,6 +9,7 @@ import { ResidentialVisitForm } from "./residential-visit-form";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
 import { getSavedDosingRecommendation } from "@/lib/dosing-calculator";
 import type { VisitWaterReading } from "@/generated/prisma/client";
+import { timeZoneForState, formatLocalDate } from "@/lib/timezone";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -61,6 +62,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   const visit = await prisma.serviceVisit.findUnique({
     where: { id },
     include: {
+      organization: { select: { state: true } },
       property: { select: { name: true, propertyType: true, customerId: true } },
       bodyOfWater: {
         select: {
@@ -164,8 +166,10 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           Technician visit
         </p>
         <h1 className="mt-1 font-[family-name:var(--font-display)] text-xl font-bold uppercase text-white">{visit.property.name}</h1>
+        {/* scheduledStart's time-of-day isn't a real target time -- see
+            lib/visit-generation.ts -- so only the date is shown here. */}
         <p className="mt-1 text-sm text-brand-border">
-          {visit.bodyOfWater.name} • {visit.scheduledStart.toLocaleString()}
+          {visit.bodyOfWater.name} • {formatLocalDate(visit.scheduledStart, timeZoneForState(visit.organization.state), { weekday: "long", year: "numeric" })}
         </p>
       </header>
 

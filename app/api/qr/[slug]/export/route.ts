@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getMonthlyReadingRows, type MonthlyReadingRow } from "@/lib/reading-rows";
 import { DEFAULT_BUSINESS_NAME, DEFAULT_BUSINESS_PHONE } from "@/lib/service-company";
+import { timeZoneForState } from "@/lib/timezone";
 
 type RouteCtx = {
   params: Promise<{ slug: string }>;
@@ -73,7 +74,7 @@ export async function GET(req: Request, ctx: RouteCtx) {
       property: {
         select: {
           name: true,
-          organization: { select: { businessName: true, businessPhone: true } },
+          organization: { select: { businessName: true, businessPhone: true, state: true } },
         },
       },
     },
@@ -82,7 +83,8 @@ export async function GET(req: Request, ctx: RouteCtx) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { rows } = await getMonthlyReadingRows(body.id, year, monthIndex);
+  const tz = timeZoneForState(body.property.organization.state);
+  const { rows } = await getMonthlyReadingRows(body.id, year, monthIndex, tz);
   const usesBromine = body.disinfectionMethod === "BROMINE";
 
   const monthLabel = new Date(year, monthIndex, 1).toLocaleString(undefined, { month: "long", year: "numeric" });

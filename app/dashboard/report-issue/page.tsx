@@ -28,10 +28,13 @@ export default async function ReportIssuePage() {
     },
   });
 
-  const visitOptions: VisitOption[] = visits.map((v) => ({
+  // scheduledStart's time-of-day isn't a real target time (see lib/visit-generation.ts --
+  // it's a same-day sort anchor, offset per stop, not a promised arrival window), so this
+  // labels stops by route order instead of a fabricated clock time.
+  const visitOptions: VisitOption[] = visits.map((v, i) => ({
     id: v.id,
     label: `${v.property.name} — ${v.bodyOfWater.name}`,
-    timeLabel: v.scheduledStart.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+    stopLabel: `Stop ${i + 1}`,
   }));
 
   return (

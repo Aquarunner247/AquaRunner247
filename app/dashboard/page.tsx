@@ -9,6 +9,7 @@ import { WaveProgress } from "@/app/components/wave-progress";
 import { ChemGauge } from "@/app/components/chem-gauge";
 import { resolveIssue } from "./actions";
 import { TechnicianHome } from "./technician-home";
+import { timeZoneForState, formatLocalDate, startOfLocalDay } from "@/lib/timezone";
 
 type ReadingParam = { key: string; label: string; value: number; unit: string; min: number; max: number; idealMin: number; idealMax: number };
 
@@ -62,6 +63,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   let complianceComingSoon: { hasCommercialPools: boolean; stateName: string | null } | null = null;
   let closureFeeLabel: string | null = null;
+  let tz = timeZoneForState(undefined);
 
   if (appUser?.role === "ADMIN") {
     const orgId = appUser.organizationId;
@@ -71,6 +73,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       prisma.organization.findUnique({ where: { id: orgId }, select: { state: true, hasCommercialPools: true } }),
       getOrganizationRuleset(orgId),
     ]);
+    tz = timeZoneForState(organization?.state);
     const rulesetStateName = ruleset?.stateName ?? null;
     const complianceActive = isComplianceActive(ruleset);
     const hasCommercialPools = await organizationHasCommercialPools(orgId, organization?.hasCommercialPools ?? null);
@@ -147,8 +150,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .sort((a, b) => b.at.getTime() - a.at.getTime())
       .slice(0, 10);
 
+    // scheduledStart is a pure same-day sort key, not a real time (see
+    // lib/visit-generation.ts) -- "overdue" means still not done as of a prior business
+    // day, not "scheduledStart's fake clock reading is earlier than now" (which would
+    // flag nearly everything as overdue for most of the day).
+    const todayStart = startOfLocalDay(now, tz);
     const overdue = await prisma.serviceVisit.findMany({
-      where: { organizationId: orgId, status: { in: ["SCHEDULED", "IN_PROGRESS"] }, scheduledStart: { lt: now }, ...visitPropertyFilter },
+      where: { organizationId: orgId, status: { in: ["SCHEDULED", "IN_PROGRESS"] }, scheduledStart: { lt: todayStart }, ...visitPropertyFilter },
       orderBy: { scheduledStart: "asc" },
       take: 10,
       select: {
@@ -337,7 +345,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     id: r.id,
     property: r.property,
     body: r.body,
-    completedAtLabel: r.completedAt ? r.completedAt.toLocaleDateString() : null,
+    completedAtLabel: r.completedAt ? formatLocalDate(r.completedAt, tz) : null,
     issues: r.issues,
   }));
 
@@ -348,7 +356,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     visitId: issue.visit.id,
     visitLabel: `${issue.visit.property.name} — ${issue.visit.bodyOfWater.name}`,
     techLabel: issue.visit.technician ? issue.visit.technician.name ?? issue.visit.technician.email ?? "Unknown tech" : "Unknown tech",
-    createdAtLabel: issue.createdAt.toLocaleDateString(),
+    createdAtLabel: formatLocalDate(issue.createdAt, tz),
   }));
 
   const overdueVisitItems = overdueVisits.map((v) => ({
@@ -356,14 +364,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     property: v.property,
     body: v.body,
     tech: v.tech,
-    dueLabel: v.scheduledStart.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+    // scheduledStart's time-of-day isn't a real target time -- see lib/visit-generation.ts.
+    dueLabel: formatLocalDate(v.scheduledStart, tz),
   }));
 
   const outOfRangeItems = outOfRangeReadings.map((r) => ({
     id: r.id,
     property: r.property,
     body: r.body,
-    completedAtLabel: r.completedAt ? r.completedAt.toLocaleDateString() : null,
+    completedAtLabel: r.completedAt ? formatLocalDate(r.completedAt, tz) : null,
     issues: r.issues,
   }));
 
@@ -479,7 +488,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                         <p className="text-sm font-semibold text-brand-ink">
                           {r.property} — {r.body}
                         </p>
-                        {r.completedAt ? <p className="text-xs text-brand-icon">{r.completedAt.toLocaleDateString()}</p> : null}
+                        {r.completedAt ? <p className="text-xs text-brand-icon">{formatLocalDate(r.completedAt, tz)}</p> : null}
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         {r.params.map((p) => (
@@ -509,7 +518,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           <p className="text-sm font-semibold text-brand-ink">
                             {r.property} — {r.body}
                           </p>
-                          {r.completedAt ? <p className="text-xs text-brand-icon">{r.completedAt.toLocaleDateString()}</p> : null}
+                          {r.completedAt ? <p className="text-xs text-brand-icon">{formatLocalDate(r.completedAt, tz)}</p> : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
                           {r.params.map((p) => (
@@ -542,7 +551,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                             {v.property} — {v.body} <span className="text-brand-ink/60">· {v.tech}</span>
                           </span>
                           <span className="app-pill-attention shrink-0">
-                            Due {v.scheduledStart.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            Due {formatLocalDate(v.scheduledStart, tz)}
                           </span>
                         </li>
                       ))}
@@ -569,7 +578,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           <span className="font-medium text-brand-ink">{a.label}</span> — {a.detail}
                         </span>
                         <span className="app-metric shrink-0 text-xs text-brand-icon">
-                          {a.at.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          {formatLocalDate(a.at, tz)}
                         </span>
                       </li>
                     ))}

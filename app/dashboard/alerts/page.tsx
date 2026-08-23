@@ -3,12 +3,20 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { BRAND_DANGER, BRAND_INK, BRAND_MUTED } from "@/app/lib/chart-colors";
+import { timeZoneForState, formatLocalDate, startOfLocalDay } from "@/lib/timezone";
 
 export default async function TechnicianAlertsPage() {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
 
   const now = new Date();
+  const org = await prisma.organization.findUnique({ where: { id: appUser.organizationId }, select: { state: true } });
+  const tz = timeZoneForState(org?.state);
+  // scheduledStart is a pure same-day sort key, not a real time (see
+  // lib/visit-generation.ts) -- "overdue" means still not done as of a PRIOR business day,
+  // not "scheduledStart's fake clock reading is earlier than the current instant" (which
+  // would flag nearly everything as overdue for most of the day).
+  const todayStart = startOfLocalDay(now, tz);
 
   const [openIssues, overdueVisits] = await Promise.all([
     prisma.visitIssueFlag.findMany({
@@ -23,7 +31,12 @@ export default async function TechnicianAlertsPage() {
       },
     }),
     prisma.serviceVisit.findMany({
-      where: { technicianId: appUser.id, organizationId: appUser.organizationId, status: { in: ["SCHEDULED", "IN_PROGRESS"] }, scheduledStart: { lt: now } },
+      where: {
+        technicianId: appUser.id,
+        organizationId: appUser.organizationId,
+        status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+        scheduledStart: { lt: todayStart },
+      },
       orderBy: { scheduledStart: "asc" },
       select: { id: true, scheduledStart: true, property: { select: { name: true } }, bodyOfWater: { select: { name: true } } },
     }),
@@ -55,9 +68,7 @@ export default async function TechnicianAlertsPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-brand-ink">{issue.description}</p>
-                <p className="app-metric mt-0.5 text-xs text-brand-icon">
-                  {issue.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                </p>
+                <p className="app-metric mt-0.5 text-xs text-brand-icon">{formatLocalDate(issue.createdAt, tz)}</p>
               </li>
             ))}
           </ul>
@@ -75,10 +86,9 @@ export default async function TechnicianAlertsPage() {
                 <Link href={`/dashboard/visits/${v.id}`} className="app-link text-sm font-medium">
                   {v.property.name} — {v.bodyOfWater.name}
                 </Link>
-                <p className="app-metric mt-0.5 text-xs text-brand-danger">
-                  Was due {v.scheduledStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })} at{" "}
-                  {v.scheduledStart.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-                </p>
+                {/* scheduledStart's time-of-day isn't a real target time -- see
+                    lib/visit-generation.ts -- so only the date is shown here. */}
+                <p className="app-metric mt-0.5 text-xs text-brand-danger">Was due {formatLocalDate(v.scheduledStart, tz)}</p>
               </li>
             ))}
           </ul>
