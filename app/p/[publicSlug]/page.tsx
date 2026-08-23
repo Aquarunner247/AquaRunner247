@@ -4,6 +4,9 @@ import { BackwashCalendar } from "@/app/components/backwash-calendar";
 import { getMonthlyReadingRows } from "@/lib/reading-rows";
 import { DEFAULT_BUSINESS_NAME, DEFAULT_BUSINESS_PHONE } from "@/lib/service-company";
 import { isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, healthDepartmentLabel } from "@/lib/compliance";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { INSPECTION_REPORTS_BUCKET } from "@/lib/inspection-reports";
+import { timeZoneForState, formatLocalDateTime } from "@/lib/timezone";
 
 type PageProps = {
   params: Promise<{ publicSlug: string }>;
@@ -19,7 +22,7 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const SECTIONS = ["chemistry", "equipment", "backwash"] as const;
+const SECTIONS = ["chemistry", "equipment", "backwash", "incidents", "inspections"] as const;
 type Section = (typeof SECTIONS)[number];
 
 function fmt(n: number | null, digits = 1) {
@@ -60,6 +63,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
             select: {
               businessName: true,
               businessPhone: true,
+              state: true,
               complianceRuleset: {
                 include: { chemistryThresholds: true, frequencyRules: true, eventProtocols: true },
               },
@@ -89,7 +93,28 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
     );
   }
 
-  const { rows, totalDays, visitCount } = await getMonthlyReadingRows(body.id, year, monthIndex);
+  const tz = timeZoneForState(body.property.organization.state);
+  const { rows, totalDays, visitCount } = await getMonthlyReadingRows(body.id, year, monthIndex, tz);
+
+  const [contaminationIncidents, inspectionReportRows] = await Promise.all([
+    prisma.contaminationIncident.findMany({
+      where: { bodyOfWaterId: body.id },
+      orderBy: { discoveredAt: "desc" },
+      include: { monitoringReadings: { orderBy: { sequence: "asc" } } },
+    }),
+    prisma.inspectionReport.findMany({ where: { bodyOfWaterId: body.id }, orderBy: { createdAt: "desc" } }),
+  ]);
+
+  const inspectionReports = await (async () => {
+    if (!inspectionReportRows.length) return [];
+    const supabaseAdmin = createSupabaseAdminClient();
+    return Promise.all(
+      inspectionReportRows.map(async (report) => {
+        const { data } = await supabaseAdmin.storage.from(INSPECTION_REPORTS_BUCKET).createSignedUrl(report.storagePath, 3600);
+        return { ...report, url: data?.signedUrl ?? null };
+      }),
+    );
+  })();
 
   const seriesFor = (pick: (row: (typeof rows)[number]) => number | null) =>
     rows.map((row) => ({ day: row.day, value: pick(row) }));
@@ -260,6 +285,12 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
         <a href={sectionLinkFor("backwash")} className={sectionTabClass("backwash")}>
           Backwash
         </a>
+        <a href={sectionLinkFor("incidents")} className={sectionTabClass("incidents")}>
+          Contamination incidents{contaminationIncidents.length ? ` (${contaminationIncidents.length})` : ""}
+        </a>
+        <a href={sectionLinkFor("inspections")} className={sectionTabClass("inspections")}>
+          Inspection reports{inspectionReports.length ? ` (${inspectionReports.length})` : ""}
+        </a>
       </div>
 
       {section === "chemistry" ? (
@@ -348,6 +379,101 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
       {section === "backwash" ? (
         <section className="mt-4 grid gap-4">
           <BackwashCalendar days={rows.map((r) => ({ day: r.day, visited: r.visited, backwashed: r.backwashed, time: r.backwashTime }))} />
+        </section>
+      ) : null}
+
+      {section === "incidents" ? (
+        <section className="mt-4 grid gap-3">
+          {contaminationIncidents.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-brand-border bg-white p-6 text-center text-sm text-brand-muted">
+              No contamination incidents on record for this venue.
+            </p>
+          ) : (
+            contaminationIncidents.map((incident) => (
+              <article key={incident.id} className="rounded-lg border border-brand-border bg-white p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="font-display text-base font-semibold text-brand-ink">{incident.contaminationType}</h3>
+                  <span className="app-badge">{incident.status.replace(/_/g, " ")}</span>
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-brand-muted">Discovered</dt>
+                    <dd className="text-brand-ink">{formatLocalDateTime(incident.discoveredAt, tz)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-brand-muted">Target concentration reached</dt>
+                    <dd className="text-brand-ink">{formatLocalDateTime(incident.targetConcentrationReachedAt, tz)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-brand-muted">Contact time ended</dt>
+                    <dd className="text-brand-ink">{formatLocalDateTime(incident.contactTimeEndedAt, tz)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-brand-muted">Reopened</dt>
+                    <dd className="text-brand-ink">{formatLocalDateTime(incident.reopenedAt, tz)}</dd>
+                  </div>
+                </dl>
+                {incident.monitoringReadings.length > 0 ? (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full min-w-[520px] border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-brand-border text-left text-brand-muted">
+                          <th className="px-2 py-1 font-medium">Checkpoint</th>
+                          <th className="px-2 py-1 font-medium">Recorded</th>
+                          <th className="px-2 py-1 font-medium">FC (ppm)</th>
+                          <th className="px-2 py-1 font-medium">TC (ppm)</th>
+                          <th className="px-2 py-1 font-medium">pH</th>
+                        </tr>
+                      </thead>
+                      <tbody className="font-[family-name:var(--font-mono)]">
+                        {incident.monitoringReadings.map((reading, i) => (
+                          <tr key={i} className="border-b border-brand-border last:border-0">
+                            <td className="px-2 py-1 font-sans">{reading.checkpointLabel}</td>
+                            <td className="px-2 py-1">{formatLocalDateTime(reading.recordedAt, tz)}</td>
+                            <td className="px-2 py-1">{fmt(reading.freeChlorinePpm != null ? Number(reading.freeChlorinePpm) : null)}</td>
+                            <td className="px-2 py-1">{fmt(reading.totalChlorinePpm != null ? Number(reading.totalChlorinePpm) : null)}</td>
+                            <td className="px-2 py-1">{fmt(reading.ph != null ? Number(reading.ph) : null)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+                {incident.remediationSteps ? (
+                  <p className="mt-3 text-sm text-brand-muted">
+                    <span className="font-semibold text-brand-ink">Remediation: </span>
+                    {incident.remediationSteps}
+                  </p>
+                ) : null}
+              </article>
+            ))
+          )}
+        </section>
+      ) : null}
+
+      {section === "inspections" ? (
+        <section className="mt-4 grid gap-3">
+          {inspectionReports.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-brand-border bg-white p-6 text-center text-sm text-brand-muted">
+              No inspection reports on file for this venue.
+            </p>
+          ) : (
+            inspectionReports.map((report) => (
+              <div key={report.id} className="flex items-center justify-between rounded-lg border border-brand-border bg-white p-4">
+                <div>
+                  <p className="text-sm font-medium text-brand-ink">{report.label}</p>
+                  <p className="text-xs text-brand-muted">{formatLocalDateTime(report.createdAt, tz)}</p>
+                </div>
+                {report.url ? (
+                  <a href={report.url} target="_blank" rel="noreferrer" className="app-btn-secondary-sm">
+                    View
+                  </a>
+                ) : (
+                  <span className="text-xs text-brand-muted">Unavailable</span>
+                )}
+              </div>
+            ))
+          )}
         </section>
       ) : null}
 

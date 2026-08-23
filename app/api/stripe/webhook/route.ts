@@ -3,6 +3,14 @@ import type Stripe from "stripe";
 import { stripe, mapSubscriptionStatus } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
+import { runCancellationSafetyExport } from "@/lib/compliance-archive";
+import { sendCancellationScrubWarningEmail } from "@/lib/email";
+import { timeZoneForState } from "@/lib/timezone";
+
+/** How long an org gets, after cancellation, to export its own data before the scrub
+ * cron (app/api/cron/scrub-canceled-orgs/route.ts) permanently deletes everything not
+ * on the compliance-retained allowlist. */
+const SCRUB_GRACE_PERIOD_MS = 48 * 60 * 60 * 1000;
 
 export const runtime = "nodejs";
 
@@ -91,8 +99,18 @@ export async function POST(req: Request) {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const planStatus = event.type === "customer.subscription.deleted" ? "CANCELED" : mapSubscriptionStatus(subscription.status);
+        const isCancellation = event.type === "customer.subscription.deleted";
+        const planStatus = isCancellation ? "CANCELED" : mapSubscriptionStatus(subscription.status);
+        const scrubScheduledAt = isCancellation ? new Date(Date.now() + SCRUB_GRACE_PERIOD_MS) : undefined;
 
+        // Set the scrub-scheduling flag as part of the same update that flips
+        // planStatus -- this is the durable source of truth the cron reads, so it must
+        // land even if the best-effort export/email below fail. Cleared to null on any
+        // non-cancellation update (e.g. an org resubscribes before the grace period
+        // elapses) so a reactivated org's clock isn't still running. dataScrubbedAt is
+        // deliberately never touched here -- it's set only by the scrub cron itself,
+        // once data has actually been deleted, and a later subscription event must not
+        // make already-scrubbed data look intact again.
         await prisma.organization.updateMany({
           where: { stripeSubscriptionId: subscription.id },
           data: {
@@ -100,8 +118,48 @@ export async function POST(req: Request) {
             currentPeriodEnd: subscription.items.data[0]?.current_period_end
               ? new Date(subscription.items.data[0].current_period_end * 1000)
               : null,
+            dataScrubScheduledAt: isCancellation ? scrubScheduledAt : null,
           },
         });
+
+        if (isCancellation && scrubScheduledAt) {
+          const org = await prisma.organization.findFirst({
+            where: { stripeSubscriptionId: subscription.id },
+            select: {
+              id: true,
+              name: true,
+              businessName: true,
+              state: true,
+              users: { where: { role: "ADMIN", active: true }, select: { email: true } },
+            },
+          });
+          if (org) {
+            // Best-effort safety net -- a failure here must not prevent
+            // dataScrubScheduledAt from having already been set above.
+            try {
+              const { blobPath } = await runCancellationSafetyExport(org.id);
+              await prisma.organization.update({ where: { id: org.id }, data: { dataScrubSafetyExportBlobPath: blobPath } });
+            } catch (err) {
+              console.error(`[stripe webhook] cancellation safety export failed for org ${org.id}:`, err);
+            }
+
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+            const organizationName = org.businessName ?? org.name;
+            for (const admin of org.users) {
+              try {
+                await sendCancellationScrubWarningEmail({
+                  to: admin.email,
+                  organizationName,
+                  scrubScheduledAt,
+                  timeZone: timeZoneForState(org.state),
+                  billingUrl: `${appUrl}/dashboard/billing`,
+                });
+              } catch (err) {
+                console.error(`[stripe webhook] cancellation warning email failed for ${admin.email}:`, err);
+              }
+            }
+          }
+        }
         break;
       }
 

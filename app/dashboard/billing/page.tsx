@@ -74,6 +74,31 @@ export default async function BillingPage({ searchParams }: PageProps) {
           <p className="mt-4 text-sm text-brand-muted">No billing account on file yet.</p>
         )}
       </section>
+
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="font-display text-base font-semibold text-brand-ink">Export your data</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          Download every compliance record your organization owns -- service visits, chemistry readings, chemical
+          doses, checklists, photos, contamination incidents, and inspection reports -- as a JSON file. Export
+          everything, or narrow to a date range.
+        </p>
+        <form method="GET" action="/api/organizations/export" className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="text-sm text-brand-muted">
+            From
+            <input type="date" name="from" className="mt-1 block rounded-md border border-brand-control bg-white px-3 py-1.5 text-sm text-brand-ink" />
+          </label>
+          <label className="text-sm text-brand-muted">
+            To
+            <input type="date" name="to" className="mt-1 block rounded-md border border-brand-control bg-white px-3 py-1.5 text-sm text-brand-ink" />
+          </label>
+          <button type="submit" className="app-btn-primary-sm">
+            Export
+          </button>
+          <a href="/api/organizations/export" className="app-btn-secondary-sm">
+            Export all-time
+          </a>
+        </form>
+      </section>
     </main>
   );
 }

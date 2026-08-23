@@ -49,6 +49,11 @@ type ServiceSummaryEmailInput = {
   bodyOfWaterName: string;
   technicianName: string | null;
   completedAt: Date;
+  /** IANA zone, e.g. "America/Los_Angeles" -- resolve via lib/timezone.ts's
+   * timeZoneForState(org.state) at the call site. This function runs server-side, where
+   * the process timezone is UTC, not the business's own -- without this, the email shows
+   * the visit's raw UTC clock reading instead of local time. */
+  timeZone: string;
   reading: ReadingSummary | null;
   /** Which disinfectant this body of water uses (BodyOfWater.disinfectionMethod) --
    * decides whether the summary shows Free Chlorine or Bromine, since a reading only
@@ -72,8 +77,8 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
 
   const resend = new Resend(apiKey);
 
-  const dateStr = input.completedAt.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  const timeStr = input.completedAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const dateStr = input.completedAt.toLocaleDateString(undefined, { timeZone: input.timeZone, year: "numeric", month: "long", day: "numeric" });
+  const timeStr = input.completedAt.toLocaleTimeString(undefined, { timeZone: input.timeZone, hour: "numeric", minute: "2-digit" });
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
@@ -211,6 +216,86 @@ export async function sendPhoneAgentTicketEmail(input: PhoneAgentTicketEmailInpu
       from: fromAddress,
       to: input.to,
       subject: `New ${urgencyLabel !== "—" ? urgencyLabel.toLowerCase() + " " : ""}ticket — ${input.callerName ?? input.callerNumber}`,
+      html,
+    });
+    if (result.error) {
+      return { ok: false, error: result.error.message };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
+  }
+}
+
+type CancellationScrubWarningEmailInput = {
+  to: string;
+  organizationName: string;
+  scrubScheduledAt: Date;
+  /** IANA zone -- see ServiceSummaryEmailInput.timeZone's doc comment for why this is
+   * required rather than defaulting. */
+  timeZone: string;
+  billingUrl: string;
+};
+
+/** Sent to every ADMIN user the moment a subscription's cancellation webhook fires --
+ * see the customer.subscription.deleted handler in app/api/stripe/webhook/route.ts.
+ * One call per recipient, same convention as sendPhoneAgentTicketEmail. */
+export async function sendCancellationScrubWarningEmail(input: CancellationScrubWarningEmailInput): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
+  }
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+
+  const resend = new Resend(apiKey);
+
+  const deadlineStr = input.scrubScheduledAt.toLocaleString(undefined, {
+    timeZone: input.timeZone,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
+      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Action needed — subscription ended</p>
+        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.organizationName}</h1>
+      </div>
+      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size:14px; margin:0 0 12px;">
+          Your AquaRunner 24/7 Pro subscription has ended. Unless you reactivate first, your account's data — visits,
+          chemistry readings, chemical doses, checklists, photos, and everything else not required for ongoing
+          compliance logging — will be <strong>permanently deleted on ${deadlineStr}</strong>.
+        </p>
+        <p style="font-size:14px; margin:0 0 16px;">
+          Water-reading logs, contamination incident records, and inspection reports required for state health-department
+          compliance will keep being accessible through your properties' existing QR-code log pages even after
+          deletion — everything else will not be recoverable.
+        </p>
+        <p style="font-size:14px; margin:0 0 20px;">
+          If you want a full copy of your data, export it now — this takes one click and does not require
+          reactivating.
+        </p>
+        <p style="margin:0 0 16px;">
+          <a href="${input.billingUrl}" style="display:inline-block; background:#0A6E7C; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+            Export my data
+          </a>
+        </p>
+        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+          This is an automated notice from AquaRunner 24/7 Pro.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: fromAddress,
+      to: input.to,
+      subject: `Action needed: your data will be deleted on ${deadlineStr}`,
       html,
     });
     if (result.error) {

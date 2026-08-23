@@ -491,7 +491,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
           <input type="hidden" name="customerId" value={customerId} />
           <ConfirmSubmitButton
             label="Delete aquatic venue"
-            confirmMessage="Delete this aquatic venue and all its equipment/history?"
+            confirmMessage="This permanently deletes this aquatic venue and all its visit history, readings, and photos — this cannot be undone. Export your data first (Billing page) if you want a copy."
             className="rounded bg-brand-danger px-3 py-1.5 text-sm font-medium text-white"
           />
         </form>

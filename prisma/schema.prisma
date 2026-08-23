@@ -98,6 +98,21 @@ model Organization {
   stripeSubscriptionId String?                @unique
   currentPeriodEnd     DateTime?
 
+  /// Set when the CANCELED webhook fires (`customer.subscription.deleted`) -- the org has
+  /// until this moment to export its own data (see the export tool on the Billing page)
+  /// before the scrub cron permanently deletes everything not on the compliance-retained
+  /// allowlist. Null once the scrub has run or the org resubscribes before then.
+  dataScrubScheduledAt DateTime?
+  /// Set once the scrub cron actually processes this org -- makes the cron's own query
+  /// idempotent (never re-scrub an org twice) and is what the Billing/expired pages check
+  /// to show "your data has been removed" instead of the countdown.
+  dataScrubbedAt       DateTime?
+  /// Where the automatic full pre-scrub safety export landed in Vercel Blob, set once by
+  /// the cancellation webhook (see runCancellationSafetyExport) -- kept here rather than
+  /// only on an OrganizationScrubRun row because the export happens at cancellation time,
+  /// separate from (and up to 48h before) the scrub attempt itself.
+  dataScrubSafetyExportBlobPath String?
+
   /// Captured at signup — USPS 2-letter code ("NV", "CA", ...). Null for accounts that
   /// predate multi-state support and haven't been backfilled yet.
   state               String?
@@ -130,8 +145,37 @@ model Organization {
   phoneAgentSettings    OrgPhoneAgentSettings?
   phoneAgentCalls       PhoneAgentCall[]
   phoneAgentDailyUsage  PhoneAgentDailyUsage[]
+  scrubRuns             OrganizationScrubRun[]
 
   @@index([complianceRulesetId])
+}
+
+/// One row per cancellation-scrub attempt (dry-run or live) against an org -- an org-wide
+/// permanent-delete operation needs its own durable, queryable record independent of
+/// console logs, the same way a payment needs a receipt. See lib/org-scrub.ts.
+model OrganizationScrubRun {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// True for every run until this feature's dry-run trial period is explicitly ended
+  /// (see ORG_SCRUB_DRY_RUN in lib/org-scrub.ts) -- a dry run computes deletedCounts and
+  /// changes nothing; only a dryRun: false run actually deletes anything.
+  dryRun    Boolean
+  startedAt DateTime  @default(now())
+  completedAt DateTime?
+  status    String // "SUCCESS" | "FAILED"
+  error     String?
+
+  /// Where the automatic full pre-scrub safety export landed in Vercel Blob, so a support
+  /// request for "can we get this org's data back" has somewhere to look even after a
+  /// live scrub has run.
+  safetyExportBlobPath String?
+  /// { modelName: count, ... } -- what was (dry run) or was actually (live run) deleted,
+  /// per model, for audit/review before flipping dry-run off.
+  deletedCounts         Json?
+
+  @@index([organizationId])
 }
 
 /// Config-driven, per-state compliance rules -- replaces hardcoded Nevada/SNHD logic.

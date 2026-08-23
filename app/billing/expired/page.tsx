@@ -13,16 +13,23 @@ export default async function BillingExpiredPage() {
       {appUser.role === "ADMIN" ? (
         <>
           <p className="mt-2 text-sm text-brand-muted">
-            Your subscription has ended. Reactivate to regain access to your dashboard.
+            Your subscription has ended. Reactivate to regain access to your dashboard. If you don&rsquo;t reactivate
+            or export your data soon, most of it will be permanently deleted -- see the warning email sent to you,
+            or export now below.
           </p>
-          <form action={openBillingPortal} className="mt-6">
-            <button
-              type="submit"
-              className="rounded-md bg-brand-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-ink"
-            >
-              Reactivate billing
-            </button>
-          </form>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <form action={openBillingPortal}>
+              <button
+                type="submit"
+                className="rounded-md bg-brand-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-ink"
+              >
+                Reactivate billing
+              </button>
+            </form>
+            <a href="/api/organizations/export" className="text-sm font-medium text-brand-primary underline">
+              Export your data now
+            </a>
+          </div>
         </>
       ) : (
         <p className="mt-2 text-sm text-brand-muted">
