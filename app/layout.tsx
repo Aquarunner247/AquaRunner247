@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Big_Shoulders, Inter, IBM_Plex_Mono } from "next/font/google";
+import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SideNav } from "./components/side-nav";
@@ -62,6 +63,15 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased md:flex">
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-T91TBD4WF1" strategy="afterInteractive" />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-T91TBD4WF1');
+          `}
+        </Script>
         <ServiceWorkerRegister />
         <SideNav
           isLoggedIn={Boolean(appUser)}
