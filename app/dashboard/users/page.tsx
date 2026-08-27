@@ -143,6 +143,15 @@ export default async function UsersPage({ searchParams }: PageProps) {
                   That email already belongs to a different account — use a different email to add this user.
                 </p>
               ) : null}
+              {params.error === "user-limit" ? (
+                <p className="mt-1 text-sm font-medium text-brand-danger">
+                  You&rsquo;ve reached your plan&rsquo;s user limit.{" "}
+                  <Link href="/dashboard/billing" className="underline">
+                    Upgrade your plan
+                  </Link>{" "}
+                  to add more.
+                </p>
+              ) : null}
               <div className="mt-2 grid gap-2 md:grid-cols-2">
                 <NameInput name="name" required placeholder="Full name" className="app-field" />
                 <input name="email" type="email" required placeholder="Email" className="app-field" />

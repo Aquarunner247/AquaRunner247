@@ -20,6 +20,12 @@ const STATUS_LABELS: Record<string, string> = {
   COMPED: "Comped (no billing)",
 };
 
+const TIER_LABELS: Record<string, string> = {
+  STARTER: "Starter",
+  PRO: "Pro",
+  ENTERPRISE: "Enterprise",
+};
+
 export default async function BillingPage({ searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
@@ -30,7 +36,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
 
   const organization = await prisma.organization.findUnique({
     where: { id: appUser.organizationId },
-    select: { planStatus: true, trialEndsAt: true, currentPeriodEnd: true, stripeCustomerId: true },
+    select: { planStatus: true, planTier: true, trialEndsAt: true, currentPeriodEnd: true, stripeCustomerId: true },
   });
 
   return (
@@ -46,6 +52,12 @@ export default async function BillingPage({ searchParams }: PageProps) {
           <div>
             <dt className="text-xs uppercase tracking-wide text-brand-muted">Status</dt>
             <dd className="text-brand-ink">{organization ? STATUS_LABELS[organization.planStatus] : "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-brand-muted">Plan</dt>
+            <dd className="text-brand-ink">
+              {organization?.planTier ? TIER_LABELS[organization.planTier] : "—"}
+            </dd>
           </div>
           {organization?.trialEndsAt ? (
             <div>

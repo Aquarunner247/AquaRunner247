@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { getOrgPlanAccess } from "@/lib/plan-tiers";
+import { ProFeatureLock } from "@/app/components/pro-feature-lock";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { getOrgPayrollSettings } from "@/lib/technician-pay";
@@ -31,6 +33,26 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
 
   const sp = (await searchParams) ?? {};
   const editingId = sp.edit ?? "";
+
+  const { proAccess } = await getOrgPlanAccess(appUser.organizationId);
+  if (!proAccess) {
+    return (
+      <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
+        <div className="text-sm text-brand-muted">
+          <Link href="/dashboard/settings" className="underline">
+            Settings
+          </Link>
+          {" / "}
+          <span>Pay rates</span>
+        </div>
+        <header className="mt-2 border-b border-brand-border pb-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
+          <h1 className="text-2xl font-semibold text-brand-ink">Pay rates</h1>
+        </header>
+        <ProFeatureLock feature="Technician pay rates" />
+      </main>
+    );
+  }
 
   const [technicians, bodiesOfWater, rates, activeAssignments, payrollSettings] = await Promise.all([
     prisma.user.findMany({

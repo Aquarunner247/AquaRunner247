@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe, mapSubscriptionStatus } from "@/lib/stripe";
+import { stripe, mapSubscriptionStatus, tierForPriceId, isSelfServePlanTier } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
 import { runCancellationSafetyExport } from "@/lib/compliance-archive";
@@ -57,8 +57,14 @@ export async function POST(req: Request) {
         const businessPhone = session.metadata?.phone ? String(session.metadata.phone).trim() : null;
         const state = String(session.metadata?.state ?? "").trim().toUpperCase() || null;
         const hasCommercialPools = session.metadata?.hasCommercialPools === "true";
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
         const stateRuleset = state ? await prisma.complianceRuleset.findUnique({ where: { state }, select: { id: true } }) : null;
+
+        // The subscription's actual Price is the source of truth for which tier this is;
+        // the metadata set at checkout is only a fallback in case that lookup comes up empty.
+        const subscribedPriceId = subscription.items.data[0]?.price?.id;
+        const metadataTier = session.metadata?.planTier;
+        const planTier = tierForPriceId(subscribedPriceId) ?? (isSelfServePlanTier(String(metadataTier ?? "")) ? (metadataTier as "STARTER" | "PRO") : null);
 
         try {
           const org = await prisma.organization.create({
@@ -67,6 +73,7 @@ export async function POST(req: Request) {
               businessName,
               businessPhone,
               planStatus: mapSubscriptionStatus(subscription.status),
+              planTier,
               stripeCustomerId: customerId,
               stripeSubscriptionId: subscriptionId,
               trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
@@ -103,6 +110,12 @@ export async function POST(req: Request) {
         const planStatus = isCancellation ? "CANCELED" : mapSubscriptionStatus(subscription.status);
         const scrubScheduledAt = isCancellation ? new Date(Date.now() + SCRUB_GRACE_PERIOD_MS) : undefined;
 
+        // Keeps planTier in sync with a plan change made through the billing portal, not
+        // just the tier chosen at signup. Only set when the current price actually resolves
+        // to one of the two self-serve tiers -- e.g. a custom Enterprise price must not
+        // clobber a planTier a platform admin set by hand.
+        const resolvedTier = tierForPriceId(subscription.items.data[0]?.price?.id);
+
         // Set the scrub-scheduling flag as part of the same update that flips
         // planStatus -- this is the durable source of truth the cron reads, so it must
         // land even if the best-effort export/email below fail. Cleared to null on any
@@ -115,6 +128,7 @@ export async function POST(req: Request) {
           where: { stripeSubscriptionId: subscription.id },
           data: {
             planStatus,
+            ...(resolvedTier ? { planTier: resolvedTier } : {}),
             currentPeriodEnd: subscription.items.data[0]?.current_period_end
               ? new Date(subscription.items.data[0].current_period_end * 1000)
               : null,

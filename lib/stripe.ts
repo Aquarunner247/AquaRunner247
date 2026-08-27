@@ -1,5 +1,34 @@
 import Stripe from "stripe";
-import type { OrganizationPlanStatus } from "@/generated/prisma/client";
+import type { OrganizationPlanStatus, PlanTier } from "@/generated/prisma/client";
+
+/** The two self-serve tiers, each backed by its own Stripe Price created in the dashboard
+ * (see STRIPE_TEST_PLAN.md for the test-mode setup). ENTERPRISE has no price -- it's
+ * custom/contact-us and set manually by a platform admin, never chosen at checkout. */
+export type SelfServePlanTier = "STARTER" | "PRO";
+
+const SELF_SERVE_TIER_PRICE_ENV: Record<SelfServePlanTier, string> = {
+  STARTER: "STRIPE_PRICE_ID_STARTER",
+  PRO: "STRIPE_PRICE_ID_PRO",
+};
+
+export function isSelfServePlanTier(value: string): value is SelfServePlanTier {
+  return value === "STARTER" || value === "PRO";
+}
+
+export function priceIdForTier(tier: SelfServePlanTier): string | null {
+  return process.env[SELF_SERVE_TIER_PRICE_ENV[tier]] || null;
+}
+
+/** Reverse lookup used by the webhook to keep Organization.planTier in sync with whatever
+ * Price a subscription is actually on -- covers upgrades/downgrades made through the
+ * billing portal, not just the tier chosen at signup. Returns null for a price that isn't
+ * one of the two self-serve tiers (e.g. a custom Enterprise price, or unset env vars). */
+export function tierForPriceId(priceId: string | null | undefined): PlanTier | null {
+  if (!priceId) return null;
+  if (priceId === process.env.STRIPE_PRICE_ID_STARTER) return "STARTER";
+  if (priceId === process.env.STRIPE_PRICE_ID_PRO) return "PRO";
+  return null;
+}
 
 export function mapSubscriptionStatus(status: Stripe.Subscription.Status): OrganizationPlanStatus {
   switch (status) {

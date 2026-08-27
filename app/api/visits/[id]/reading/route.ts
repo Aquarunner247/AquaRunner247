@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { computeAndSaveDosingRecommendation } from "@/lib/dosing-calculator";
+import { getOrgPlanAccess } from "@/lib/plan-tiers";
 
 type ReadingPayload = {
   ph?: number | null;
@@ -98,7 +99,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     },
   });
 
-  const dosing = await computeAndSaveDosingRecommendation(id);
+  // The dosing calculator (exact-dose recommendations for free chlorine, alkalinity, CYA,
+  // calcium hardness, salt) is a Pro feature -- see lib/plan-tiers.ts. Starter orgs still
+  // get their reading saved above; they just don't get a computed recommendation back.
+  const { proAccess } = await getOrgPlanAccess(visit.organizationId);
+  const dosing = proAccess ? await computeAndSaveDosingRecommendation(id) : null;
 
   return NextResponse.json({ ok: true, reading, dosing });
 }

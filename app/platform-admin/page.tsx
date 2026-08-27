@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
-import { compOrganization, cancelOrganization } from "./actions";
+import { compOrganization, cancelOrganization, setOrganizationPlanTier } from "./actions";
 
 const STATUS_LABELS: Record<string, string> = {
   TRIALING: "Trial",
@@ -11,6 +11,12 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELED: "Canceled",
   COMPED: "Comped",
 };
+
+const TIER_OPTIONS: { value: string; label: string }[] = [
+  { value: "STARTER", label: "Starter" },
+  { value: "PRO", label: "Pro" },
+  { value: "ENTERPRISE", label: "Enterprise" },
+];
 
 export default async function PlatformAdminPage() {
   await requirePlatformAdmin();
@@ -75,6 +81,7 @@ export default async function PlatformAdminPage() {
               <th className="px-3 py-2 font-medium text-brand-muted">Admin</th>
               <th className="px-3 py-2 font-medium text-brand-muted">State</th>
               <th className="px-3 py-2 font-medium text-brand-muted">Status</th>
+              <th className="px-3 py-2 font-medium text-brand-muted">Plan</th>
               <th className="px-3 py-2 font-medium text-brand-muted">Trial ends</th>
               <th className="px-3 py-2 font-medium text-brand-muted">Stripe</th>
               <th className="px-3 py-2 font-medium text-brand-muted">Signed up</th>
@@ -95,6 +102,28 @@ export default async function PlatformAdminPage() {
                     ) : null}
                   </td>
                   <td className="px-3 py-2 text-brand-ink">{STATUS_LABELS[org.planStatus] ?? org.planStatus}</td>
+                  <td className="px-3 py-2 text-brand-ink">
+                    <form action={setOrganizationPlanTier} className="flex items-center gap-1">
+                      <input type="hidden" name="organizationId" value={org.id} />
+                      <select
+                        name="planTier"
+                        defaultValue={org.planTier ?? ""}
+                        className="rounded border border-brand-control bg-white px-1.5 py-1 text-xs text-brand-ink"
+                      >
+                        <option value="" disabled>
+                          Not set
+                        </option>
+                        {TIER_OPTIONS.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="rounded border border-brand-control bg-white px-2 py-1 text-xs font-medium text-brand-ink hover:bg-brand-foam">
+                        Set
+                      </button>
+                    </form>
+                  </td>
                   <td className="px-3 py-2 text-brand-ink">{org.trialEndsAt ? org.trialEndsAt.toLocaleDateString() : "—"}</td>
                   <td className="px-3 py-2 text-brand-ink">
                     {org.stripeCustomerId ? (
@@ -137,7 +166,7 @@ export default async function PlatformAdminPage() {
             })}
             {organizations.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-brand-muted">
+                <td colSpan={9} className="px-3 py-6 text-center text-brand-muted">
                   No companies yet.
                 </td>
               </tr>

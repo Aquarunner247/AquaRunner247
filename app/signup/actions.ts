@@ -3,12 +3,17 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createOrFindAuthUser, createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { stripe, mapSubscriptionStatus } from "@/lib/stripe";
-import type { OrganizationPlanStatus } from "@/generated/prisma/client";
+import { stripe, mapSubscriptionStatus, priceIdForTier, tierForPriceId, isSelfServePlanTier, type SelfServePlanTier } from "@/lib/stripe";
+import type { OrganizationPlanStatus, PlanTier } from "@/generated/prisma/client";
 import { isValidStateCode } from "@/lib/us-states";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
 
 const TRIAL_DAYS = 14;
+
+function parseTier(raw: FormDataEntryValue | null): SelfServePlanTier | null {
+  const upper = String(raw ?? "").trim().toUpperCase();
+  return isSelfServePlanTier(upper) ? upper : null;
+}
 
 /**
  * Starts signup: collects business info only (no password, no DB writes) and sends
@@ -32,8 +37,16 @@ export async function signUp(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim();
   const state = String(formData.get("state") ?? "").trim().toUpperCase();
   const hasCommercialPoolsRaw = String(formData.get("hasCommercialPools") ?? "").trim();
+  const tier = parseTier(formData.get("tier"));
 
-  if (!businessName || !name || !email || !isValidStateCode(state) || (hasCommercialPoolsRaw !== "true" && hasCommercialPoolsRaw !== "false")) {
+  if (
+    !businessName ||
+    !name ||
+    !email ||
+    !isValidStateCode(state) ||
+    (hasCommercialPoolsRaw !== "true" && hasCommercialPoolsRaw !== "false") ||
+    !tier
+  ) {
     redirect("/signup?error=missing-fields");
   }
 
@@ -42,7 +55,7 @@ export async function signUp(formData: FormData) {
     redirect("/signup?error=email-in-use");
   }
 
-  const priceId = process.env.STRIPE_PRICE_ID;
+  const priceId = priceIdForTier(tier);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   // Someone may have paid on Stripe's page in an earlier attempt but never came back
@@ -75,9 +88,9 @@ export async function signUp(formData: FormData) {
   }
 
   if (!priceId) {
-    // Billing isn't configured in this environment — skip Stripe and go straight to
-    // the completion step, which creates the account without any Stripe linkage.
-    const qs = new URLSearchParams({ businessName, name, email, phone, state, hasCommercialPools: hasCommercialPoolsRaw });
+    // Billing isn't configured for this tier in this environment — skip Stripe and go
+    // straight to the completion step, which creates the account without any Stripe linkage.
+    const qs = new URLSearchParams({ businessName, name, email, phone, state, hasCommercialPools: hasCommercialPoolsRaw, tier });
     redirect(`/signup/complete?${qs.toString()}`);
   }
 
@@ -86,7 +99,7 @@ export async function signUp(formData: FormData) {
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: email,
-      metadata: { businessName, name, phone, state, hasCommercialPools: hasCommercialPoolsRaw },
+      metadata: { businessName, name, phone, state, hasCommercialPools: hasCommercialPoolsRaw, planTier: tier },
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { trial_period_days: TRIAL_DAYS },
       success_url: `${appUrl}/signup/complete?session_id={CHECKOUT_SESSION_ID}`,
@@ -115,6 +128,7 @@ type ResolvedSignup = {
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   planStatus: OrganizationPlanStatus;
+  planTier: PlanTier | null;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
 };
@@ -143,6 +157,12 @@ async function resolveFromStripeSession(sessionId: string): Promise<ResolvedSign
     throw new Error(`Checkout session ${sessionId} is missing required fields`);
   }
 
+  // The subscription's actual Price is the source of truth for which tier this is (covers
+  // a billing-portal plan change made before this ever resolves); metadata.planTier is only
+  // a fallback for the unexpected case where the price lookup doesn't match either tier.
+  const subscribedPriceId = subscription.items.data[0]?.price?.id;
+  const planTier = tierForPriceId(subscribedPriceId) ?? (isSelfServePlanTier(String(session.metadata?.planTier ?? "")) ? (String(session.metadata?.planTier) as PlanTier) : null);
+
   return {
     businessName,
     name,
@@ -153,6 +173,7 @@ async function resolveFromStripeSession(sessionId: string): Promise<ResolvedSign
     stripeCustomerId: customerId,
     stripeSubscriptionId: subscription.id,
     planStatus: mapSubscriptionStatus(subscription.status),
+    planTier,
     trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
     currentPeriodEnd: subscription.items.data[0]?.current_period_end
       ? new Date(subscription.items.data[0].current_period_end * 1000)
@@ -168,6 +189,7 @@ function resolveFromForm(formData: FormData): ResolvedSignup {
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const state = String(formData.get("state") ?? "").trim().toUpperCase();
   const hasCommercialPools = String(formData.get("hasCommercialPools") ?? "").trim() === "true";
+  const tier = parseTier(formData.get("tier"));
 
   if (!businessName || !name || !email || !isValidStateCode(state)) {
     redirect("/signup?error=missing-fields");
@@ -183,6 +205,10 @@ function resolveFromForm(formData: FormData): ResolvedSignup {
     stripeCustomerId: null,
     stripeSubscriptionId: null,
     planStatus: "TRIALING",
+    // Falls back to Starter rather than throwing -- this dev-only path (no Stripe price
+    // configured) already trusts every other resubmitted field, and defaulting keeps local
+    // dev usable even from an older link that predates the tier param.
+    planTier: tier ?? "STARTER",
     trialEndsAt: null,
     currentPeriodEnd: null,
   };
@@ -225,6 +251,7 @@ async function resolveFromExistingOrg(orgId: string, formData: FormData): Promis
     stripeCustomerId: org.stripeCustomerId,
     stripeSubscriptionId: org.stripeSubscriptionId,
     planStatus: org.planStatus,
+    planTier: org.planTier,
     trialEndsAt: org.trialEndsAt,
     currentPeriodEnd: org.currentPeriodEnd,
   };
@@ -260,6 +287,7 @@ export async function completeSignup(formData: FormData) {
           phone: String(formData.get("phone") ?? ""),
           state: String(formData.get("state") ?? ""),
           hasCommercialPools: String(formData.get("hasCommercialPools") ?? ""),
+          tier: String(formData.get("tier") ?? ""),
         });
 
   if (password.length < 8) {
@@ -285,7 +313,7 @@ export async function completeSignup(formData: FormData) {
     resolved = resolveFromForm(formData);
   }
 
-  const { businessName, name, email, phone, state, hasCommercialPools, stripeCustomerId, stripeSubscriptionId, planStatus, trialEndsAt, currentPeriodEnd } =
+  const { businessName, name, email, phone, state, hasCommercialPools, stripeCustomerId, stripeSubscriptionId, planStatus, planTier, trialEndsAt, currentPeriodEnd } =
     resolved;
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -324,9 +352,17 @@ export async function completeSignup(formData: FormData) {
       // The webhook's safety-net org create may predate this state/hasCommercialPools
       // capture (or simply never had it, if metadata was missing) -- this signup
       // completion's resolved values are authoritative, so set them here regardless.
+      // planTier is only overwritten when this resolution actually found one -- the
+      // webhook's own price-id lookup already set it in the normal case, and this must
+      // not null it back out if resolution here came up empty for some reason.
       await prisma.organization.update({
         where: { id: targetOrgId },
-        data: { state, hasCommercialPools, complianceRulesetId: stateRuleset?.id ?? null },
+        data: {
+          state,
+          hasCommercialPools,
+          complianceRulesetId: stateRuleset?.id ?? null,
+          ...(planTier ? { planTier } : {}),
+        },
       });
       await prisma.user.create({
         data: { organizationId: targetOrgId, authUserId, email, name, role: "ADMIN", active: true },
@@ -339,6 +375,7 @@ export async function completeSignup(formData: FormData) {
             businessName,
             businessPhone: phone,
             planStatus,
+            planTier,
             stripeCustomerId,
             stripeSubscriptionId,
             trialEndsAt,

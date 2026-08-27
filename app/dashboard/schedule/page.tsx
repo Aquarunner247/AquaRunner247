@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
 import { RouteDayView } from "@/app/components/route-day-view";
+import { getOrgPlanAccess } from "@/lib/plan-tiers";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 import { AdminSchedule } from "./admin-schedule";
@@ -58,6 +59,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   if (appUser.role !== "TECHNICIAN") redirect("/dashboard");
 
   const sp = (await spPromise) ?? {};
+  const { proAccess } = await getOrgPlanAccess(appUser.organizationId);
   const tab: Tab = TABS.includes((sp.tab ?? "") as Tab) ? ((sp.tab ?? "day") as Tab) : "day";
   const statusFilter: StatusFilterValue = STATUS_FILTERS.includes((sp.status ?? "") as StatusFilterValue)
     ? ((sp.status ?? "all") as StatusFilterValue)
@@ -286,6 +288,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           <>
             <RouteDayView
               visits={routeStops}
+              proAccess={proAccess}
               statusFilter={statusFilter}
               // Reordering a filtered subset doesn't have coherent semantics against the
               // day's real underlying sequence (the API persists 0..N-1 across whatever

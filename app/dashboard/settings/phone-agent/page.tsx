@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { getOrgPlanAccess } from "@/lib/plan-tiers";
+import { ProFeatureLock } from "@/app/components/pro-feature-lock";
 import { updatePhoneAgentSettings } from "./actions";
 
 type PageProps = {
@@ -41,6 +43,26 @@ export default async function PhoneAgentSettingsPage({ searchParams }: PageProps
   if (appUser.role !== "ADMIN") redirect("/dashboard");
 
   const sp = (await searchParams) ?? {};
+
+  const { proAccess } = await getOrgPlanAccess(appUser.organizationId);
+  if (!proAccess) {
+    return (
+      <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
+        <div className="text-sm text-brand-muted">
+          <Link href="/dashboard/settings" className="underline">
+            Settings
+          </Link>
+          {" / "}
+          <span>AI Phone Agent</span>
+        </div>
+        <header className="mt-2 border-b border-brand-border pb-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
+          <h1 className="text-2xl font-semibold text-brand-ink">AI Phone Agent</h1>
+        </header>
+        <ProFeatureLock feature="The AI phone agent" />
+      </main>
+    );
+  }
 
   const [organization, settings] = await Promise.all([
     prisma.organization.findUnique({ where: { id: appUser.organizationId }, select: { aiPhoneAgentEnabled: true } }),

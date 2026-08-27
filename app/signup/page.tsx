@@ -1,18 +1,24 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signUp } from "./actions";
+import { isSelfServePlanTier, type SelfServePlanTier } from "@/lib/stripe";
 import { US_STATES } from "@/lib/us-states";
 import { NameInput } from "@/app/components/name-input";
 import { PhoneInput } from "@/app/components/phone-input";
 
 type PageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; tier?: string }>;
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
   "missing-fields": "Please fill in every field.",
   "email-in-use": "That email already has an account. Try signing in instead.",
   "server-error": "Something went wrong starting checkout. Please try again.",
+};
+
+const TIER_LABELS: Record<SelfServePlanTier, string> = {
+  STARTER: "Starter — $99/month",
+  PRO: "Pro — $149/month",
 };
 
 export default async function SignupPage({ searchParams }: PageProps) {
@@ -24,6 +30,13 @@ export default async function SignupPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const errorMessage = params.error ? ERROR_MESSAGES[params.error] ?? "Something went wrong. Please try again." : null;
+  // No silent default -- signup always starts from a pricing card link with an explicit
+  // ?tier=, so an invalid/missing one sends them back to pick a plan rather than guessing.
+  const tierParam = String(params.tier ?? "").toUpperCase();
+  if (!isSelfServePlanTier(tierParam)) {
+    redirect("/#pricing");
+  }
+  const tier = tierParam;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
@@ -31,12 +44,16 @@ export default async function SignupPage({ searchParams }: PageProps) {
         <p className="text-sm font-medium uppercase tracking-wide text-brand-primary">AquaRunner 24/7 Pro</p>
         <h1 className="mt-2 text-2xl font-semibold text-brand-ink">Start your free trial</h1>
         <p className="mt-2 text-sm text-brand-muted">
-          14 days free, then a flat monthly rate. A card is required to start the trial.
+          {TIER_LABELS[tier]}. 14 days free, then billing starts. A card is required to start the trial.{" "}
+          <Link href="/#pricing" className="underline">
+            Change plan
+          </Link>
         </p>
         {errorMessage ? <p className="mt-3 text-sm text-brand-danger">{errorMessage}</p> : null}
       </div>
 
       <form action={signUp} className="mt-8 flex flex-col gap-4">
+        <input type="hidden" name="tier" value={tier} />
         <label className="flex flex-col gap-1 text-sm text-brand-ink">
           Business name
           <input

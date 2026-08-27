@@ -16,6 +16,7 @@ type PageProps = {
     phone?: string;
     state?: string;
     hasCommercialPools?: string;
+    tier?: string;
     error?: string;
   }>;
 };
@@ -103,6 +104,7 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
             <input type="hidden" name="phone" value={params.phone ?? ""} />
             <input type="hidden" name="state" value={params.state ?? ""} />
             <input type="hidden" name="hasCommercialPools" value={params.hasCommercialPools ?? ""} />
+            <input type="hidden" name="tier" value={params.tier ?? ""} />
           </>
         )}
         {isResume ? (

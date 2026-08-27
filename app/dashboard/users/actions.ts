@@ -6,6 +6,7 @@ import { UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { createOrFindAuthUser, createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { userLimitFor } from "@/lib/plan-tiers";
 
 /** UI-only value for the "Add user" role select -- not part of the Prisma UserRole enum,
  * since a customer portal login is a CustomerUser row, not a staff User row with a role. */
@@ -58,6 +59,23 @@ async function createStaffUserForOrg(appUser: { organizationId: string }, formDa
   }
   if (existingStaffUser && existingStaffUser.organizationId !== appUser.organizationId) {
     redirect("/dashboard/users?error=email-in-use");
+  }
+
+  // Only a seat-count check when this action would actually add a net-new active seat --
+  // editing an already-active staff user's role/details isn't growing headcount.
+  const addsActiveSeat = !existingStaffUser || !existingStaffUser.active;
+  if (addsActiveSeat) {
+    const organization = await prisma.organization.findUnique({
+      where: { id: appUser.organizationId },
+      select: { planStatus: true, planTier: true },
+    });
+    const limit = organization ? userLimitFor(organization) : null;
+    if (limit != null) {
+      const activeCount = await prisma.user.count({ where: { organizationId: appUser.organizationId, active: true } });
+      if (activeCount >= limit) {
+        redirect("/dashboard/users?error=user-limit");
+      }
+    }
   }
 
   const authUserId = await createOrFindAuthUser(email, password);

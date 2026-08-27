@@ -82,6 +82,15 @@ enum OrganizationPlanStatus {
   COMPED
 }
 
+/// STARTER and PRO map 1:1 to a self-serve Stripe Price (see lib/plan-tiers.ts /
+/// lib/stripe.ts) and are chosen at signup. ENTERPRISE is never self-serve -- it's set
+/// manually by a platform admin for a custom-priced deal, same as COMPED is.
+enum PlanTier {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -93,6 +102,9 @@ model Organization {
   businessPhone String?
 
   planStatus           OrganizationPlanStatus @default(TRIALING)
+  /// Null for orgs that predate tiered pricing and haven't been backfilled -- see
+  /// lib/plan-tiers.ts, which treats a null tier the same as STARTER for limits/gating.
+  planTier              PlanTier?
   trialEndsAt          DateTime?
   stripeCustomerId     String?                @unique
   stripeSubscriptionId String?                @unique
