@@ -4,6 +4,8 @@ import "leaflet/dist/leaflet.css";
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
+import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_PRIMARY } from "@/app/lib/chart-colors";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
@@ -59,6 +61,9 @@ type Props = {
   /// full day's real underlying sequence isn't coherent (same reasoning as the existing
   /// multi-tech read-only gate).
   statusFilter?: "all" | "completed" | "in_progress" | "pending";
+  /// Route optimization is a Pro feature (see lib/plan-tiers.ts) -- defaults to true so
+  /// existing call sites that haven't been updated to pass it don't lose the button.
+  proAccess?: boolean;
 };
 
 function matchesStatusFilter(status: string, filter: NonNullable<Props["statusFilter"]>): boolean {
@@ -176,6 +181,7 @@ export function RouteDayView({
   technicianLegend,
   allowGpsAutoArrival = true,
   statusFilter = "all",
+  proAccess = true,
 }: Props) {
   const isMultiTech = Boolean(technicianColors);
   // Multi-technician mode is always read-only, regardless of the readOnly prop: reordering
@@ -219,6 +225,61 @@ export function RouteDayView({
   // allowGpsAutoArrival separately from effectiveReadOnly -- see that prop's doc comment.
   useEffect(() => {
     if (effectiveReadOnly || !isToday || !allowGpsAutoArrival) return;
+
+    // Shared by both the native and web watch below -- given a fresh fix, clear any
+    // earlier "signal lost" state (the phone may have recovered since) and check every
+    // visit for an auto-arrival stamp.
+    function handleFix(latitude: number, longitude: number) {
+      setLocationState("watching");
+      const here = { latitude, longitude };
+      const eligibleIds = computeAutoArrivalEligibleIds(visitsRef.current);
+      for (const v of visitsRef.current) {
+        if (v.startedAt || v.status === "CANCELLED" || notifiedRef.current.has(v.id)) continue;
+        if (!eligibleIds.has(v.id)) continue;
+        if (v.latitude == null || v.longitude == null) continue;
+        if (haversineMeters(here, v) <= ARRIVAL_RADIUS_METERS) {
+          void stampArrival(v.id);
+        }
+      }
+    }
+
+    // A denied/unavailable fix has no error code to branch on here (unlike the web
+    // GeolocationPositionError below) -- best-effort string match on the message is all
+    // the plugin gives us.
+    function handleFailureMessage(message: string | undefined) {
+      const lower = (message ?? "").toLowerCase();
+      setLocationState(lower.includes("deni") || lower.includes("permission") ? "denied" : "unavailable");
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      // A bare Capacitor WebView doesn't reliably bridge the web geolocation permission
+      // prompt to the OS on its own -- the native plugin is needed here, not just used for
+      // parity with the camera wiring. watchPosition's setup is itself async (unlike the
+      // synchronous browser API below), so the watch id it resolves to has to be captured
+      // in a ref-like local rather than returned directly from the effect.
+      let watchId: string | null = null;
+      let torndown = false;
+      setLocationState("watching");
+      Geolocation.watchPosition({ enableHighAccuracy: true, timeout: 20_000 }, (position, err) => {
+        if (torndown) return;
+        if (position) {
+          handleFix(position.coords.latitude, position.coords.longitude);
+        } else {
+          handleFailureMessage(err instanceof Error ? err.message : err?.message);
+        }
+      })
+        .then((id) => {
+          if (torndown) void Geolocation.clearWatch({ id });
+          else watchId = id;
+        })
+        .catch((err) => handleFailureMessage(err instanceof Error ? err.message : String(err)));
+
+      return () => {
+        torndown = true;
+        if (watchId) void Geolocation.clearWatch({ id: watchId });
+      };
+    }
+
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       setLocationState("unsupported");
       return;
@@ -226,21 +287,7 @@ export function RouteDayView({
 
     setLocationState("watching");
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        // A fix came back -- clear any earlier "signal lost" state so the banner
-        // doesn't stay stuck showing an error the phone has since recovered from.
-        setLocationState("watching");
-        const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        const eligibleIds = computeAutoArrivalEligibleIds(visitsRef.current);
-        for (const v of visitsRef.current) {
-          if (v.startedAt || v.status === "CANCELLED" || notifiedRef.current.has(v.id)) continue;
-          if (!eligibleIds.has(v.id)) continue;
-          if (v.latitude == null || v.longitude == null) continue;
-          if (haversineMeters(here, v) <= ARRIVAL_RADIUS_METERS) {
-            void stampArrival(v.id);
-          }
-        }
-      },
+      (pos) => handleFix(pos.coords.latitude, pos.coords.longitude),
       (err) => {
         // Previously only PERMISSION_DENIED was surfaced -- TIMEOUT/POSITION_UNAVAILABLE
         // (a lost GPS fix, common in a parking garage or near tall buildings) were
@@ -486,7 +533,7 @@ export function RouteDayView({
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         <div className={layout === "mapOnly" ? "hidden" : ""}>
-          {!effectiveReadOnly ? (
+          {!effectiveReadOnly && proAccess ? (
             <button
               type="button"
               data-tour="schedule-optimize-route"
@@ -496,6 +543,11 @@ export function RouteDayView({
             >
               Optimize stop order
             </button>
+          ) : null}
+          {!effectiveReadOnly && !proAccess ? (
+            <Link href="/dashboard/billing" className="mb-2 block text-xs font-medium text-brand-primary underline">
+              Upgrade to Pro to optimize stop order
+            </Link>
           ) : null}
           <ul className="space-y-2">
             {displayedVisits.map((v) => {
