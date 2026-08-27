@@ -19,9 +19,20 @@
     "db:seed": "prisma db seed",
     "db:verify-compliance-seed": "node --env-file=.env node_modules/.bin/tsx prisma/verify-compliance-seed.ts",
     "dev:login": "node --env-file=.env node_modules/.bin/tsx scripts/dev-login-cookie.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "cap:sync": "cap sync",
+    "cap:open:ios": "cap open ios",
+    "cap:open:android": "cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/camera": "^8.2.3",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/geolocation": "^8.2.2",
+    "@capacitor/ios": "^8.5.0",
+    "@capacitor/push-notifications": "^8.1.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
     "@sentry/nextjs": "^10.70.0",
@@ -44,6 +55,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "@eslint/eslintrc": "^3.3.5",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^22.13.0",

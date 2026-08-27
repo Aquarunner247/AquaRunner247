@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>AquaRunner 24/7 Pro</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        background: #06333b;
+        color: #f4f8f8;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Never actually shown -- capacitor.config.ts sets server.url to the live production
+      site, so the native WebView navigates there directly on launch. This file only exists
+      because `cap add` requires webDir to be a real, non-empty directory, and it doubles as
+      the one moment (a lost connection before the first navigation completes) where the
+      WebView would otherwise show a blank screen.
+    -->
+    <p>Loading AquaRunner…</p>
+  </body>
+</html>
