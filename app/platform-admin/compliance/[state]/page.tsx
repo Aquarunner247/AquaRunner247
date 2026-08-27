@@ -27,16 +27,16 @@ function rangeLabel(t: { minValue: unknown; idealMin: unknown; idealMax: unknown
 }
 
 const CONFIDENCE_STYLES: Record<string, string> = {
-  confirmed: "bg-emerald-100 text-emerald-800",
-  assumption: "bg-amber-100 text-amber-800",
-  conflict: "bg-rose-100 text-rose-800",
-  gap: "bg-slate-200 text-slate-700",
+  confirmed: "app-pill-good",
+  assumption: "app-pill-attention",
+  conflict: "app-pill-danger",
+  gap: "app-pill-inactive",
 };
 
 function ConfidenceBadge({ value }: { value: string | null }) {
   if (!value) return null;
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${CONFIDENCE_STYLES[value] ?? "bg-slate-200 text-slate-700"}`}>
+    <span className={CONFIDENCE_STYLES[value] ?? "app-pill-inactive"}>
       {value}
     </span>
   );
@@ -60,111 +60,111 @@ export default async function ComplianceStatePreviewPage({ params }: PageProps) 
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
-      <Link href="/platform-admin/compliance" className="text-sm text-[#0A5FA4] underline">
+      <Link href="/platform-admin/compliance" className="text-sm text-brand-primary underline">
         ← All states
       </Link>
 
-      <header className="mt-3 border-b border-slate-200 pb-5">
+      <header className="mt-3 border-b border-brand-border pb-5">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#12234A]">Platform · Compliance preview</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Platform · Compliance preview</p>
           {ruleset.isSupported ? (
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">Live</span>
+            <span className="app-pill-good">Live</span>
           ) : (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Preview only — not gating any account</span>
+            <span className="app-pill-inactive">Preview only — not gating any account</span>
           )}
         </div>
-        <h1 className="text-2xl font-semibold text-slate-900">
+        <h1 className="text-2xl font-semibold text-brand-ink">
           {ruleset.stateName} ({ruleset.state})
         </h1>
-        {ruleset.healthDepartmentName ? <p className="mt-1 text-sm text-slate-600">{ruleset.healthDepartmentName}</p> : null}
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+        {ruleset.healthDepartmentName ? <p className="mt-1 text-sm text-brand-muted">{ruleset.healthDepartmentName}</p> : null}
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-brand-muted">
           {ruleset.jurisdictionLevel ? <span>Jurisdiction: {ruleset.jurisdictionLevel}{ruleset.countyName ? ` (${ruleset.countyName})` : ""}</span> : null}
           {ruleset.officialCitation ? <span>Citation: {ruleset.officialCitation}</span> : null}
           {ruleset.recordRetentionMonths ? <span>Retention: {ruleset.recordRetentionMonths} months</span> : null}
           {ruleset.logSheetSource ? <span>Log sheet: {ruleset.logSheetSource}{ruleset.logSheetSourceLabel ? ` — ${ruleset.logSheetSourceLabel}` : ""}</span> : null}
         </div>
-        {ruleset.sourceDocument ? <p className="mt-2 text-xs text-slate-500">Source: {ruleset.sourceDocument}</p> : null}
-        {ruleset.logSheetSourceNotes ? <p className="mt-1 text-xs text-slate-500">{ruleset.logSheetSourceNotes}</p> : null}
+        {ruleset.sourceDocument ? <p className="mt-2 text-xs text-brand-muted">Source: {ruleset.sourceDocument}</p> : null}
+        {ruleset.logSheetSourceNotes ? <p className="mt-1 text-xs text-brand-muted">{ruleset.logSheetSourceNotes}</p> : null}
       </header>
 
       {ruleset.complianceNotes.length > 0 ? (
         <section className="mt-6 space-y-2">
           {ruleset.complianceNotes.map((n) => (
-            <div key={n.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-amber-800">{n.kind}</p>
-              <p className="mt-1 text-sm font-medium text-amber-900">{n.summary}</p>
-              {n.detail ? <p className="mt-1 text-sm text-amber-800">{n.detail}</p> : null}
+            <div key={n.id} className="rounded-lg border border-brand-warn/30 bg-brand-warnFill p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-brand-warn">{n.kind}</p>
+              <p className="mt-1 text-sm font-medium text-brand-warn">{n.summary}</p>
+              {n.detail ? <p className="mt-1 text-sm text-brand-warn">{n.detail}</p> : null}
             </div>
           ))}
         </section>
       ) : null}
 
       <section className="mt-6">
-        <h2 className="text-sm font-semibold text-slate-900">Chemistry thresholds ({ruleset.chemistryThresholds.length})</h2>
+        <h2 className="text-sm font-semibold text-brand-ink">Chemistry thresholds ({ruleset.chemistryThresholds.length})</h2>
         <div className="mt-2 space-y-2">
           {ruleset.chemistryThresholds.map((t) => (
-            <div key={t.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+            <div key={t.id} className="rounded-lg border border-brand-border bg-white p-3 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm font-semibold text-[#12234A]">{t.parameter}</span>
+                  <span className="font-mono text-sm font-semibold text-brand-ink">{t.parameter}</span>
                   {t.disinfectionMethod !== "NOT_APPLICABLE" ? (
-                    <span className="rounded bg-[#EAF6FA] px-1.5 py-0.5 text-xs text-[#0A5FA4]">{t.disinfectionMethod}</span>
+                    <span className="rounded bg-brand-foam px-1.5 py-0.5 text-xs text-brand-primary">{t.disinfectionMethod}</span>
                   ) : null}
-                  {t.bodyOfWaterCategory ? <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{t.bodyOfWaterCategory}</span> : null}
-                  {t.indoorOutdoor ? <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{t.indoorOutdoor}</span> : null}
-                  {t.appliesWhen ? <span className="text-xs italic text-slate-500">{t.appliesWhen}</span> : null}
+                  {t.bodyOfWaterCategory ? <span className="rounded bg-brand-foam px-1.5 py-0.5 text-xs text-brand-muted">{t.bodyOfWaterCategory}</span> : null}
+                  {t.indoorOutdoor ? <span className="rounded bg-brand-foam px-1.5 py-0.5 text-xs text-brand-muted">{t.indoorOutdoor}</span> : null}
+                  {t.appliesWhen ? <span className="text-xs italic text-brand-muted">{t.appliesWhen}</span> : null}
                 </div>
                 <ConfidenceBadge value={t.sourceConfidence} />
               </div>
-              <p className="mt-1 text-sm text-slate-700">{rangeLabel(t)}</p>
+              <p className="mt-1 text-sm text-brand-ink">{rangeLabel(t)}</p>
               {t.hazardMin != null || t.hazardMax != null ? (
-                <p className="mt-0.5 text-sm text-rose-700">
+                <p className="mt-0.5 text-sm text-brand-danger">
                   Hazard: {fmtNum(t.hazardMin) ?? "?"} – {fmtNum(t.hazardMax) ?? "?"} {t.unit}
                 </p>
               ) : null}
-              {t.relationalRule ? <p className="mt-1 text-sm text-slate-600">Relational: {t.relationalRule}</p> : null}
+              {t.relationalRule ? <p className="mt-1 text-sm text-brand-muted">Relational: {t.relationalRule}</p> : null}
               {t.isCurveBased ? (
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-brand-muted">
                   Curve-based: {t.curveDescription}
-                  {t.curveDataPoints == null ? <span className="font-semibold text-amber-700"> (data points not yet available)</span> : null}
+                  {t.curveDataPoints == null ? <span className="font-semibold text-brand-warn"> (data points not yet available)</span> : null}
                 </p>
               ) : null}
-              {t.notes ? <p className="mt-1 text-xs text-slate-500">{t.notes}</p> : null}
+              {t.notes ? <p className="mt-1 text-xs text-brand-muted">{t.notes}</p> : null}
             </div>
           ))}
-          {ruleset.chemistryThresholds.length === 0 ? <p className="text-sm text-slate-500">None seeded.</p> : null}
+          {ruleset.chemistryThresholds.length === 0 ? <p className="text-sm text-brand-muted">None seeded.</p> : null}
         </div>
       </section>
 
       <section className="mt-6">
-        <h2 className="text-sm font-semibold text-slate-900">Frequency rules ({ruleset.frequencyRules.length})</h2>
-        <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+        <h2 className="text-sm font-semibold text-brand-ink">Frequency rules ({ruleset.frequencyRules.length})</h2>
+        <div className="mt-2 overflow-x-auto rounded-lg border border-brand-border bg-white shadow-sm">
           <table className="w-full min-w-[600px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left">
-                <th className="px-3 py-2 font-medium text-slate-500">Parameter</th>
-                <th className="px-3 py-2 font-medium text-slate-500">Body type</th>
-                <th className="px-3 py-2 font-medium text-slate-500">Facility attribute</th>
-                <th className="px-3 py-2 font-medium text-slate-500">Cadence</th>
-                <th className="px-3 py-2 font-medium text-slate-500">Notes</th>
+              <tr className="border-b border-brand-border bg-brand-surface text-left">
+                <th className="px-3 py-2 font-medium text-brand-muted">Parameter</th>
+                <th className="px-3 py-2 font-medium text-brand-muted">Body type</th>
+                <th className="px-3 py-2 font-medium text-brand-muted">Facility attribute</th>
+                <th className="px-3 py-2 font-medium text-brand-muted">Cadence</th>
+                <th className="px-3 py-2 font-medium text-brand-muted">Notes</th>
               </tr>
             </thead>
             <tbody>
               {ruleset.frequencyRules.map((f) => (
-                <tr key={f.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-3 py-2 font-mono text-xs text-[#12234A]">{f.parameter}</td>
-                  <td className="px-3 py-2 text-slate-700">{f.bodyOfWaterCategory ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-700">{f.facilityAttribute ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-700">
+                <tr key={f.id} className="border-b border-brand-border last:border-0">
+                  <td className="px-3 py-2 font-mono text-xs text-brand-ink">{f.parameter}</td>
+                  <td className="px-3 py-2 text-brand-ink">{f.bodyOfWaterCategory ?? "—"}</td>
+                  <td className="px-3 py-2 text-brand-ink">{f.facilityAttribute ?? "—"}</td>
+                  <td className="px-3 py-2 text-brand-ink">
                     {f.cadence ?? "—"}
-                    {f.isPerformanceBased ? <span className="ml-1 text-xs font-semibold text-amber-700">(performance-based)</span> : null}
+                    {f.isPerformanceBased ? <span className="ml-1 text-xs font-semibold text-brand-warn">(performance-based)</span> : null}
                   </td>
-                  <td className="px-3 py-2 text-xs text-slate-500">{f.notes ?? "—"}</td>
+                  <td className="px-3 py-2 text-xs text-brand-muted">{f.notes ?? "—"}</td>
                 </tr>
               ))}
               {ruleset.frequencyRules.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-4 text-center text-sm text-slate-500">
+                  <td colSpan={5} className="px-3 py-4 text-center text-sm text-brand-muted">
                     None seeded.
                   </td>
                 </tr>
@@ -175,41 +175,41 @@ export default async function ComplianceStatePreviewPage({ params }: PageProps) 
       </section>
 
       <section className="mt-6">
-        <h2 className="text-sm font-semibold text-slate-900">Event protocols ({ruleset.eventProtocols.length})</h2>
+        <h2 className="text-sm font-semibold text-brand-ink">Event protocols ({ruleset.eventProtocols.length})</h2>
         <div className="mt-2 space-y-2">
           {ruleset.eventProtocols.map((e) => (
-            <div key={e.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+            <div key={e.id} className="rounded-lg border border-brand-border bg-white p-3 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm font-semibold text-[#12234A]">{e.triggerType}</span>
-                  <span className="rounded bg-[#EAF6FA] px-1.5 py-0.5 text-xs text-[#0A5FA4]">{e.closureKind}</span>
+                  <span className="font-mono text-sm font-semibold text-brand-ink">{e.triggerType}</span>
+                  <span className="rounded bg-brand-foam px-1.5 py-0.5 text-xs text-brand-primary">{e.closureKind}</span>
                 </div>
                 <ConfidenceBadge value={e.sourceConfidence} />
               </div>
-              <p className="mt-1 text-sm font-medium text-slate-900">{e.triggerLabel}</p>
-              <p className="mt-1 text-sm text-slate-700">{e.reopeningCondition}</p>
-              {e.minimumDurationMinutes != null ? <p className="mt-0.5 text-xs text-slate-500">Minimum duration: {e.minimumDurationMinutes} minutes</p> : null}
-              {e.consecutiveFailuresRequired != null ? <p className="mt-0.5 text-xs text-slate-500">Requires {e.consecutiveFailuresRequired} consecutive failures</p> : null}
-              {e.remediationSteps ? <p className="mt-1 text-sm text-slate-600">Remediation: {e.remediationSteps}</p> : null}
-              {e.requiresSeparateTestKit ? <p className="mt-1 text-xs text-slate-500">Requires a dedicated test kit.</p> : null}
-              {e.labAnalysisFrequency ? <p className="mt-1 text-xs text-slate-500">Lab analysis: {e.labAnalysisFrequency}</p> : null}
-              {e.externalReferenceLabel ? <p className="mt-1 text-xs text-slate-500">External reference: {e.externalReferenceLabel}</p> : null}
+              <p className="mt-1 text-sm font-medium text-brand-ink">{e.triggerLabel}</p>
+              <p className="mt-1 text-sm text-brand-ink">{e.reopeningCondition}</p>
+              {e.minimumDurationMinutes != null ? <p className="mt-0.5 text-xs text-brand-muted">Minimum duration: {e.minimumDurationMinutes} minutes</p> : null}
+              {e.consecutiveFailuresRequired != null ? <p className="mt-0.5 text-xs text-brand-muted">Requires {e.consecutiveFailuresRequired} consecutive failures</p> : null}
+              {e.remediationSteps ? <p className="mt-1 text-sm text-brand-muted">Remediation: {e.remediationSteps}</p> : null}
+              {e.requiresSeparateTestKit ? <p className="mt-1 text-xs text-brand-muted">Requires a dedicated test kit.</p> : null}
+              {e.labAnalysisFrequency ? <p className="mt-1 text-xs text-brand-muted">Lab analysis: {e.labAnalysisFrequency}</p> : null}
+              {e.externalReferenceLabel ? <p className="mt-1 text-xs text-brand-muted">External reference: {e.externalReferenceLabel}</p> : null}
               {e.feeAmount != null ? (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-brand-muted">
                   Fee: {Number(e.feeAmount).toLocaleString(undefined, { style: "currency", currency: "USD" })}
                   {e.feeNote ? ` ${e.feeNote}` : ""}
                 </p>
               ) : null}
-              {e.notes ? <p className="mt-1 text-xs text-slate-500">{e.notes}</p> : null}
+              {e.notes ? <p className="mt-1 text-xs text-brand-muted">{e.notes}</p> : null}
             </div>
           ))}
-          {ruleset.eventProtocols.length === 0 ? <p className="text-sm text-slate-500">None seeded.</p> : null}
+          {ruleset.eventProtocols.length === 0 ? <p className="text-sm text-brand-muted">None seeded.</p> : null}
         </div>
       </section>
 
       {ruleset.referenceContent ? (
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-900">In-app reference content</h2>
+        <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-brand-ink">In-app reference content</h2>
           <SimpleMarkdown content={ruleset.referenceContent} className="mt-2" />
         </section>
       ) : null}
