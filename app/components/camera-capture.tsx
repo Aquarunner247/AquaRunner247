@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Capacitor } from "@capacitor/core";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 
 type Props = {
   onCapture: (file: File) => void | Promise<void>;
@@ -75,6 +77,15 @@ function computeBlurScore(source: HTMLCanvasElement): number | null {
  *
  * Requires a secure context (HTTPS, or localhost in dev) -- same requirement production
  * already meets on Vercel.
+ *
+ * Inside the native app shell (Capacitor.isNativePlatform()), this bypasses getUserMedia
+ * entirely and calls the native Camera plugin with source: CameraSource.Camera instead --
+ * that source opens the OS's own camera capture UI directly, with no "choose from library"
+ * option ever presented, same no-gallery guarantee as above but backed by the platform
+ * rather than a web API. saveToGallery is left false so a compliance photo doesn't also
+ * land in the user's personal camera roll. The returned image is fed through the same
+ * blur-check/review/retake UI as the web path (see loadImageIntoCanvas) rather than being
+ * submitted straight through, so the experience is identical either way.
  */
 export function CameraCapture({ onCapture, disabled }: Props) {
   const [open, setOpen] = useState(false);
@@ -90,10 +101,68 @@ export function CameraCapture({ onCapture, disabled }: Props) {
     streamRef.current = null;
   }
 
+  /** Draws a fully-loaded image (the native camera's output) onto canvasRef and runs it
+   * through the same blur check / review-screen path as a live getUserMedia frame, so
+   * confirmPhoto's canvas.toBlob at the end works identically regardless of which capture
+   * path produced the pixels. */
+  function loadImageIntoCanvas(dataUrl: string): Promise<void> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) {
+          resolve();
+          return;
+        }
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext("2d")?.drawImage(img, 0, 0);
+        const blurScore = computeBlurScore(canvas);
+        setPreview({ dataUrl: canvas.toDataURL("image/jpeg", 0.9), isLikelyBlurry: blurScore != null && blurScore < BLUR_VARIANCE_THRESHOLD });
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = dataUrl;
+    });
+  }
+
+  /** Each call launches the OS camera UI fresh -- unlike getUserMedia there's no
+   * persistent stream to leave running behind the scenes, so "Retake" just calls this
+   * again rather than reusing anything. */
+  async function captureNative() {
+    try {
+      const photo = await Camera.getPhoto({
+        source: CameraSource.Camera,
+        resultType: CameraResultType.DataUrl,
+        quality: 90,
+        saveToGallery: false,
+        correctOrientation: true,
+        allowEditing: false,
+      });
+      if (!photo.dataUrl) throw new Error("No image data returned from camera");
+      await loadImageIntoCanvas(photo.dataUrl);
+    } catch (err) {
+      // The plugin rejects with a "User cancelled photos app" message when someone backs
+      // out of the native camera UI -- that's a normal exit, not an error state.
+      const message = err instanceof Error ? err.message : String(err);
+      if (/cancel/i.test(message)) {
+        closeCamera();
+        return;
+      }
+      setError("Camera access was denied or is unavailable. Enable camera permission for this app and try again.");
+    }
+  }
+
   async function openCamera() {
     setError(null);
     setPreview(null);
     setOpen(true);
+
+    if (Capacitor.isNativePlatform()) {
+      await captureNative();
+      return;
+    }
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Camera access isn't available in this browser.");
       return;
@@ -139,6 +208,11 @@ export function CameraCapture({ onCapture, disabled }: Props) {
 
   function retake() {
     setPreview(null);
+    // No live stream to fall back to on native -- get a fresh frame the same way the
+    // initial capture did.
+    if (Capacitor.isNativePlatform()) {
+      void captureNative();
+    }
   }
 
   async function confirmPhoto() {
@@ -191,8 +265,12 @@ export function CameraCapture({ onCapture, disabled }: Props) {
                 ) : preview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={preview.dataUrl} alt="Captured preview" className="h-full w-full object-cover" />
+                ) : Capacitor.isNativePlatform() ? (
+                  // The native camera is a separate OS-level screen presented on top of
+                  // this WebView -- there's nothing of ours to show underneath it while
+                  // it's open, just a placeholder for the brief moment before/after.
+                  <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white">Opening camera…</div>
                 ) : (
-                  // eslint-disable-next-line jsx-a11y/media-has-caption
                   <video ref={videoRef} playsInline autoPlay muted className="h-full w-full object-cover" />
                 )}
                 <canvas ref={canvasRef} className="hidden" />
@@ -214,7 +292,7 @@ export function CameraCapture({ onCapture, disabled }: Props) {
                       {preview.isLikelyBlurry ? "Use anyway" : "Use photo"}
                     </button>
                   </>
-                ) : (
+                ) : Capacitor.isNativePlatform() ? null : (
                   <button
                     type="button"
                     onClick={capture}
