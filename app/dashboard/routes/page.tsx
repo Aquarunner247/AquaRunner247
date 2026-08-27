@@ -4,6 +4,7 @@ import { ScheduleFrequency } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
+import { getOrgPlanAccess } from "@/lib/plan-tiers";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
 import { WaveProgress } from "@/app/components/wave-progress";
@@ -24,6 +25,8 @@ export default async function RoutesPage() {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN") redirect("/dashboard");
+
+  const { proAccess } = await getOrgPlanAccess(appUser.organizationId);
 
   const users = await prisma.user.findMany({
     where: { organizationId: appUser.organizationId, active: true },
@@ -229,6 +232,7 @@ export default async function RoutesPage() {
 
             <RouteStopsList
               routeId={route.id}
+              proAccess={proAccess}
               stops={route.stops.map((stop) => ({
                 id: stop.id,
                 propertyName: stop.property.name,
