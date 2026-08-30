@@ -34,6 +34,10 @@ type Props = {
   minFlowGpm: number | string | null;
   maxFlowGpm: number | string | null;
   isSpa: boolean;
+  /** Set once the owning customer's relationship has ended -- disables the edit/delete
+   * menu (greyed, not clickable) instead of hiding this item, so the equipment itself
+   * stays visible/readable. */
+  readOnly?: boolean;
 };
 
 const FILTER_MEDIA_LABELS: Record<string, string> = {
@@ -52,7 +56,7 @@ function toDateInput(d: Date | null) {
   return new Date(d).toISOString().slice(0, 10);
 }
 
-export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGpm, isSpa }: Props) {
+export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGpm, isSpa, readOnly = false }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -80,7 +84,7 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
     }
   }
 
-  if (editing) {
+  if (editing && !readOnly) {
     return (
       <li className="rounded border border-brand-border bg-white px-2 py-2">
         <form onSubmit={handleSave} className="space-y-2">
@@ -189,13 +193,19 @@ export function EquipmentItem({ customerId, equipment: eq, minFlowGpm, maxFlowGp
       <div className="relative" ref={menuRef}>
         <button
           type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="rounded px-2 py-1 text-base hover:bg-brand-border"
+          onClick={() => !readOnly && setMenuOpen((v) => !v)}
+          disabled={readOnly}
+          aria-disabled={readOnly}
+          className={
+            readOnly
+              ? "cursor-not-allowed rounded px-2 py-1 text-base text-brand-muted opacity-50"
+              : "rounded px-2 py-1 text-base hover:bg-brand-border"
+          }
           aria-label="Equipment actions"
         >
           ⋮
         </button>
-        {menuOpen ? (
+        {menuOpen && !readOnly ? (
           <div className="absolute right-0 z-10 mt-1 w-32 rounded border border-brand-border bg-white py-1 shadow-md">
             <button
               type="button"

@@ -29,6 +29,7 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
     select: {
       id: true,
       name: true,
+      relationshipEndedAt: true,
       properties: {
         orderBy: { createdAt: "desc" },
         select: {
@@ -124,9 +125,13 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
                           {[property?.city, property?.region].filter(Boolean).join(", ") || "No address on file"}
                         </p>
                       </div>
-                      <span className="app-badge shrink-0">
-                        {venueCount} venue{venueCount === 1 ? "" : "s"}
-                      </span>
+                      {customer.relationshipEndedAt ? (
+                        <span className="app-badge shrink-0 bg-brand-border text-brand-muted">Ended</span>
+                      ) : (
+                        <span className="app-badge shrink-0">
+                          {venueCount} venue{venueCount === 1 ? "" : "s"}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

@@ -6,7 +6,7 @@ import { stripe } from "@/lib/stripe";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import type { PlanTier } from "@/generated/prisma/client";
 
-const VALID_PLAN_TIERS: PlanTier[] = ["STARTER", "PRO", "ENTERPRISE"];
+const VALID_PLAN_TIERS: PlanTier[] = ["SOLO", "STARTER", "PRO", "ENTERPRISE", "COMPLIANCE"];
 
 /** The only way an org becomes ENTERPRISE (no self-serve Stripe price exists for it -- see
  * lib/stripe.ts) or gets a manual tier correction outside of what Stripe Checkout/the

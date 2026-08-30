@@ -24,6 +24,9 @@ export type OrgScrubOutcome = {
  *     operational/PII, not compliance-relevant)
  *   - VisitWaterReading, ContaminationIncident, IncidentMonitoringReading,
  *     InspectionReport (kept fully -- this IS the retained compliance data)
+ *   - CustomerUser (kept fully -- blocked from portal access via the org's live
+ *     planStatus, not deleted, so the customer can subscribe to AquaRunner Compliance
+ *     themselves and keep their identity/records; see lib/auth/customer-user.ts)
  * Every other org-owned model below is deleted in full. dryRun computes counts only
  * (via `.count()` on the same `where` a live run would `.deleteMany()` with) and
  * removes no storage files -- see app/api/cron/scrub-canceled-orgs/route.ts for how
@@ -70,10 +73,12 @@ export async function runOrgScrub(organizationId: string, dryRun: boolean): Prom
     deletedCounts.checklistItemDefinition = await scrub(dryRun, prisma.checklistItemDefinition, { organizationId });
     deletedCounts.customerChecklistExclusion = await scrub(dryRun, prisma.customerChecklistExclusion, { customer: { organizationId } });
 
-    // Customer-facing (non-compliance) records and portal logins.
+    // Customer-facing (non-compliance) records. CustomerUser is deliberately NOT scrubbed
+    // here -- it's kept (blocked via the org's own live planStatus check, see
+    // lib/auth/customer-user.ts) so a canceled org's customers can still subscribe to
+    // AquaRunner Compliance themselves and keep their compliance records/portal identity.
     deletedCounts.customerDocument = await scrub(dryRun, prisma.customerDocument, { customer: { organizationId } });
     deletedCounts.customerAlert = await scrub(dryRun, prisma.customerAlert, { customer: { organizationId } });
-    deletedCounts.customerUser = await scrub(dryRun, prisma.customerUser, { customer: { organizationId } });
 
     // Staff logins.
     deletedCounts.user = await scrub(dryRun, prisma.user, { organizationId });

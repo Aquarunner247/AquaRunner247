@@ -203,7 +203,10 @@ export async function createBodyOfWater(formData: FormData) {
   if (!propertyId || !name) return;
 
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, organizationId: appUser.organizationId },
+    // customerId is null for CPO's own standalone properties (no Customer at all, see
+    // app/cpo/actions.ts) -- the OR lets those through while still blocking a
+    // service-company property whose customer relationship has ended.
+    where: { id: propertyId, organizationId: appUser.organizationId, OR: [{ customerId: null }, { customer: { relationshipEndedAt: null } }] },
     select: { id: true, propertyType: true },
   });
   if (!property) return;

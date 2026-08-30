@@ -13,9 +13,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const TIER_OPTIONS: { value: string; label: string }[] = [
+  { value: "SOLO", label: "Solo" },
   { value: "STARTER", label: "Starter" },
   { value: "PRO", label: "Pro" },
   { value: "ENTERPRISE", label: "Enterprise" },
+  { value: "COMPLIANCE", label: "Compliance" },
 ];
 
 export default async function PlatformAdminPage() {

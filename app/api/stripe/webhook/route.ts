@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe, mapSubscriptionStatus, tierForPriceId, isSelfServePlanTier } from "@/lib/stripe";
+import { stripe, mapSubscriptionStatus, tierForPriceId, isSelfServePlanTier, type SelfServePlanTier } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
 import { runCancellationSafetyExport } from "@/lib/compliance-archive";
-import { sendCancellationScrubWarningEmail } from "@/lib/email";
+import { sendCancellationScrubWarningEmail, sendCustomerAccessEndedEmail } from "@/lib/email";
 import { timeZoneForState } from "@/lib/timezone";
 
 /** How long an org gets, after cancellation, to export its own data before the scrub
@@ -52,7 +52,84 @@ export async function POST(req: Request) {
         if (alreadyExists) break;
 
         const businessName = String(session.metadata?.businessName ?? "").trim();
-        if (!businessName) break; // shouldn't happen — always set by signUp's checkout session
+        if (!businessName) {
+          // Not a generic /signup checkout -- check whether it's a customer-conversion
+          // checkout instead (see app/portal/subscribe/actions.ts) that succeeded but
+          // whose browser never made it back to /portal/subscribe/complete. That page
+          // normally does this work itself; this is the same class of safety net as the
+          // generic-signup branch above, just for the other checkout shape.
+          const conversionCustomerId = String(session.metadata?.customerId ?? "").trim();
+          const conversionCustomerUserId = String(session.metadata?.customerUserId ?? "").trim();
+          if (conversionCustomerId && conversionCustomerUserId) {
+            const customer = await prisma.customer.findUnique({
+              where: { id: conversionCustomerId },
+              include: { organization: { select: { state: true, hasCommercialPools: true } } },
+            });
+            const customerUser = await prisma.customerUser.findUnique({ where: { id: conversionCustomerUserId } });
+            if (customer && customerUser && !customer.convertedToOrganizationId) {
+              const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
+              const stateRuleset = customer.organization.state
+                ? await prisma.complianceRuleset.findUnique({ where: { state: customer.organization.state }, select: { id: true } })
+                : null;
+              try {
+                await prisma.$transaction(async (tx) => {
+                  const org = await tx.organization.create({
+                    data: {
+                      name: customerUser.name ?? customerUser.email,
+                      businessName: customerUser.name ?? customerUser.email,
+                      planTier: "COMPLIANCE",
+                      planStatus: mapSubscriptionStatus(subscription.status),
+                      stripeCustomerId: customerId,
+                      stripeSubscriptionId: subscriptionId,
+                      trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+                      currentPeriodEnd: subscription.items.data[0]?.current_period_end
+                        ? new Date(subscription.items.data[0].current_period_end * 1000)
+                        : null,
+                      state: customer.organization.state,
+                      hasCommercialPools: customer.organization.hasCommercialPools,
+                      complianceRulesetId: stateRuleset?.id ?? null,
+                    },
+                  });
+                  // createCustomerLogin (the only path that creates a CustomerUser) always
+                  // sets authUserId, so this can attach the User here too, same as
+                  // completeCompliancePlan -- skipped only in the defensive case of a
+                  // pre-existing row that somehow predates that guarantee.
+                  if (customerUser.authUserId) {
+                    await tx.user.create({
+                      data: {
+                        organizationId: org.id,
+                        authUserId: customerUser.authUserId,
+                        email: customerUser.email,
+                        name: customerUser.name,
+                        role: "ADMIN",
+                        active: true,
+                      },
+                    });
+                  }
+                  await tx.checklistItemDefinition.createMany({
+                    data: DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
+                      organizationId: org.id,
+                      label,
+                      sortOrder: index + 1,
+                      active: true,
+                    })),
+                  });
+                  const properties = await tx.property.findMany({ where: { customerId: customer.id }, select: { id: true } });
+                  await tx.property.updateMany({ where: { customerId: customer.id }, data: { organizationId: org.id, customerId: null } });
+                  await tx.serviceVisit.updateMany({
+                    where: { propertyId: { in: properties.map((p) => p.id) } },
+                    data: { organizationId: org.id },
+                  });
+                  await tx.customer.update({ where: { id: customer.id }, data: { convertedToOrganizationId: org.id } });
+                });
+              } catch (err) {
+                const isDuplicate = typeof err === "object" && err !== null && "code" in err && err.code === "P2002";
+                if (!isDuplicate) throw err;
+              }
+            }
+          }
+          break;
+        }
 
         const businessPhone = session.metadata?.phone ? String(session.metadata.phone).trim() : null;
         const state = String(session.metadata?.state ?? "").trim().toUpperCase() || null;
@@ -64,7 +141,7 @@ export async function POST(req: Request) {
         // the metadata set at checkout is only a fallback in case that lookup comes up empty.
         const subscribedPriceId = subscription.items.data[0]?.price?.id;
         const metadataTier = session.metadata?.planTier;
-        const planTier = tierForPriceId(subscribedPriceId) ?? (isSelfServePlanTier(String(metadataTier ?? "")) ? (metadataTier as "STARTER" | "PRO") : null);
+        const planTier = tierForPriceId(subscribedPriceId) ?? (isSelfServePlanTier(String(metadataTier ?? "")) ? (metadataTier as SelfServePlanTier) : null);
 
         try {
           const org = await prisma.organization.create({
@@ -170,6 +247,29 @@ export async function POST(req: Request) {
                 });
               } catch (err) {
                 console.error(`[stripe webhook] cancellation warning email failed for ${admin.email}:`, err);
+              }
+            }
+
+            // The org's own live planStatus check (lib/auth/customer-user.ts) already
+            // blocks every one of this org's customers' portal logins immediately, with
+            // no data mutation needed here -- this just notifies them, same content and
+            // CTA as endCustomerRelationship's single-customer version. Skips customers
+            // already ended/converted independently of this cancellation -- they've
+            // already been notified (or don't need to be).
+            const activeCustomerUsers = await prisma.customerUser.findMany({
+              where: { active: true, customer: { organizationId: org.id, relationshipEndedAt: null, convertedToOrganizationId: null } },
+              select: { email: true, name: true, customer: { select: { name: true } } },
+            });
+            for (const cu of activeCustomerUsers) {
+              try {
+                await sendCustomerAccessEndedEmail({
+                  to: cu.email,
+                  customerName: cu.name ?? cu.customer.name,
+                  organizationName,
+                  subscribeUrl: `${appUrl}/portal/login?redirect=/portal/subscribe`,
+                });
+              } catch (err) {
+                console.error(`[stripe webhook] access-ended email failed for ${cu.email}:`, err);
               }
             }
           }

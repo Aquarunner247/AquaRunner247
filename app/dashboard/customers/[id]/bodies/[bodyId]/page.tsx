@@ -52,7 +52,9 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
       property: { organizationId: appUser.organizationId, customerId },
     },
     include: {
-      property: { select: { id: true, name: true, propertyType: true, customer: { select: { id: true, name: true } } } },
+      property: {
+        select: { id: true, name: true, propertyType: true, customer: { select: { id: true, name: true, relationshipEndedAt: true } } },
+      },
       equipment: { orderBy: { createdAt: "desc" } },
       volumeCalculation: true,
       inspectionReports: { orderBy: { createdAt: "desc" } },
@@ -60,6 +62,11 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
   });
 
   if (!body) notFound();
+
+  // Once the customer relationship has ended, this whole page becomes view-only -- every
+  // add/edit/delete form below is hidden (server actions are independently guarded too,
+  // see customers/[id]/actions.ts). Navigation in/out of this page stays unaffected.
+  const isEnded = Boolean(body.property.customer?.relationshipEndedAt);
 
   const inspectionReportsWithUrls = await (async () => {
     if (!body.inspectionReports.length) return [];
@@ -128,6 +135,9 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         <h2 className="text-base font-semibold text-brand-ink">Details</h2>
+        {isEnded ? (
+          <p className="mt-1 text-sm text-brand-muted">This relationship has ended — details are read-only.</p>
+        ) : null}
         <form action={updateBodyOfWater} className="mt-3 space-y-2">
           <input type="hidden" name="bodyId" value={body.id} />
           <input type="hidden" name="customerId" value={customerId} />
@@ -136,9 +146,15 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               name="name"
               defaultValue={body.name}
               required
-              className="rounded border border-brand-control px-2 py-1.5 text-sm"
+              disabled={isEnded}
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-surface disabled:text-brand-muted"
             />
-            <select name="type" defaultValue={body.type} className="rounded border border-brand-control px-2 py-1.5 text-sm">
+            <select
+              name="type"
+              defaultValue={body.type}
+              disabled={isEnded}
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-surface disabled:text-brand-muted"
+            >
               {Object.values(BodyOfWaterType).map((type) => (
                 <option key={type} value={type}>
                   {type}
@@ -151,7 +167,8 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               step="1"
               defaultValue={body.volumeGallons?.toString() ?? ""}
               placeholder="Total gallons"
-              className="rounded border border-brand-control px-2 py-1.5 text-sm"
+              disabled={isEnded}
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-surface disabled:text-brand-muted"
             />
             <input
               name="maximumOccupancy"
@@ -159,7 +176,8 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               step="1"
               defaultValue={body.maximumOccupancy?.toString() ?? ""}
               placeholder="Max occupancy"
-              className="rounded border border-brand-control px-2 py-1.5 text-sm"
+              disabled={isEnded}
+              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-surface disabled:text-brand-muted"
             />
           </div>
           {body.property.propertyType === "RESIDENTIAL" ? (
@@ -180,7 +198,8 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               <select
                 name="disinfectionMethod"
                 defaultValue={body.disinfectionMethod}
-                className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-56"
+                disabled={isEnded}
+                className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-56 disabled:bg-brand-surface disabled:text-brand-muted"
               >
                 <option value="CHLORINE">Chlorine</option>
                 <option value="BROMINE">Bromine</option>
@@ -192,44 +211,53 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               </span>
             </label>
           )}
-          <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-            Save
-          </button>
+          {!isEnded ? (
+            <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+              Save
+            </button>
+          ) : null}
         </form>
 
         <div className="mt-3">
-          <VolumeCalculator
-            bodyId={body.id}
-            customerId={customerId}
-            defaults={
-              body.volumeCalculation
-                ? {
-                    shape: body.volumeCalculation.shape,
-                    lengthFt: body.volumeCalculation.lengthFt != null ? Number(body.volumeCalculation.lengthFt) : null,
-                    widthFt: body.volumeCalculation.widthFt != null ? Number(body.volumeCalculation.widthFt) : null,
-                    radiusFt: body.volumeCalculation.radiusFt != null ? Number(body.volumeCalculation.radiusFt) : null,
-                    shallowDepthFt: body.volumeCalculation.shallowDepthFt != null ? Number(body.volumeCalculation.shallowDepthFt) : null,
-                    deepDepthFt: body.volumeCalculation.deepDepthFt != null ? Number(body.volumeCalculation.deepDepthFt) : null,
-                    freeformMeasurementA:
-                      body.volumeCalculation.freeformMeasurementA != null ? Number(body.volumeCalculation.freeformMeasurementA) : null,
-                    freeformMeasurementB:
-                      body.volumeCalculation.freeformMeasurementB != null ? Number(body.volumeCalculation.freeformMeasurementB) : null,
-                    shallowSectionLengthFt:
-                      body.volumeCalculation.shallowSectionLengthFt != null ? Number(body.volumeCalculation.shallowSectionLengthFt) : null,
-                    shallowSectionWidthFt:
-                      body.volumeCalculation.shallowSectionWidthFt != null ? Number(body.volumeCalculation.shallowSectionWidthFt) : null,
-                    shallowSectionDepthFt:
-                      body.volumeCalculation.shallowSectionDepthFt != null ? Number(body.volumeCalculation.shallowSectionDepthFt) : null,
-                    deepSectionLengthFt:
-                      body.volumeCalculation.deepSectionLengthFt != null ? Number(body.volumeCalculation.deepSectionLengthFt) : null,
-                    deepSectionWidthFt:
-                      body.volumeCalculation.deepSectionWidthFt != null ? Number(body.volumeCalculation.deepSectionWidthFt) : null,
-                    deepSectionDepthFt:
-                      body.volumeCalculation.deepSectionDepthFt != null ? Number(body.volumeCalculation.deepSectionDepthFt) : null,
-                  }
-                : null
-            }
-          />
+          {isEnded ? (
+            <p className="text-sm text-brand-muted">
+              Volume calculator is read-only now that this relationship has ended.
+              {body.volumeCalculation ? ` Last calculated: ${Number(body.volumeCalculation.calculatedGallons).toLocaleString()} gallons.` : ""}
+            </p>
+          ) : (
+            <VolumeCalculator
+              bodyId={body.id}
+              customerId={customerId}
+              defaults={
+                body.volumeCalculation
+                  ? {
+                      shape: body.volumeCalculation.shape,
+                      lengthFt: body.volumeCalculation.lengthFt != null ? Number(body.volumeCalculation.lengthFt) : null,
+                      widthFt: body.volumeCalculation.widthFt != null ? Number(body.volumeCalculation.widthFt) : null,
+                      radiusFt: body.volumeCalculation.radiusFt != null ? Number(body.volumeCalculation.radiusFt) : null,
+                      shallowDepthFt: body.volumeCalculation.shallowDepthFt != null ? Number(body.volumeCalculation.shallowDepthFt) : null,
+                      deepDepthFt: body.volumeCalculation.deepDepthFt != null ? Number(body.volumeCalculation.deepDepthFt) : null,
+                      freeformMeasurementA:
+                        body.volumeCalculation.freeformMeasurementA != null ? Number(body.volumeCalculation.freeformMeasurementA) : null,
+                      freeformMeasurementB:
+                        body.volumeCalculation.freeformMeasurementB != null ? Number(body.volumeCalculation.freeformMeasurementB) : null,
+                      shallowSectionLengthFt:
+                        body.volumeCalculation.shallowSectionLengthFt != null ? Number(body.volumeCalculation.shallowSectionLengthFt) : null,
+                      shallowSectionWidthFt:
+                        body.volumeCalculation.shallowSectionWidthFt != null ? Number(body.volumeCalculation.shallowSectionWidthFt) : null,
+                      shallowSectionDepthFt:
+                        body.volumeCalculation.shallowSectionDepthFt != null ? Number(body.volumeCalculation.shallowSectionDepthFt) : null,
+                      deepSectionLengthFt:
+                        body.volumeCalculation.deepSectionLengthFt != null ? Number(body.volumeCalculation.deepSectionLengthFt) : null,
+                      deepSectionWidthFt:
+                        body.volumeCalculation.deepSectionWidthFt != null ? Number(body.volumeCalculation.deepSectionWidthFt) : null,
+                      deepSectionDepthFt:
+                        body.volumeCalculation.deepSectionDepthFt != null ? Number(body.volumeCalculation.deepSectionDepthFt) : null,
+                    }
+                  : null
+              }
+            />
+          )}
         </div>
       </section>
 
@@ -264,29 +292,31 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
           <p className="mt-3 text-sm text-brand-control">No pay rate set for this venue yet.</p>
         )}
 
-        <form action={setBodyPayRate} className="app-card-inset mt-4">
-          <input type="hidden" name="bodyId" value={body.id} />
-          <input type="hidden" name="customerId" value={customerId} />
-          <p className="text-sm font-medium text-brand-ink">Add a rate</p>
-          <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-            <select name="technicianId" required defaultValue={routedStop?.route.technicianId ?? ""} className="rounded border border-brand-control px-2 py-1.5 text-sm">
-              <option value="">Technician…</option>
-              {technicians.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name ?? t.email}
-                </option>
-              ))}
-            </select>
-            <input name="rateAmount" type="number" step="0.01" required placeholder="Rate ($)" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
-            <label className="flex items-center gap-1 text-xs text-brand-ink">
-              <input type="checkbox" name="isBundled" />
-              Bundled ($0, folded into another body)
-            </label>
-          </div>
-          <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-            Add rate
-          </button>
-        </form>
+        {!isEnded ? (
+          <form action={setBodyPayRate} className="app-card-inset mt-4">
+            <input type="hidden" name="bodyId" value={body.id} />
+            <input type="hidden" name="customerId" value={customerId} />
+            <p className="text-sm font-medium text-brand-ink">Add a rate</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+              <select name="technicianId" required defaultValue={routedStop?.route.technicianId ?? ""} className="rounded border border-brand-control px-2 py-1.5 text-sm">
+                <option value="">Technician…</option>
+                {technicians.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name ?? t.email}
+                  </option>
+                ))}
+              </select>
+              <input name="rateAmount" type="number" step="0.01" required placeholder="Rate ($)" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+              <label className="flex items-center gap-1 text-xs text-brand-ink">
+                <input type="checkbox" name="isBundled" />
+                Bundled ($0, folded into another body)
+              </label>
+            </div>
+            <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+              Add rate
+            </button>
+          </form>
+        ) : null}
       </section>
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
@@ -305,6 +335,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
                 minFlowGpm={body.minimumRequiredFlowGpm?.toString() ?? null}
                 maxFlowGpm={body.maximumFilterFlowGpm?.toString() ?? null}
                 isSpa={body.type === "SPA"}
+                readOnly={isEnded}
               />
             ))}
           </ul>
@@ -312,7 +343,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
           <p className="mt-2 text-sm text-brand-muted">No equipment yet.</p>
         )}
 
-        <EquipmentForm customerId={customerId} bodyId={body.id} isSpa={body.type === "SPA"} />
+        {!isEnded ? <EquipmentForm customerId={customerId} bodyId={body.id} isSpa={body.type === "SPA"} /> : null}
       </section>
 
       <section id="inspections" className="mt-6 scroll-mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
@@ -322,43 +353,52 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
           for this specific venue.
         </p>
 
-        <form action={updateBodyInspection} className="mt-3 space-y-2">
-          <input type="hidden" name="bodyId" value={body.id} />
-          <input type="hidden" name="customerId" value={customerId} />
-          <div className="grid gap-2 md:grid-cols-2">
-            <input
-              name="inspectorName"
-              defaultValue={body.inspectorName ?? ""}
-              placeholder="Inspector name"
-              className="rounded border border-brand-control px-2 py-1.5 text-sm"
-            />
-            <input
-              name="inspectorPhone"
-              defaultValue={body.inspectorPhone ?? ""}
-              placeholder="Inspector phone"
-              className="rounded border border-brand-control px-2 py-1.5 text-sm"
-            />
-            <input
-              name="inspectorEmail"
-              type="email"
-              defaultValue={body.inspectorEmail ?? ""}
-              placeholder="Inspector email"
-              className="rounded border border-brand-control px-2 py-1.5 text-sm"
-            />
-            <label className="flex flex-col gap-1 text-xs text-brand-muted">
-              Last inspection date
+        {!isEnded ? (
+          <form action={updateBodyInspection} className="mt-3 space-y-2">
+            <input type="hidden" name="bodyId" value={body.id} />
+            <input type="hidden" name="customerId" value={customerId} />
+            <div className="grid gap-2 md:grid-cols-2">
               <input
-                name="lastInspectionDate"
-                type="date"
-                defaultValue={body.lastInspectionDate ? body.lastInspectionDate.toISOString().slice(0, 10) : ""}
-                className="rounded border border-brand-control px-2 py-1.5 text-sm text-brand-ink"
+                name="inspectorName"
+                defaultValue={body.inspectorName ?? ""}
+                placeholder="Inspector name"
+                className="rounded border border-brand-control px-2 py-1.5 text-sm"
               />
-            </label>
+              <input
+                name="inspectorPhone"
+                defaultValue={body.inspectorPhone ?? ""}
+                placeholder="Inspector phone"
+                className="rounded border border-brand-control px-2 py-1.5 text-sm"
+              />
+              <input
+                name="inspectorEmail"
+                type="email"
+                defaultValue={body.inspectorEmail ?? ""}
+                placeholder="Inspector email"
+                className="rounded border border-brand-control px-2 py-1.5 text-sm"
+              />
+              <label className="flex flex-col gap-1 text-xs text-brand-muted">
+                Last inspection date
+                <input
+                  name="lastInspectionDate"
+                  type="date"
+                  defaultValue={body.lastInspectionDate ? body.lastInspectionDate.toISOString().slice(0, 10) : ""}
+                  className="rounded border border-brand-control px-2 py-1.5 text-sm text-brand-ink"
+                />
+              </label>
+            </div>
+            <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+              Save
+            </button>
+          </form>
+        ) : (
+          <div className="mt-3 space-y-1 text-sm text-brand-ink">
+            {body.inspectorName ? <p>Inspector: {body.inspectorName}</p> : null}
+            {body.inspectorPhone ? <p>Phone: {body.inspectorPhone}</p> : null}
+            {body.inspectorEmail ? <p>Email: {body.inspectorEmail}</p> : null}
+            {body.lastInspectionDate ? <p>Last inspection: {body.lastInspectionDate.toLocaleDateString()}</p> : null}
           </div>
-          <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-            Save
-          </button>
-        </form>
+        )}
 
         <div className="mt-4 border-t border-brand-border pt-3">
           <p className="text-sm font-medium text-brand-ink">Inspection reports</p>
@@ -379,16 +419,22 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
                     )}
                     <span className="ml-2 text-xs text-brand-muted">{report.createdAt.toLocaleDateString()}</span>
                   </span>
-                  <form action={deleteInspectionReportAction}>
-                    <input type="hidden" name="bodyId" value={body.id} />
-                    <input type="hidden" name="customerId" value={customerId} />
-                    <input type="hidden" name="reportId" value={report.id} />
-                    <ConfirmSubmitButton
-                      label="🗑"
-                      confirmMessage={`Delete "${report.label}"?`}
-                      className="rounded px-2 py-1 text-base hover:bg-brand-border"
-                    />
-                  </form>
+                  {isEnded ? (
+                    <button type="button" disabled aria-disabled="true" className="cursor-not-allowed rounded px-2 py-1 text-base text-brand-muted opacity-50">
+                      🗑
+                    </button>
+                  ) : (
+                    <form action={deleteInspectionReportAction}>
+                      <input type="hidden" name="bodyId" value={body.id} />
+                      <input type="hidden" name="customerId" value={customerId} />
+                      <input type="hidden" name="reportId" value={report.id} />
+                      <ConfirmSubmitButton
+                        label="🗑"
+                        confirmMessage={`Delete "${report.label}"?`}
+                        className="rounded px-2 py-1 text-base hover:bg-brand-border"
+                      />
+                    </form>
+                  )}
                 </li>
               ))}
             </ul>
@@ -396,105 +442,120 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
             <p className="mt-2 text-sm text-brand-muted">No inspection reports uploaded yet.</p>
           )}
 
-          <form
-            action={uploadInspectionReportAction}
-            className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2"
-          >
-            <input type="hidden" name="bodyId" value={body.id} />
-            <input type="hidden" name="customerId" value={customerId} />
-            <input
-              name="label"
-              placeholder="Label (e.g. 2026 Annual Inspection)"
-              className="rounded border border-brand-control px-2 py-1.5 text-sm"
-            />
-            <input type="file" name="file" required className="text-sm" />
-            <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-              Upload
-            </button>
-          </form>
+          {!isEnded ? (
+            <>
+              <form
+                action={uploadInspectionReportAction}
+                className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2"
+              >
+                <input type="hidden" name="bodyId" value={body.id} />
+                <input type="hidden" name="customerId" value={customerId} />
+                <input
+                  name="label"
+                  placeholder="Label (e.g. 2026 Annual Inspection)"
+                  className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                />
+                <input type="file" name="file" required className="text-sm" />
+                <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                  Upload
+                </button>
+              </form>
 
-          <InspectionReportReview
-            customerId={customerId}
-            bodyId={body.id}
-            reports={inspectionReportsWithUrls.map((r) => ({ id: r.id, label: r.label }))}
-            existingEquipment={body.equipment.map((eq) => ({
-              id: eq.id,
-              kind: eq.kind,
-              make: eq.make,
-              model: eq.model,
-              serialNumber: eq.serialNumber,
-            }))}
-            currentInspectorName={body.inspectorName}
-            currentLastInspectionDate={body.lastInspectionDate ? body.lastInspectionDate.toISOString().slice(0, 10) : null}
-            currentVolumeGallons={body.volumeGallons != null ? Number(body.volumeGallons) : null}
-            currentMaximumOccupancy={body.maximumOccupancy}
-          />
+              <InspectionReportReview
+                customerId={customerId}
+                bodyId={body.id}
+                reports={inspectionReportsWithUrls.map((r) => ({ id: r.id, label: r.label }))}
+                existingEquipment={body.equipment.map((eq) => ({
+                  id: eq.id,
+                  kind: eq.kind,
+                  make: eq.make,
+                  model: eq.model,
+                  serialNumber: eq.serialNumber,
+                }))}
+                currentInspectorName={body.inspectorName}
+                currentLastInspectionDate={body.lastInspectionDate ? body.lastInspectionDate.toISOString().slice(0, 10) : null}
+                currentVolumeGallons={body.volumeGallons != null ? Number(body.volumeGallons) : null}
+                currentMaximumOccupancy={body.maximumOccupancy}
+              />
+            </>
+          ) : null}
         </div>
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-brand-ink">Import historical readings</h2>
-        <p className="mt-1 text-sm text-brand-muted">
-          Upload a spreadsheet shaped like the downloadable QR-log CSV (one row per day, same columns) to backfill
-          readings from before this app was in use. If a row&apos;s day cell is a full date rather than a bare day
-          number, its own month/year is used, so a file spanning several months is filed under the right month
-          automatically — the Month/Year below are only a fallback for rows that just give a day number. Existing
-          days are updated, not duplicated.
-        </p>
+      {!isEnded ? (
+        <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <h2 className="text-base font-semibold text-brand-ink">Import historical readings</h2>
+          <p className="mt-1 text-sm text-brand-muted">
+            Upload a spreadsheet shaped like the downloadable QR-log CSV (one row per day, same columns) to backfill
+            readings from before this app was in use. If a row&apos;s day cell is a full date rather than a bare day
+            number, its own month/year is used, so a file spanning several months is filed under the right month
+            automatically — the Month/Year below are only a fallback for rows that just give a day number. Existing
+            days are updated, not duplicated.
+          </p>
 
-        {sp.imported ? (
-          <div className="mt-2 text-sm font-medium text-brand-ok">
-            <p>Imported {sp.imported} day(s) of readings.</p>
-            {sp.importedMonths ? (
-              <p className="mt-0.5 font-normal text-brand-ok">Detected multiple months — {sp.importedMonths}.</p>
-            ) : null}
-          </div>
-        ) : null}
-        {sp.importError ? <p className="mt-2 text-sm text-brand-danger">{sp.importError}</p> : null}
+          {sp.imported ? (
+            <div className="mt-2 text-sm font-medium text-brand-ok">
+              <p>Imported {sp.imported} day(s) of readings.</p>
+              {sp.importedMonths ? (
+                <p className="mt-0.5 font-normal text-brand-ok">Detected multiple months — {sp.importedMonths}.</p>
+              ) : null}
+            </div>
+          ) : null}
+          {sp.importError ? <p className="mt-2 text-sm text-brand-danger">{sp.importError}</p> : null}
 
-        <form action={importVenueReadings} className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2">
-          <input type="hidden" name="bodyId" value={body.id} />
-          <input type="hidden" name="customerId" value={customerId} />
-          <label className="flex flex-col gap-1 text-xs text-brand-muted">
-            Month
-            <select name="month" defaultValue={now.getMonth() + 1} className="rounded border border-brand-control px-2 py-1.5 text-sm">
-              {MONTH_NAMES.map((m, i) => (
-                <option key={m} value={i + 1}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-brand-muted">
-            Year
-            <select name="year" defaultValue={now.getFullYear()} className="rounded border border-brand-control px-2 py-1.5 text-sm">
-              {Array.from({ length: 10 }, (_, i) => now.getFullYear() - 8 + i).map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-brand-muted">
-            File (.csv)
-            <input type="file" name="file" accept=".csv,text/csv" required className="text-sm" />
-          </label>
-          <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-            Import
-          </button>
-        </form>
-      </section>
+          <form action={importVenueReadings} className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2">
+            <input type="hidden" name="bodyId" value={body.id} />
+            <input type="hidden" name="customerId" value={customerId} />
+            <label className="flex flex-col gap-1 text-xs text-brand-muted">
+              Month
+              <select name="month" defaultValue={now.getMonth() + 1} className="rounded border border-brand-control px-2 py-1.5 text-sm">
+                {MONTH_NAMES.map((m, i) => (
+                  <option key={m} value={i + 1}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-brand-muted">
+              Year
+              <select name="year" defaultValue={now.getFullYear()} className="rounded border border-brand-control px-2 py-1.5 text-sm">
+                {Array.from({ length: 10 }, (_, i) => now.getFullYear() - 8 + i).map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-brand-muted">
+              File (.csv)
+              <input type="file" name="file" accept=".csv,text/csv" required className="text-sm" />
+            </label>
+            <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+              Import
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       <section className="mt-6 rounded-lg border border-brand-danger/30 bg-white p-4 shadow-sm">
-        <form action={deleteBodyOfWater}>
-          <input type="hidden" name="bodyId" value={body.id} />
-          <input type="hidden" name="customerId" value={customerId} />
-          <ConfirmSubmitButton
-            label="Delete aquatic venue"
-            confirmMessage="This permanently deletes this aquatic venue and all its visit history, readings, and photos — this cannot be undone. Export your data first (Billing page) if you want a copy."
-            className="rounded bg-brand-danger px-3 py-1.5 text-sm font-medium text-white"
-          />
-        </form>
+        {isEnded ? (
+          <>
+            <button type="button" disabled aria-disabled="true" className="cursor-not-allowed rounded bg-brand-danger px-3 py-1.5 text-sm font-medium text-white opacity-50">
+              Delete aquatic venue
+            </button>
+            <p className="mt-1 text-xs text-brand-muted">This relationship has ended — this venue can&rsquo;t be deleted from here anymore.</p>
+          </>
+        ) : (
+          <form action={deleteBodyOfWater}>
+            <input type="hidden" name="bodyId" value={body.id} />
+            <input type="hidden" name="customerId" value={customerId} />
+            <ConfirmSubmitButton
+              label="Delete aquatic venue"
+              confirmMessage="This permanently deletes this aquatic venue and all its visit history, readings, and photos — this cannot be undone. Export your data first (Billing page) if you want a copy."
+              className="rounded bg-brand-danger px-3 py-1.5 text-sm font-medium text-white"
+            />
+          </form>
+        )}
       </section>
 
       <div className="mt-6">

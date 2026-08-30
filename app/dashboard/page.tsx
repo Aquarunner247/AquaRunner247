@@ -91,7 +91,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const visitPropertyFilter = selectedPropertyType ? { property: { propertyType: selectedPropertyType } } : {};
 
     const [customersCount, managementCompaniesCount, bodiesCount, upcomingCount, weekTotalCount, weekCompletedCount] = await Promise.all([
-      prisma.customer.count({ where: { organizationId: orgId, ...customerPropertyFilter } }),
+      prisma.customer.count({ where: { organizationId: orgId, relationshipEndedAt: null, ...customerPropertyFilter } }),
       prisma.managementCompany.count({ where: { organizationId: orgId } }),
       prisma.bodyOfWater.count({ where: { property: { organizationId: orgId, ...bodyPropertyFilter } } }),
       prisma.serviceVisit.count({

@@ -9,6 +9,7 @@ import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { AddressFields } from "@/app/components/address-fields";
 import {
   deleteCustomer,
+  endCustomerRelationship,
   updateCustomerAndPrimaryProperty,
   updateProperty,
   uploadCustomerDocument,
@@ -41,8 +42,6 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   const sp = (await searchParams) ?? {};
   const tab = ["overview", "bodies", "history", "log"].includes(sp.tab ?? "") ? (sp.tab as "overview" | "bodies" | "history" | "log") : "overview";
   const editTarget = sp.edit ?? "";
-  const isEditingCustomer = editTarget === "customer";
-  const isEditingProperty = (propertyId: string) => editTarget === `property:${propertyId}`;
 
   const customer = await prisma.customer.findFirst({
     where: { id, organizationId: appUser.organizationId },
@@ -69,6 +68,15 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   });
 
   if (!customer) notFound();
+
+  // Once a relationship has ended, nothing about this customer or its properties/venues
+  // can be added, edited, or deleted from here -- only viewed. Gating isEditingCustomer/
+  // isEditingProperty here (not just hiding the "Edit" links that set ?edit=...) means a
+  // stale/typed-in edit URL can't reopen a form either; the server actions themselves are
+  // independently guarded too (see customers/[id]/actions.ts), this is just the UI half.
+  const isEnded = Boolean(customer.relationshipEndedAt);
+  const isEditingCustomer = !isEnded && editTarget === "customer";
+  const isEditingProperty = (propertyId: string) => !isEnded && editTarget === `property:${propertyId}`;
 
   const primaryProperty = customer.properties[0];
   const extraProperties = customer.properties.slice(1);
@@ -221,6 +229,16 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         </Link>
       </header>
 
+      {customer.relationshipEndedAt ? (
+        <div className="mt-6 rounded-lg border border-brand-border bg-brand-surface p-4 text-sm text-brand-ink">
+          <p className="font-semibold">This customer relationship ended on {customer.relationshipEndedAt.toLocaleDateString()}.</p>
+          <p className="mt-1 text-brand-muted">
+            Their historical data below is preserved and read-only. Their portal login is blocked until they subscribe
+            to AquaRunner Compliance themselves.
+          </p>
+        </div>
+      ) : null}
+
       {wantsRouteSuggestion ? (
         primaryProperty && unassignedBody ? (
           <RouteSuggestionPanel
@@ -255,7 +273,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-brand-ink">Customer info</h2>
-              {!isEditingCustomer ? (
+              {!isEditingCustomer && !isEnded ? (
                 <Link
                   href={`/dashboard/customers/${customer.id}?tab=overview&edit=customer`}
                   className="rounded bg-brand-foam px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-border"
@@ -428,6 +446,19 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     </Link>
                   </div>
                 </form>
+                {!customer.relationshipEndedAt ? (
+                  <form action={endCustomerRelationship} className="mt-4 border-t border-brand-border pt-4">
+                    <input type="hidden" name="customerId" value={customer.id} />
+                    <ConfirmSubmitButton
+                      label="End customer relationship"
+                      confirmMessage="This ends your service relationship with this customer. Their portal login is blocked and they'll be invited to subscribe to AquaRunner Compliance to keep their records and keep logging readings themselves. Their historical data stays intact and visible here — this does not delete anything."
+                      className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white"
+                    />
+                    <p className="mt-1 text-xs text-brand-muted">
+                      Keeps all historical data, blocks their portal login until they subscribe on their own.
+                    </p>
+                  </form>
+                ) : null}
                 <form action={deleteCustomer} className="mt-4 border-t border-brand-border pt-4">
                   <input type="hidden" name="customerId" value={customer.id} />
                   <ConfirmSubmitButton
@@ -464,15 +495,21 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       )}
                       <span className="ml-2 text-xs text-brand-muted">{doc.createdAt.toLocaleDateString()}</span>
                     </span>
-                    <form action={deleteCustomerDocument}>
-                      <input type="hidden" name="customerId" value={customer.id} />
-                      <input type="hidden" name="documentId" value={doc.id} />
-                      <ConfirmSubmitButton
-                        label="🗑"
-                        confirmMessage={`Delete "${doc.label}"?`}
-                        className="rounded px-2 py-1 text-base hover:bg-brand-border"
-                      />
-                    </form>
+                    {isEnded ? (
+                      <button type="button" disabled aria-disabled="true" className="cursor-not-allowed rounded px-2 py-1 text-base text-brand-muted opacity-50">
+                        🗑
+                      </button>
+                    ) : (
+                      <form action={deleteCustomerDocument}>
+                        <input type="hidden" name="customerId" value={customer.id} />
+                        <input type="hidden" name="documentId" value={doc.id} />
+                        <ConfirmSubmitButton
+                          label="🗑"
+                          confirmMessage={`Delete "${doc.label}"?`}
+                          className="rounded px-2 py-1 text-base hover:bg-brand-border"
+                        />
+                      </form>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -480,21 +517,23 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               <p className="mt-2 text-sm text-brand-muted">No documents uploaded yet.</p>
             )}
 
-            <form
-              action={uploadCustomerDocument}
-              className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2"
-            >
-              <input type="hidden" name="customerId" value={customer.id} />
-              <input
-                name="label"
-                placeholder="Label (e.g. 2026 Inspection Report)"
-                className="rounded border border-brand-control px-2 py-1.5 text-sm"
-              />
-              <input type="file" name="file" required className="text-sm" />
-              <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-                Upload
-              </button>
-            </form>
+            {!isEnded ? (
+              <form
+                action={uploadCustomerDocument}
+                className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-surface p-2"
+              >
+                <input type="hidden" name="customerId" value={customer.id} />
+                <input
+                  name="label"
+                  placeholder="Label (e.g. 2026 Inspection Report)"
+                  className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                />
+                <input type="file" name="file" required className="text-sm" />
+                <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                  Upload
+                </button>
+              </form>
+            ) : null}
           </section>
 
           <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
@@ -548,7 +587,16 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               settings page.
             </p>
 
-            {checklistItems.length ? (
+            {isEnded ? (
+              <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                {checklistItems.map((item) => (
+                  <label key={item.id} className="flex items-center gap-1.5 text-sm text-brand-muted">
+                    <input type="checkbox" disabled checked={item.customerExclusions.length === 0} className="rounded border-brand-control" />
+                    {item.label}
+                  </label>
+                ))}
+              </div>
+            ) : checklistItems.length ? (
               <form action={updateCustomerChecklist} className="mt-3 space-y-2">
                 <input type="hidden" name="customerId" value={customer.id} />
                 <div className="grid gap-1.5 sm:grid-cols-2">
@@ -596,15 +644,21 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       <span className="font-medium text-brand-ink">{cu.name ?? cu.email}</span>
                       <span className="ml-2 text-brand-muted">{cu.email}</span>
                     </span>
-                    <form action={deleteCustomerLogin}>
-                      <input type="hidden" name="customerId" value={customer.id} />
-                      <input type="hidden" name="customerUserId" value={cu.id} />
-                      <ConfirmSubmitButton
-                        label="🗑"
-                        confirmMessage={`Remove portal access for ${cu.name ?? cu.email}?`}
-                        className="rounded px-2 py-1 text-base hover:bg-brand-border"
-                      />
-                    </form>
+                    {isEnded ? (
+                      <button type="button" disabled aria-disabled="true" className="cursor-not-allowed rounded px-2 py-1 text-base text-brand-muted opacity-50">
+                        🗑
+                      </button>
+                    ) : (
+                      <form action={deleteCustomerLogin}>
+                        <input type="hidden" name="customerId" value={customer.id} />
+                        <input type="hidden" name="customerUserId" value={cu.id} />
+                        <ConfirmSubmitButton
+                          label="🗑"
+                          confirmMessage={`Remove portal access for ${cu.name ?? cu.email}?`}
+                          className="rounded px-2 py-1 text-base hover:bg-brand-border"
+                        />
+                      </form>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -612,31 +666,37 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               <p className="mt-2 text-sm text-brand-muted">No portal login yet.</p>
             )}
 
-            <form action={createCustomerLogin} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
-              <input type="hidden" name="customerId" value={customer.id} />
-              {sp.error === "email-in-use" ? (
-                <p className="mb-2 text-sm text-brand-danger">That email already belongs to a different account.</p>
-              ) : null}
-              <div className="grid gap-2 md:grid-cols-2">
-                <NameInput name="name" required placeholder="Contact name" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
-                <input name="email" type="email" required placeholder="Email" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
-                <input
-                  name="password"
-                  type="text"
-                  required
-                  minLength={8}
-                  placeholder="Temporary password (min 8 characters)"
-                  className="rounded border border-brand-control px-2 py-1.5 text-sm md:col-span-2"
-                />
-              </div>
-              <p className="mt-1 text-xs text-brand-muted">
-                Share this password with the customer directly — they can sign in at{" "}
-                <code className="rounded bg-brand-border px-1">/portal/login</code>.
+            {customer.relationshipEndedAt ? (
+              <p className="mt-3 text-sm text-brand-muted">
+                This relationship has ended — portal logins can&rsquo;t be added or changed here anymore.
               </p>
-              <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-                Add portal login
-              </button>
-            </form>
+            ) : (
+              <form action={createCustomerLogin} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
+                <input type="hidden" name="customerId" value={customer.id} />
+                {sp.error === "email-in-use" ? (
+                  <p className="mb-2 text-sm text-brand-danger">That email already belongs to a different account.</p>
+                ) : null}
+                <div className="grid gap-2 md:grid-cols-2">
+                  <NameInput name="name" required placeholder="Contact name" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+                  <input name="email" type="email" required placeholder="Email" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+                  <input
+                    name="password"
+                    type="text"
+                    required
+                    minLength={8}
+                    placeholder="Temporary password (min 8 characters)"
+                    className="rounded border border-brand-control px-2 py-1.5 text-sm md:col-span-2"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-brand-muted">
+                  Share this password with the customer directly — they can sign in at{" "}
+                  <code className="rounded bg-brand-border px-1">/portal/login</code>.
+                </p>
+                <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                  Add portal login
+                </button>
+              </form>
+            )}
           </section>
 
           <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
@@ -645,22 +705,26 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               Sends an update to this customer&rsquo;s portal and, if they have portal logins, by email.
             </p>
 
-            <form action={sendCustomerAlert} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
-              <input type="hidden" name="customerId" value={customer.id} />
-              <div className="grid gap-2">
-                <input name="subject" required placeholder="Subject" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
-                <textarea
-                  name="message"
-                  required
-                  rows={3}
-                  placeholder="Message"
-                  className="rounded border border-brand-control px-2 py-1.5 text-sm"
-                />
-              </div>
-              <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-                Send alert
-              </button>
-            </form>
+            {isEnded ? (
+              <p className="mt-3 text-sm text-brand-muted">This relationship has ended — alerts can&rsquo;t be sent here anymore.</p>
+            ) : (
+              <form action={sendCustomerAlert} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
+                <input type="hidden" name="customerId" value={customer.id} />
+                <div className="grid gap-2">
+                  <input name="subject" required placeholder="Subject" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+                  <textarea
+                    name="message"
+                    required
+                    rows={3}
+                    placeholder="Message"
+                    className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                  Send alert
+                </button>
+              </form>
+            )}
 
             {alerts.length ? (
               <ul className="mt-3 space-y-1 text-sm text-brand-ink">
@@ -685,7 +749,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 <div key={property.id} className="rounded-lg border border-brand-border bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-semibold text-brand-ink">Additional property</h3>
-                    {!isEditingProperty(property.id) ? (
+                    {!isEditingProperty(property.id) && !isEnded ? (
                       <Link
                         href={`/dashboard/customers/${customer.id}?tab=overview&edit=property:${property.id}`}
                         className="rounded bg-brand-foam px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-border"
@@ -846,44 +910,46 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               ))}
 
 
-              <form action={createBodyOfWater} className="mt-4 rounded border border-brand-border bg-brand-surface p-3">
-                <input type="hidden" name="propertyId" value={property.id} />
-                <input type="hidden" name="returnPath" value={`/dashboard/customers/${customer.id}?tab=bodies`} />
-                <p className="text-sm font-medium text-brand-ink">Add aquatic venue</p>
-                <div className="mt-2 grid gap-2 md:grid-cols-4">
-                  <input
-                    name="name"
-                    required
-                    placeholder="Venue name"
-                    className="rounded border border-brand-control px-2 py-1.5 text-sm"
-                  />
-                  <select name="type" className="rounded border border-brand-control px-2 py-1.5 text-sm">
-                    {Object.values(BodyOfWaterType).map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    name="volumeGallons"
-                    type="number"
-                    step="1"
-                    placeholder="Total gallons"
-                    className="rounded border border-brand-control px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    name="maximumOccupancy"
-                    type="number"
-                    step="1"
-                    placeholder="Max occupancy"
-                    className="rounded border border-brand-control px-2 py-1.5 text-sm"
-                  />
-                </div>
-                {property.propertyType === "RESIDENTIAL" ? <FilterTypeFields /> : null}
-                <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-                  Add venue
-                </button>
-              </form>
+              {!customer.relationshipEndedAt ? (
+                <form action={createBodyOfWater} className="mt-4 rounded border border-brand-border bg-brand-surface p-3">
+                  <input type="hidden" name="propertyId" value={property.id} />
+                  <input type="hidden" name="returnPath" value={`/dashboard/customers/${customer.id}?tab=bodies`} />
+                  <p className="text-sm font-medium text-brand-ink">Add aquatic venue</p>
+                  <div className="mt-2 grid gap-2 md:grid-cols-4">
+                    <input
+                      name="name"
+                      required
+                      placeholder="Venue name"
+                      className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                    />
+                    <select name="type" className="rounded border border-brand-control px-2 py-1.5 text-sm">
+                      {Object.values(BodyOfWaterType).map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      name="volumeGallons"
+                      type="number"
+                      step="1"
+                      placeholder="Total gallons"
+                      className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                    />
+                    <input
+                      name="maximumOccupancy"
+                      type="number"
+                      step="1"
+                      placeholder="Max occupancy"
+                      className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  {property.propertyType === "RESIDENTIAL" ? <FilterTypeFields /> : null}
+                  <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                    Add venue
+                  </button>
+                </form>
+              ) : null}
             </div>
           ))}
         </section>

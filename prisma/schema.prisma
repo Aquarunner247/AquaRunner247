@@ -86,9 +86,11 @@ enum OrganizationPlanStatus {
 /// lib/stripe.ts) and are chosen at signup. ENTERPRISE is never self-serve -- it's set
 /// manually by a platform admin for a custom-priced deal, same as COMPED is.
 enum PlanTier {
+  SOLO
   STARTER
   PRO
   ENTERPRISE
+  COMPLIANCE
 }
 
 model Organization {
@@ -250,10 +252,11 @@ model ComplianceRuleset {
   /// Nevada so far -- extending the reference page to the other states is a separate pass.
   referenceContent   String? @db.Text
 
-  chemistryThresholds ChemistryThreshold[]
-  frequencyRules      FrequencyRule[]
-  eventProtocols      EventProtocol[]
-  complianceNotes     ComplianceNote[]
+  chemistryThresholds           ChemistryThreshold[]
+  frequencyRules                FrequencyRule[]
+  eventProtocols                EventProtocol[]
+  complianceNotes               ComplianceNote[]
+  equipmentReadingRequirements  EquipmentReadingRequirement[]
 
   organizations Organization[]
 
@@ -331,6 +334,38 @@ model ChemistryThreshold {
   /// "confirmed" | "assumption" | "conflict" | "gap"
   sourceConfidence String?
   notes            String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([complianceRulesetId])
+}
+
+/// Non-chemistry gauge/meter readings a state's log sheet requires on every visit --
+/// pump pressure, pump vacuum, filter pressure, flow meter. Modeled separately from
+/// ChemistryThreshold because these have no regulatory min/max value: presence of a row
+/// IS the requirement (there's no "ideal range" for a flow meter reading, just "must be
+/// logged"). The app's own fixed slider bounds per parameter (sanity guards, not sourced
+/// regulatory values) live in lib/compliance.ts / the visit form, same convention already
+/// used for chemistry fields' CHEMISTRY_INPUT_BOUNDS.
+model EquipmentReadingRequirement {
+  id                  String            @id @default(cuid())
+  complianceRulesetId String
+  complianceRuleset   ComplianceRuleset @relation(fields: [complianceRulesetId], references: [id], onDelete: Cascade)
+
+  /// Free-text convention matching ChemistryThreshold.parameter's style: "PUMP_PRESSURE",
+  /// "PUMP_VACUUM", "FILTER_PRESSURE", or "FLOW_METER" -- the four gauge readings the app
+  /// currently has dedicated VisitWaterReading columns for.
+  parameter String
+  /// Null = applies to all body types, same convention as ChemistryThreshold.bodyOfWaterCategory.
+  bodyOfWaterCategory String?
+  /// Where a state's sourced log-sheet language doesn't cleanly map onto the app's
+  /// pump-vs-filter pressure distinction (most states describe one undifferentiated
+  /// "pressure gauge reading," not two separate gauges the way Nevada's SNHD form does),
+  /// this documents which existing field the mapping was applied to and why -- an
+  /// interpretive choice, not sourced with that exact precision. Null when the source
+  /// language matches the parameter directly (e.g. Maryland's "Pump Vacuum").
+  notes String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -519,6 +554,19 @@ model Customer {
   name       String
   billingRef String?
   notes      String?
+
+  /// Set when an org admin ends this one customer relationship without touching their
+  /// data (see endCustomerRelationship) -- null means active/current, the default, no
+  /// backfill needed. Deliberately independent of the org's own planStatus: this is a
+  /// permanent, admin-triggered end, not tied to the org's billing state.
+  relationshipEndedAt DateTime?
+  /// Set once this customer's Property/ServiceVisit data has been migrated to a
+  /// standalone AquaRunner Compliance org they subscribed to themselves (see
+  /// app/portal/subscribe/actions.ts). Plain string, not a relation -- the two orgs are
+  /// otherwise fully unrelated, and this must never create an FK/cascade coupling
+  /// between them. Doubles as the idempotency guard against converting twice.
+  convertedToOrganizationId String?
+
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

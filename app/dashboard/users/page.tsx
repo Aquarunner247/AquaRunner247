@@ -26,7 +26,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
       orderBy: { createdAt: "desc" },
     }),
     prisma.customer.findMany({
-      where: { organizationId: appUser.organizationId },
+      where: { organizationId: appUser.organizationId, relationshipEndedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

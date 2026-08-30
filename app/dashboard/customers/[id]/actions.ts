@@ -10,7 +10,7 @@ import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/
 import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/customer-documents";
 import { uploadInspectionReport, deleteInspectionReport } from "@/lib/inspection-reports";
 import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
-import { sendCustomerAlertEmail } from "@/lib/email";
+import { sendCustomerAlertEmail, sendCustomerAccessEndedEmail } from "@/lib/email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
 import { parseFormNumber as numOrNull } from "@/lib/form-utils";
 import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
@@ -36,7 +36,7 @@ export async function updateCustomer(formData: FormData) {
   if (!customerId || !name) return;
 
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, organizationId: appUser.organizationId },
+    where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
     select: { id: true },
   });
   if (!customer) return;
@@ -115,7 +115,7 @@ export async function updateCustomerAndPrimaryProperty(formData: FormData) {
         };
 
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, organizationId: appUser.organizationId },
+    where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
     select: { id: true },
   });
   if (!customer) return;
@@ -241,7 +241,7 @@ export async function updateProperty(formData: FormData) {
         };
 
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, organizationId: appUser.organizationId },
+    where: { id: propertyId, organizationId: appUser.organizationId, customer: { relationshipEndedAt: null } },
     select: {
       id: true,
       customerId: true,
@@ -321,7 +321,7 @@ export async function updateBodyOfWater(formData: FormData) {
   const body = await prisma.bodyOfWater.findFirst({
     where: {
       id: bodyId,
-      property: { organizationId: appUser.organizationId, customerId },
+      property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } },
     },
     select: { id: true, property: { select: { propertyType: true } } },
   });
@@ -387,7 +387,7 @@ export async function updateCustomerChecklist(formData: FormData) {
   if (!customerId) return;
 
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, organizationId: appUser.organizationId },
+    where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
     select: { id: true },
   });
   if (!customer) return;
@@ -420,7 +420,7 @@ export async function updateBodyInspection(formData: FormData) {
   if (!bodyId || !customerId) return;
 
   const body = await prisma.bodyOfWater.findFirst({
-    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } } },
     select: { id: true },
   });
   if (!body) return;
@@ -453,7 +453,7 @@ export async function uploadInspectionReportAction(formData: FormData) {
   if (!bodyId || !customerId) return;
 
   const body = await prisma.bodyOfWater.findFirst({
-    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } } },
     select: { id: true },
   });
   if (!body) return;
@@ -471,7 +471,7 @@ export async function deleteInspectionReportAction(formData: FormData) {
   if (!bodyId || !customerId || !reportId) return;
 
   const body = await prisma.bodyOfWater.findFirst({
-    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } } },
     select: { id: true },
   });
   if (!body) return;
@@ -496,7 +496,7 @@ export async function applyInspectionReportExtraction(formData: FormData) {
   if (!bodyId || !customerId) return;
 
   const body = await prisma.bodyOfWater.findFirst({
-    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } } },
     select: { id: true },
   });
   if (!body) return;
@@ -562,7 +562,7 @@ export async function saveVolumeCalculation(formData: FormData) {
   if (!bodyId || !customerId) return;
 
   const body = await prisma.bodyOfWater.findFirst({
-    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } } },
     select: { id: true },
   });
   if (!body) return;
@@ -621,7 +621,7 @@ export async function setBodyPayRate(formData: FormData) {
   if (!bodyId || !customerId || !technicianId || rateAmount == null) return;
 
   const body = await prisma.bodyOfWater.findFirst({
-    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } } },
     select: { id: true },
   });
   if (!body) return;
@@ -656,7 +656,7 @@ export async function deleteBodyOfWater(formData: FormData) {
   const body = await prisma.bodyOfWater.findFirst({
     where: {
       id: bodyId,
-      property: { organizationId: appUser.organizationId, customerId },
+      property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } },
     },
     select: { id: true },
   });
@@ -690,7 +690,7 @@ export async function importVenueReadings(formData: FormData) {
   if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) fail("Pick the month and year this file covers.");
 
   const body = await prisma.bodyOfWater.findFirst({
-    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId } },
+    where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } } },
     select: { id: true, propertyId: true },
   });
   if (!body) return;
@@ -940,7 +940,7 @@ export async function createEquipment(formData: FormData) {
   const body = await prisma.bodyOfWater.findFirst({
     where: {
       id: bodyId,
-      property: { organizationId: appUser.organizationId, customerId },
+      property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } },
     },
     select: { id: true },
   });
@@ -967,7 +967,7 @@ export async function updateEquipment(formData: FormData) {
   const equipment = await prisma.equipment.findFirst({
     where: {
       id: equipmentId,
-      bodyOfWater: { property: { organizationId: appUser.organizationId, customerId } },
+      bodyOfWater: { property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } } },
     },
     select: { id: true, bodyOfWaterId: true },
   });
@@ -996,7 +996,7 @@ export async function deleteEquipment(formData: FormData) {
     where: {
       id: equipmentId,
       bodyOfWater: {
-        property: { organizationId: appUser.organizationId, customerId },
+        property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } },
       },
     },
     select: { id: true },
@@ -1041,13 +1041,61 @@ export async function deleteCustomer(formData: FormData) {
   redirect("/dashboard/customers");
 }
 
-export async function uploadCustomerDocument(formData: FormData) {
+/**
+ * Ends one customer relationship without touching their data -- the non-destructive
+ * alternative to deleteCustomer above. Property/BodyOfWater/ServiceVisit/VisitWaterReading
+ * are left completely untouched (no cascade, unlike deleteCustomer); only
+ * relationshipEndedAt gets set and the customer's own portal logins get blocked
+ * (CustomerUser.active = false), matching the same "blocked, not deleted" primitive
+ * getCurrentCustomerUser already gates on. They can regain full access (and keep logging
+ * new readings themselves) by subscribing to AquaRunner Compliance via /portal/subscribe,
+ * which migrates this same data to their own new org.
+ */
+export async function endCustomerRelationship(formData: FormData) {
   const appUser = await requireAdmin();
   const customerId = String(formData.get("customerId") ?? "").trim();
   if (!customerId) return;
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, organizationId: appUser.organizationId },
+    include: {
+      customerUsers: { where: { active: true }, select: { email: true, name: true } },
+      organization: { select: { name: true, businessName: true } },
+    },
+  });
+  if (!customer || customer.relationshipEndedAt) return;
+
+  await prisma.$transaction([
+    prisma.customer.update({ where: { id: customer.id }, data: { relationshipEndedAt: new Date() } }),
+    prisma.customerUser.updateMany({ where: { customerId: customer.id }, data: { active: false } }),
+  ]);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const organizationName = customer.organization.businessName ?? customer.organization.name;
+  for (const cu of customer.customerUsers) {
+    try {
+      await sendCustomerAccessEndedEmail({
+        to: cu.email,
+        customerName: cu.name ?? customer.name,
+        organizationName,
+        subscribeUrl: `${appUrl}/portal/login?redirect=/portal/subscribe`,
+      });
+    } catch (err) {
+      console.error(`[end-customer-relationship] access-ended email failed for ${cu.email}:`, err);
+    }
+  }
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${customer.id}`);
+}
+
+export async function uploadCustomerDocument(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  if (!customerId) return;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
     select: { id: true },
   });
   if (!customer) return;
@@ -1063,7 +1111,7 @@ export async function deleteCustomerDocument(formData: FormData) {
   if (!customerId || !documentId) return;
 
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, organizationId: appUser.organizationId },
+    where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
     select: { id: true },
   });
   if (!customer) return;
@@ -1082,7 +1130,7 @@ export async function createCustomerLogin(formData: FormData) {
   if (password.length < 8) return;
 
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, organizationId: appUser.organizationId },
+    where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
     select: { id: true },
   });
   if (!customer) return;
@@ -1124,7 +1172,7 @@ export async function deleteCustomerLogin(formData: FormData) {
   if (!customerId || !customerUserId) return;
 
   const customerUser = await prisma.customerUser.findFirst({
-    where: { id: customerUserId, customer: { id: customerId, organizationId: appUser.organizationId } },
+    where: { id: customerUserId, customer: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null } },
     select: { id: true, authUserId: true },
   });
   if (!customerUser) return;
@@ -1151,7 +1199,7 @@ export async function sendCustomerAlert(formData: FormData) {
   if (!customerId || !subject || !message) return;
 
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, organizationId: appUser.organizationId },
+    where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
     include: {
       customerUsers: { where: { active: true }, select: { email: true, name: true } },
       properties: { select: { managerEmail: true }, take: 1 },
@@ -1199,7 +1247,7 @@ export async function assignNewCustomerToRoute(formData: FormData) {
   if (!customerId || !propertyId || !bodyOfWaterId || !routeId) return;
 
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, customerId, organizationId: appUser.organizationId },
+    where: { id: propertyId, customerId, organizationId: appUser.organizationId, customer: { relationshipEndedAt: null } },
     select: { id: true },
   });
   if (!property) return;

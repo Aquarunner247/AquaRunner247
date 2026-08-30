@@ -45,6 +45,13 @@ async function createStaffUserForOrg(appUser: { organizationId: string }, formDa
   if (!name || !email || !password) return;
   if (password.length < 8) return;
 
+  // Server actions can't take extra call-site parameters (a <form action={fn}> only ever
+  // receives FormData) -- callers outside /dashboard/users (currently just
+  // app/cpo/actions.ts's createCpoUser) submit this hidden field so an error redirect
+  // lands somewhere they can actually reach, since /dashboard/users itself immediately
+  // redirects a COMPLIANCE-tier org's admin straight back out to /cpo.
+  const redirectBase = String(formData.get("redirectBasePath") ?? "").trim() || "/dashboard/users";
+
   const role = (Object.values(UserRole) as string[]).includes(roleRaw) ? (roleRaw as UserRole) : UserRole.TECHNICIAN;
 
   // A staff login and a customer-portal login are separate tables, but both draw from the
@@ -55,10 +62,10 @@ async function createStaffUserForOrg(appUser: { organizationId: string }, formDa
     prisma.customerUser.findUnique({ where: { email } }),
   ]);
   if (existingCustomerUser) {
-    redirect("/dashboard/users?error=email-in-use");
+    redirect(`${redirectBase}?error=email-in-use`);
   }
   if (existingStaffUser && existingStaffUser.organizationId !== appUser.organizationId) {
-    redirect("/dashboard/users?error=email-in-use");
+    redirect(`${redirectBase}?error=email-in-use`);
   }
 
   // Only a seat-count check when this action would actually add a net-new active seat --
@@ -73,7 +80,7 @@ async function createStaffUserForOrg(appUser: { organizationId: string }, formDa
     if (limit != null) {
       const activeCount = await prisma.user.count({ where: { organizationId: appUser.organizationId, active: true } });
       if (activeCount >= limit) {
-        redirect("/dashboard/users?error=user-limit");
+        redirect(`${redirectBase}?error=user-limit`);
       }
     }
   }

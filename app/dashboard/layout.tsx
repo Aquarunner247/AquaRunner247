@@ -16,8 +16,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!appUser.isPlatformAdmin) {
     const organization = await prisma.organization.findUnique({
       where: { id: appUser.organizationId },
-      select: { planStatus: true },
+      select: { planStatus: true, planTier: true },
     });
+    // AquaRunner Compliance is a separate product with its own route tree (app/cpo) --
+    // a org on that tier has no business in the route/customer/tech dashboard, even via
+    // a stale bookmark. Checked before the CANCELED redirect since it's a product
+    // mismatch, not a billing problem.
+    if (organization?.planTier === "COMPLIANCE") redirect("/cpo");
     if (organization?.planStatus === "CANCELED") redirect("/billing/expired");
     pastDue = organization?.planStatus === "PAST_DUE";
   }

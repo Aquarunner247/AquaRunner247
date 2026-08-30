@@ -6,10 +6,9 @@ type PageProps = {
   searchParams?: Promise<{ error?: string }>;
 };
 
-export default async function BillingPage({ searchParams }: PageProps) {
+export default async function CpoBillingPage({ searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
-  if (appUser.role !== "ADMIN") redirect("/dashboard");
 
   const params = (await searchParams) ?? {};
 

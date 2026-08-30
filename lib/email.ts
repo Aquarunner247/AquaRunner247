@@ -355,3 +355,71 @@ export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Pr
     return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
   }
 }
+
+type CustomerAccessEndedEmailInput = {
+  to: string;
+  customerName: string;
+  organizationName: string;
+  subscribeUrl: string;
+};
+
+/**
+ * Sent when a customer's relationship with a service-company org ends -- either that one
+ * customer specifically (endCustomerRelationship) or the whole org canceling its own
+ * subscription (the Stripe webhook's customer.subscription.deleted handler). Their portal
+ * login is blocked, not deleted, and their historical data is untouched either way -- this
+ * tells them how to get full access back on their own, via AquaRunner Compliance.
+ */
+export async function sendCustomerAccessEndedEmail(input: CustomerAccessEndedEmailInput): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
+  }
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+
+  const resend = new Resend(apiKey);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
+      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Your portal access has changed</p>
+        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.organizationName}</h1>
+      </div>
+      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size:14px; margin:0 0 12px;">Hi ${input.customerName},</p>
+        <p style="font-size:14px; margin:0 0 16px;">
+          Your access to view your pool compliance records through ${input.organizationName} has ended. Your
+          historical records — chemistry readings, inspection reports, and the QR-code log for each of your bodies of
+          water — are safe and haven't been touched.
+        </p>
+        <p style="font-size:14px; margin:0 0 20px;">
+          Subscribe to AquaRunner Compliance for $19/month to keep viewing your existing records and keep logging new
+          readings yourself, on your own account.
+        </p>
+        <p style="margin:0 0 16px;">
+          <a href="${input.subscribeUrl}" style="display:inline-block; background:#0A6E7C; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+            Subscribe to keep my records
+          </a>
+        </p>
+        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+          This is an automated notice from AquaRunner 24/7 Pro.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: fromAddress,
+      to: input.to,
+      subject: "Your pool compliance portal access has changed",
+      html,
+    });
+    if (result.error) {
+      return { ok: false, error: result.error.message };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
+  }
+}
