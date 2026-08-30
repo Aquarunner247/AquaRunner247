@@ -1,18 +1,22 @@
 import Stripe from "stripe";
 import type { OrganizationPlanStatus, PlanTier } from "@/generated/prisma/client";
 
-/** The two self-serve tiers, each backed by its own Stripe Price created in the dashboard
+/** The self-serve tiers, each backed by its own Stripe Price created in the dashboard
  * (see STRIPE_TEST_PLAN.md for the test-mode setup). ENTERPRISE has no price -- it's
- * custom/contact-us and set manually by a platform admin, never chosen at checkout. */
-export type SelfServePlanTier = "STARTER" | "PRO";
+ * custom/contact-us and set manually by a platform admin, never chosen at checkout.
+ * COMPLIANCE is AquaRunner Compliance (app/cpo), a separate product from the pool-service
+ * tiers, but shares the same self-serve checkout mechanism. */
+export type SelfServePlanTier = "SOLO" | "STARTER" | "PRO" | "COMPLIANCE";
 
 const SELF_SERVE_TIER_PRICE_ENV: Record<SelfServePlanTier, string> = {
+  SOLO: "STRIPE_PRICE_ID_SOLO",
   STARTER: "STRIPE_PRICE_ID_STARTER",
   PRO: "STRIPE_PRICE_ID_PRO",
+  COMPLIANCE: "STRIPE_PRICE_ID_COMPLIANCE",
 };
 
 export function isSelfServePlanTier(value: string): value is SelfServePlanTier {
-  return value === "STARTER" || value === "PRO";
+  return value === "SOLO" || value === "STARTER" || value === "PRO" || value === "COMPLIANCE";
 }
 
 export function priceIdForTier(tier: SelfServePlanTier): string | null {
@@ -22,11 +26,13 @@ export function priceIdForTier(tier: SelfServePlanTier): string | null {
 /** Reverse lookup used by the webhook to keep Organization.planTier in sync with whatever
  * Price a subscription is actually on -- covers upgrades/downgrades made through the
  * billing portal, not just the tier chosen at signup. Returns null for a price that isn't
- * one of the two self-serve tiers (e.g. a custom Enterprise price, or unset env vars). */
+ * one of the self-serve tiers (e.g. a custom Enterprise price, or unset env vars). */
 export function tierForPriceId(priceId: string | null | undefined): PlanTier | null {
   if (!priceId) return null;
+  if (priceId === process.env.STRIPE_PRICE_ID_SOLO) return "SOLO";
   if (priceId === process.env.STRIPE_PRICE_ID_STARTER) return "STARTER";
   if (priceId === process.env.STRIPE_PRICE_ID_PRO) return "PRO";
+  if (priceId === process.env.STRIPE_PRICE_ID_COMPLIANCE) return "COMPLIANCE";
   return null;
 }
 

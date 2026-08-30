@@ -4,9 +4,14 @@ import { prisma } from "@/lib/prisma";
 /** Seats included per tier, matching the pricing cards on the landing page. `null` means
  * unlimited (Enterprise is volume-priced/custom, set manually by a platform admin). */
 export const PLAN_TIER_USER_LIMITS: Record<PlanTier, number | null> = {
-  STARTER: 10,
-  PRO: 25,
+  SOLO: 1,
+  STARTER: 5,
+  PRO: 10,
   ENTERPRISE: null,
+  /// AquaRunner Compliance (app/cpo) -- up to 2 seats (e.g. a CPO plus a backup), added
+  /// via app/cpo/(app)/users/page.tsx. No OFFICE/TECHNICIAN concept for this product --
+  /// every seat is ADMIN.
+  COMPLIANCE: 2,
 };
 
 type OrgPlanFields = { planStatus: OrganizationPlanStatus; planTier: PlanTier | null };
@@ -16,6 +21,11 @@ type OrgPlanFields = { planStatus: OrganizationPlanStatus; planTier: PlanTier | 
  * Pro-feature gate below -- that status is the one mechanism for giving an org free,
  * unrestricted access outside of Stripe entirely, regardless of what planTier (if any)
  * they're also tagged with.
+ *
+ * COMPLIANCE is deliberately never included here -- that product (app/cpo) has no
+ * concept of Pro features at all, so leaving it out of this OR-chain makes every
+ * existing Pro-gated feature (dosing recommendations, route optimization) inert for it
+ * automatically, with no separate gating logic needed anywhere else.
  */
 export function hasProAccess(org: OrgPlanFields): boolean {
   return org.planStatus === "COMPED" || org.planTier === "PRO" || org.planTier === "ENTERPRISE";

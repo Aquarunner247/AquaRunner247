@@ -61,9 +61,16 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
 
   // The customer portal has its own separate nav/layout (app/portal) -- don't show the staff nav there.
   if (pathname.startsWith("/portal")) return null;
-  // The "/" landing page is a standalone waitlist page with its own nav/footer, not part
-  // of the app shell.
-  if (pathname === "/") return null;
+  // AquaRunner Compliance is a separate product with its own nav/layout (app/cpo) --
+  // never show the pool-service staff nav there.
+  if (pathname.startsWith("/cpo")) return null;
+  // The marketing site (Home, Pricing, Features, and per-persona pages like
+  // /for-property-managers) has its own nav/footer, not part of the app shell -- without
+  // this, a logged-in admin browsing the marketing pages would see the staff nav
+  // overlaid on top of them.
+  if (pathname === "/" || pathname.startsWith("/pricing") || pathname.startsWith("/features") || pathname.startsWith("/for-property-managers")) {
+    return null;
+  }
 
   async function onSignOut() {
     setSigningOut(true);

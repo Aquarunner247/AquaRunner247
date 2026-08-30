@@ -331,16 +331,30 @@
   color: var(--cta);
 }
 
-.navTag {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--warm-muted);
-}
-
 .navBtn {
   white-space: nowrap;
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  gap: clamp(18px, 2vw, 28px);
+}
+
+.navLink {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.navLink:hover {
+  color: var(--cta);
+}
+
+.navLinkActive {
+  color: var(--cta);
 }
 
 /* ---------- hero ---------- */
@@ -1082,7 +1096,7 @@
 
 .priceGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: clamp(20px, 2.6vw, 28px);
   align-items: stretch;
 }
@@ -1605,6 +1619,20 @@
   align-items: center;
 }
 
+/* Simpler single-column close used on /pricing and /features -- no side image, since
+   every page repeating the same photo would read as filler rather than a real closing
+   section. */
+.ctaCentered {
+  max-width: 640px;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.ctaCentered .ctaForm {
+  display: flex;
+  justify-content: center;
+}
+
 .cta h2 {
   margin-bottom: 18px;
 }
@@ -1728,8 +1756,7 @@
   }
 
   .priceGrid {
-    grid-template-columns: 1fr;
-    max-width: 460px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .priceCardFeatured {
@@ -1750,7 +1777,7 @@
 }
 
 @media (max-width: 860px) {
-  .navTag {
+  .navLinks {
     display: none;
   }
 }
@@ -1798,6 +1825,11 @@
   .record,
   .placard {
     max-width: 100%;
+  }
+
+  .priceGrid {
+    grid-template-columns: 1fr;
+    max-width: 460px;
   }
 }
 
@@ -1854,5 +1886,121 @@
 @media (prefers-reduced-motion: reduce) {
   .heroDot {
     animation: none;
+  }
+}
+
+/* ---------- comparison table (nested under pricing) ---------- */
+
+.cmpWrap {
+  margin-top: clamp(48px, 6vw, 72px);
+  padding-top: clamp(40px, 5vw, 56px);
+  border-top: 1px solid var(--warm-border);
+}
+
+.cmpHead {
+  text-align: center;
+  margin-bottom: clamp(28px, 3.4vw, 36px);
+}
+
+.cmpTitle {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-top: 6px;
+}
+
+.cmpTableScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cmpTable {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.cmpTable thead th {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--ink);
+  text-align: center;
+  padding: 12px 14px;
+  border-bottom: 1.5px solid var(--warm-border);
+}
+
+.cmpFeatureCol {
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.88rem;
+  color: var(--ink);
+  padding: 13px 16px 13px 4px;
+  white-space: normal;
+  max-width: 280px;
+}
+
+.cmpTable tbody th {
+  border-bottom: 1px solid var(--warm-border);
+}
+
+.cmpTable tbody td {
+  text-align: center;
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--warm-border);
+}
+
+.cmpCol {
+  min-width: 108px;
+}
+
+.cmpColUs {
+  background: color-mix(in srgb, var(--cta) 7%, transparent);
+}
+
+.cmpTable thead th.cmpColUs {
+  color: var(--cta);
+}
+
+.cmpYes {
+  display: inline-flex;
+  color: var(--cta);
+}
+
+.cmpPartial {
+  display: inline-flex;
+  color: var(--warm-muted);
+}
+
+.cmpNo {
+  color: var(--warm-muted);
+  font-size: 1rem;
+}
+
+.cmpNoteMark {
+  color: var(--cta);
+  margin-left: 2px;
+}
+
+.cmpNotes {
+  margin-top: 14px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--warm-muted);
+}
+
+.cmpDisclaimer {
+  margin-top: 18px;
+  font-size: 0.76rem;
+  color: var(--warm-muted);
+  max-width: 62ch;
+}
+
+@media (max-width: 720px) {
+  .cmpTable {
+    min-width: 580px;
   }
 }

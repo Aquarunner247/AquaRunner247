@@ -17,8 +17,10 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 const TIER_LABELS: Record<SelfServePlanTier, string> = {
+  SOLO: "Solo — $49/month",
   STARTER: "Starter — $99/month",
   PRO: "Pro — $149/month",
+  COMPLIANCE: "AquaRunner Compliance — $19/month",
 };
 
 export default async function SignupPage({ searchParams }: PageProps) {
@@ -34,7 +36,7 @@ export default async function SignupPage({ searchParams }: PageProps) {
   // ?tier=, so an invalid/missing one sends them back to pick a plan rather than guessing.
   const tierParam = String(params.tier ?? "").toUpperCase();
   if (!isSelfServePlanTier(tierParam)) {
-    redirect("/#pricing");
+    redirect("/pricing");
   }
   const tier = tierParam;
 
@@ -45,7 +47,7 @@ export default async function SignupPage({ searchParams }: PageProps) {
         <h1 className="mt-2 text-2xl font-semibold text-brand-ink">Start your free trial</h1>
         <p className="mt-2 text-sm text-brand-muted">
           {TIER_LABELS[tier]}. 14 days free, then billing starts. A card is required to start the trial.{" "}
-          <Link href="/#pricing" className="underline">
+          <Link href="/pricing" className="underline">
             Change plan
           </Link>
         </p>
@@ -105,19 +107,25 @@ export default async function SignupPage({ searchParams }: PageProps) {
             ))}
           </select>
         </label>
-        <fieldset className="flex flex-col gap-1 text-sm text-brand-ink">
-          <legend className="mb-1">Do you have commercial pools?</legend>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2">
-              <input type="radio" name="hasCommercialPools" value="true" required />
-              Yes
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="radio" name="hasCommercialPools" value="false" required />
-              No, residential only
-            </label>
-          </div>
-        </fieldset>
+        {tier === "COMPLIANCE" ? (
+          // AquaRunner Compliance is for a commercial property's own in-house CPO --
+          // always commercial by definition, so asking would just be confusing.
+          <input type="hidden" name="hasCommercialPools" value="true" />
+        ) : (
+          <fieldset className="flex flex-col gap-1 text-sm text-brand-ink">
+            <legend className="mb-1">Do you have commercial pools?</legend>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2">
+                <input type="radio" name="hasCommercialPools" value="true" required />
+                Yes
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="radio" name="hasCommercialPools" value="false" required />
+                No, residential only
+              </label>
+            </div>
+          </fieldset>
+        )}
         <p className="text-xs text-brand-muted">
 
           You&rsquo;ll set a password after your card is confirmed on the next step.

@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { AppPreview } from "./components/landing/app-preview";
-import { LogoMark } from "./components/landing/logo-mark";
-import { InspectorRecord, QrPlacard } from "./components/landing/scan-flow";
-import { StateShowcase } from "./components/landing/state-showcase";
+import { SiteNav, SiteFooter } from "./components/landing/site-chrome";
 import { WaitlistForm } from "./components/landing/waitlist-form";
 import styles from "./landing.module.css";
 
@@ -19,84 +17,6 @@ export const metadata: Metadata = {
   },
 };
 
-const FEATURES = [
-  {
-    n: "01",
-    title: "Commercial and residential in one place",
-    body: "A quick chemical check at someone's backyard pool, or a full logged visit at a commercial property. You choose which one applies to each customer.",
-  },
-  {
-    n: "02",
-    title: "Nothing gets lost",
-    body: "Chemical readings, photos, and notes are saved the moment your tech enters them. No more digging through paper when you need to look something up.",
-  },
-  {
-    n: "03",
-    title: "Proof of service",
-    body: "Techs snap a photo right in the app at each stop, timestamped and geotagged automatically. Real proof it happened today, not an old photo pulled from a camera roll — tap any photo to pull it up full-size.",
-  },
-  {
-    n: "04",
-    title: "Routes that build themselves",
-    body: "Add a new customer and the app suggests which tech and route makes the most sense based on where your team already is. You always get the final say.",
-    pro: true,
-  },
-  {
-    n: "05",
-    title: "Never miss another call",
-    body: "After hours or too busy to pick up? Our AI phone agent answers, asks what's needed, and turns it into a ticket — caller info, urgency, and a summary — waiting in your dashboard before you're back at your desk.",
-    pro: true,
-  },
-  {
-    n: "06",
-    title: "A checklist that's actually yours",
-    body: "Comes prefilled with a real technician checklist to start. Add, remove, or reorder anything — and turn off individual items for the clients who don't need them, without changing what everyone else sees.",
-  },
-  {
-    n: "07",
-    title: "A portal just for your customers",
-    body: "Give each customer their own login. They see the day's readings, what was dosed, and photos from the visit — plus a link to the full historical log and a CSV download for their records.",
-  },
-  {
-    n: "08",
-    title: "Inspections tracked pool by pool",
-    body: "Log the current inspector's contact info, the last inspection date, and upload the actual report — per body of water, since properties with more than one pool don't always get inspected on the same day. HOA community manager contacts live right alongside it.",
-  },
-  {
-    n: "09",
-    title: "Know exactly how much to add",
-    body: "Enter today's reading and the app calculates the exact dose to hit target — free chlorine, alkalinity, cyanuric acid, calcium hardness, salt — linked to your chemical catalog so it logs in the right units automatically.",
-    pro: true,
-  },
-  {
-    n: "10",
-    title: "Keeps working with no signal",
-    body: "Backyards and mechanical rooms don't always have bars. Readings, photos, and doses queue right on the phone and sync the moment a connection comes back — nothing lost, nothing re-entered.",
-  },
-  {
-    n: "11",
-    title: "Pay techs on what they actually did",
-    body: "Set a rate per technician, per body of water, and watch real earnings total up as visits get logged — no separate spreadsheet, no guessing at the end of the pay period.",
-    pro: true,
-  },
-  {
-    n: "12",
-    title: "Equipment records and safety data sheets",
-    body: "Pumps, filters, drain covers, and service dates logged per body of water. Safety data sheets for every chemical pull up right on a tech's phone, on site — no digging through a binder.",
-  },
-];
-
-function Brand({ className }: { className?: string }) {
-  return (
-    <a className={`${styles.brand} ${className ?? ""}`} href="#top" aria-label="AquaRunner 24/7 home">
-      <LogoMark />
-      <span className={styles.brandName}>
-        AquaRunner<span> 24/7</span>
-      </span>
-    </a>
-  );
-}
-
 export default function Home() {
   return (
     <div className={styles.root}>
@@ -104,19 +24,9 @@ export default function Home() {
         Skip to content
       </a>
 
-      <header className={styles.nav}>
-        <div className={`${styles.wrap} ${styles.navIn}`}>
-          <Brand />
-          <span className={styles.navTag}>Las Vegas, NV · In final development</span>
-          <a className={`${styles.btn} ${styles.navBtn}`} href="#waitlist">
-            Join the waitlist
-          </a>
-        </div>
-      </header>
+      <SiteNav current="home" />
 
       <main id="main">
-        <span id="top" />
-
         {/* ---------- hero ---------- */}
         <section className={styles.hero}>
           <div className={styles.wrap}>
@@ -191,190 +101,12 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ---------- the two differentiators ---------- */}
-        <section className={`${styles.onInk} ${styles.sec} ${styles.diff}`} id="difference">
+        {/* ---------- in the field ---------- */}
+        <section className={`${styles.onFoam} ${styles.sec}`}>
           <div className={styles.wrap}>
             <div className={styles.secHead}>
               <span className={styles.secNum} aria-hidden="true">
                 01
-              </span>
-              <div className={styles.secHeadText}>
-                <p className={styles.eyebrow}>What nothing else does</p>
-                <h2 className={styles.displayL}>
-                  Scan the pool. See the whole record. Log exactly what your state requires.
-                </h2>
-              </div>
-            </div>
-
-            <div className={styles.diffLead}>
-              <p className={styles.lede}>
-                Two things sit at the center of AquaRunner: a QR code on every single body of water, and a compliance
-                setup that already knows your state&rsquo;s commercial pool rules. Together they replace the binder, the
-                clipboard, and the phone call to the office.
-              </p>
-              <p className={styles.diffAside}>
-                Pool, spa, splash pad, fountain — each one is its own record with its own code. Nothing gets logged
-                against the wrong body of water again.
-              </p>
-            </div>
-
-            <hr className={styles.hr} />
-
-            <div className={styles.diffTwo}>
-              <div className={styles.diffCol}>
-                <span className={styles.diffNum}>Paperless records</span>
-                <h3>A QR code on every body of water</h3>
-                <p>
-                  Each pool, spa, and water feature gets its own QR code. Your techs log every visit right in the app
-                  as they work their route — no scanning required. Scan that same code and anyone else — an
-                  inspector on site, a customer checking in — sees the complete, current record for that exact pool
-                  instantly. No binder, no filing cabinet, no waiting on the office.
-                </p>
-                <div className={styles.visual}>
-                  <QrPlacard />
-                  <p className={styles.scanNote}>One code per body of water — pool, spa, splash pad, fountain.</p>
-                </div>
-              </div>
-
-              <div className={styles.diffCol}>
-                <span className={styles.diffNum}>State rules</span>
-                <h3>Built for state compliance</h3>
-                <p>
-                  Every state has its own commercial pool requirements. AquaRunner is configured to your state&rsquo;s
-                  rules, so the technician logs exactly what that state requires at every visit — nothing missed,
-                  nothing memorized.
-                </p>
-                <StateShowcase />
-                <div className={styles.visual}>
-                  <InspectorRecord />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ---------- pricing ---------- */}
-        <section className={styles.sec} id="pricing">
-          <div className={styles.wrap}>
-            <div className={styles.secHead}>
-              <span className={styles.secNum} aria-hidden="true">
-                02
-              </span>
-              <div className={styles.secHeadText}>
-                <p className={styles.eyebrow}>Pricing</p>
-                <h2 className={styles.displayL}>One flat price. Every pool included.</h2>
-              </div>
-            </div>
-
-            <p className={styles.priceIntro}>
-              No per-pool fees. Ever. Pricing scales with your crew, not with how many pools you service. Every plan
-              starts with a 14-day free trial.
-            </p>
-
-            <div className={styles.priceGrid}>
-              <article className={styles.priceCard}>
-                <div className={styles.priceCardHead}>
-                  <h3>Starter</h3>
-                  <p className={styles.priceFor}>Best for smaller commercial and residential routes</p>
-                </div>
-                <p className={styles.priceAmount}>
-                  $99<span>/month</span>
-                </p>
-                <ul className={styles.priceList}>
-                  <li>Unlimited pools</li>
-                  <li>Up to 10 users</li>
-                  <li>Full chemical logging, service reports, and photos</li>
-                  <li>State-specific compliance log sheets</li>
-                  <li>Printable, laminate-ready sheets + QR codes for pump rooms</li>
-                </ul>
-                <a className={styles.btn} href="#waitlist">
-                  Join the waitlist
-                </a>
-              </article>
-
-              <article className={`${styles.priceCard} ${styles.priceCardFeatured}`}>
-                <span className={styles.priceBadge}>Most popular</span>
-                <div className={styles.priceCardHead}>
-                  <h3>Pro</h3>
-                  <p className={styles.priceFor}>For multi-tech commercial operators</p>
-                </div>
-                <p className={styles.priceAmount}>
-                  $149<span>/month</span>
-                </p>
-                <ul className={styles.priceList}>
-                  <li>Unlimited pools</li>
-                  <li>Up to 25 users</li>
-                  <li>Everything in Starter, plus:</li>
-                  <li>Route optimization</li>
-                  <li>Advanced custom reports</li>
-                  <li>Full work order tools</li>
-                  <li>Priority support</li>
-                </ul>
-                <a className={styles.btn} href="#waitlist">
-                  Join the waitlist
-                </a>
-              </article>
-
-              <article className={styles.priceCard}>
-                <div className={styles.priceCardHead}>
-                  <h3>Enterprise</h3>
-                  <p className={styles.priceFor}>Large commercial operations</p>
-                </div>
-                <p className={styles.priceAmount}>Custom</p>
-                <ul className={styles.priceList}>
-                  <li>Volume pricing for large multi-crew operations</li>
-                  <li>Dedicated onboarding and support</li>
-                </ul>
-                <a className={styles.btn} href="mailto:hello@aquarunner247.com">
-                  Contact us
-                </a>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        {/* ---------- the rest of the features ---------- */}
-        <section className={styles.sec} id="features">
-          <div className={styles.wrap}>
-            <div className={styles.secHead}>
-              <span className={styles.secNum} aria-hidden="true">
-                03
-              </span>
-              <div className={styles.secHeadText}>
-                <p className={styles.eyebrow}>The rest of the job</p>
-                <h2 className={styles.displayL}>Everything the day actually needs.</h2>
-              </div>
-            </div>
-
-            <div className={styles.feat}>
-              {FEATURES.map((feature) => (
-                <article className={styles.featItem} key={feature.n}>
-                  <div className={styles.featHead}>
-                    <span className={styles.featNum}>{feature.n}</span>
-                    {feature.pro && <span className={styles.featPro}>Pro</span>}
-                  </div>
-                  <h3>{feature.title}</h3>
-                  <p>{feature.body}</p>
-                </article>
-              ))}
-            </div>
-
-            <p className={styles.featFoot}>
-              <strong>And your customers hear about it.</strong>{" "}
-              <span className={styles.muted}>
-                Every service call sends the customer a comprehensive emailed report — readings, notes, and photos
-                included.
-              </span>
-            </p>
-          </div>
-        </section>
-
-        {/* ---------- in the field ---------- */}
-        <section className={`${styles.onFoam} ${styles.sec}`} id="field">
-          <div className={styles.wrap}>
-            <div className={styles.secHead}>
-              <span className={styles.secNum} aria-hidden="true">
-                04
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>In the field</p>
@@ -437,7 +169,7 @@ export default function Home() {
           <div className={styles.wrap}>
             <div className={styles.secHead}>
               <span className={styles.secNum} aria-hidden="true">
-                05
+                02
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>Waitlist</p>
@@ -477,16 +209,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className={`${styles.onInk} ${styles.foot}`}>
-        <div className={`${styles.wrap} ${styles.footIn}`}>
-          <Brand />
-          <p className={styles.footMeta}>
-            <span>AquaRunner 24/7 — Las Vegas, NV</span>
-            <span>&copy; 2026</span>
-            <a href="mailto:hello@aquarunner247.com">hello@aquarunner247.com</a>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
