@@ -1,4 +1,5 @@
 import { ExternalAccountClient, GoogleAuth } from "google-auth-library";
+import { getVercelOidcToken } from "@vercel/functions/oidc";
 import type { PhoneAgentPhoneTreeSelection } from "@/generated/prisma/client";
 
 /**
@@ -8,9 +9,13 @@ import type { PhoneAgentPhoneTreeSelection } from "@/generated/prisma/client";
  * google-auth-library alone is enough to mint an access token and call the plain REST
  * endpoint with fetch().
  *
- * Authenticates via Workload Identity Federation (Vercel's own OIDC token, injected as
- * VERCEL_OIDC_TOKEN on every deployment) rather than a long-lived service account key --
- * no DIALOGFLOW_SERVICE_ACCOUNT_BASE64 secret to rotate/leak. The Google Cloud side: a
+ * Authenticates via Workload Identity Federation (Vercel's own OIDC token) rather than a
+ * long-lived service account key -- no DIALOGFLOW_SERVICE_ACCOUNT_BASE64 secret to
+ * rotate/leak. The token itself is NOT a plain process.env.VERCEL_OIDC_TOKEN read --
+ * Vercel actually delivers a fresh token per request via an `x-vercel-oidc-token` header,
+ * only accessible through @vercel/functions' getVercelOidcToken() (confirmed by testing:
+ * the raw env var was empty at runtime even with OIDC Federation and "expose system env
+ * vars" both correctly enabled in the Vercel dashboard). The Google Cloud side: a
  * Workload Identity Pool ("vercel-pool") with an OIDC provider ("vercel-provider")
  * trusting https://oidc.vercel.com/aquarunner247s-projects, scoped via an attribute
  * condition to this specific Vercel project + production environment only, granted
@@ -47,14 +52,12 @@ function getAuth(): GoogleAuth | null {
     token_url: "https://sts.googleapis.com/v1/token",
     service_account_impersonation_url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${DIALOGFLOW_SERVICE_ACCOUNT_EMAIL}:generateAccessToken`,
     subject_token_supplier: {
-      // Vercel injects this per deployment -- not read from a file or fetched over the
-      // network, just handed straight to the token exchange (see google-auth-library's
-      // SubjectTokenSupplier interface, added in v9 for exactly this "already have the
-      // token in-process" case).
+      // getVercelOidcToken() reads the per-request x-vercel-oidc-token header via
+      // Vercel's request context -- see google-auth-library's SubjectTokenSupplier
+      // interface (added in v9) for exactly this "fetch the token programmatically"
+      // case, rather than the file/url-sourced credential_source variants.
       getSubjectToken: async () => {
-        const token = process.env.VERCEL_OIDC_TOKEN;
-        if (!token) throw new Error("VERCEL_OIDC_TOKEN is not set");
-        return token;
+        return await getVercelOidcToken();
       },
     },
   });
