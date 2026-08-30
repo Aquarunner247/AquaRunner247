@@ -41,6 +41,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.8.0",
     "@vercel/config": "^0.6.1",
+    "@vercel/functions": "^3.9.5",
     "ai": "^7.0.66",
     "google-auth-library": "^11.0.2",
     "leaflet": "^1.9.4",
