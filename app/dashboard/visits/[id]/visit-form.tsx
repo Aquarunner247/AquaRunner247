@@ -53,19 +53,24 @@ type FieldConfig = {
 /** Sanity bounds and step size for the numeric slider input -- deliberately NOT
  * state-derived (they're just input guards against absurd values, wide enough to cover
  * every state's actual regulatory range for that parameter), unlike everything else
- * about a chemistry field, which comes from the org's own ComplianceRuleset via
- * activeReadingFields (see lib/compliance.ts) and is passed in as `readingFields`. */
-const CHEMISTRY_INPUT_BOUNDS: Record<string, { min: number; max: number; step: number }> = {
+ * about a reading field (chemistry OR gauge/meter), which comes from the org's own
+ * ComplianceRuleset via activeReadingFields (see lib/compliance.ts) and is passed in as
+ * `readingFields`. */
+const READING_INPUT_BOUNDS: Record<string, { min: number; max: number; step: number }> = {
   freeChlorinePpm: { min: 0, max: 30, step: 0.5 },
   brominePpm: { min: 0, max: 30, step: 0.5 },
   ph: { min: 6, max: 15, step: 0.1 },
   alkalinityPpm: { min: 0, max: 300, step: 1 },
   cyanuricAcidPpm: { min: 0, max: 150, step: 1 },
   temperatureF: { min: 50, max: 110, step: 1 },
+  pumpPressurePsi: { min: 0, max: 60, step: 1 },
+  vacGaugeReading: { min: -30, max: 0, step: 1 },
+  filterPressurePsi: { min: 0, max: 60, step: 1 },
+  flowMeterGpm: { min: 0, max: 150, step: 1 },
 };
 
 function toFieldConfig(spec: ReadingFieldSpec): FieldConfig {
-  const bounds = CHEMISTRY_INPUT_BOUNDS[spec.key] ?? { min: 0, max: 100, step: 1 };
+  const bounds = READING_INPUT_BOUNDS[spec.key] ?? { min: 0, max: 100, step: 1 };
   return {
     key: spec.key,
     label: spec.label,
@@ -79,12 +84,10 @@ function toFieldConfig(spec: ReadingFieldSpec): FieldConfig {
   };
 }
 
-const EQUIPMENT_FIELDS: FieldConfig[] = [
-  { key: "pumpPressurePsi", label: "Pump Pressure", unitLabel: "psi", required: true, min: 0, max: 60, step: 1 },
-  { key: "vacGaugeReading", label: "Pump Vacuum", unitLabel: "inHg", required: true, min: -30, max: 0, step: 1 },
-  { key: "filterPressurePsi", label: "Filter Pressure", unitLabel: "psi", required: true, min: 0, max: 60, step: 1 },
-  { key: "flowMeterGpm", label: "Flow Meter", unitLabel: "gpm", required: true, min: 0, max: 150, step: 1 },
-];
+/** Which of activeReadingFields' keys are gauge/meter readings (the "Gauges" card) rather
+ * than chemistry (the "Chemistry" card) -- both now flow through the same state-derived
+ * `readingFields` prop, split here purely for the two-card layout. */
+const EQUIPMENT_FIELD_KEYS = new Set<ReadingFieldSpec["key"]>(["pumpPressurePsi", "vacGaugeReading", "filterPressurePsi", "flowMeterGpm"]);
 
 /** Optional fields -- not part of activeReadingFields since no state's compliance log
  * requires them. Always shown, never required, so entering them is purely opt-in. */
@@ -218,7 +221,8 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       // Best-effort -- a failed location attach shouldn't surface an error to the tech.
     }
   }
-  const chemistryFields = useMemo(() => readingFields.map(toFieldConfig), [readingFields]);
+  const chemistryFields = useMemo(() => readingFields.filter((f) => !EQUIPMENT_FIELD_KEYS.has(f.key)).map(toFieldConfig), [readingFields]);
+  const equipmentFields = useMemo(() => readingFields.filter((f) => EQUIPMENT_FIELD_KEYS.has(f.key)).map(toFieldConfig), [readingFields]);
   // Bromine never gets a computed dosing recommendation (see DosingCard's doc comment) --
   // just an out-of-range flag, reusing the same zoneMin/zoneMax this body's own state
   // ruleset already resolved for the reading form's own field spec, rather than
@@ -229,7 +233,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     bromineField && bromineValue != null && ((bromineField.zoneMin != null && bromineValue < bromineField.zoneMin) || (bromineField.zoneMax != null && bromineValue > bromineField.zoneMax))
       ? { current: bromineValue, min: bromineField.zoneMin, max: bromineField.zoneMax }
       : null;
-  const allFields = [...chemistryFields, ...EQUIPMENT_FIELDS];
+  const allFields = [...chemistryFields, ...equipmentFields];
 
   const requiredMissing = useMemo(() => {
     return allFields.some((f) => f.required && !reading[f.key]);
@@ -651,10 +655,12 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         </div>
       )}
 
-      <div className="app-card">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Gauges</h2>
-        <div className="mt-3 space-y-3">{EQUIPMENT_FIELDS.map(renderSlider)}</div>
-      </div>
+      {equipmentFields.length > 0 ? (
+        <div className="app-card">
+          <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Gauges</h2>
+          <div className="mt-3 space-y-3">{equipmentFields.map(renderSlider)}</div>
+        </div>
+      ) : null}
 
       <div className="app-card">
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Backwash</h2>

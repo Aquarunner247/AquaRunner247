@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import type { ComplianceRuleset, ChemistryThreshold, FrequencyRule, EventProtocol, DisinfectionMethod } from "@/generated/prisma/client";
+import type {
+  ComplianceRuleset,
+  ChemistryThreshold,
+  FrequencyRule,
+  EventProtocol,
+  EquipmentReadingRequirement,
+  DisinfectionMethod,
+} from "@/generated/prisma/client";
 
 /** Shown wherever no state-specific department name is known/configured yet. */
 export const GENERIC_HEALTH_DEPARTMENT_LABEL = "your state/local health department";
@@ -17,6 +24,7 @@ export type ComplianceRulesetWithRules = ComplianceRuleset & {
   chemistryThresholds: ChemistryThreshold[];
   frequencyRules: FrequencyRule[];
   eventProtocols: EventProtocol[];
+  equipmentReadingRequirements: EquipmentReadingRequirement[];
 };
 
 /**
@@ -31,7 +39,7 @@ export async function getOrganizationRuleset(organizationId: string): Promise<Co
     where: { id: organizationId },
     select: {
       complianceRuleset: {
-        include: { chemistryThresholds: true, frequencyRules: true, eventProtocols: true },
+        include: { chemistryThresholds: true, frequencyRules: true, eventProtocols: true, equipmentReadingRequirements: true },
       },
     },
   });
@@ -252,7 +260,17 @@ export function activeChemistryThresholds(ruleset: ComplianceRulesetWithRules) {
   };
 }
 
-export type ReadingFieldKey = "freeChlorinePpm" | "brominePpm" | "ph" | "alkalinityPpm" | "cyanuricAcidPpm" | "temperatureF";
+export type ReadingFieldKey =
+  | "freeChlorinePpm"
+  | "brominePpm"
+  | "ph"
+  | "alkalinityPpm"
+  | "cyanuricAcidPpm"
+  | "temperatureF"
+  | "pumpPressurePsi"
+  | "vacGaugeReading"
+  | "filterPressurePsi"
+  | "flowMeterGpm";
 
 export type ReadingFieldSpec = {
   key: ReadingFieldKey;
@@ -265,11 +283,23 @@ export type ReadingFieldSpec = {
   zoneMax: number | null;
 };
 
+/** The four gauge/meter readings, keyed by the same free-text parameter convention as
+ * EquipmentReadingRequirement.parameter -- shared between fallbackReadingFields (always
+ * on) and activeReadingFields' state-derived lookup below. No zoneMin/zoneMax: there's no
+ * "ideal range" for a flow meter, just "must be logged." */
+const EQUIPMENT_FIELD_DEFS: { parameter: string; key: ReadingFieldKey; label: string; unitLabel: string }[] = [
+  { parameter: "PUMP_PRESSURE", key: "pumpPressurePsi", label: "Pump Pressure", unitLabel: "psi" },
+  { parameter: "PUMP_VACUUM", key: "vacGaugeReading", label: "Pump Vacuum", unitLabel: "inHg" },
+  { parameter: "FILTER_PRESSURE", key: "filterPressurePsi", label: "Filter Pressure", unitLabel: "psi" },
+  { parameter: "FLOW_METER", key: "flowMeterGpm", label: "Flow Meter", unitLabel: "gpm" },
+];
+
 /** The field set every commercial visit form showed before per-state field lists existed
- * (Free Chlorine, pH, Total Alkalinity, Cyanuric Acid, Temperature) -- used only when
- * compliance isn't active for this account (unsupported state, or none linked yet), so
- * those accounts see no behavior change. Never used for a live/supported state; those
- * always derive their own list from their own ChemistryThreshold rows below. */
+ * (Free Chlorine, pH, Total Alkalinity, Cyanuric Acid, Temperature, plus all four gauge
+ * readings) -- used only when compliance isn't active for this account (unsupported
+ * state, or none linked yet), so those accounts see no behavior change. Never used for a
+ * live/supported state; those always derive their own list from their own
+ * ChemistryThreshold/EquipmentReadingRequirement rows below. */
 function fallbackReadingFields(bodyOfWaterType: string): ReadingFieldSpec[] {
   return [
     { key: "freeChlorinePpm", label: "Free Chlorine", unitLabel: "ppm", required: true, zoneMin: bodyOfWaterType === "SPA" ? 3 : 2, zoneMax: 10 },
@@ -277,6 +307,7 @@ function fallbackReadingFields(bodyOfWaterType: string): ReadingFieldSpec[] {
     { key: "alkalinityPpm", label: "Total Alkalinity", unitLabel: "ppm", required: true, zoneMin: 60, zoneMax: 120 },
     { key: "cyanuricAcidPpm", label: "Cyanuric Acid", unitLabel: "ppm", required: true, zoneMin: 0, zoneMax: 40 },
     { key: "temperatureF", label: "Water Temperature", unitLabel: "°F", required: true, zoneMin: 80, zoneMax: 104 },
+    ...EQUIPMENT_FIELD_DEFS.map((def) => ({ key: def.key, label: def.label, unitLabel: def.unitLabel, required: true, zoneMin: null, zoneMax: null })),
   ];
 }
 
@@ -405,6 +436,21 @@ export function activeReadingFields(
       zoneMin: toNumOrNull(temperature.idealMin ?? temperature.minValue),
       zoneMax: toNumOrNull(temperature.idealMax ?? temperature.maxValue),
     });
+  }
+
+  // Gauge/meter readings -- presence of a row IS the requirement (see
+  // EquipmentReadingRequirement's doc comment), unlike chemistry fields' zoneMin/zoneMax-
+  // driven required check. Only shown for a body category this state's data actually
+  // scopes it to (or applies to all body types when bodyOfWaterCategory is null), same
+  // "never a generic checklist" principle as every chemistry field above -- e.g. Colorado
+  // only has FLOW_METER seeded, so its technicians see no pressure/vacuum gauge fields.
+  for (const def of EQUIPMENT_FIELD_DEFS) {
+    const match = ruleset.equipmentReadingRequirements.find(
+      (r) => r.parameter === def.parameter && (r.bodyOfWaterCategory == null || r.bodyOfWaterCategory === bodyCategory),
+    );
+    if (match) {
+      fields.push({ key: def.key, label: def.label, unitLabel: def.unitLabel, required: true, zoneMin: null, zoneMax: null });
+    }
   }
 
   return forceOptional ? fields.map((f) => ({ ...f, required: false })) : fields;

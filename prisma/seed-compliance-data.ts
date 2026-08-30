@@ -24,6 +24,7 @@ type ChemistryThresholdInput = Omit<Prisma.ChemistryThresholdCreateManyInput, "c
 type FrequencyRuleInput = Omit<Prisma.FrequencyRuleCreateManyInput, "complianceRulesetId">;
 type EventProtocolInput = Omit<Prisma.EventProtocolCreateManyInput, "complianceRulesetId">;
 type ComplianceNoteInput = Omit<Prisma.ComplianceNoteCreateManyInput, "complianceRulesetId">;
+type EquipmentReadingRequirementInput = Omit<Prisma.EquipmentReadingRequirementCreateManyInput, "complianceRulesetId">;
 
 type StateSeed = {
   state: string;
@@ -35,6 +36,9 @@ type StateSeed = {
   frequencyRules: FrequencyRuleInput[];
   eventProtocols: EventProtocolInput[];
   complianceNotes: ComplianceNoteInput[];
+  /** Optional -- omitted (defaults to none) for every state without a sourced gauge/meter
+   * log-sheet requirement yet. See EquipmentReadingRequirement's doc comment. */
+  equipmentReadingRequirements?: EquipmentReadingRequirementInput[];
 };
 
 async function seedState(seed: StateSeed) {
@@ -45,11 +49,14 @@ async function seedState(seed: StateSeed) {
     select: { id: true, stateName: true },
   });
 
+  const equipmentReadingRequirements = seed.equipmentReadingRequirements ?? [];
+
   await prisma.$transaction([
     prisma.chemistryThreshold.deleteMany({ where: { complianceRulesetId: ruleset.id } }),
     prisma.frequencyRule.deleteMany({ where: { complianceRulesetId: ruleset.id } }),
     prisma.eventProtocol.deleteMany({ where: { complianceRulesetId: ruleset.id } }),
     prisma.complianceNote.deleteMany({ where: { complianceRulesetId: ruleset.id } }),
+    prisma.equipmentReadingRequirement.deleteMany({ where: { complianceRulesetId: ruleset.id } }),
     prisma.chemistryThreshold.createMany({
       data: seed.chemistryThresholds.map((t) => ({ ...t, complianceRulesetId: ruleset.id })),
     }),
@@ -62,10 +69,13 @@ async function seedState(seed: StateSeed) {
     prisma.complianceNote.createMany({
       data: seed.complianceNotes.map((n) => ({ ...n, complianceRulesetId: ruleset.id })),
     }),
+    prisma.equipmentReadingRequirement.createMany({
+      data: equipmentReadingRequirements.map((e) => ({ ...e, complianceRulesetId: ruleset.id })),
+    }),
   ]);
 
   console.log(
-    `  ${seed.state} (${ruleset.stateName}): ${seed.chemistryThresholds.length} thresholds, ${seed.frequencyRules.length} frequency rules, ${seed.eventProtocols.length} event protocols, ${seed.complianceNotes.length} notes`,
+    `  ${seed.state} (${ruleset.stateName}): ${seed.chemistryThresholds.length} thresholds, ${seed.frequencyRules.length} frequency rules, ${seed.eventProtocols.length} event protocols, ${seed.complianceNotes.length} notes, ${equipmentReadingRequirements.length} equipment reading requirements`,
   );
 }
 
@@ -112,6 +122,10 @@ A closure carries a $909 reopening fee once triggered.
 The public per-body-of-water inspector log mirrors SNHD's paper chemistry/equipment log
 layout, so an inspector can review it the same way as a physical binder.
 
+### Equipment / gauge readings
+Every visit also requires a pump pressure, pump vacuum, filter pressure, and flow meter
+reading, matching SNHD's own paper log sheet.
+
 *This page reflects AquaRunner's built-in rule engine, not a substitute for SNHD's own
 published code. Verify against the authoritative source for anything compliance-critical.*`,
   },
@@ -135,6 +149,9 @@ published code. Verify against the authoritative source for anything compliance-
     },
   ],
   complianceNotes: [],
+  // Matches AquaRunner's existing hardcoded equipment fields exactly -- this is the
+  // regression-check state, see the file-level comment on NEVADA above.
+  equipmentReadingRequirements: [{ parameter: "PUMP_PRESSURE" }, { parameter: "PUMP_VACUUM" }, { parameter: "FILTER_PRESSURE" }, { parameter: "FLOW_METER" }],
 };
 
 // ---------------------------------------------------------------------------
@@ -183,6 +200,11 @@ constituting a public health/safety hazard or nuisance, and **mandatory** specif
 for evidence of communicable disease transmission, a significant health nuisance, or an
 imminent safety hazard. The numeric minima above function as the practical triggers for
 the mandatory tier.
+
+### Equipment / gauge readings
+Every visit also requires a flow meter reading and a pressure gauge reading. Connecticut's
+own daily-log language names a generic "pressure gauge reading" without distinguishing a
+pump gauge from a filter gauge -- AquaRunner logs this as the Filter Pressure field.
 
 *This page reflects AquaRunner's built-in rule engine, not a substitute for the
 Connecticut Department of Public Health's own published code. Verify against the
@@ -270,6 +292,13 @@ authoritative source for anything compliance-critical.*`,
       detail: "§19-13-B33b(b)(6)-(7) covers disinfectant residual and pH cadence explicitly but is silent on alkalinity frequency at the state level.",
     },
   ],
+  equipmentReadingRequirements: [
+    { parameter: "FLOW_METER" },
+    {
+      parameter: "FILTER_PRESSURE",
+      notes: "Source states a generic 'pressure gauge reading' without specifying pump vs. filter -- mapped to Filter Pressure as the closest existing field; Connecticut's own form doesn't distinguish two separate gauges the way Nevada's does.",
+    },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -314,6 +343,10 @@ Department's General Provisions and Appendix A (Pool) / Appendix B (Spa).
 Pool chlorine and pH are tested **twice daily**; spa chlorine and pH are tested
 **hourly** — a notably different pool-vs-spa cadence than most states, not just a
 different numeric range. Turbidity is checked hourly for both.
+
+### Equipment / gauge readings
+Every visit also requires a flow meter reading, sourced from the official log form's
+"Filter Rate (GPM)" column.
 
 *This page reflects AquaRunner's built-in rule engine, not a substitute for the Alabama
 Department of Public Health's own published code. Verify against the authoritative
@@ -382,6 +415,9 @@ source for anything compliance-critical.*`,
       detail: "Seeded with jurisdictionLevel=COUNTY, countyName=Baldwin County pending confirmation, same pattern as Nevada/SNHD.",
     },
   ],
+  equipmentReadingRequirements: [
+    { parameter: "FLOW_METER", notes: "Sourced from the official form's 'Filter Rate (GPM)' column." },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -422,6 +458,11 @@ const ALASKA: StateSeed = {
 ### Closure triggers
 A positive pathogen lab result (e.g. pseudomonas) closes the pool until a retest confirms
 it's clear — no fixed reopening window, since lab turnaround time isn't specified.
+
+### Equipment / gauge readings
+Every visit also requires a flow meter reading and a pressure/vacuum reading. Alaska's
+own daily-log language bundles "pressure/vacuum readings" without naming a specific
+gauge -- AquaRunner logs this as the Filter Pressure and Pump Vacuum fields.
 
 *This page reflects AquaRunner's built-in rule engine, not a substitute for the Alaska
 Department of Environmental Conservation's own published rules. Verify against the
@@ -532,6 +573,17 @@ authoritative source for anything compliance-critical.*`,
         "Table E's curve values are reconstructed from the graph's visible axis range and known HOCl dissociation chemistry, not pixel-measured off the original 1970s-era regulatory graph -- a close, usable approximation, not a certified-exact transcription.",
       detail:
         "Previously the sole GAP blocking isSupported (no curve data at all); now resolved with real curveDataPoints and a computable relationalRule formula (minimumFAC(pH) = 0.3 x (1 + 10^(pH - 7.5))). This app's chlorineFamilyThreshold doesn't evaluate curves per-reading yet, so minValue is seeded at the pH-7.0 floor (0.4 mg/l) as the single resolvable default -- a reading at higher pH needs a higher minimum than this row alone will enforce until the rule engine evaluates curves directly.",
+    },
+  ],
+  equipmentReadingRequirements: [
+    { parameter: "FLOW_METER" },
+    {
+      parameter: "FILTER_PRESSURE",
+      notes: "Source bundles this as a generic 'pressure/vacuum readings' item without naming a specific gauge -- mapped to Filter Pressure as the closest existing field.",
+    },
+    {
+      parameter: "PUMP_VACUUM",
+      notes: "Source bundles this as a generic 'pressure/vacuum readings' item -- Alaska's data doesn't distinguish which specific vacuum gauge, mapped here as the closest match.",
     },
   ],
 };
@@ -986,6 +1038,10 @@ single reading. Solid feces: closed a minimum of 60 minutes if disinfection was 
 compliant, or 60 minutes after restoring it if not. Diarrheal contamination:
 superchlorinate, remain closed 24 hours, reopen only once disinfection is back in range.
 
+### Equipment / gauge readings
+Every visit also requires a flow meter reading, sourced from the state's own daily
+"flowmeter reading" requirement -- no pressure or vacuum gauge requirement was found.
+
 *This page reflects AquaRunner's built-in rule engine, not a substitute for CDPHE's own
 published code. Verify against the authoritative source for anything
 compliance-critical.*`,
@@ -1168,6 +1224,7 @@ compliance-critical.*`,
       detail: "A low-resolution scan of a decades-old regulatory document carries real transcription risk. Since ORP monitoring is optional in Colorado (DPD chlorine testing alone satisfies the requirement), the flat 250-900 mV range remains the operative rule and the graph is kept on file as a supplementary cross-check, not digitized further unless a future need (e.g. an automated ORP-controller integration) justifies the transcription risk.",
     },
   ],
+  equipmentReadingRequirements: [{ parameter: "FLOW_METER", notes: "Sourced from the daily 'flowmeter reading' requirement -- no pressure/vacuum gauge requirement found." }],
 };
 
 // ---------------------------------------------------------------------------
@@ -1194,6 +1251,53 @@ const FLORIDA: StateSeed = {
     logSheetSourceLabel: "DH 921, Monthly Swimming Pool Report (3/98 edition)",
     logSheetSourceNotes:
       "Chlorine residual and pH recorded three times daily (9 AM, 1 PM, 4 PM, dedicated columns each), plus Filter Gauge Reading, Flow GPM, Pool Vacuumed (Y/N), Number of Patrons, and a Remarks column meant for Total Alkalinity, Hardness, Cyanuric Acid, equipment breakdown, water loss, backwash, and clarity -- several readings captured in freeform remarks rather than dedicated columns.",
+    referenceContent: `AquaRunner enforces the following for commercial pools/spas under Fla. Admin. Code Ann.
+R. 64E-9.004. These are the same thresholds already built into the app's closure-risk
+banners and inspector log -- this page documents them in one place rather than asserting
+new rules.
+
+### Chemistry targets (routine range)
+- **Free chlorine (conventional pools):** 1.0 – 10.0 mg/L, lower ceiling of 5.0 mg/L
+  indoors
+- **Free chlorine (wading pools, swim-up bars, special-purpose/water-attraction pools,
+  interactive fountains):** 2.0 – 10.0 mg/L
+- **Free chlorine (spas):** 2.0 – 5.0 mg/L
+- **Bromine (pools):** 1.5 – 6.0 mg/L, 6.0 mg/L ceiling indoors
+- **Bromine (wading pools and the same shared-category venues above):** 3.0 – 6.0 mg/L
+- **pH:** 7.0 – 7.8
+- **Cyanuric acid:** 100 mg/L maximum (pools), 40 mg/L maximum (spas) -- 40 mg/L is only a
+  non-binding recommended max for pools
+- **ORP (when used):** 700 – 850 mV -- does not replace the manual daily testing
+  requirement
+- Using cyanuric acid, sodium chloride (salt chlorination), quaternary ammonium, ozone,
+  or copper each separately requires its own dedicated test kit; using silver requires a
+  full lab water analysis every six months
+
+### Testing frequency
+The regulation itself only requires manual pH/disinfectant testing once per 24 hours,
+though the state's own DH 921 log form has three timestamped columns per day (9 AM, 1
+PM, 4 PM) -- a form-vs-regulation cadence mismatch, not a stricter rule.
+
+### Fecal/vomit contamination response
+Florida's rule defers by citation to CDC guidance rather than writing hold times/contact
+values directly into code. Formed stool: minimum 25-minute hold at 2 ppm free chlorine,
+pH ≤ 7.5. Diarrheal contamination: minimum 12.75-hour hold at 20 ppm free chlorine, pH ≤
+7.5, with a separate CYA-reduction-first pathway when cyanuric acid is in use.
+
+### Log format
+The state-provided DH 921 Monthly Swimming Pool Report captures several readings
+(Total Alkalinity, Hardness, Cyanuric Acid, equipment issues, water loss, backwash,
+clarity) in a freeform Remarks column rather than dedicated columns.
+
+### Equipment / gauge readings
+Every visit also requires a pump vacuum, filter pressure, and flow meter reading.
+Florida's own form actually asks for two separate pressure values (Pressure Influent PSI
+and Pressure Effluent PSI) -- AquaRunner logs these as a single Filter Pressure field, a
+known simplification.
+
+*This page reflects AquaRunner's built-in rule engine, not a substitute for the Florida
+Department of Health's own published code. Verify against the authoritative source for
+anything compliance-critical.*`,
   },
   chemistryThresholds: [
     { parameter: "PH", minValue: 7.0, maxValue: 7.8, unit: "", sourceConfidence: "confirmed" },
@@ -1388,6 +1492,14 @@ const FLORIDA: StateSeed = {
       detail: "Noted for completeness per state-compliance-data.md; out of scope for this pass's reading/log-sheet feature per the handoff's explicit non-goals around non-chemistry facility design/construction requirements.",
     },
   ],
+  equipmentReadingRequirements: [
+    { parameter: "PUMP_VACUUM", notes: "Sourced from the official form's 'Filter Gauge Reading (Vacuum in/Hg)' column." },
+    {
+      parameter: "FILTER_PRESSURE",
+      notes: "Florida's official form actually asks for two separate pressure values (Pressure Influent PSI and Pressure Effluent PSI) -- the app currently has one filterPressurePsi field, so this is a known simplification, not a precise rendering of the two-gauge form.",
+    },
+    { parameter: "FLOW_METER", notes: "Sourced from the official form's 'Flow GPM' column." },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -1446,6 +1558,12 @@ multi-point sampling (every 15 ft around the perimeter) confirms the chemical is
 distributed, not at the moment chlorine is raised. Blood: no requirement to remove it
 from the water; check the current chlorine level and close only if it's already below
 the required minimum.
+
+### Equipment / gauge readings
+Every visit also requires a flow meter, filter pressure, and pump vacuum reading.
+Maryland's own form actually lists separate Filter Influent and Effluent Pressure
+values -- AquaRunner logs these as a single Filter Pressure field, a known
+simplification.
 
 *This page reflects AquaRunner's built-in rule engine, not a substitute for the
 Maryland Department of Health's own published code. Verify against the authoritative
@@ -1602,6 +1720,14 @@ source for anything compliance-critical.*`,
       detail: "Same ambiguous-jurisdiction shape as California's Sacramento-County-branded form (labeled the same way there); local health departments commonly distribute their own standardized versions covering both recreational and semipublic pools, with only the frequency columns differing.",
     },
   ],
+  equipmentReadingRequirements: [
+    { parameter: "FLOW_METER", notes: "Sourced from the form's 'rate of flow' item." },
+    {
+      parameter: "FILTER_PRESSURE",
+      notes: "Maryland's source lists separate Filter Influent and Effluent Pressure readings -- the app currently has one filterPressurePsi field, so this is a known simplification, not a precise rendering of the two-gauge requirement.",
+    },
+    { parameter: "PUMP_VACUUM", notes: "Exact match to the form's 'Pump Vacuum' item." },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -1650,6 +1776,10 @@ NMED's own log sheet presents every parameter — chemistry, clarity, main drain
 condition, and filtration system status alike — as a single GREEN/RED status: any RED
 reading means immediate corrective action and a retest, and the venue reopens once
 every reading is back to GREEN.
+
+### Equipment / gauge readings
+Every visit also requires a flow meter reading, sourced from the "Flow Rate" column on
+the official Aquatic Venue Log Sheet.
 
 *This page reflects AquaRunner's built-in rule engine, not a substitute for NMED's own
 published code. Verify against the authoritative source for anything
@@ -1746,6 +1876,7 @@ compliance-critical.*`,
       detail: "More granular than Alabama's/Alaska's simple indoor/outdoor distinction. Modeled as three separate ChemistryThreshold rows (one permitted-with-range, two ban rows) rather than one row with a conditional range, since two of the three combinations are outright prohibitions with no numeric range at all.",
     },
   ],
+  equipmentReadingRequirements: [{ parameter: "FLOW_METER", notes: "Sourced from the official form's 'Flow Rate' column." }],
 };
 
 // ---------------------------------------------------------------------------
@@ -1977,6 +2108,11 @@ other uncorrectable public-health condition. Any one triggers closure. Fecal/vom
 blood incidents defer to current CDC guidance for the exact hold time and are tracked
 through a six-point monitoring grid across the closure window.
 
+### Equipment / gauge readings
+Every visit also requires a flow meter reading and a pressure gauge reading. Georgia's
+own Operator Record names a generic "Pressure Gauge Reading" without distinguishing a
+pump gauge from a filter gauge -- AquaRunner logs this as the Filter Pressure field.
+
 *This page reflects AquaRunner's built-in rule engine, not a substitute for the
 Georgia Department of Public Health's own published code. Verify against the
 authoritative source for anything compliance-critical.*`,
@@ -2062,6 +2198,13 @@ authoritative source for anything compliance-critical.*`,
       detail: "Every other state's sampling-location note collected specifies one fixed point (e.g. New York's 'between inlet/outlet, ~12 inches'). Not modeled as a schema field this pass -- noted here for a future pass if AquaRunner ever tracks where a reading was taken, not just the reading itself.",
     },
   ],
+  equipmentReadingRequirements: [
+    { parameter: "FLOW_METER", notes: "Sourced from the official form's 'Flowmeter Reading (gpm)' column." },
+    {
+      parameter: "FILTER_PRESSURE",
+      notes: "Source states a generic 'Pressure Gauge Reading' without specifying pump vs. filter -- mapped to Filter Pressure as the closest existing field.",
+    },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -2114,6 +2257,10 @@ happens next depends on the pool's plumbing, not the contamination type: a **clo
 system** (standard recirculating, chlorinated) pool must be actively disinfected before
 reopening; an **open system** (flow-through) pool instead just stays closed until water
 quality testing confirms it meets standards, with no separate disinfection step.
+
+### Equipment / gauge readings
+Every visit also requires a flow meter reading, sourced from §11-10-21's daily
+"rate-of-flow meter readings" recording requirement.
 
 *This page reflects AquaRunner's built-in rule engine, not a substitute for the Hawaii
 Department of Health's own published code. Verify against the authoritative source for
@@ -2203,6 +2350,7 @@ anything compliance-critical.*`,
       detail: "Seeded as range:null on the ChemistryThreshold row with the generic industry-practice figures (80-120 or 60-180 ppm) noted as non-binding context only, per the explicit instruction not to treat this as unfinished research.",
     },
   ],
+  equipmentReadingRequirements: [{ parameter: "FLOW_METER", notes: "Sourced from §11-10-21's 'rate-of-flow meter readings' daily recording requirement." }],
 };
 
 
@@ -4008,6 +4156,11 @@ catch-all — not independently named the way clarity and disinfectant are.
 No protocol exists anywhere in Chapter 4717 — confirmed absent via a full-text search, not
 a research gap.
 
+### Equipment / gauge readings
+Every visit also requires a flow meter reading. No state-issued log form is confirmed
+to exist for Minnesota; this comes directly from 4717.0750's record-content mandate
+(flow rates among what a pool record must contain), not a named form field.
+
 *This page reflects AquaRunner's built-in rule engine, not a substitute for the Minnesota
 Department of Health's own published code. Verify against the authoritative source for
 anything compliance-critical.*`,
@@ -4111,6 +4264,12 @@ anything compliance-critical.*`,
       kind: "GAP",
       summary: "4717.0750.F explicitly states alkalinity and cyanuric acid measurements are NOT required to be recorded daily -- a looser cadence than every other state collected, confirmed by the rule's own text rather than inferred from silence.",
       detail: "No FrequencyRule row seeded for TOTAL_ALKALINITY since this is a negative/relaxed statement, not a positive interval to encode. CYA gets its own explicit weekly minimum from the 2022 amendment (see the CYANURIC_ACID FrequencyRule row), which supersedes this looser framing specifically for CYA.",
+    },
+  ],
+  equipmentReadingRequirements: [
+    {
+      parameter: "FLOW_METER",
+      notes: "No state-issued log form is confirmed to exist (see logSheetSource note) -- this requirement comes directly from 4717.0750's record-content mandate (flow rates among what a pool record must contain) rather than a named form field.",
     },
   ],
 };
@@ -7429,6 +7588,11 @@ Washington's rule is a single blanket sentence: close the affected pool until cl
 disinfected, and free of hazardous material — no specific chlorine target or hold time.
 Blood is grouped with feces and vomit as an equal closure trigger, not exempted.
 
+### Equipment / gauge readings
+Every visit also requires a flow meter reading, sourced from the state's own
+record-retention requirement (chemical quantities, flow rates, and contamination
+incidents kept for three years), not a named daily log-sheet field.
+
 *This page reflects AquaRunner's built-in rule engine, not a substitute for the
 Washington State Department of Health's own published code. Verify against the
 authoritative source for anything compliance-critical.*`,
@@ -7512,6 +7676,12 @@ authoritative source for anything compliance-critical.*`,
       kind: "OUT_OF_SCOPE",
       summary: "Owners must separately notify the department of any drowning, near-drowning, death, serious injury, or serious illness within 48 hours of becoming aware (§121(1)).",
       detail: "A distinct incident-reporting duty, not a water-chemistry rule or closure trigger -- not modeled as a schema row. Worth carrying into the data model if AquaRunner ever tracks incident reports alongside chemistry logs.",
+    },
+  ],
+  equipmentReadingRequirements: [
+    {
+      parameter: "FLOW_METER",
+      notes: "Sourced from the record-retention requirement (chemical quantities, flow rates, and contamination incidents kept for three years) rather than a named daily log-sheet field.",
     },
   ],
 };

@@ -65,7 +65,7 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
               businessPhone: true,
               state: true,
               complianceRuleset: {
-                include: { chemistryThresholds: true, frequencyRules: true, eventProtocols: true },
+                include: { chemistryThresholds: true, frequencyRules: true, eventProtocols: true, equipmentReadingRequirements: true },
               },
             },
           },
