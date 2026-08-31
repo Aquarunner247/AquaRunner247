@@ -25,15 +25,15 @@ const config: Config = {
         // ─────────────────────────────────────────────────────────────────────────
         // AquaRunner design system — "Sunset Water" (System B)
         //
-        // Derived from pool water at sunset: deep turquoise below, warm salmon light
+        // Derived from pool water at sunset: deep turquoise below, bright coral light
         // on the surface. Two temperatures with two jobs:
         //   COOL (teal/turquoise) = the product. Every dashboard, technician, and
         //     inspector surface. Calm, legible, gets out of the way.
-        //   WARM (salmon/clay)    = marketing. The landing page and anything selling.
+        //   WARM (coral/clay)     = marketing. The landing page and anything selling.
         //     Also the single "act now" accent inside the product, used sparingly.
         //
         // Every value below is contrast-checked. Rules that are NOT optional:
-        //   • `accent` (#F6AD93) is DARK-BACKGROUND ONLY. 7.3:1 on ink, 1.6:1 on
+        //   • `accent` (#F99486) is DARK-BACKGROUND ONLY. 6.2:1 on ink, 2.2:1 on
         //     white — it is decoration on dark, never text on light, never a fill
         //     behind white text.
         //   • Status colors (ok / warn / danger) are reserved for reading results.
@@ -54,9 +54,9 @@ const config: Config = {
           muted: "#55696C",       // secondary text on cool surface         5.2:1
 
           // — Core warm (marketing + urgent accent) —
-          cta: "#B8503E",         // warm button fill, white text           4.9:1 on white
-          ctaHover: "#9C4132",
-          accent: "#F6AD93",      // DARK BACKGROUNDS ONLY — eyebrows, tags, highlights
+          cta: "#CF3F2A",         // warm button fill, white text           4.8:1 on white
+          ctaHover: "#A93322",
+          accent: "#F99486",      // DARK BACKGROUNDS ONLY — eyebrows, tags, highlights
           warmSurface: "#FBF6F3", // marketing page background
           warmFoam: "#F2E5DE",
           warmBorder: "#DCC8BE",

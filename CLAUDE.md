@@ -15,7 +15,7 @@ The short version, so it is impossible to miss:
   a CSS module.
 - **Cool teal = the product** (dashboard, technician screens, inspector record, portal).
   **Warm clay = marketing** plus the single "act now" accent inside the product.
-- **`brand-accent` (`#F6AD93`) is dark-background only.** It is 1.6:1 on white. Never text
+- **`brand-accent` (`#F99486`) is dark-background only.** It is 2.2:1 on white. Never text
   on light, never a fill behind white text.
 - **Status colors are reserved.** `ok`/`warn`/`danger` mean a water-reading result. Never
   use `cta` or `accent` to signal a chemical value, and never restyle a status chip to match

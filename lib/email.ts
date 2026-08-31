@@ -83,7 +83,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
       <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Service Summary</p>
+        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Service Summary</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.propertyName} — ${input.bodyOfWaterName}</h1>
         <p style="color:#9CC3C6; font-size:13px; margin:6px 0 0;">${dateStr} at ${timeStr}</p>
       </div>
@@ -180,7 +180,7 @@ export async function sendPhoneAgentTicketEmail(input: PhoneAgentTicketEmailInpu
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
       <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">New Phone Agent Ticket — ${routedLabel}</p>
+        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">New Phone Agent Ticket — ${routedLabel}</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.callerName ?? "Unknown caller"} — ${input.callerNumber}</h1>
         <p style="color:#9CC3C6; font-size:13px; margin:6px 0 0;">${input.organizationName}</p>
       </div>
@@ -261,7 +261,7 @@ export async function sendCancellationScrubWarningEmail(input: CancellationScrub
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
       <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Action needed — subscription ended</p>
+        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Action needed — subscription ended</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.organizationName}</h1>
       </div>
       <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
@@ -326,7 +326,7 @@ export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Pr
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
       <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Update from AquaRunner 24/7 Pro</p>
+        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Update from AquaRunner 24/7 Pro</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.subject}</h1>
       </div>
       <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
@@ -382,7 +382,7 @@ export async function sendCustomerAccessEndedEmail(input: CustomerAccessEndedEma
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
       <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F6AD93; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Your portal access has changed</p>
+        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Your portal access has changed</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.organizationName}</h1>
       </div>
       <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">

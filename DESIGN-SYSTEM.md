@@ -5,13 +5,13 @@ If you need a color that isn't here, add it there — never inline a hex in a co
 
 ## The idea
 
-Pool water at sunset: deep turquoise below, warm salmon light on the surface.
+Pool water at sunset: deep turquoise below, bright coral light on the surface.
 Two temperatures, two jobs.
 
 | Temperature | Job | Where |
 |---|---|---|
 | **Cool** (teal/turquoise) | The product. Calm, legible, gets out of the way. | Dashboard, technician screens, inspector record, portal |
-| **Warm** (salmon/clay) | Marketing, and the one "act now" accent inside the product. | Landing page; primary conversion buttons |
+| **Warm** (coral/clay) | Marketing, and the one "act now" accent inside the product. | Landing page; primary conversion buttons |
 
 ## Tokens
 
@@ -31,9 +31,9 @@ Two temperatures, two jobs.
 ### Warm — marketing + urgent accent
 | Token | Hex | Use | Contrast |
 |---|---|---|---|
-| `brand-cta` | `#B8503E` | Warm button fill, white text | 4.9:1 on white |
-| `brand-ctaHover` | `#9C4132` | Hover for the above | |
-| `brand-accent` | `#F6AD93` | **Dark backgrounds only** — eyebrows, tags, highlights | 7.3:1 on ink |
+| `brand-cta` | `#CF3F2A` | Warm button fill, white text | 4.8:1 on white |
+| `brand-ctaHover` | `#A93322` | Hover for the above | |
+| `brand-accent` | `#F99486` | **Dark backgrounds only** — eyebrows, tags, highlights | 6.2:1 on ink |
 | `brand-warmSurface` | `#FBF6F3` | Marketing page background | |
 | `brand-warmFoam` | `#F2E5DE` | Marketing raised fill | |
 | `brand-warmBorder` | `#DCC8BE` | Marketing hairlines | |

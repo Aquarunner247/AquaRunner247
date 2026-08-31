@@ -20,7 +20,7 @@ export const BRAND_BORDER = "#C4D9DA";
 export const BRAND_CONTROL = "#6C8F93";
 export const BRAND_MUTED = "#55696C";
 
-export const BRAND_CTA = "#B8503E";
+export const BRAND_CTA = "#CF3F2A";
 
 export const BRAND_OK = "#0F6B57";
 export const BRAND_WARN = "#9A6212";
