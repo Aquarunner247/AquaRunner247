@@ -16,12 +16,13 @@ export function Brand({ className }: { className?: string }) {
   );
 }
 
-type NavPage = "home" | "pricing" | "features";
+type NavPage = "home" | "pricing" | "features" | "compliance";
 
-/** The waitlist section only exists on Home -- everywhere else needs the cross-page anchor
- * (/#waitlist) rather than the same-page one (#waitlist) Home itself can use directly. */
+/** The waitlist section only exists on Home and the Compliance page -- everywhere else
+ * needs the cross-page anchor (/#waitlist) rather than a same-page one (#waitlist) those
+ * two pages can use directly. */
 export function SiteNav({ current }: { current: NavPage }) {
-  const waitlistHref = current === "home" ? "#waitlist" : "/#waitlist";
+  const waitlistHref = current === "home" || current === "compliance" ? "#waitlist" : "/#waitlist";
   return (
     <header className={styles.nav}>
       <div className={`${styles.wrap} ${styles.navIn}`}>
@@ -32,6 +33,12 @@ export function SiteNav({ current }: { current: NavPage }) {
           </Link>
           <Link href="/features" className={current === "features" ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}>
             Features
+          </Link>
+          <Link
+            href="/for-property-managers"
+            className={current === "compliance" ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
+          >
+            Compliance
           </Link>
         </nav>
         <a className={`${styles.btn} ${styles.navBtn}`} href={waitlistHref}>

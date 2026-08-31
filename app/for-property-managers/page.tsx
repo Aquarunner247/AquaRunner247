@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Brand, SiteFooter } from "../components/landing/site-chrome";
+import { SiteNav, SiteFooter } from "../components/landing/site-chrome";
 import { InspectorRecord, QrPlacard } from "../components/landing/scan-flow";
 import { StateShowcase } from "../components/landing/state-showcase";
 import { WaitlistForm } from "../components/landing/waitlist-form";
@@ -24,14 +24,7 @@ export default function ForPropertyManagersPage() {
         Skip to content
       </a>
 
-      <header className={styles.nav}>
-        <div className={`${styles.wrap} ${styles.navIn}`}>
-          <Brand />
-          <a className={`${styles.btn} ${styles.navBtn}`} href="#waitlist">
-            Join the waitlist
-          </a>
-        </div>
-      </header>
+      <SiteNav current="compliance" />
 
       <main id="main">
         {/* ---------- hero ---------- */}

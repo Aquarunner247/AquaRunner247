@@ -118,6 +118,17 @@ export default function PricingPage() {
               </article>
             </div>
 
+            <div className={styles.priceCrossSell}>
+              <p>
+                <strong>Have an in-house CPO instead of a service company?</strong> AquaRunner Compliance gives them
+                the same state-specific compliance logging and QR-coded records for every body of water — $19/month
+                flat.
+              </p>
+              <a className={styles.btn} href="/for-property-managers">
+                See AquaRunner Compliance
+              </a>
+            </div>
+
             <ComparisonTable />
           </div>
         </section>

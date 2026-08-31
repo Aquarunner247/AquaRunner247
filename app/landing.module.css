@@ -1188,6 +1188,28 @@
   align-self: flex-start;
 }
 
+.priceCrossSell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(16px, 2.4vw, 28px);
+  margin-top: clamp(28px, 3.5vw, 44px);
+  padding: clamp(20px, 2.4vw, 28px);
+  background: var(--warm-foam);
+  border: 1.5px solid var(--warm-border);
+}
+
+.priceCrossSell p {
+  max-width: 56ch;
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.priceCrossSell .btn {
+  flex: none;
+}
+
 /* ---------- in the field ---------- */
 
 .fieldGrid {
