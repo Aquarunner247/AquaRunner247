@@ -28,6 +28,7 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/dashboard/settings", label: "Settings", icon: "settings" },
   { href: "/dashboard/billing", label: "Billing", icon: "billing" },
   { href: "/dashboard/phone-agent", label: "Phone Agent", icon: "phone" },
+  { href: "/dashboard/help", label: "Help", icon: "help" },
 ];
 // The first 4 are what the bottom bar shows directly on mobile; the rest live behind "More".
 const ADMIN_PRIMARY_COUNT = 4;
@@ -44,8 +45,12 @@ function linksForRole(role: UserRole | null): NavLink[] {
   if (role === "TECHNICIAN") return TECHNICIAN_LINKS;
   // OFFICE (and any future role): most dashboard sections redirect non-admins away
   // server-side (see e.g. customers/page.tsx), so only link what's actually reachable
-  // today instead of pointing at pages that immediately bounce back.
-  return [{ href: "/dashboard", label: "Dashboard", icon: "dashboard" }];
+  // today instead of pointing at pages that immediately bounce back. Help has no
+  // role restriction, so it's safe to include here too.
+  return [
+    { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+    { href: "/dashboard/help", label: "Help", icon: "help" },
+  ];
 }
 
 function isActive(currentPath: string, href: string) {

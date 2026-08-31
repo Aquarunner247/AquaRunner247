@@ -11,7 +11,8 @@ export type NavIconKind =
   | "billing"
   | "alerts"
   | "phone"
-  | "more";
+  | "more"
+  | "help";
 
 /** Shared stroke-icon set for every staff nav surface (desktop rail, admin/office
  * bottom nav, technician bottom nav) so they stay visually consistent instead of
@@ -124,6 +125,14 @@ export function NavIcon({ kind, className = "h-5 w-5" }: { kind: NavIconKind; cl
           <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
           <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
           <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "help":
+      return (
+        <svg {...common} className={className}>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M9.6 9.3a2.4 2.4 0 1 1 3.6 2.1c-.8.5-1.2.9-1.2 1.9" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" />
         </svg>
       );
   }

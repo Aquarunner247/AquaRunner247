@@ -4,6 +4,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { prisma } from "@/lib/prisma";
 import { signOut } from "@/app/dashboard/actions";
 import { ReplayTourButton } from "@/app/components/replay-tour-button";
+import { OnboardingHelpContent } from "@/app/components/onboarding-help-content";
 
 export default async function MorePage() {
   const appUser = await getCurrentAppUser();
@@ -33,6 +34,10 @@ export default async function MorePage() {
         returnTo="/dashboard/schedule"
         className="mt-4 block w-full rounded-lg border border-brand-border bg-white px-4 py-2.5 text-left text-sm font-semibold text-brand-ink shadow-sm"
       />
+
+      <div className="mt-4">
+        <OnboardingHelpContent />
+      </div>
 
       <form action={signOut} className="mt-4">
         <button type="submit" className="w-full rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm">

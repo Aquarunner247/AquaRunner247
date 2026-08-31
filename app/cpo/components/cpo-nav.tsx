@@ -21,6 +21,7 @@ const LINKS = [
   { href: "/cpo/compliance", label: "Compliance" },
   { href: "/cpo/users", label: "Users" },
   { href: "/cpo/billing", label: "Billing" },
+  { href: "/cpo/help", label: "Help" },
 ];
 
 /** Mirrors app/portal/components/portal-nav.tsx's shape -- a separate product's own
