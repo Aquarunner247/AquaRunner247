@@ -230,19 +230,6 @@ export default async function RoutesPage() {
               </div>
             ) : null}
 
-            <RouteStopsList
-              routeId={route.id}
-              proAccess={proAccess}
-              stops={route.stops.map((stop) => ({
-                id: stop.id,
-                propertyName: stop.property.name,
-                bodyName: stop.bodyOfWater?.name ?? null,
-                etaOffsetMinutes: stop.etaOffsetMinutes,
-                latitude: stop.property.latitude != null ? Number(stop.property.latitude) : null,
-                longitude: stop.property.longitude != null ? Number(stop.property.longitude) : null,
-              }))}
-            />
-
             <form action={addRouteStop} className="app-card-inset mt-3 flex flex-wrap items-center gap-2">
               <input type="hidden" name="routeId" value={route.id} />
               {(availableBodiesByRoute.get(route.id) ?? []).length === 0 ? (
@@ -273,6 +260,19 @@ export default async function RoutesPage() {
                 </>
               )}
             </form>
+
+            <RouteStopsList
+              routeId={route.id}
+              proAccess={proAccess}
+              stops={route.stops.map((stop) => ({
+                id: stop.id,
+                propertyName: stop.property.name,
+                bodyName: stop.bodyOfWater?.name ?? null,
+                etaOffsetMinutes: stop.etaOffsetMinutes,
+                latitude: stop.property.latitude != null ? Number(stop.property.latitude) : null,
+                longitude: stop.property.longitude != null ? Number(stop.property.longitude) : null,
+              }))}
+            />
           </div>
         ))}
         {routes.length === 0 ? <p className="text-sm text-brand-muted">No routes yet.</p> : null}
