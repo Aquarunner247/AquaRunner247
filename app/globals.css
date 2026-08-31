@@ -5,6 +5,10 @@
 :root {
   --foreground: #06333b;   /* brand.ink */
   --background: #f4f8f8;   /* brand.surface */
+  /* Loaded from Fontshare's CDN in app/layout.tsx -- see the comment there. --font-mono
+     stays set by next/font/google (IBM_Plex_Mono's own .variable className on <html>). */
+  --font-display: "Satoshi", system-ui, sans-serif;
+  --font-body: "Satoshi", system-ui, sans-serif;
 }
 
 @layer base {

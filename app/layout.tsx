@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Big_Shoulders, Inter, IBM_Plex_Mono } from "next/font/google";
+import { IBM_Plex_Mono } from "next/font/google";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -11,19 +11,13 @@ import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { BRAND_INK } from "@/app/lib/chart-colors";
 
-const display = Big_Shoulders({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-display",
-  // Next's curated font-metrics database doesn't include Big Shoulders, so automatic
-  // fallback-metric adjustment always fails with a console warning. Disabling it trades
-  // away that auto CLS-mitigation for this one font in exchange for a clean build/dev log.
-  adjustFontFallback: false,
-});
-const body = Inter({
-  subsets: ["latin"],
-  variable: "--font-body",
-});
+// Satoshi (display + body) isn't on Google Fonts, so it can't go through next/font/google
+// like the fonts below -- it's loaded via Fontshare's own CDN instead (see the <link>
+// tags in the returned JSX) and wired into --font-display/--font-body directly in
+// globals.css. Fontshare is the font's own vendor-sanctioned hosting path (self-hosting
+// the files is also permitted, but requires downloading them from fontshare.com by hand
+// first -- this avoids that with no meaningful cost, same tradeoff Google Fonts already
+// represents for the font below).
 const mono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
@@ -69,7 +63,10 @@ export default async function RootLayout({
     !organization?.onboardingCallDeclinedAt;
 
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    <html lang="en" className={mono.variable}>
+      <link rel="preconnect" href="https://api.fontshare.com" />
+      <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="anonymous" />
+      <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap" rel="stylesheet" />
       <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased">
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-T91TBD4WF1" strategy="afterInteractive" />
         <Script id="google-analytics" strategy="afterInteractive">

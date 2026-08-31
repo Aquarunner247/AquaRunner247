@@ -28,8 +28,9 @@ The short version, so it is impossible to miss:
 - **Legacy aliases** (`brand-navy`, `brand-teal`, `brand-coral`, `brand-blue`, `brand-sky`,
   `brand-mist`, `brand-alert`) still resolve so old screens compile. **Do not use them in
   new code.**
-- **Type is fixed**: Big Shoulders Display (`font-display`), Inter (`font-sans`), IBM Plex
-  Mono (`.app-metric` for readings, permit numbers, timestamps, route IDs). Add no families.
+- **Type is fixed**: Satoshi for both `font-display` and `font-sans` (differentiated by
+  weight), IBM Plex Mono (`.app-metric` for readings, permit numbers, timestamps, route
+  IDs). Add no families.
 - **Outdoor legibility is a functional requirement, not polish.** Technicians use this on
   phones in direct Nevada sun. Text at or below 14px sits on `white` or `brand-surface`,
   never `brand-muted` on `brand-foam`. Touch targets 44px minimum. Prefer solid fills over

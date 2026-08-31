@@ -70,9 +70,15 @@ Two temperatures, two jobs.
 
 Set in `app/layout.tsx`, exposed as CSS variables. Do not add new families.
 
-- Display — Big Shoulders Display → `font-display`
-- Body — Inter → `font-sans`
+- Display — Satoshi → `font-display`
+- Body — Satoshi → `font-sans`
 - Mono — IBM Plex Mono → `.app-metric` for readings, permit numbers, timestamps, route IDs
+
+Display and body are the same family, differentiated by weight (Satoshi ships 300–900).
+Satoshi isn't on Google Fonts -- it's loaded via Fontshare's CDN (`<link>` tags in
+`app/layout.tsx`) rather than `next/font/google`, and wired into `--font-display`/
+`--font-body` in `app/globals.css` directly rather than through a next/font `.variable`
+className. IBM Plex Mono is unaffected, still loaded through `next/font/google` as before.
 
 ## Outdoor legibility
 
