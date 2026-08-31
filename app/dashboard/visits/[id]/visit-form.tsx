@@ -185,6 +185,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [completingVisit, setCompletingVisit] = useState(false);
   const timerRef = useRef<number | null>(null);
+  const dosingRetryRef = useRef<number | null>(null);
   const isFirstRender = useRef(true);
   const doseSectionRef = useRef<HTMLDivElement | null>(null);
   const { pendingCount, syncNow } = useOfflineSync();
@@ -241,6 +242,10 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
   }, [reading]);
 
   async function saveReading(source: "auto" | "manual") {
+    if (dosingRetryRef.current) {
+      window.clearTimeout(dosingRetryRef.current);
+      dosingRetryRef.current = null;
+    }
     setSaveState("saving");
     const result = await queuedSubmitJson({
       url: `/api/visits/${visitId}/reading`,
@@ -268,10 +273,24 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       setSaveState("saved");
       setSaveMsg("Saved offline — will sync");
     } else if (result.status === "sent") {
-      setSaveState("saved");
-      setSaveMsg(source === "auto" ? "Autosaved" : "Saved");
-      const data = (await result.response.json().catch(() => null)) as { dosing?: DosingResult | null } | null;
-      if (data && "dosing" in data) setDosing(data.dosing ?? null);
+      const data = (await result.response.json().catch(() => null)) as
+        | { dosing?: DosingResult | null; dosingStale?: boolean }
+        | null;
+      if (data?.dosingStale) {
+        // The reading itself saved fine -- only the recommendation recompute failed
+        // (a transient hiccup, e.g. a DB connection-pool cap under load). Don't
+        // clobber the last-known-good `dosing` with the null the server sent back,
+        // and don't claim a plain "Saved" when the recommendation may now be stale.
+        // One automatic retry (recompute only re-reads/upserts, so re-running the
+        // full save is harmless) covers the transient case without technician action.
+        setSaveState("saved");
+        setSaveMsg("Saved — recommendation refresh failed, retrying…");
+        dosingRetryRef.current = window.setTimeout(() => void saveReading(source), 4000);
+      } else {
+        setSaveState("saved");
+        setSaveMsg(source === "auto" ? "Autosaved" : "Saved");
+        if (data && "dosing" in data) setDosing(data.dosing ?? null);
+      }
     } else {
       setSaveState("error");
       setSaveMsg("Save failed");
@@ -293,6 +312,12 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reading, backwashPerformed, backwashTime, isCompleted]);
+
+  useEffect(() => {
+    return () => {
+      if (dosingRetryRef.current) window.clearTimeout(dosingRetryRef.current);
+    };
+  }, []);
 
   /** Shared by the manual "Chemical Doses" form submit and the Dosing Card's direct-apply
    * button -- one POST/offline-queue/doses-list-update path for both, so they can't drift.
