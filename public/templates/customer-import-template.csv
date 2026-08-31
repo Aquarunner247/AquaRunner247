@@ -1,0 +1,3 @@
+Customer Name,Property Type,Address Line 1,Address Line 2,City,State,Zip,Manager Name,Manager Business Phone,Manager Mobile Phone,Manager Email,Maintenance Contact Name,Maintenance Cell Phone,Maintenance Email,Owner Name,Owner Mobile Phone,Owner Home Phone,Owner Email,Access Notes,Has Dog,Notes,Body of Water Name,Body of Water Type,Volume (Gallons)
+Sunrise Apartments,COMMERCIAL,123 Sunrise Ave,Suite 4,Las Vegas,NV,89104,Jordan Lee,702-555-0101,702-555-0102,jordan@sunriseapts.com,Carlos Ruiz,702-555-0103,carlos@sunriseapts.com,,,,,,,,Main Pool,POOL,45000
+Maria Gonzalez,RESIDENTIAL,456 Desert Bloom Ct,,Henderson,NV,89052,,,,,,,,Maria Gonzalez,702-555-0201,702-555-0202,maria.g@example.com,Gate code 4521; dog in backyard,true,,Backyard Pool,POOL,18000

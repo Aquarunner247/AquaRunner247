@@ -69,9 +69,14 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
         </div>
         <div className="flex items-center gap-3">
           {!showAddForm ? (
-            <Link href="/dashboard/customers?new=1" data-tour="customers-add" className="app-btn-primary-sm">
-              + Add customer
-            </Link>
+            <>
+              <Link href="/dashboard/customers?new=1" data-tour="customers-add" className="app-btn-primary-sm">
+                + Add customer
+              </Link>
+              <Link href="/dashboard/customers/import" className="app-btn-secondary-sm">
+                Import from CSV
+              </Link>
+            </>
           ) : null}
           <Link href="/dashboard" className="app-link">
             Back to dashboard
