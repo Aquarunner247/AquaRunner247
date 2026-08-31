@@ -143,6 +143,16 @@ model Organization {
   /// this feature. See OrgPhoneAgentSettings for the actual per-org configuration.
   aiPhoneAgentEnabled Boolean @default(false)
 
+  /// Set when someone at this org clicks "Book a free onboarding call" on the
+  /// site-wide banner (see OnboardingCallBanner) -- a best-effort "they've engaged"
+  /// signal, not a verified attendance record (no Setmore webhook integration exists).
+  /// Either this or onboardingCallDeclinedAt being set hides the banner for good.
+  onboardingCallBookedAt   DateTime?
+  /// Set when someone explicitly dismisses the banner after confirming the "you're
+  /// forfeiting your free onboarding call" warning -- distinct from booking it, kept
+  /// separate so which of the two happened is never ambiguous later.
+  onboardingCallDeclinedAt DateTime?
+
   users                 User[]
   customers             Customer[]
   properties            Property[]

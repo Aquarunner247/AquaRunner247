@@ -4,6 +4,7 @@ import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SideNav } from "./components/side-nav";
+import { OnboardingCallBanner } from "./components/onboarding-call-banner";
 import { ServiceWorkerRegister } from "./components/service-worker-register";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
@@ -56,13 +57,20 @@ export default async function RootLayout({
   const organization = appUser
     ? await prisma.organization.findUnique({
         where: { id: appUser.organizationId },
-        select: { name: true },
+        select: { name: true, onboardingCallBookedAt: true, onboardingCallDeclinedAt: true },
       })
     : null;
+  // Platform admins aren't a customer who signed up for the product -- never show them
+  // an offer meant for someone stuck using it.
+  const showOnboardingCallBanner =
+    Boolean(appUser) &&
+    !appUser?.isPlatformAdmin &&
+    !organization?.onboardingCallBookedAt &&
+    !organization?.onboardingCallDeclinedAt;
 
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
-      <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased md:flex">
+      <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased">
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-T91TBD4WF1" strategy="afterInteractive" />
         <Script id="google-analytics" strategy="afterInteractive">
           {`
@@ -73,13 +81,16 @@ export default async function RootLayout({
           `}
         </Script>
         <ServiceWorkerRegister />
-        <SideNav
-          isLoggedIn={Boolean(appUser)}
-          role={appUser?.role ?? null}
-          userName={appUser?.name ?? appUser?.email ?? null}
-          orgName={organization?.name ?? null}
-        />
-        <div className="min-w-0 flex-1">{children}</div>
+        <OnboardingCallBanner show={showOnboardingCallBanner} />
+        <div className="md:flex">
+          <SideNav
+            isLoggedIn={Boolean(appUser)}
+            role={appUser?.role ?? null}
+            userName={appUser?.name ?? appUser?.email ?? null}
+            orgName={organization?.name ?? null}
+          />
+          <div className="min-w-0 flex-1">{children}</div>
+        </div>
         <Analytics />
       </body>
     </html>
