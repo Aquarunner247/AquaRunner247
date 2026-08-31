@@ -148,6 +148,12 @@ export function CustomerImportForm() {
           <p className="text-sm font-semibold text-brand-ink">
             {result.createdCount} customer{result.createdCount === 1 ? "" : "s"} imported.
           </p>
+          {result.matched.length > 0 ? (
+            <p className="mt-1 text-sm text-brand-muted">
+              {result.matched.length} row{result.matched.length === 1 ? "" : "s"} matched an existing customer by name —
+              blank fields were filled in, nothing already on file was changed, and no duplicates were created.
+            </p>
+          ) : null}
           {result.failed.length > 0 ? (
             <p className="mt-1 text-sm text-brand-danger">
               {result.failed.length} row{result.failed.length === 1 ? "" : "s"} couldn&rsquo;t be imported — see the table above.
