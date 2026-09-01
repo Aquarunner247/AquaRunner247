@@ -18,11 +18,14 @@ const READINGS = [
   { label: "Water temp", value: "84", unit: "°F", state: "pass" },
 ] as const;
 
+/** Mirrors the real technician schedule (app/components/route-day-view.tsx) -- a numbered
+ * stop list with property/body name, address, and an "Arrived {time}" line once logged,
+ * not a set of Done/Next/Queued/Suggested status tags that don't exist on that screen. */
 const STOPS = [
-  { n: "01", name: "Hotel property", detail: "Main pool + spa · logged 6:42 AM", tag: "Done", suggested: false },
-  { n: "02", name: "Apartment complex", detail: "Pool + splash pad", tag: "Next", suggested: false },
-  { n: "03", name: "Residential", detail: "Backyard pool · chemical check", tag: "Queued", suggested: false },
-  { n: "04", name: "New customer", detail: "Fitness center · commercial pool", tag: "Suggested", suggested: true },
+  { n: 1, name: "Sunrise Apartments — Main Pool", address: "412 Desert Bloom Ave, Las Vegas, NV", arrivedAt: "6:42 AM" },
+  { n: 2, name: "Cactus Flower HOA — Pool & Spa", address: "88 Cactus Flower Dr, Las Vegas, NV", arrivedAt: "7:15 AM" },
+  { n: 3, name: "Harmon Fitness Center — Lap Pool", address: "220 Harmon Ave, Las Vegas, NV", arrivedAt: null },
+  { n: 4, name: "Whitmore Residence — Backyard Pool", address: "77 Whitmore Ct, Henderson, NV", arrivedAt: null },
 ] as const;
 
 export function AppPreview() {
@@ -145,8 +148,8 @@ export function AppPreview() {
         >
           <div className={styles.logHead}>
             <div>
-              <h4>Truck 2 — north valley</h4>
-              <span>9 stops · 12 bodies of water</span>
+              <h4>Tuesday route — 4 stops</h4>
+              <span>2 completed · 2 remaining</span>
             </div>
             <span className={styles.qrChip}>Tap a stop to start</span>
           </div>
@@ -154,23 +157,15 @@ export function AppPreview() {
           <ul className={styles.route}>
             {STOPS.map((stop) => (
               <li key={stop.n}>
-                <span className={`${styles.stopNum} ${styles.metric}`}>{stop.n}</span>
+                <span className={styles.stopNum}>{stop.n}</span>
                 <span className={styles.stopInfo}>
                   <b>{stop.name}</b>
-                  <span>{stop.detail}</span>
-                </span>
-                <span className={stop.suggested ? `${styles.stopTag} ${styles.stopTagNew}` : styles.stopTag}>
-                  {stop.tag}
+                  <span>{stop.address}</span>
+                  {stop.arrivedAt ? <span className={styles.stopArrived}>Arrived {stop.arrivedAt}</span> : null}
                 </span>
               </li>
             ))}
           </ul>
-
-          <div className={styles.suggest}>
-            <p>New customer is closest to Truck 2&rsquo;s fourth stop. Add it here?</p>
-            <span className={`${styles.mini} ${styles.miniYes}`}>Add to route</span>
-            <span className={styles.mini}>Choose another</span>
-          </div>
         </div>
       </div>
     </div>

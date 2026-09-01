@@ -268,7 +268,7 @@ export default function Home() {
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>In the field</p>
-                <h2 className={styles.displayL}>Built for a phone, a wet hand, and Nevada sun.</h2>
+                <h2 className={styles.displayL}>BUILT BY POOL PROFESSIONALS — FOR POOL PROFESSIONALS</h2>
               </div>
             </div>
 
