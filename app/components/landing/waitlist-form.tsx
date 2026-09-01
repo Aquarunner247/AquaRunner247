@@ -90,7 +90,7 @@ export function WaitlistForm({
         {error}
       </p>
       <p className={styles.formNote} id={noteId}>
-        We won&rsquo;t spam you. You&rsquo;ll only hear from us when it&rsquo;s time.
+        We respect your inbox. You&rsquo;ll hear from us solely when it&rsquo;s time.
       </p>
     </form>
   );

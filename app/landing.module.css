@@ -211,6 +211,10 @@
   color: var(--warm-muted);
 }
 
+.ledeWide {
+  max-width: 60ch;
+}
+
 .onInk .lede {
   color: var(--text-light);
 }
@@ -493,6 +497,13 @@
   margin-bottom: 5px;
 }
 
+/* First heroStrip item is a single short line with nothing else in the box (the other
+   two are long enough to fill it on their own) -- sized up so it doesn't look lost in
+   all that empty space. */
+.heroStrip .heroStripLead {
+  font-size: clamp(1.5rem, 2.2vw, 1.9rem);
+}
+
 /* ---------- waitlist form ---------- */
 
 .form {
@@ -671,6 +682,13 @@
   font-size: 0.95rem;
   max-width: 40ch;
   color: var(--text-light);
+}
+
+.proofList {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
 }
 
 .diffTwo {
@@ -853,7 +871,7 @@
 }
 
 .recordHead h4 {
-  font-size: 1.4rem;
+  font-size: 1.15rem;
   font-weight: 700;
 }
 
@@ -864,45 +882,46 @@
   margin-top: 6px;
 }
 
-.recordRows {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* Mirrors the actual public inspector log's data table (app/p/[publicSlug]/page.tsx) --
+   a day-by-day chemistry log, not a single "today's reading" summary. That's what an
+   inspector scanning the QR code actually lands on. */
+.recordTableWrap {
+  overflow-x: auto;
 }
 
-.recordRows > div {
-  padding: 13px 16px;
+.recordTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.recordTable th {
+  background: var(--foam);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--border);
-  border-right: 1px solid var(--border);
 }
 
-.recordRows > div:nth-child(2n) {
-  border-right: 0;
+.recordTable td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  color: var(--ink);
 }
 
-.recordRows dt {
-  font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
+.recordTable tr:last-child td {
+  border-bottom: 0;
 }
 
-.recordRows dd {
-  margin-top: 7px;
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0 7px;
-  font-size: 1.15rem;
+.recordTable td:first-child {
+  font-family: var(--body);
   font-weight: 600;
-}
-
-.recordRows dd small {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
 }
 
 .recordFoot {
@@ -1083,6 +1102,120 @@
   border-top: 1px solid var(--ink);
   font-size: 1.02rem;
   max-width: 60ch;
+}
+
+/* ---------- home: core capability grid ----------
+   Distinct from .feat above: six broad category cards for the homepage's overview,
+   vs. .feat's twelve granular one-liners on /features. Different job, different shape. */
+
+.coreGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 2.6vw, 28px);
+  margin-top: clamp(28px, 3.5vw, 44px);
+}
+
+.inlineLink {
+  display: inline-block;
+  margin-top: clamp(28px, 3.5vw, 40px);
+  font-weight: 700;
+  color: var(--cta);
+  text-decoration: none;
+}
+
+.inlineLink:hover {
+  color: var(--cta-hover);
+}
+
+.coreCard {
+  background: var(--warm-foam);
+  border: 1.5px solid var(--warm-border);
+  padding: clamp(24px, 2.6vw, 32px);
+}
+
+.coreCardNum {
+  font-family: var(--body);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: var(--cta);
+}
+
+.coreCard h3 {
+  margin-top: 10px;
+  font-size: clamp(1.25rem, 1.6vw, 1.5rem);
+}
+
+.coreCard p {
+  margin-top: 8px;
+  color: var(--warm-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+/* ---------- home: field-to-office workflow ---------- */
+
+.workflowSteps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(20px, 2.6vw, 32px);
+}
+
+.workflowStep {
+  position: relative;
+  padding-top: 36px;
+}
+
+.workflowStep::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: 12px;
+  right: -16px;
+  height: 2px;
+  background: var(--line-warm);
+}
+
+.workflowStep:last-child::before {
+  display: none;
+}
+
+.onInk .workflowStep::before {
+  background: color-mix(in srgb, var(--warm-surface) 24%, transparent);
+}
+
+.workflowStepNum {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--cta);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.workflowStep h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.workflowStep p {
+  color: var(--warm-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.onInk .workflowStep p {
+  color: var(--text-light);
 }
 
 /* ---------- pricing ---------- */
@@ -1785,6 +1918,15 @@
     order: -1;
   }
 
+  .coreGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workflowSteps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: clamp(28px, 4vw, 40px);
+  }
+
   .fieldGrid .photoOffset {
     max-width: 520px;
   }
@@ -1852,6 +1994,18 @@
   .priceGrid {
     grid-template-columns: 1fr;
     max-width: 460px;
+  }
+
+  .coreGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .workflowSteps {
+    grid-template-columns: 1fr;
+  }
+
+  .workflowStep::before {
+    display: none;
   }
 }
 

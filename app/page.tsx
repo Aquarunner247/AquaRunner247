@@ -1,9 +1,67 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { AppPreview } from "./components/landing/app-preview";
+import { InspectorRecord } from "./components/landing/scan-flow";
 import { SiteNav, SiteFooter } from "./components/landing/site-chrome";
 import { WaitlistForm } from "./components/landing/waitlist-form";
 import styles from "./landing.module.css";
+
+const CORE_CAPABILITIES = [
+  {
+    n: "01",
+    title: "50-State Compliance",
+    body: "Keep location-specific requirements, service documentation, and inspection history organized across every state you serve.",
+  },
+  {
+    n: "02",
+    title: "Optimized Routes",
+    body: "Build efficient technician schedules, reduce drive time, and keep every recurring stop on track.",
+  },
+  {
+    n: "03",
+    title: "Recurring Service Plans",
+    body: "Set weekly, biweekly, and custom service frequencies once — then keep work flowing automatically.",
+  },
+  {
+    n: "04",
+    title: "Digital Field Reports",
+    body: "Record readings, chemicals, photos, repairs, notes, and sign-offs from the property.",
+  },
+  {
+    n: "05",
+    title: "Live Operations View",
+    body: "See completed work, upcoming stops, and overdue tasks across the whole team at a glance.",
+  },
+  {
+    n: "06",
+    title: "Customer Portal",
+    body: "Give clients self-service access to reports, service history, and updates.",
+  },
+];
+
+const WORKFLOW_STEPS = [
+  {
+    n: "01",
+    role: "Operations",
+    body: "Build schedules, assign routes, and identify exceptions before the day starts.",
+  },
+  {
+    n: "02",
+    role: "Technicians",
+    body: "Follow the route, complete the checklist, and document work at the property.",
+  },
+  {
+    n: "03",
+    role: "Management",
+    body: "Review completion, resolve issues, and maintain a reliable history across every account.",
+  },
+  {
+    n: "04",
+    role: "Customers",
+    body: "Access service documentation and updates without waiting for a call or email.",
+  },
+];
 
 export const metadata: Metadata = {
   title: "AquaRunner 24/7 — Simple pricing for pool operators",
@@ -36,19 +94,14 @@ export default function Home() {
                   <span className={styles.heroDot} aria-hidden="true" />
                   In development — built by real pool service professionals, not programmers
                 </p>
-                <h1 className={styles.displayXl}>
-                  Simple pricing for pool operators. <em>No per-pool fees. Ever.</em>
-                </h1>
-                <p className={`${styles.lede} ${styles.heroSub}`}>
-                  Every pool gets a QR code and a compliance log built for your state&rsquo;s rules — so an inspector
-                  sees the complete record on site, not a promise to email it later.
-                </p>
+                <h1 className={styles.displayXl}>Streamline pool operations with real-time, always-on digital access.</h1>
+                <p className={`${styles.lede} ${styles.heroSub}`}>No more paper logs. One simple price. No per-pool fees.</p>
 
                 <WaitlistForm label="Get on the waitlist" />
 
                 <p className={styles.heroBuilt}>
-                  The software we built for ourselves, running a commercial pool company in the Nevada heat. Now
-                  we&rsquo;re opening it up to everyone else doing the same work.
+                  Run your pool business smarter with purpose-built software for seamless operations, compliance, and
+                  growth. Built by pool professionals, for pool professionals.
                 </p>
               </div>
 
@@ -69,16 +122,16 @@ export default function Home() {
           <div className={styles.wrap}>
             <div className={styles.heroStrip}>
               <div>
-                <b>Every body of water gets a QR code</b>
-                Scan it and the current record&rsquo;s right there — for an inspector on site, or a customer checking in.
+                <b className={styles.heroStripLead}>One dedicated QR code for each body of water</b>
               </div>
               <div>
-                <b>Configured to your state&rsquo;s rules</b>
-                The tech logs exactly what your state requires — every visit.
+                <b>
+                  Designed to be printed, laminated, and displayed in the pump room, each code provides instant
+                  access to digital logs and historical records —
+                </b>
               </div>
               <div>
-                <b>Built on real routes</b>
-                Written by operators who service pools for a living.
+                <b>Eliminating paper binders and making inspection preparation faster, easier, and more organized.</b>
               </div>
             </div>
           </div>
@@ -88,15 +141,111 @@ export default function Home() {
         <section className={`${styles.onInk} ${styles.band}`}>
           <div className={`${styles.wrap} ${styles.bandGrid}`}>
             <p className={styles.bandQuote}>
-              When skimming isn&rsquo;t enough — and it&rsquo;s what&rsquo;s below the surface that matters — dive
-              deeper with AquaRunner 24/7.
+              When you need more than a skimmer — dive deeper with AquaRunner 24/7. It&rsquo;s what&rsquo;s below the
+              surface that matters.
             </p>
             <div className={styles.bandSide}>
               <p>
-                We run a commercial pool maintenance company in Las Vegas. AquaRunner is the tool we wished existed —
-                built around what actually gets checked: what&rsquo;s in the water, and whether you can prove it.
+                <strong>Prove your pool is safe, every day:</strong> Track what matters most — water quality,
+                maintenance checks, and compliance records — in one simple tool. Built by pool professionals for
+                real-world operations, AquaRunner makes it easier to keep pools safe, stay accountable, and prove
+                every check was completed.
               </p>
-              <p>It&rsquo;s in final development now. Waitlist members get in first.</p>
+              <p>It&rsquo;s in final development now. Join the waitlist for priority access.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- core capability grid ---------- */}
+        <section className={`${styles.onFoam} ${styles.sec}`}>
+          <div className={styles.wrap}>
+            <div className={styles.secHead}>
+              <span className={styles.secNum} aria-hidden="true">
+                01
+              </span>
+              <div className={styles.secHeadText}>
+                <p className={styles.eyebrow}>Built for commercial pool operations</p>
+                <h2 className={styles.displayL}>One system for every route, record, and requirement.</h2>
+              </div>
+            </div>
+
+            <p className={`${styles.lede} ${styles.ledeWide}`}>
+              AquaRunner connects field technicians, office teams, and customer records in one operational
+              platform — so every service visit is scheduled, documented, and ready for review.
+            </p>
+
+            <div className={styles.coreGrid}>
+              {CORE_CAPABILITIES.map((c) => (
+                <div className={styles.coreCard} key={c.n}>
+                  <span className={styles.coreCardNum}>{c.n}</span>
+                  <h3>{c.title}</h3>
+                  <p>{c.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- compliance spotlight ---------- */}
+        <section className={`${styles.onInk} ${styles.sec}`}>
+          <div className={styles.wrap}>
+            <div className={styles.secHead}>
+              <span className={styles.secNum} aria-hidden="true">
+                02
+              </span>
+              <div className={styles.secHeadText}>
+                <p className={styles.eyebrow}>Compliance, built into the workflow</p>
+                <h2 className={styles.displayL}>Inspection-ready records, state by state.</h2>
+              </div>
+            </div>
+
+            <div className={styles.diffLead}>
+              <p className={styles.lede}>
+                Compliance shouldn&rsquo;t live in scattered spreadsheets, text threads, and paper logs. AquaRunner
+                keeps requirements, completed service records, and chemical documentation attached to the properties
+                where they matter — configured to your state&rsquo;s actual rules, not a generic checklist.
+              </p>
+              <ul className={`${styles.diffAside} ${styles.proofList}`}>
+                <li>State-specific requirements organized at the property level</li>
+                <li>Time-stamped chemical and inspection records</li>
+                <li>Clear visibility into missing documentation</li>
+                <li>A complete, searchable service history when an inspector asks</li>
+              </ul>
+            </div>
+
+            <div className={styles.visual}>
+              <InspectorRecord />
+            </div>
+
+            <Link href="/features" className={styles.inlineLink}>
+              See how compliance works on every feature →
+            </Link>
+          </div>
+        </section>
+
+        {/* ---------- field-to-office workflow ---------- */}
+        <section className={`${styles.onFoam} ${styles.sec}`}>
+          <div className={styles.wrap}>
+            <div className={styles.secHead}>
+              <span className={styles.secNum} aria-hidden="true">
+                03
+              </span>
+              <div className={styles.secHeadText}>
+                <p className={styles.eyebrow}>End to end</p>
+                <h2 className={styles.displayL}>From the first stop to the final report, everyone stays aligned.</h2>
+              </div>
+            </div>
+
+            <div className={styles.workflowSteps}>
+              {WORKFLOW_STEPS.map((step) => (
+                <div className={styles.workflowStep} key={step.n}>
+                  <span className={styles.workflowStepNum} aria-hidden="true">
+                    {step.n}
+                  </span>
+                  <h3>{step.role}</h3>
+                  <p>{step.body}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -106,7 +255,7 @@ export default function Home() {
           <div className={styles.wrap}>
             <div className={styles.secHead}>
               <span className={styles.secNum} aria-hidden="true">
-                01
+                04
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>In the field</p>
@@ -169,7 +318,7 @@ export default function Home() {
           <div className={styles.wrap}>
             <div className={styles.secHead}>
               <span className={styles.secNum} aria-hidden="true">
-                02
+                05
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>Waitlist</p>
