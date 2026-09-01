@@ -122,13 +122,13 @@ export default function Home() {
           <div className={styles.wrap}>
             <div className={styles.heroStrip}>
               <div>
-                <b className={styles.heroStripLead}>One dedicated QR code for each body of water</b>
+                <p className={styles.heroStripLeadText}>
+                  <b>One dedicated QR code for each body of water:</b> Designed to be printed, laminated and
+                  displayed in the pump room.
+                </p>
               </div>
               <div>
-                <b>
-                  Designed to be printed, laminated, and displayed in the pump room, each code provides instant
-                  access to digital logs and historical records —
-                </b>
+                <b>Each code provides instant access to digital logs and historical records.</b>
               </div>
               <div>
                 <b>Eliminating paper binders and making inspection preparation faster, easier, and more organized.</b>
@@ -201,9 +201,9 @@ export default function Home() {
 
             <div className={styles.diffLead}>
               <p className={styles.lede}>
-                Compliance shouldn&rsquo;t live in scattered spreadsheets, text threads, and paper logs. AquaRunner
-                keeps requirements, completed service records, and chemical documentation attached to the properties
-                where they matter — configured to your state&rsquo;s actual rules, not a generic checklist.
+                Compliance doesn&rsquo;t belong in scattered spreadsheets, buried texts, or fading paper logs.
+                AquaRunner brings requirements, service histories, and chemical records into one property-centered
+                system — built around the regulations your state actually enforces.
               </p>
               <ul className={`${styles.diffAside} ${styles.proofList}`}>
                 <li>State-specific requirements organized at the property level</li>

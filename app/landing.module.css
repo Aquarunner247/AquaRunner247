@@ -497,11 +497,19 @@
   margin-bottom: 5px;
 }
 
-/* First heroStrip item is a single short line with nothing else in the box (the other
-   two are long enough to fill it on their own) -- sized up so it doesn't look lost in
-   all that empty space. */
-.heroStrip .heroStripLead {
-  font-size: clamp(1.5rem, 2.2vw, 1.9rem);
+/* First heroStrip item flows as one sentence at heading size -- "Designed to be..."
+   continues right after the bold lead-in's colon instead of dropping to a new,
+   smaller line the way the other two items' plain body text used to. */
+.heroStripLeadText {
+  font-family: var(--display);
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.heroStripLeadText b {
+  display: inline;
+  font-weight: 700;
 }
 
 /* ---------- waitlist form ---------- */
