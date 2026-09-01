@@ -22,14 +22,15 @@ export function QrPlacard() {
 }
 
 const LOG_ROWS = [
-  { day: 3, cl: "3.2", ph: "7.4", alk: "88", cya: "42", temp: "84" },
-  { day: 4, cl: "3.0", ph: "7.5", alk: "90", cya: "40", temp: "85" },
-  { day: 5, cl: "2.8", ph: "7.4", alk: "86", cya: "41", temp: "86" },
+  { day: 3, cl: "3.2", ph: "7.4", alk: "88", cya: "42", temp: "84", pump: "18", vac: "6", filter: "12", flow: "62" },
+  { day: 4, cl: "3.0", ph: "7.5", alk: "90", cya: "40", temp: "85", pump: "19", vac: "6", filter: "13", flow: "60" },
+  { day: 5, cl: "2.8", ph: "7.4", alk: "86", cya: "41", temp: "86", pump: "18", vac: "7", filter: "12", flow: "61" },
 ];
 
 /** Mirrors the real public QR log an inspector actually lands on
- * (app/p/[publicSlug]/page.tsx) -- a month-to-date chemistry table with the same
- * column set (Day/Cl/pH/Alk/CYA/Temp), not a single "today's reading" card. */
+ * (app/p/[publicSlug]/page.tsx) -- a month-to-date log with the same full column set
+ * that page's table has (chemistry AND equipment gauges), not a single "today's
+ * reading" card or a chemistry-only excerpt. */
 export function InspectorRecord() {
   return (
     <div className={styles.record}>
@@ -54,6 +55,10 @@ export function InspectorRecord() {
               <th>Alk (ppm)</th>
               <th>CYA (ppm)</th>
               <th>Temp (°F)</th>
+              <th>Pump (psi)</th>
+              <th>Vac (inHg)</th>
+              <th>Filter (psi)</th>
+              <th>Flow (gpm)</th>
             </tr>
           </thead>
           <tbody>
@@ -65,6 +70,10 @@ export function InspectorRecord() {
                 <td>{row.alk}</td>
                 <td>{row.cya}</td>
                 <td>{row.temp}</td>
+                <td>{row.pump}</td>
+                <td>{row.vac}</td>
+                <td>{row.filter}</td>
+                <td>{row.flow}</td>
               </tr>
             ))}
           </tbody>

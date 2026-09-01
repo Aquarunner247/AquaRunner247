@@ -732,6 +732,38 @@
   margin-top: clamp(28px, 3.5vw, 40px);
 }
 
+/* Same visual language as .formOk.onDark (a left-accent-bordered highlight on dark
+   backgrounds) but full-width and standalone -- used to call out one specific feature
+   inside a section, not a form success state. */
+.spotlightCallout {
+  margin-top: clamp(28px, 3.5vw, 40px);
+  border: 1.5px solid color-mix(in srgb, var(--warm-surface) 40%, transparent);
+  border-left: 5px solid var(--accent);
+  padding: clamp(20px, 2.4vw, 28px);
+  background: color-mix(in srgb, var(--warm-surface) 8%, transparent);
+}
+
+.spotlightCalloutEyebrow {
+  font-family: var(--body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.spotlightCallout p:last-child {
+  color: var(--text-light);
+  font-size: 1rem;
+  line-height: 1.5;
+  max-width: 68ch;
+}
+
+.spotlightCallout strong {
+  color: #fff;
+}
+
 /* ---------- product mockup: QR placard (cool) ---------- */
 
 .placard {
@@ -841,7 +873,7 @@
   border-radius: 3px;
   overflow: hidden;
   box-shadow: 0 24px 50px -22px color-mix(in srgb, var(--ink) 70%, transparent);
-  max-width: 440px;
+  max-width: 640px;
 }
 
 .recordBar {

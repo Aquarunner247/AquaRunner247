@@ -195,7 +195,7 @@ export default function Home() {
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>Compliance, built into the workflow</p>
-                <h2 className={styles.displayL}>Inspection-ready records, state by state.</h2>
+                <h2 className={styles.displayL}>STATE SPECIFIC RECORDS — ALWAYS INSPECTION READY</h2>
               </div>
             </div>
 
@@ -215,6 +215,15 @@ export default function Home() {
 
             <div className={styles.visual}>
               <InspectorRecord />
+            </div>
+
+            <div className={styles.spotlightCallout}>
+              <p className={styles.spotlightCalloutEyebrow}>Save hours per property</p>
+              <p>
+                <strong>Upload the inspector&rsquo;s report and AquaRunner reads it for you.</strong> Equipment,
+                make, model, and serial numbers are pulled out automatically and applied straight to that body of
+                water&rsquo;s records — no more retyping what&rsquo;s already sitting right there on the page.
+              </p>
             </div>
 
             <Link href="/features" className={styles.inlineLink}>
