@@ -49,6 +49,13 @@ export async function POST(req: Request) {
 
   const dialStatusUrl = new URL("/api/twilio/voice/dial-status", url);
   dialStatusUrl.searchParams.set("orgId", settings.organizationId);
+  // CallToken is only ever present on this first inbound webhook -- capture and thread it
+  // through now (same pattern as orgId above), since dial-status needs it later to add
+  // OpenAI's Realtime SIP endpoint as a conference participant (see
+  // lib/conversational-ai.ts), and by then Twilio no longer supplies it.
+  if (params.CallToken) {
+    dialStatusUrl.searchParams.set("callToken", params.CallToken);
+  }
 
   const response = new VoiceResponse();
   const dial = response.dial({

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { prisma } from "@/lib/prisma";
 import { verifyTwilioSignature, publicRequestUrl, readTwilioParams } from "@/lib/twilio-verify";
-import { unavailableTwiml, handleFallthrough } from "@/lib/phone-agent-flow";
+import { unavailableTwiml, handleFallthrough, ensureFallbackCall } from "@/lib/phone-agent-flow";
+import { conferenceNameForCall, conversationalAiTwiml } from "@/lib/conversational-ai";
 
 export const runtime = "nodejs";
 
@@ -41,6 +42,29 @@ export async function POST(req: Request) {
     const response = new twilio.twiml.VoiceResponse();
     response.hangup();
     return xmlResponse(response.toString());
+  }
+
+  if (settings.conversationalAiEnabled) {
+    // Still create the PhoneAgentCall row up front (same as the deterministic path
+    // below) so this call is visible in the admin ticket list from the start, and so the
+    // Caller-ID match (matchedPropertyId) is available to the OpenAI accept-webhook the
+    // same way it's available to the phone tree today.
+    await ensureFallbackCall(orgId, settings, callSid, callerNumber);
+
+    const conferenceJoinUrl = new URL("/api/twilio/voice/conference-join", url);
+    conferenceJoinUrl.searchParams.set("orgId", orgId);
+    conferenceJoinUrl.searchParams.set("callerNumber", callerNumber);
+    // The "join" status callback fires again when OpenAI's own SIP leg joins this same
+    // conference (a distinct CallSid Twilio assigns to that new participant) -- carrying
+    // the original CallSid lets that handler recognize its own trigger call and ignore
+    // the second firing, instead of trying to add OpenAI as a participant twice.
+    conferenceJoinUrl.searchParams.set("originalCallSid", callSid);
+    const callToken = new URL(req.url).searchParams.get("callToken");
+    if (callToken) conferenceJoinUrl.searchParams.set("callToken", callToken);
+
+    const conferenceName = conferenceNameForCall(callSid);
+    const twiml = conversationalAiTwiml(conferenceName, conferenceJoinUrl.toString());
+    return xmlResponse(twiml);
   }
 
   const gatherUrl = new URL("/api/twilio/voice/gather", url);

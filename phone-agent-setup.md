@@ -15,8 +15,11 @@ Twilio-facing route verifies `X-Twilio-Signature` and rejects with 403 on
 failure. Full test coverage for signature verification and transcript parsing
 (`npm test`).
 
+**Also built**: real-time conversational AI voice (per-org opt-in via
+`OrgPhoneAgentSettings.conversationalAiEnabled`, off by default) — see
+"Conversational AI mode" below for what it is, its real limitations, and setup.
+
 **Explicitly deferred** (per the original spec, not started):
-- Real-time/conversational AI voice.
 - Any outbound calling or outbound SMS.
 - Billing/metering integration (`PhoneAgentCall.estimatedCost` exists as a
   schema field but nothing computes or charges against it yet).
@@ -40,6 +43,9 @@ You add these yourself — nothing in this build adds them for you.
 | `AI_GATEWAY_API_KEY` | `lib/phone-agent-intake.ts` | Only needed for **local dev**. In production on Vercel, the AI Gateway resolves automatically via Vercel's own OIDC token — no key needed there |
 | `DIALOGFLOW_PROJECT_ID` | `lib/dialogflow.ts` | Already set in production. Without it, spoken intent classification silently no-ops on every call (falls back to "leave a message" every time). |
 | `DIALOGFLOW_WEBHOOK_SECRET` | `lib/dialogflow-verify.ts` — checked on every `/api/dialogflow/fulfillment` request | **Required** for live status answers (see "Caller recognition + live status answers" below). Generate any long random string yourself (e.g. `openssl rand -hex 32`); it isn't a value Twilio or Dialogflow issue you. The exact same value also goes into Dialogflow ES's Fulfillment settings as a custom header — the two must match exactly. |
+| `OPENAI_API_KEY` | `lib/openai-client.ts` — accepting/monitoring conversational-AI calls | **Required** for any org with Conversation mode turned on. A standard OpenAI API key, used directly (not via Vercel's AI Gateway — the Realtime SIP accept/webhook-verify calls are OpenAI-specific control-plane APIs, not a text-generation call the Gateway's provider abstraction covers). |
+| `OPENAI_PROJECT_ID` | `lib/conversational-ai.ts`'s `openaiSipUri` | The project ID used in the SIP URI Twilio dials (`sip:{OPENAI_PROJECT_ID}@sip.api.openai.com`). From the OpenAI dashboard's Realtime SIP setup. |
+| `OPENAI_WEBHOOK_SECRET` | `app/api/openai/realtime-incoming/route.ts`, verified via the official `openai` SDK's `client.webhooks.unwrap()` | **Required** for Conversation mode. Generated in the OpenAI dashboard when you register the webhook endpoint (not something you invent yourself, unlike the Dialogflow one above). |
 
 No `TWILIO_PHONE_NUMBER` env var — each org's number lives in
 `OrgPhoneAgentSettings.twilioPhoneNumber` instead (set via the admin settings
@@ -105,6 +111,50 @@ That's the entire setup. The matching logic (which `Property` a caller's
 number resolves to) and the personalized greeting are already live in the
 call flow itself, not gated behind any of the above.
 
+## Conversational AI mode
+
+Replaces the scripted phone tree + recorded voicemail with a live, real-time
+conversation (OpenAI's `gpt-realtime-mini`), for whichever org turns on
+**Settings → AI Phone Agent → Conversation mode**. Off by default per org.
+
+**Real limitations to accept before turning this on**:
+- **Cost is meaningfully higher** — roughly $0.03–0.06/min all-in versus
+  ~$0.01/min for the scripted phone tree. Review `maxMinutesPerDay` before
+  enabling; that cap now has real cost weight behind it.
+- **No post-call transcript endpoint exists on OpenAI's side** (confirmed
+  during planning — it's an open community feature request, not shipped).
+  This app captures a transcript by keeping a background connection open for
+  the call's duration and accumulating events live
+  (`lib/conversational-ai.ts`'s `monitorRealtimeCallTranscript`) — if a call
+  runs past the hosting function's max duration (`maxDuration = 800` on
+  `app/api/openai/realtime-incoming/route.ts`, ~13 minutes), the call itself
+  keeps going (audio flows directly Twilio ↔ OpenAI, never through this app)
+  but transcript capture stops at that point.
+- **Caller-side audio transcription over SIP has documented reliability
+  gaps** in OpenAI's own community reports (the model's own responses
+  transcribe reliably; the caller's speech sometimes doesn't). Mitigated by
+  recording the Twilio conference itself (`record: "record-from-start"` on
+  the `<Conference>` TwiML) as a fallback — same "listen to the recording"
+  safety net the scripted-voicemail path already relies on when
+  transcription comes back empty.
+
+**Setup**:
+1. In the OpenAI dashboard, set up a Realtime SIP project and note its
+   project ID (`OPENAI_PROJECT_ID`).
+2. Register a webhook endpoint pointed at
+   `https://aquarunner247.com/api/openai/realtime-incoming`, subscribed to
+   `realtime.call.incoming` — this generates `OPENAI_WEBHOOK_SECRET` for you.
+3. Add `OPENAI_API_KEY`, `OPENAI_PROJECT_ID`, `OPENAI_WEBHOOK_SECRET` to
+   Vercel.
+4. Turn on Conversation mode for the org in Settings → AI Phone Agent.
+
+No Twilio Elastic SIP Trunk needed — the integration adds OpenAI's Realtime
+SIP endpoint as a Twilio Conference participant per-call, via the REST API
+(`app/api/twilio/voice/conference-join/route.ts`), triggered only on the
+same no-answer/busy/failed fallback that already exists — every other org's
+calls, and every call for an org with Conversation mode off, are completely
+unaffected.
+
 ## Manual test checklist (run from your verified phone)
 
 1. Call the Twilio number. Confirm it rings your configured primary number
@@ -151,14 +201,34 @@ call flow itself, not gated behind any of the above.
 11. Call from an unrecognized number and ask one of the same status
     questions — confirm you get the generic "I'm not able to pull up an
     account for this number" response, never account data for someone else.
+12. With Conversation mode on: let the primary line go unanswered and confirm
+    you land in a live back-and-forth conversation (not the phone tree), have
+    a real exchange, then hang up — confirm within a minute or two a
+    `PhoneAgentCall` row shows `callStatus: COMPLETED` with a transcript and
+    `aiSummary`, and the escalation email arrived.
+13. With Conversation mode on, deliberately keep a call going past ~13
+    minutes — confirm the call itself continues uninterrupted, and document
+    what actually happens to the transcript/ticket once the monitoring
+    connection's function times out.
+14. Confirm a call for an org with Conversation mode **off** is completely
+    unaffected — falls through to the scripted phone tree exactly as before.
 
 ## Open items to flag before wider rollout
 
-- **`TWILIO_ACCOUNT_SID` isn't actually read anywhere yet** — the current
-  build only ever *receives* webhooks (signature verification only needs the
-  auth token) and never makes an outbound Twilio REST API call (e.g. to fetch
-  the raw recording audio directly, or to place a call). Add it now anyway so
-  it's already there if that changes.
+- **`TWILIO_ACCOUNT_SID` is now used** (`lib/twilio-client.ts`, for adding
+  OpenAI's Realtime SIP endpoint as a conference participant) — the earlier
+  note that it was unused no longer applies.
+- **Conversation mode's session config is intentionally minimal** — the
+  accept-webhook (`app/api/openai/realtime-incoming/route.ts`) only sets
+  `model`, `instructions`, and `audio.output.voice`. Turn-detection/VAD
+  tuning, tool/function calling for the agent (e.g. a live "check next visit"
+  tool instead of ending the call to look it up), and any explicit audio
+  format field were left at OpenAI's defaults rather than guessed — worth
+  reviewing against OpenAI's current Realtime docs if the default VAD
+  behavior feels off on a real call (e.g. cutting callers off mid-sentence).
+- **No per-org cost alerting on the new, higher conversational-AI rate** —
+  `maxMinutesPerDay` caps total minutes but nothing surfaces actual spend.
+  Worth adding before recommending this mode to a real paying org.
 - **Daily-cap check happens once, at the very start of the call** (in
   `voice/route.ts`) — a call already past that point isn't re-checked, so a
   burst of near-simultaneous calls could slightly exceed `maxCallsPerDay`

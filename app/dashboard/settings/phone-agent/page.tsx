@@ -269,6 +269,19 @@ export default async function PhoneAgentSettingsPage({ searchParams }: PageProps
         </section>
 
         <section className="app-card">
+          <h2 className="text-base font-semibold text-brand-ink">Conversation mode</h2>
+          <p className="mt-1 text-sm text-brand-muted">
+            Off: callers hear the scripted phone tree and leave a recorded message. On: callers have a real,
+            interactive conversation with an AI agent instead — at meaningfully higher per-minute cost than the
+            scripted phone tree, so review your daily caps below before turning this on.
+          </p>
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <input type="checkbox" name="conversationalAiEnabled" defaultChecked={settings?.conversationalAiEnabled ?? false} />
+            Use live AI conversation instead of the scripted phone tree
+          </label>
+        </section>
+
+        <section className="app-card">
           <h2 className="text-base font-semibold text-brand-ink">Daily caps</h2>
           <p className="mt-1 text-sm text-brand-muted">Enforced server-side. Leave blank for unlimited.</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">

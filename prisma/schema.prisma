@@ -1746,6 +1746,14 @@ model OrgPhoneAgentSettings {
 
   allowedIssueTypes PhoneAgentIssueType[]
 
+  /// Opt-in, independent of aiPhoneAgentEnabled -- routes a fallen-through call to a live
+  /// OpenAI Realtime conversation (via Twilio Conference + SIP, see lib/conversational-ai.ts)
+  /// instead of the deterministic phone tree. Off by default: materially different cost
+  /// (~$0.03-0.06/min vs ~$0.01/min) and reliability profile (no post-call transcript
+  /// endpoint exists yet -- see PhoneAgentCall.rawTranscript's caller-side-transcription
+  /// caveat), so an org must deliberately turn it on rather than inherit it automatically.
+  conversationalAiEnabled Boolean @default(false)
+
   /// Server-side caps, enforced in the voice webhook itself (never just a UI limit) --
   /// see PhoneAgentDailyUsage, which makes checking these cheap without scanning every
   /// PhoneAgentCall row.

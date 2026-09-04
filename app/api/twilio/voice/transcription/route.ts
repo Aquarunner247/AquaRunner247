@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyTwilioSignature, publicRequestUrl, readTwilioParams } from "@/lib/twilio-verify";
-import { parseCallTranscript } from "@/lib/phone-agent-intake";
-import { sendPhoneAgentTicketEmail } from "@/lib/email";
-import type { PhoneAgentIssueType, PhoneAgentUrgency } from "@/generated/prisma/client";
+import { finalizeCallTicket } from "@/lib/phone-agent-ticket";
 
 export const runtime = "nodejs";
 
@@ -36,67 +34,10 @@ export async function POST(req: Request) {
     return new NextResponse(null, { status: 200 });
   }
 
-  const settings = await prisma.orgPhoneAgentSettings.findUnique({ where: { organizationId: call.organizationId } });
-  const organization = await prisma.organization.findUnique({
-    where: { id: call.organizationId },
-    select: { name: true },
-  });
-
   const transcriptOk = params.TranscriptionStatus === "completed" && Boolean(params.TranscriptionText?.trim());
   const rawTranscript = params.TranscriptionText?.trim() || "(transcription unavailable)";
 
-  let parsed: Awaited<ReturnType<typeof parseCallTranscript>> | null = null;
-  if (transcriptOk) {
-    try {
-      parsed = await parseCallTranscript(rawTranscript, settings?.allowedIssueTypes ?? []);
-    } catch (err) {
-      // LLM call failed -- still record the raw transcript and notify with what we have
-      // (parsed stays null) rather than losing the ticket entirely.
-      console.error("[phone agent] transcript parsing failed:", err);
-    }
-  }
-
-  await prisma.phoneAgentCall.update({
-    where: { id: call.id },
-    data: {
-      rawTranscript,
-      aiSummary: parsed?.summary ?? null,
-      callerName: parsed?.callerName ?? null,
-      callerCallbackNumber: parsed?.callerCallbackNumber ?? null,
-      propertyAddress: parsed?.propertyAddress ?? null,
-      // parseCallTranscript's zod schema is built dynamically (its enum values come from
-      // a runtime array), so TypeScript can't narrow it to the Prisma enum type on its
-      // own -- the values are always valid members of it by construction (schemaFor()
-      // only ever builds the enum from PhoneAgentIssueType values plus "OTHER").
-      issueType: (parsed?.issueType as PhoneAgentIssueType | undefined) ?? null,
-      urgency: (parsed?.urgency as PhoneAgentUrgency | undefined) ?? null,
-      requestedCallbackTime: parsed?.requestedCallbackTime ?? null,
-    },
-  });
-
-  const escalationEmails = settings?.escalationEmails ?? [];
-  if (escalationEmails.length > 0) {
-    const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://aquarunner247.com"}/dashboard/phone-agent`;
-    await Promise.all(
-      escalationEmails.map((to) =>
-        sendPhoneAgentTicketEmail({
-          to,
-          organizationName: organization?.name ?? "Your organization",
-          routedAs: call.routedAs,
-          callerNumber: call.callerNumber,
-          callerName: parsed?.callerName ?? null,
-          callerCallbackNumber: parsed?.callerCallbackNumber ?? null,
-          propertyAddress: parsed?.propertyAddress ?? null,
-          issueType: parsed?.issueType ?? null,
-          urgency: parsed?.urgency ?? null,
-          requestedCallbackTime: parsed?.requestedCallbackTime ?? null,
-          summary: parsed?.summary ?? null,
-          recordingUrl: call.recordingUrl,
-          dashboardUrl,
-        }),
-      ),
-    );
-  }
+  await finalizeCallTicket(call.id, rawTranscript, transcriptOk);
 
   return new NextResponse(null, { status: 200 });
 }

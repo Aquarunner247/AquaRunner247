@@ -71,6 +71,7 @@ export async function updatePhoneAgentSettings(formData: FormData) {
   const busyOverflowCallbackPromise = String(formData.get("busyOverflowCallbackPromise") ?? "").trim() || null;
 
   const allowedIssueTypes = ALL_ISSUE_TYPES.filter((t) => formData.get(`issueType_${t}`) != null);
+  const conversationalAiEnabled = formData.get("conversationalAiEnabled") != null;
 
   const maxCallsPerDay = parseFormNumber(formData.get("maxCallsPerDay"));
   const maxMinutesPerDay = parseFormNumber(formData.get("maxMinutesPerDay"));
@@ -103,6 +104,7 @@ export async function updatePhoneAgentSettings(formData: FormData) {
     afterHoursCallbackPromise,
     busyOverflowCallbackPromise,
     allowedIssueTypes,
+    conversationalAiEnabled,
     maxCallsPerDay,
     maxMinutesPerDay,
     maxCallDurationSeconds,
