@@ -6,8 +6,8 @@ export function QrPlacard() {
     <div className={styles.placard}>
       <div className={styles.placardTop}>
         <div>
-          <p className={styles.placardId}>Main Pool</p>
-          <p className={styles.placardSub}>Body of water 01 · Gate placard</p>
+          <p className={styles.placardId}>Sunrise Apartments</p>
+          <p className={styles.placardSub}>Main Pool</p>
         </div>
         <span className={styles.placardBadge}>Scan me</span>
       </div>
@@ -27,11 +27,15 @@ const LOG_ROWS = [
   { day: 5, cl: "2.8", ph: "7.4", alk: "86", cya: "41", temp: "86", pump: "18", vac: "7", filter: "12", flow: "61" },
 ];
 
+type InspectorRecordProps = {
+  stateName?: string;
+};
+
 /** Mirrors the real public QR log an inspector actually lands on
  * (app/p/[publicSlug]/page.tsx) -- a month-to-date log with the same full column set
  * that page's table has (chemistry AND equipment gauges), not a single "today's
  * reading" card or a chemistry-only excerpt. */
-export function InspectorRecord() {
+export function InspectorRecord({ stateName = "Nevada" }: InspectorRecordProps) {
   return (
     <div className={styles.record}>
       <div className={styles.recordBar}>
@@ -43,7 +47,7 @@ export function InspectorRecord() {
       </div>
       <div className={styles.recordHead}>
         <h4>Sunrise Apartments — Main Pool</h4>
-        <span>Nevada · Commercial pool · August 2026 · 22 completed visits</span>
+        <span>{stateName} · Commercial pool · August 2026 · 22 completed visits</span>
       </div>
       <div className={styles.recordTableWrap}>
         <table className={styles.recordTable}>

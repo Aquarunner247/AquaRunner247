@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import styles from "../../landing.module.css";
+import { InspectorRecord } from "./scan-flow";
 
 type StateInfo = {
   code: string;
+  name: string;
   label: string;
   headline: string;
   facts: string[];
@@ -17,6 +19,7 @@ type StateInfo = {
 const STATE_INFO: StateInfo[] = [
   {
     code: "NV",
+    name: "Nevada",
     label: "Nevada · SNHD",
     headline: "Nevada — regulated by the Southern Nevada Health District, Clark County",
     facts: [
@@ -26,6 +29,7 @@ const STATE_INFO: StateInfo[] = [
   },
   {
     code: "AZ",
+    name: "Arizona",
     label: "Arizona",
     headline: "Arizona — regulated by Maricopa County Environmental Health",
     facts: [
@@ -35,6 +39,7 @@ const STATE_INFO: StateInfo[] = [
   },
   {
     code: "CA",
+    name: "California",
     label: "California",
     headline: "California — state rules, distributed through Sacramento County's own log form",
     facts: [
@@ -44,6 +49,7 @@ const STATE_INFO: StateInfo[] = [
   },
   {
     code: "TX",
+    name: "Texas",
     label: "Texas",
     headline: "Texas — set statewide by the Department of State Health Services",
     facts: [
@@ -53,6 +59,7 @@ const STATE_INFO: StateInfo[] = [
   },
   {
     code: "FL",
+    name: "Florida",
     label: "Florida",
     headline: "Florida — set statewide by the Florida Department of Health",
     facts: [
@@ -62,6 +69,10 @@ const STATE_INFO: StateInfo[] = [
   },
 ];
 
+// Always rendered together with the sample inspector log below it, so the picker owns
+// the shared selection and renders the log itself -- otherwise the two end up as
+// unconnected components that happen to sit next to each other, which is how the log
+// ended up with Nevada hardcoded regardless of which state tab was active.
 export function StateShowcase() {
   const [selected, setSelected] = useState(STATE_INFO[0].code);
   const active = STATE_INFO.find((s) => s.code === selected) ?? STATE_INFO[0];
@@ -92,6 +103,10 @@ export function StateShowcase() {
           <li key={fact}>{fact}</li>
         ))}
       </ul>
+
+      <div className={styles.visual}>
+        <InspectorRecord stateName={active.name} />
+      </div>
     </>
   );
 }

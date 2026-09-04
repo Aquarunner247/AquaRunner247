@@ -21,13 +21,23 @@ export function BodyQrCode({ bodyName, dataUrl, publicUrl }: BodyQrCodeProps) {
         >
           {publicUrl}
         </a>
-        <a
-          href={dataUrl}
-          download={`${fileSafeName}-qr-code.png`}
-          className="mt-2 inline-block rounded-md border border-brand-primary px-3 py-1 text-xs font-semibold text-brand-primary hover:bg-brand-primary/5"
-        >
-          Download QR image
-        </a>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <a
+            href={dataUrl}
+            download={`${fileSafeName}-qr-code.png`}
+            className="inline-block rounded-md border border-brand-primary px-3 py-1 text-xs font-semibold text-brand-primary hover:bg-brand-primary/5"
+          >
+            Download QR image
+          </a>
+          <a
+            href={`${publicUrl}/placard`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block rounded-md border border-brand-primary px-3 py-1 text-xs font-semibold text-brand-primary hover:bg-brand-primary/5"
+          >
+            Print placard
+          </a>
+        </div>
       </div>
     </div>
   );

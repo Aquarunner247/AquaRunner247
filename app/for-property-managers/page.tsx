@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SiteNav, SiteFooter } from "../components/landing/site-chrome";
-import { InspectorRecord, QrPlacard } from "../components/landing/scan-flow";
+import { QrPlacard } from "../components/landing/scan-flow";
 import { StateShowcase } from "../components/landing/state-showcase";
 import { WaitlistForm } from "../components/landing/waitlist-form";
 import styles from "../landing.module.css";
@@ -146,9 +146,6 @@ export default function ForPropertyManagersPage() {
                   missed, nothing left to memory.
                 </p>
                 <StateShowcase />
-                <div className={styles.visual}>
-                  <InspectorRecord />
-                </div>
               </div>
             </div>
           </div>
