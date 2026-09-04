@@ -93,8 +93,8 @@ export async function POST(req: Request) {
   const transcribeUrl = new URL("/api/twilio/voice/transcription", url);
   const instructions =
     selection === "URGENT"
-      ? "Please describe the urgent issue and your address after the tone. We'll prioritize a callback."
-      : "Please describe your request, including your name, address, and a good callback number, after the tone.";
+      ? "Go ahead and describe the urgent issue and your address after the tone. We'll prioritize getting back to you."
+      : "After the tone, go ahead and share your name, address, and a good number to reach you, along with what you need.";
   const prompt = spokenConfirmation ? `${spokenConfirmation} ${instructions}` : instructions;
   const twiml = recordTwiml(recordUrl.toString(), transcribeUrl.toString(), maxSeconds, prompt);
   return xmlResponse(twiml);

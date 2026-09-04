@@ -34,39 +34,48 @@ async function findPropertyByCallerNumber(organizationId: string, callerNumber: 
   return matchCallerToProperty(callerNumber, properties);
 }
 
-/** Chosen in Dialogflow's voice picker, then matched to Twilio's <Say> support -- Twilio's
- * Google Chirp3-HD offering only covers 8 voice names (Aoede, Charon, Fenrir, Kore, Leda,
- * Orus, Puck, Zephyr) per locale, not Google's full Chirp3-HD roster, so the exact voice
- * saved in Dialogflow (en-US-Chirp3-HD-Laomedeia) isn't available here -- Aoede was picked
- * as the closest available match. Dialogflow's own voice setting has no effect on what
- * callers actually hear: this app only uses Dialogflow's detectIntent for text-based intent
- * classification, never its TTS/audio output -- all spoken audio comes from Twilio's <Say>. */
-const AGENT_VOICE = "Google.en-US-Chirp3-HD-Aoede" as const;
-/** 1.1x speaking rate / +3dB volume, as configured in Dialogflow -- applied here via SSML
- * <prosody> since that's what actually reaches callers. rate uses Twilio/SSML's percentage
- * format (Dialogflow's 1.1x multiplier -> "110%"), not Dialogflow's own rate scale. */
-const AGENT_PROSODY = { rate: "110%", volume: "+3dB" } as const;
+/** Twilio's Google Chirp3-HD offering covers 8 voice names per locale: Aoede, Charon,
+ * Fenrir, Kore, Leda, Orus, Puck, Zephyr. Kore is Google's own showcase choice for a
+ * warm, professional assistant voice -- picked as a starting point, not a verified "best"
+ * one, since there's no way to audition these from code. If this doesn't land right on a
+ * test call, swap the name here and call again; it's the only thing that needs to change. */
+const AGENT_VOICE = "Google.en-US-Chirp3-HD-Kore" as const;
+/** Full speed (100%) reads as more natural than a sped-up voice -- the previous 110%
+ * (carried over from Dialogflow's own voice picker, which has no effect on what callers
+ * actually hear) tended to sound rushed rather than efficient. +3dB volume kept as-is;
+ * that's about phone-line audibility, not naturalness. */
+const AGENT_PROSODY = { rate: "100%", volume: "+3dB" } as const;
+/** Pause between sentences -- a single unbroken prosody block over a whole paragraph is
+ * part of what makes TTS read as a script rather than speech; a short break at sentence
+ * boundaries is the cheapest fix. */
+const SENTENCE_BREAK = { time: "300ms" } as const;
 
-/** Speaks `text` in the configured agent voice/rate/volume. Works on both VoiceResponse
- * itself and a <Gather> (both expose the same .say() shape) -- matches every call site in
- * this file, which alternates between the two depending on whether the prompt needs to
- * also collect input. */
+/** Speaks `text` in the configured agent voice/rate/volume, splitting on sentence
+ * boundaries and inserting a short pause between them. Works on both VoiceResponse itself
+ * and a <Gather> (both expose the same .say() shape) -- matches every call site in this
+ * file, which alternates between the two depending on whether the prompt needs to also
+ * collect input. */
 function say(container: InstanceType<typeof VoiceResponse> | VoiceResponseNamespace.Gather, text: string) {
-  container.say({ voice: AGENT_VOICE }, "").prosody(AGENT_PROSODY, text);
+  const sayNode = container.say({ voice: AGENT_VOICE }, "");
+  const sentences = text.split(/(?<=[.?!])\s+/).filter(Boolean);
+  sentences.forEach((sentence, i) => {
+    sayNode.prosody(AGENT_PROSODY, sentence);
+    if (i < sentences.length - 1) sayNode.break(SENTENCE_BREAK);
+  });
 }
 
 /** Defense-in-depth beyond the aiPhoneAgentEnabled flag itself -- every route falls back
  * to this if it somehow receives a call for a number with no enabled org attached. */
 export function unavailableTwiml(): string {
   const response = new VoiceResponse();
-  say(response, "This service is not available. Goodbye.");
+  say(response, "Sorry, this service isn't available right now. Goodbye.");
   response.hangup();
   return response.toString();
 }
 
 export function capExceededTwiml(): string {
   const response = new VoiceResponse();
-  say(response, "We're unable to take your call right now. Please call back during business hours, or try again later. Goodbye.");
+  say(response, "Sorry, we can't take your call right now. Please try again during business hours, or give us a little while and call back. Goodbye.");
   response.hangup();
   return response.toString();
 }
@@ -165,7 +174,7 @@ export function phoneTreeTwiml(
   });
   const prompt = matched
     ? RECOGNIZED_CALLER_PROMPT
-    : `${greeting} Tell me briefly why you're calling -- for example, a new service request, a question about your existing service, if this is urgent, or if you'd just like to leave a message.`;
+    : `${greeting} Go ahead and tell me why you're calling. Is it a new service request, a question about your existing service, something urgent, or would you like to just leave a message?`;
   say(gather, prompt);
   // DTMF is still accepted (input includes "dtmf" above) as a silent fallback for anyone
   // who presses a digit out of habit, but deliberately isn't announced anymore now that
@@ -189,8 +198,8 @@ export function emergencyRedialTwiml(
 ): string {
   const response = new VoiceResponse();
   const message = spokenConfirmation
-    ? `${spokenConfirmation} Let me try connecting you to our team right now.`
-    : "This sounds urgent -- let me try connecting you to our team right now.";
+    ? `${spokenConfirmation} That sounds urgent. Let me try connecting you to our team right now.`
+    : "That sounds urgent. Let me try connecting you to our team right now.";
   say(response, message);
   const dial = response.dial({ timeout: ringTimeoutSeconds, action: dialStatusUrl, method: "POST" });
   dial.number(primaryPhoneNumber);
@@ -240,7 +249,7 @@ export async function handleFallthrough(
 
 export function callCompleteTwiml(): string {
   const response = new VoiceResponse();
-  say(response, "Thanks, we've got your message and will get back to you. Goodbye.");
+  say(response, "Thanks, we've got your message and we'll be in touch soon. Goodbye.");
   response.hangup();
   return response.toString();
 }
