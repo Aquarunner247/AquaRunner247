@@ -38,6 +38,8 @@ You add these yourself — nothing in this build adds them for you.
 | `TWILIO_ACCOUNT_SID` | Not currently read directly by any route (see open question below) | Add anyway — needed the moment outbound/REST calls are added |
 | `TWILIO_AUTH_TOKEN` | `lib/twilio-verify.ts` — every `/api/twilio/*` route | **Required.** Without it every webhook returns 403 unconditionally |
 | `AI_GATEWAY_API_KEY` | `lib/phone-agent-intake.ts` | Only needed for **local dev**. In production on Vercel, the AI Gateway resolves automatically via Vercel's own OIDC token — no key needed there |
+| `DIALOGFLOW_PROJECT_ID` | `lib/dialogflow.ts` | Already set in production. Without it, spoken intent classification silently no-ops on every call (falls back to "leave a message" every time). |
+| `DIALOGFLOW_WEBHOOK_SECRET` | `lib/dialogflow-verify.ts` — checked on every `/api/dialogflow/fulfillment` request | **Required** for live status answers (see "Caller recognition + live status answers" below). Generate any long random string yourself (e.g. `openssl rand -hex 32`); it isn't a value Twilio or Dialogflow issue you. The exact same value also goes into Dialogflow ES's Fulfillment settings as a custom header — the two must match exactly. |
 
 No `TWILIO_PHONE_NUMBER` env var — each org's number lives in
 `OrgPhoneAgentSettings.twilioPhoneNumber` instead (set via the admin settings
@@ -64,6 +66,44 @@ That's the only Twilio-side configuration needed — every other step (dial
 status, gather, record, transcription) is chained automatically via the
 `action`/`transcribeCallback` URLs each response sets, not configured in the
 Twilio Console.
+
+## Caller recognition + live status answers
+
+Two pieces, added after the MVP above. Caller-ID matching (against `Property`
+phone fields) and the personalized greeting work automatically the moment
+this code is deployed — nothing to configure. Live status answers (next
+visit / last visit / assigned technician) additionally need one-time setup
+in the Dialogflow ES console, since that's where the new intents and the
+fulfillment webhook connection live, not in this repo.
+
+1. Generate a secret: `openssl rand -hex 32` (or any long random string from
+   a password manager). This is `DIALOGFLOW_WEBHOOK_SECRET` — add it in
+   Vercel (Production, and Preview if you test there).
+2. In the **Dialogflow ES console** for this agent, go to **Fulfillment**
+   (left sidebar):
+   - Enable **Webhook**.
+   - URL: `https://aquarunner247.com/api/dialogflow/fulfillment`
+   - Under **Headers**, add one: key `x-dialogflow-webhook-secret`, value
+     the exact same string from step 1.
+   - Save.
+3. Create three new **Intents** (left sidebar → Intents → Create Intent),
+   one at a time:
+   - `existing-customer-next-visit` — training phrases like "when's my next
+     visit", "when are you coming next", "when is my pool getting serviced".
+   - `existing-customer-last-visit` — "has my pool been serviced", "when was
+     my last visit", "was someone here yet".
+   - `existing-customer-assigned-technician` — "who's my technician", "who
+     services my pool", "who's coming out".
+   - For each: scroll to **Fulfillment** at the bottom of the intent page and
+     turn on **Enable webhook call for this intent**. Leave the intent's own
+     "Responses" section empty — the webhook's answer is what gets spoken,
+     not a static response.
+4. Save each intent. No redeploy of this app is needed for intent changes —
+   only for code changes (already deployed as of this write-up).
+
+That's the entire setup. The matching logic (which `Property` a caller's
+number resolves to) and the personalized greeting are already live in the
+call flow itself, not gated behind any of the above.
 
 ## Manual test checklist (run from your verified phone)
 
@@ -96,6 +136,21 @@ Twilio Console.
    Spa Service specifically (there's only one org in production right now,
    so this is mostly a sanity check that `organizationId` shows up
    correctly throughout, not a cross-tenant isolation test).
+9. Call from a phone number that's on file for one of your existing
+   `Property` records (any of the manager/maintenance/owner phone fields).
+   Confirm the greeting says "we recognize the number you're calling from…"
+   instead of the normal prompt, and that the resulting call in
+   `/dashboard/phone-agent` shows "Recognized: [name] — matched on
+   [field]", linking to the right property.
+10. Call from that same recognized number and, once the three intents in
+    "Caller recognition + live status answers" are set up, ask each of the
+    three questions on separate test calls — confirm the spoken answer is
+    correct (or a graceful "I don't see..." if there's genuinely nothing
+    scheduled/completed/assigned yet) and that the call still falls through
+    to the normal recording prompt afterward.
+11. Call from an unrecognized number and ask one of the same status
+    questions — confirm you get the generic "I'm not able to pull up an
+    account for this number" response, never account data for someone else.
 
 ## Open items to flag before wider rollout
 
@@ -110,3 +165,9 @@ Twilio Console.
   before the counter catches up. Not a concern at trial-account call volumes.
 - **No stale-`IN_PROGRESS` sweep** (see Deferred above) — worth adding before
   this matters operationally for a real paying org with real call volume.
+- **Caller-ID matching scans every `Property` row in the org per fallback
+  call** (`lib/phone-agent-flow.ts`'s `findPropertyByCallerNumber`) — fine at
+  current org sizes; if an org's property count ever makes this noticeable,
+  the fix is a normalized/indexed phone column populated at write time
+  (`app/components/phone-input.tsx`, `lib/customer-import.ts`), not a
+  rewrite of the matching logic itself.
