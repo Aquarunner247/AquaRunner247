@@ -26,6 +26,13 @@ import type { PhoneAgentPhoneTreeSelection } from "@/generated/prisma/client";
 const INTENT_TO_SELECTION: Record<string, PhoneAgentPhoneTreeSelection> = {
   "new-service-request": "NEW_REQUEST",
   "existing-customer-question": "EXISTING_CUSTOMER",
+  // Live status questions (see lib/phone-agent-status.ts, answered via the Dialogflow
+  // fulfillment webhook at app/api/dialogflow/fulfillment/route.ts) are still, for every
+  // downstream purpose here -- ticket categorization, admin grouping -- an "existing
+  // customer" call. No dedicated PhoneAgentPhoneTreeSelection value for them.
+  "existing-customer-next-visit": "EXISTING_CUSTOMER",
+  "existing-customer-last-visit": "EXISTING_CUSTOMER",
+  "existing-customer-assigned-technician": "EXISTING_CUSTOMER",
   emergency: "URGENT",
   "leave-message": "MESSAGE",
 };

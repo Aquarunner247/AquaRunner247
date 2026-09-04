@@ -1,10 +1,38 @@
 import twilio from "twilio";
 import { prisma } from "@/lib/prisma";
 import { resolveRouteReason } from "@/lib/phone-agent";
+import { matchCallerToProperty, normalizePhone, type PhoneMatch } from "@/lib/phone-match";
 import type { OrgPhoneAgentSettings, PhoneAgentRouteReason } from "@/generated/prisma/client";
 import type VoiceResponseNamespace from "twilio/lib/twiml/VoiceResponse";
 
 const { VoiceResponse } = twilio.twiml;
+
+/** Prisma-backed lookup, always scoped to one organization -- never queries across orgs.
+ * Scans every property in the org per call; fine at current org sizes (see
+ * phone-agent-setup.md's Open items for the indexed-column follow-up if this ever
+ * matters at scale). Kept here (not in lib/phone-match.ts) so that file stays free of
+ * any Prisma import and its pure matching logic can be unit-tested without a database. */
+async function findPropertyByCallerNumber(organizationId: string, callerNumber: string): Promise<PhoneMatch | null> {
+  if (!normalizePhone(callerNumber)) return null;
+
+  const properties = await prisma.property.findMany({
+    where: { organizationId },
+    select: {
+      id: true,
+      name: true,
+      customerId: true,
+      customer: { select: { name: true } },
+      managerBusinessPhone: true,
+      managerMobilePhone: true,
+      managerPhone: true,
+      maintenanceCellPhone: true,
+      ownerMobilePhone: true,
+      ownerHomePhone: true,
+    },
+  });
+
+  return matchCallerToProperty(callerNumber, properties);
+}
 
 /** Chosen in Dialogflow's voice picker, then matched to Twilio's <Say> support -- Twilio's
  * Google Chirp3-HD offering only covers 8 voice names (Aoede, Charon, Fenrir, Kore, Leda,
@@ -83,8 +111,20 @@ export async function ensureFallbackCall(
   const existing = await prisma.phoneAgentCall.findUnique({ where: { twilioCallSid: callSid } });
   if (existing) return existing;
   const routedAs: PhoneAgentRouteReason = resolveRouteReason(settings, new Date());
+  // Only run the caller-ID match on first creation, not the early-return above -- a
+  // Twilio webhook retry (timeout/5xx) hitting this again shouldn't re-scan the org's
+  // properties for a call that's already been matched (or already came up empty).
+  const match = await findPropertyByCallerNumber(organizationId, callerNumber);
   return prisma.phoneAgentCall.create({
-    data: { organizationId, twilioCallSid: callSid, callerNumber, routedAs, callStatus: "IN_PROGRESS" },
+    data: {
+      organizationId,
+      twilioCallSid: callSid,
+      callerNumber,
+      routedAs,
+      callStatus: "IN_PROGRESS",
+      matchedPropertyId: match?.propertyId ?? null,
+      matchedPhoneField: match?.matchedField ?? null,
+    },
   });
 }
 
@@ -95,10 +135,20 @@ export async function ensureFallbackCall(
  * talk, or whose speech doesn't get recognized). Every branch, including a total timeout
  * with neither, converges on the same <Record> step in gather/route.ts -- this only
  * decides which greeting plays and what phoneTreeSelection eventually gets recorded. */
+/** For a caller matched to a Property by Caller ID (see lib/phone-match.ts), this
+ * replaces the greeting + prompt entirely rather than layering onto it -- it already
+ * functions as a complete, open-ended prompt on its own. Deliberately generic: no name,
+ * address, or other account detail is ever spoken here, since Caller ID is this system's
+ * only authentication factor and can be spoofed -- "we recognize this number" leaks
+ * nothing a spoofed caller couldn't already have guessed by dialing in. */
+const RECOGNIZED_CALLER_PROMPT =
+  "Hello, we recognize the number you're calling from. Thank you for being our valued customer. How may I assist you today?";
+
 export function phoneTreeTwiml(
   settings: Pick<OrgPhoneAgentSettings, "afterHoursGreeting" | "busyOverflowGreeting">,
   routedAs: PhoneAgentRouteReason,
   gatherActionUrl: string,
+  matched: boolean,
 ): string {
   const configuredGreeting = routedAs === "AFTER_HOURS" ? settings.afterHoursGreeting : settings.busyOverflowGreeting;
   const defaultGreeting = routedAs === "AFTER_HOURS" ? "We're closed right now." : "We're unable to take your call right now.";
@@ -113,10 +163,10 @@ export function phoneTreeTwiml(
     method: "POST",
     timeout: 8,
   });
-  say(
-    gather,
-    `${greeting} Tell me briefly why you're calling -- for example, a new service request, a question about your existing service, if this is urgent, or if you'd just like to leave a message.`,
-  );
+  const prompt = matched
+    ? RECOGNIZED_CALLER_PROMPT
+    : `${greeting} Tell me briefly why you're calling -- for example, a new service request, a question about your existing service, if this is urgent, or if you'd just like to leave a message.`;
+  say(gather, prompt);
   // DTMF is still accepted (input includes "dtmf" above) as a silent fallback for anyone
   // who presses a digit out of habit, but deliberately isn't announced anymore now that
   // speech recognition is confirmed working -- saying both "tell me" and "press 1/2/3/4"
@@ -185,7 +235,7 @@ export async function handleFallthrough(
   gatherActionUrl: string,
 ): Promise<string> {
   const call = await ensureFallbackCall(settings.organizationId, settings, callSid, callerNumber);
-  return phoneTreeTwiml(settings, call.routedAs, gatherActionUrl);
+  return phoneTreeTwiml(settings, call.routedAs, gatherActionUrl, call.matchedPropertyId != null);
 }
 
 export function callCompleteTwiml(): string {

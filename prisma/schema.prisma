@@ -705,6 +705,7 @@ model Property {
   recurringStops         RecurringStop[]
   adHocStops             AdHocStop[]
   contaminationIncidents ContaminationIncident[]
+  phoneAgentCalls        PhoneAgentCall[]
 
   @@index([organizationId])
   @@index([customerId])
@@ -1777,6 +1778,16 @@ model PhoneAgentCall {
   callerNumber  String
   startedAt     DateTime @default(now())
 
+  /// Set when callerNumber matches a phone field on one of this org's Property rows
+  /// (see lib/phone-match.ts) -- lets the agent recognize a returning caller by Caller ID
+  /// alone, without them having to say so. Null is the normal case for a new prospect.
+  matchedPropertyId String?
+  matchedProperty   Property? @relation(fields: [matchedPropertyId], references: [id], onDelete: SetNull)
+  /// Which Property phone field the match was found on (e.g. "ownerMobilePhone") --
+  /// shown in the admin ticket UI so staff can see why a match was made, not just that
+  /// one was.
+  matchedPhoneField String?
+
   routedAs   PhoneAgentRouteReason
   callStatus PhoneAgentCallStatus  @default(IN_PROGRESS)
 
@@ -1807,6 +1818,7 @@ model PhoneAgentCall {
   updatedAt DateTime @updatedAt
 
   @@index([organizationId])
+  @@index([matchedPropertyId])
 }
 
 /// Per-org, per-day aggregate -- lets the voice webhook cheaply check daily call/minute

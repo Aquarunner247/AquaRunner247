@@ -22,6 +22,15 @@ const CALL_STATUS_LABEL: Record<string, string> = {
   ABANDONED: "Abandoned",
 };
 
+const PHONE_FIELD_LABEL: Record<string, string> = {
+  managerBusinessPhone: "Manager Business Phone",
+  managerMobilePhone: "Manager Mobile Phone",
+  managerPhone: "Manager Phone",
+  maintenanceCellPhone: "Maintenance Cell Phone",
+  ownerMobilePhone: "Owner Mobile Phone",
+  ownerHomePhone: "Owner Home Phone",
+};
+
 export default async function PhoneAgentTicketsPage() {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
@@ -32,6 +41,9 @@ export default async function PhoneAgentTicketsPage() {
       where: { organizationId: appUser.organizationId },
       orderBy: { startedAt: "desc" },
       take: 100,
+      include: {
+        matchedProperty: { select: { id: true, name: true, customer: { select: { name: true } } } },
+      },
     }),
     prisma.organization.findUnique({ where: { id: appUser.organizationId }, select: { state: true } }),
   ]);
@@ -90,6 +102,16 @@ export default async function PhoneAgentTicketsPage() {
                   {call.ticketStatus}
                 </span>
               </div>
+
+              {call.matchedProperty ? (
+                <p className="mt-2 text-xs text-brand-muted">
+                  Recognized:{" "}
+                  <Link href={`/dashboard/stops/${call.matchedProperty.id}`} className="app-link">
+                    {call.matchedProperty.customer?.name ?? call.matchedProperty.name}
+                  </Link>
+                  {call.matchedPhoneField ? ` — matched on ${PHONE_FIELD_LABEL[call.matchedPhoneField] ?? call.matchedPhoneField}` : ""}
+                </p>
+              ) : null}
 
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-brand-muted">
                 {call.issueType ? <span>Issue: {call.issueType}</span> : null}
