@@ -38,11 +38,16 @@ export async function POST(req: Request) {
   }
 
   try {
-    await client.conferences(conferenceSid).participants.create({
+    const participant = await client.conferences(conferenceSid).participants.create({
       from: callerNumber,
       to: openaiSipUri(params.FriendlyName ?? ""),
       ...(callToken ? { callToken } : {}),
+      // TEMPORARY diagnostics -- see app/api/twilio/voice/sip-participant-status/route.ts.
+      // Remove both once we understand why the caller still hears ringing-then-busy.
+      statusCallback: new URL("/api/twilio/voice/sip-participant-status", url).toString(),
+      statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
     });
+    console.error("[conversational AI DEBUG] participant created:", JSON.stringify({ callSid: participant.callSid, status: participant.status }));
   } catch (err) {
     console.error("[conversational AI] failed to add OpenAI Realtime SIP participant:", err);
   }
