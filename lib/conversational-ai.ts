@@ -70,6 +70,12 @@ async function connectSidebandWithRetry(openaiCallId: string, client: OpenAI): P
         console.error(`[conversational AI] sideband WS attempt ${attempt} failed:`, err);
         resolve(false);
       };
+      // The SDK's own docs warn that a failed connection is reported as an unhandled
+      // promise rejection unless something is subscribed to the emitter's own "error"
+      // event (not just the raw socket's) -- confirmed by reading its internal _onError,
+      // which re-emits at this level. Without this listener, every failed retry attempt
+      // crashed the background function with "Node.js process exited with exit status: 128".
+      realtime.on("error", () => {});
       realtime.socket.on("open", onOpen);
       realtime.socket.on("error", onError);
     });
