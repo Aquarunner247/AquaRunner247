@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BodyOfWaterType } from "@/generated/prisma/client";
+import { BodyOfWaterType, ChlorineFeedMechanism } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { generateQrDataUrl, publicBodyOfWaterUrl } from "@/lib/qr";
@@ -211,6 +211,23 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               </span>
             </label>
           )}
+          <label className="block text-sm">
+            <span className="text-brand-ink">Chlorine feed mechanism</span>
+            <select
+              name="chlorineFeedMechanism"
+              defaultValue={body.chlorineFeedMechanism}
+              disabled={isEnded}
+              className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-56 disabled:bg-brand-surface disabled:text-brand-muted"
+            >
+              <option value={ChlorineFeedMechanism.MANUAL}>Manually dosed</option>
+              <option value={ChlorineFeedMechanism.TABLET_FEEDER}>Tablet feeder</option>
+              <option value={ChlorineFeedMechanism.LIQUID_FEED_PUMP}>Liquid feed pump</option>
+            </select>
+            <span className="mt-1 block text-xs text-brand-muted">
+              Determines the guidance shown alongside a chlorine dosing recommendation — a feeder or pump means a
+              low reading usually calls for a check/refill first, not a one-time addition.
+            </span>
+          </label>
           {!isEnded ? (
             <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
               Save

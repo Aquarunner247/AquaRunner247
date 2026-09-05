@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose, PropertyType, DisinfectionMethod, VolumeShape } from "@/generated/prisma/client";
+import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose, PropertyType, DisinfectionMethod, ChlorineFeedMechanism, VolumeShape } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
@@ -334,6 +334,11 @@ export async function updateBodyOfWater(formData: FormData) {
   const newVolumeGallons = Number.isFinite(volume) ? volume : null;
   const occupancy = occupancyRaw ? Number(occupancyRaw) : null;
 
+  const chlorineFeedMechanismRaw = String(formData.get("chlorineFeedMechanism") ?? "").trim();
+  const chlorineFeedMechanism = (Object.values(ChlorineFeedMechanism) as string[]).includes(chlorineFeedMechanismRaw)
+    ? (chlorineFeedMechanismRaw as ChlorineFeedMechanism)
+    : ChlorineFeedMechanism.MANUAL;
+
   let residentialFields = {};
   let commercialFields = {};
   if (body.property.propertyType === PropertyType.RESIDENTIAL) {
@@ -366,6 +371,7 @@ export async function updateBodyOfWater(formData: FormData) {
       type,
       volumeGallons: newVolumeGallons,
       maximumOccupancy: Number.isFinite(occupancy) ? occupancy : null,
+      chlorineFeedMechanism,
       ...residentialFields,
       ...commercialFields,
     },

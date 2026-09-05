@@ -106,7 +106,7 @@ model Organization {
   planStatus           OrganizationPlanStatus @default(TRIALING)
   /// Null for orgs that predate tiered pricing and haven't been backfilled -- see
   /// lib/plan-tiers.ts, which treats a null tier the same as STARTER for limits/gating.
-  planTier              PlanTier?
+  planTier             PlanTier?
   trialEndsAt          DateTime?
   stripeCustomerId     String?                @unique
   stripeSubscriptionId String?                @unique
@@ -116,11 +116,11 @@ model Organization {
   /// until this moment to export its own data (see the export tool on the Billing page)
   /// before the scrub cron permanently deletes everything not on the compliance-retained
   /// allowlist. Null once the scrub has run or the org resubscribes before then.
-  dataScrubScheduledAt DateTime?
+  dataScrubScheduledAt          DateTime?
   /// Set once the scrub cron actually processes this org -- makes the cron's own query
   /// idempotent (never re-scrub an org twice) and is what the Billing/expired pages check
   /// to show "your data has been removed" instead of the countdown.
-  dataScrubbedAt       DateTime?
+  dataScrubbedAt                DateTime?
   /// Where the automatic full pre-scrub safety export landed in Vercel Blob, set once by
   /// the cancellation webhook (see runCancellationSafetyExport) -- kept here rather than
   /// only on an OrganizationScrubRun row because the export happens at cancellation time,
@@ -185,11 +185,11 @@ model OrganizationScrubRun {
   /// True for every run until this feature's dry-run trial period is explicitly ended
   /// (see ORG_SCRUB_DRY_RUN in lib/org-scrub.ts) -- a dry run computes deletedCounts and
   /// changes nothing; only a dryRun: false run actually deletes anything.
-  dryRun    Boolean
-  startedAt DateTime  @default(now())
+  dryRun      Boolean
+  startedAt   DateTime  @default(now())
   completedAt DateTime?
-  status    String // "SUCCESS" | "FAILED"
-  error     String?
+  status      String // "SUCCESS" | "FAILED"
+  error       String?
 
   /// Where the automatic full pre-scrub safety export landed in Vercel Blob, so a support
   /// request for "can we get this org's data back" has somewhere to look even after a
@@ -197,7 +197,7 @@ model OrganizationScrubRun {
   safetyExportBlobPath String?
   /// { modelName: count, ... } -- what was (dry run) or was actually (live run) deleted,
   /// per model, for audit/review before flipping dry-run off.
-  deletedCounts         Json?
+  deletedCounts        Json?
 
   @@index([organizationId])
 }
@@ -262,11 +262,11 @@ model ComplianceRuleset {
   /// Nevada so far -- extending the reference page to the other states is a separate pass.
   referenceContent   String? @db.Text
 
-  chemistryThresholds           ChemistryThreshold[]
-  frequencyRules                FrequencyRule[]
-  eventProtocols                EventProtocol[]
-  complianceNotes               ComplianceNote[]
-  equipmentReadingRequirements  EquipmentReadingRequirement[]
+  chemistryThresholds          ChemistryThreshold[]
+  frequencyRules               FrequencyRule[]
+  eventProtocols               EventProtocol[]
+  complianceNotes              ComplianceNote[]
+  equipmentReadingRequirements EquipmentReadingRequirement[]
 
   organizations Organization[]
 
@@ -292,6 +292,15 @@ enum DisinfectionMethod {
   OZONE
   /// For method-agnostic parameters: pH, alkalinity, hardness, temperature, CYA, etc.
   NOT_APPLICABLE
+}
+
+enum ChlorineFeedMechanism {
+  /// technician doses granular/liquid chlorine by hand each visit (today's only behavior)
+  MANUAL
+  /// erosion feeder (trichlor pucks) supplies baseline chlorine continuously
+  TABLET_FEEDER
+  /// metering pump feeds liquid chlorine from a tank
+  LIQUID_FEED_PUMP
 }
 
 /// One row per parameter x context (body-of-water type, disinfection method, indoor/
@@ -366,7 +375,7 @@ model EquipmentReadingRequirement {
   /// Free-text convention matching ChemistryThreshold.parameter's style: "PUMP_PRESSURE",
   /// "PUMP_VACUUM", "FILTER_PRESSURE", or "FLOW_METER" -- the four gauge readings the app
   /// currently has dedicated VisitWaterReading columns for.
-  parameter String
+  parameter           String
   /// Null = applies to all body types, same convention as ChemistryThreshold.bodyOfWaterCategory.
   bodyOfWaterCategory String?
   /// Where a state's sourced log-sheet language doesn't cleanly map onto the app's
@@ -375,7 +384,7 @@ model EquipmentReadingRequirement {
   /// this documents which existing field the mapping was applied to and why -- an
   /// interpretive choice, not sourced with that exact precision. Null when the source
   /// language matches the parameter directly (e.g. Maryland's "Pump Vacuum").
-  notes String? @db.Text
+  notes               String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -569,7 +578,7 @@ model Customer {
   /// data (see endCustomerRelationship) -- null means active/current, the default, no
   /// backfill needed. Deliberately independent of the org's own planStatus: this is a
   /// permanent, admin-triggered end, not tied to the org's billing state.
-  relationshipEndedAt DateTime?
+  relationshipEndedAt       DateTime?
   /// Set once this customer's Property/ServiceVisit data has been migrated to a
   /// standalone AquaRunner Compliance org they subscribed to themselves (see
   /// app/portal/subscribe/actions.ts). Plain string, not a relation -- the two orgs are
@@ -577,8 +586,8 @@ model Customer {
   /// between them. Doubles as the idempotency guard against converting twice.
   convertedToOrganizationId String?
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   properties          Property[]
   documents           CustomerDocument[]
@@ -753,6 +762,14 @@ model BodyOfWater {
   /// technician should be logging a reading for. Defaults to CHLORINE (the common case,
   /// and what every commercial body already implicitly used before this field existed).
   disinfectionMethod DisinfectionMethod @default(CHLORINE)
+
+  /// Which mechanism actually delivers chlorine at this body of water. Unlike
+  /// disinfectionMethod this isn't commercial-only -- tablet feeders and liquid feed pumps
+  /// are common residentially too. Only meaningful when disinfectionMethod is CHLORINE (or
+  /// residential, which has no disinfectionMethod field and is implicitly chlorine);
+  /// ignored for bromine, which already gets no computed dose (see dosing-calculator.ts).
+  /// Defaults to MANUAL -- every existing body of water keeps today's behavior unchanged.
+  chlorineFeedMechanism ChlorineFeedMechanism @default(MANUAL)
 
   /// Public, unguessable slug used for this body of water's QR code / inspector log page
   publicSlug String @unique @default(cuid())
@@ -1387,11 +1404,13 @@ enum ChemicalType {
 enum ChemicalProductForm {
   LIQUID
   GRANULAR
+  TABLET
 }
 
 enum DosingUnit {
   OZ
   FL_OZ
+  TABLET
 }
 
 /// Global, system-seeded chemical product reference catalog -- NOT org-scoped. Orgs never

@@ -34,9 +34,9 @@ const HASA = "HASA Inc.";
 const PRODUCTS: {
   name: string;
   chemicalType: "FREE_CHLORINE" | "PH_UP" | "PH_DOWN" | "ALKALINITY_UP" | "ALKALINITY_DOWN" | "CYA" | "CALCIUM_HARDNESS" | "SALT";
-  form: "LIQUID" | "GRANULAR";
+  form: "LIQUID" | "GRANULAR" | "TABLET";
   activePercent: number | null;
-  dosingUnit: "OZ" | "FL_OZ";
+  dosingUnit: "OZ" | "FL_OZ" | "TABLET";
   dosingConstant: number;
   isDemandBased?: boolean;
   displayOrder: number;
@@ -116,6 +116,23 @@ const PRODUCTS: {
     displayOrder: 9,
     sdsDocumentUrl: "https://olinchloralkali.com/wp-content/uploads/sites/5/2025/08/Chlorine-98-100_US_EN.pdf",
     sdsSourceLabel: "Olin Chlor Alkali",
+  },
+  // Tablet erosion feeders release chlorine continuously, not as a batch ppm-delta dose --
+  // Taylor's tables have no dosing constant for that, so this is 0 and never used for a
+  // computed recommendation (see dosing-calculator.ts, which excludes TABLET-form products
+  // from the automatic pick). Cataloged so orgs running a feeder can enable/price it for
+  // billing/refill tracking. Same product family as the granular Trichlor 90% above, so it
+  // reuses that entry's SDS.
+  {
+    name: 'Trichlor Tablets 90% (3")',
+    chemicalType: "FREE_CHLORINE",
+    form: "TABLET",
+    activePercent: 90,
+    dosingUnit: "TABLET",
+    dosingConstant: 0,
+    displayOrder: 8.5,
+    sdsDocumentUrl: "https://spearcorp.com/wp-content/uploads/2016/10/Tri-Chlor-SDS.pdf",
+    sdsSourceLabel: "Spear Corporation",
   },
 
   // --- Free Chlorine (lower) -- Table C ---

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getOrganizationRuleset, isComplianceActive, chlorineFamilyThreshold, activeChemistryThresholds } from "@/lib/compliance";
 import { formatDose, convertToBillingUnit } from "@/lib/dosing-units";
-import type { ChemicalType, ChemicalProductForm, DosingUnit, DisinfectionMethod } from "@/generated/prisma/enums";
+import type { ChemicalType, ChemicalProductForm, DosingUnit, DisinfectionMethod, ChlorineFeedMechanism } from "@/generated/prisma/enums";
 
 export { formatLiquidOz, formatWeightOz, convertToBillingUnit } from "@/lib/dosing-units";
 
@@ -228,10 +228,29 @@ async function loadEnabledProductsByType(organizationId: string): Promise<Map<Ch
   return byType;
 }
 
+/** Excludes TABLET-form products: erosion feeders release chlorine continuously, not as a
+ * batch ppm-delta dose -- Taylor's tables have no dosing constant for that (see
+ * seed-chemical-product-catalog.ts), so recommending "add N tablets now" would be the same
+ * kind of dishonest guess convertToBillingUnit already refuses to make. A tablet product can
+ * still be enabled/priced for billing (feeder refills logged manually), it just never gets
+ * auto-selected for the computed recommendation. */
 function pickPrimaryProduct(byType: Map<ChemicalType, SettingWithCatalog[]>, chemicalType: ChemicalType): SettingWithCatalog | null {
-  const settings = byType.get(chemicalType);
+  const settings = byType.get(chemicalType)?.filter((s) => s.catalogProduct.form !== "TABLET");
   if (!settings || settings.length === 0) return null;
   return settings.find((s) => s.isPrimary) ?? settings[0];
+}
+
+/** Prefixes a FREE_CHLORINE recommendation's note with mechanism-specific guidance -- a low
+ * reading at a feeder- or pump-fed body usually means "check/refill it," not "here's how
+ * much to pour in right now." Empty for MANUAL, which keeps today's behavior unchanged. */
+function feedMechanismPrefix(mechanism: ChlorineFeedMechanism): string {
+  if (mechanism === "TABLET_FEEDER") {
+    return "This body uses a tablet feeder for chlorine -- check/refill the feeder first. If FC is still low after that, ";
+  }
+  if (mechanism === "LIQUID_FEED_PUMP") {
+    return "This body uses a liquid chlorine feed pump -- check the tank level and pump operation first. If FC is still low after that, ";
+  }
+  return "";
 }
 
 /** FREE_CHLORINE only ever raises via a product in this calculator (no "too high"
@@ -288,7 +307,7 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     select: {
       id: true,
       organizationId: true,
-      bodyOfWater: { select: { id: true, type: true, disinfectionMethod: true, volumeGallons: true } },
+      bodyOfWater: { select: { id: true, type: true, disinfectionMethod: true, chlorineFeedMechanism: true, volumeGallons: true } },
       reading: true,
     },
   });
@@ -320,6 +339,7 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
 
     const direction: "UP" | "DOWN" = current < resolved.targetValue ? "UP" : "DOWN";
     const productChemicalType = productChemicalTypeFor(key, direction);
+    const feedPrefix = key === "FREE_CHLORINE" ? feedMechanismPrefix(visit.bodyOfWater.chlorineFeedMechanism) : "";
 
     if (!productChemicalType) {
       // CYA/Calcium Hardness too-high: no chemical corrects either -- partial drain/
@@ -348,7 +368,9 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
           targetValue: resolved.targetValue,
           targetMin: resolved.boundMin,
           targetMax: resolved.boundMax,
-          note: `No enabled primary product configured for ${CHEMICAL_LABELS[key]} -- set one on the Chemicals admin page.`,
+          note: feedPrefix
+            ? `${feedPrefix}no enabled primary product is configured for a manual correction -- set one on the Chemicals admin page.`
+            : `No enabled primary product configured for ${CHEMICAL_LABELS[key]} -- set one on the Chemicals admin page.`,
         }),
       );
       if (key === "CYA") cyaOutOfRange = true;
@@ -369,6 +391,7 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
         targetMax: resolved.boundMax,
         productName: catalog.name,
         formattedDose: formatDose(rawDose, catalog.dosingUnit),
+        note: feedPrefix ? `${feedPrefix}the dose below is a one-time correction on top of that.` : null,
         rawAmount: rawDose,
         dosingUnit: catalog.dosingUnit,
         billingLink: buildBillingLink(setting.linkedBillingProduct, rawDose, catalog.dosingUnit),

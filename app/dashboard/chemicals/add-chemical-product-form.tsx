@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 
-type CatalogOption = { id: string; name: string; dosingUnit: "OZ" | "FL_OZ" };
+type CatalogOption = { id: string; name: string; dosingUnit: "OZ" | "FL_OZ" | "TABLET" };
 
-const UNIT_LABEL: Record<CatalogOption["dosingUnit"], string> = { OZ: "oz", FL_OZ: "fl oz" };
+const UNIT_LABEL: Record<CatalogOption["dosingUnit"], string> = { OZ: "oz", FL_OZ: "fl oz", TABLET: "tablet" };
 
 /**
  * Typing a name that matches a Dosing Product Catalog product (via the datalist) fills in
