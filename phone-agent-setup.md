@@ -38,8 +38,10 @@ You add these yourself — nothing in this build adds them for you.
 
 | Variable | Where it's used | Notes |
 |---|---|---|
-| `TWILIO_ACCOUNT_SID` | Not currently read directly by any route (see open question below) | Add anyway — needed the moment outbound/REST calls are added |
-| `TWILIO_AUTH_TOKEN` | `lib/twilio-verify.ts` — every `/api/twilio/*` route | **Required.** Without it every webhook returns 403 unconditionally |
+| `TWILIO_ACCOUNT_SID` | `lib/twilio-client.ts` — the outbound REST client | **Required.** Paired with the API Key below to construct the REST client used for adding OpenAI's Realtime SIP endpoint as a conference participant. |
+| `TWILIO_AUTH_TOKEN` | `lib/twilio-verify.ts` — every `/api/twilio/*` webhook signature check | **Required.** Without it every webhook returns 403 unconditionally. Used *only* for inbound signature verification — outbound REST calls (`lib/twilio-client.ts`) use `TWILIO_API_KEY_SID`/`TWILIO_API_KEY_SECRET` instead, not this token. |
+| `TWILIO_API_KEY_SID` | `lib/twilio-client.ts` — the outbound REST client (adding OpenAI's Realtime SIP endpoint as a conference participant) | **Required** for Conversation mode's conference-join step. Created in Twilio Console → Account → API keys & tokens (choose "Standard", not "Main"). Scoped credential, separate from `TWILIO_AUTH_TOKEN` on purpose — see the row above. |
+| `TWILIO_API_KEY_SECRET` | `lib/twilio-client.ts` | **Required** alongside `TWILIO_API_KEY_SID`. Shown once at creation in the Twilio Console — save it somewhere durable, it can't be retrieved again. If either this or `TWILIO_API_KEY_SID` is missing, `getTwilioClient()` returns `null` silently and `conference-join/route.ts` just logs an error and no-ops — Conversation mode calls will fall through to no AI participant being added, not an obvious crash. |
 | `AI_GATEWAY_API_KEY` | `lib/phone-agent-intake.ts` | Only needed for **local dev**. In production on Vercel, the AI Gateway resolves automatically via Vercel's own OIDC token — no key needed there |
 | `DIALOGFLOW_PROJECT_ID` | `lib/dialogflow.ts` | Already set in production. Without it, spoken intent classification silently no-ops on every call (falls back to "leave a message" every time). |
 | `DIALOGFLOW_WEBHOOK_SECRET` | `lib/dialogflow-verify.ts` — checked on every `/api/dialogflow/fulfillment` request | **Required** for live status answers (see "Caller recognition + live status answers" below). Generate any long random string yourself (e.g. `openssl rand -hex 32`); it isn't a value Twilio or Dialogflow issue you. The exact same value also goes into Dialogflow ES's Fulfillment settings as a custom header — the two must match exactly. |
@@ -229,9 +231,15 @@ unaffected.
 
 ## Open items to flag before wider rollout
 
-- **`TWILIO_ACCOUNT_SID` is now used** (`lib/twilio-client.ts`, for adding
-  OpenAI's Realtime SIP endpoint as a conference participant) — the earlier
-  note that it was unused no longer applies.
+- **Twilio REST calls now use a scoped API Key, not the Auth Token** —
+  `lib/twilio-client.ts` reads `TWILIO_API_KEY_SID`/`TWILIO_API_KEY_SECRET`
+  (paired with `TWILIO_ACCOUNT_SID`) instead of `TWILIO_AUTH_TOKEN`, which is
+  now reserved for webhook signature verification only (see the env var
+  table above). If either API Key value is missing or revoked,
+  `getTwilioClient()` returns `null` silently — `conference-join/route.ts`
+  logs an error and no-ops, so a call falls through to no AI participant
+  being added rather than an obvious crash. No alerting exists on this yet,
+  same gap as the cost-alerting item below.
 - **Conversation mode's session config is intentionally minimal** — the
   accept-webhook (`app/api/openai/realtime-incoming/route.ts`) only sets
   `model`, `instructions`, and `audio.output.voice`. Turn-detection/VAD
