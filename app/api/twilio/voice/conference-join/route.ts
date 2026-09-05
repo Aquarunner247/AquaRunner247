@@ -22,7 +22,6 @@ export async function POST(req: Request) {
   const searchParams = new URL(req.url).searchParams;
   const originalCallSid = searchParams.get("originalCallSid");
   const callerNumber = searchParams.get("callerNumber");
-  const callToken = searchParams.get("callToken");
   const conferenceSid = params.ConferenceSid;
 
   if (!originalCallSid || !callerNumber || !conferenceSid || params.CallSid !== originalCallSid) {
@@ -38,10 +37,13 @@ export async function POST(req: Request) {
   }
 
   try {
+    // callToken deliberately omitted -- confirmed via runtime diagnostics that passing it
+    // alongside a `to` that's a SIP address (not a phone number) makes Twilio reject the
+    // whole request with error 13224 "invalid phone number format" (callToken exists for
+    // preserving Caller ID on a phone-to-phone forwarded call, not a SIP dial).
     const participant = await client.conferences(conferenceSid).participants.create({
       from: callerNumber,
       to: openaiSipUri(params.FriendlyName ?? ""),
-      ...(callToken ? { callToken } : {}),
       // TEMPORARY diagnostics -- see app/api/twilio/voice/sip-participant-status/route.ts.
       // Remove both once we understand why the caller still hears ringing-then-busy.
       statusCallback: new URL("/api/twilio/voice/sip-participant-status", url).toString(),

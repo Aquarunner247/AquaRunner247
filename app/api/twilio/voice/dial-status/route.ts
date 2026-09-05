@@ -59,8 +59,6 @@ export async function POST(req: Request) {
     // the original CallSid lets that handler recognize its own trigger call and ignore
     // the second firing, instead of trying to add OpenAI as a participant twice.
     conferenceJoinUrl.searchParams.set("originalCallSid", callSid);
-    const callToken = new URL(req.url).searchParams.get("callToken");
-    if (callToken) conferenceJoinUrl.searchParams.set("callToken", callToken);
 
     const conferenceName = conferenceNameForCall(callSid);
     const twiml = conversationalAiTwiml(conferenceName, conferenceJoinUrl.toString());
