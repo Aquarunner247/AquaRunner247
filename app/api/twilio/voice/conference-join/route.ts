@@ -38,10 +38,12 @@ export async function POST(req: Request) {
   }
 
   // `from`, when formatted as a phone number, must be a number this Twilio account owns
-  // or has verified as an outgoing caller ID -- confirmed via runtime diagnostics
-  // (Twilio error 13224 "invalid phone number format") that the original caller's own
-  // cell number fails this check outright, regardless of callToken. The org's own Twilio
-  // number is the one number guaranteed to qualify.
+  // or has verified as an outgoing caller ID (per Twilio's own docs) -- the org's own
+  // Twilio number is the one guaranteed to qualify. This alone does not resolve every
+  // failure mode seen against OpenAI's SIP endpoint (see phone-agent-setup.md's Open
+  // Items -- calls have failed with a SIP 400 immediately, 0-duration, that diagnostics
+  // traced to OpenAI's own gateway rejecting the INVITE, not anything here), but it's
+  // still the correct value to send regardless.
   const settings = await prisma.orgPhoneAgentSettings.findUnique({
     where: { organizationId: orgId },
     select: { twilioPhoneNumber: true },
@@ -52,15 +54,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const participant = await client.conferences(conferenceSid).participants.create({
+    await client.conferences(conferenceSid).participants.create({
       from: settings.twilioPhoneNumber,
       to: openaiSipUri(params.FriendlyName ?? ""),
-      // TEMPORARY diagnostics -- see app/api/twilio/voice/sip-participant-status/route.ts.
-      // Remove both once a call is confirmed connecting end to end.
-      statusCallback: new URL("/api/twilio/voice/sip-participant-status", url).toString(),
-      statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
     });
-    console.error("[conversational AI DEBUG] participant created:", JSON.stringify({ callSid: participant.callSid, status: participant.status }));
   } catch (err) {
     console.error("[conversational AI] failed to add OpenAI Realtime SIP participant:", err);
   }

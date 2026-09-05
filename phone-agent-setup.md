@@ -113,6 +113,20 @@ call flow itself, not gated behind any of the above.
 
 ## Conversational AI mode
 
+**Status as of this writing: built, but calls do not yet connect.** Every
+test call reaches the point of dialing OpenAI's Realtime SIP endpoint, then
+fails immediately (0-duration) with a SIP 400 from OpenAI's own gateway,
+surfaced by Twilio as error 13224. Five independent causes were ruled out on
+our side (caller's own number as `from`, `callToken`, trial-vs-upgraded
+Twilio account, no Elastic SIP Trunk resource existing, the `?X-conferenceName=`
+header suffix on the SIP URI) — the failure persists identically regardless.
+An OpenAI community thread describes the same symptom (immediate SIP 400,
+0-duration) traced to OpenAI's own gateway, not the caller's Twilio
+configuration. **Next step is confirming with OpenAI directly** (support
+ticket or their community forum, citing `OPENAI_PROJECT_ID` and a failed
+call's timestamp) whether Realtime SIP is fully provisioned for this
+project — do not assume this works end-to-end until a real call connects.
+
 Replaces the scripted phone tree + recorded voicemail with a live, real-time
 conversation (OpenAI's `gpt-realtime-mini`), for whichever org turns on
 **Settings → AI Phone Agent → Conversation mode**. Off by default per org.
