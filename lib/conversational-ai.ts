@@ -116,6 +116,14 @@ export async function monitorRealtimeCallTranscript(
     return;
   }
 
+  // Without this, the model just waits on server VAD for the caller to speak first --
+  // normal phone etiquette is the opposite (whoever picks up greets first), and the
+  // caller has no way to know they've reached an AI agent rather than dead air. Fires as
+  // soon as the sideband WS attaches (same ~0-4s race window as the attach itself, see
+  // connectSidebandWithRetry's doc comment) -- a short delay before the greeting starts is
+  // an accepted tradeoff of this architecture, not something worth engineering around here.
+  realtime.send({ type: "response.create" });
+
   realtime.on("conversation.item.input_audio_transcription.completed", (event) => {
     if (event.transcript.trim()) lines.push({ speaker: "Caller", text: event.transcript.trim() });
   });
@@ -172,6 +180,7 @@ function formatBusinessHours(hours: BusinessHours | null): string | null {
 export function buildRealtimeInstructions(
   settings: Pick<OrgPhoneAgentSettings, "serviceTerritoryDescription" | "businessHours" | "allowedIssueTypes">,
   hasAccountTools: boolean,
+  organizationName: string | null,
 ): string {
   const territory = settings.serviceTerritoryDescription?.trim();
   const hours = formatBusinessHours((settings.businessHours as BusinessHours | null) ?? null);
@@ -179,6 +188,9 @@ export function buildRealtimeInstructions(
 
   return [
     "You are a friendly, efficient phone assistant for a pool service company, answering because the business's own line didn't pick up.",
+    organizationName
+      ? `As soon as the call connects, immediately greet the caller by name-dropping the business: say something like "Thanks for calling ${organizationName}, sorry we missed you -- how can I help?" Don't wait for the caller to speak first.`
+      : "As soon as the call connects, immediately greet the caller and apologize that the business's line didn't pick up. Don't wait for the caller to speak first.",
     "Find out why the caller is calling: a new service request, a question about their existing service, something urgent, or just a message to pass along.",
     "For any request, get their name, the property address, and a good callback number before the call ends.",
     "If it sounds urgent (equipment failure, safety issue, contamination), say you'll flag it for an immediate callback and keep the conversation brief.",

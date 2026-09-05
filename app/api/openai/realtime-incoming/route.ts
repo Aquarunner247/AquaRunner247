@@ -61,13 +61,20 @@ export async function POST(req: Request) {
     const callSid = conferenceName ? callSidFromConferenceName(conferenceName) : null;
     const call = callSid ? await prisma.phoneAgentCall.findUnique({ where: { twilioCallSid: callSid } }) : null;
 
-    const settings = call
-      ? await prisma.orgPhoneAgentSettings.findUnique({
-          where: { organizationId: call.organizationId },
-          select: { serviceTerritoryDescription: true, businessHours: true, allowedIssueTypes: true },
-        })
-      : null;
+    const [settings, organization] = call
+      ? await Promise.all([
+          prisma.orgPhoneAgentSettings.findUnique({
+            where: { organizationId: call.organizationId },
+            select: { serviceTerritoryDescription: true, businessHours: true, allowedIssueTypes: true },
+          }),
+          prisma.organization.findUnique({
+            where: { id: call.organizationId },
+            select: { name: true, businessName: true },
+          }),
+        ])
+      : [null, null];
     const hasAccountTools = call?.matchedPropertyId != null;
+    const organizationName = organization?.businessName ?? organization?.name ?? null;
 
     await client.realtime.calls.accept(event.data.call_id, {
       type: "realtime",
@@ -75,6 +82,7 @@ export async function POST(req: Request) {
       instructions: buildRealtimeInstructions(
         settings ?? { serviceTerritoryDescription: null, businessHours: null, allowedIssueTypes: [] },
         hasAccountTools,
+        organizationName,
       ),
       audio: { output: { voice: "marin" } },
       tools: hasAccountTools ? REALTIME_STATUS_TOOLS : undefined,

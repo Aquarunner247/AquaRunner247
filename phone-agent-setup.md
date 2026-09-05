@@ -261,6 +261,14 @@ unaffected.
   logs an error and no-ops, so a call falls through to no AI participant
   being added rather than an obvious crash. No alerting exists on this yet,
   same gap as the cost-alerting item below.
+- **Opening greeting is forced via an explicit `response.create`** sent as
+  soon as the sideband WS attaches (`lib/conversational-ai.ts`'s
+  `monitorRealtimeCallTranscript`), so the agent states the business name
+  (org's `businessName` or `name`) and speaks first instead of waiting on
+  VAD for the caller — normal phone etiquette, and otherwise the caller
+  hears dead air. Since this rides the same ~0-4s sideband-attach race as
+  the tool-calling connection, the greeting can start a couple seconds
+  after the SIP leg actually connects rather than instantly.
 - **Conversation mode's session config is still fairly minimal** — the
   accept-webhook (`app/api/openai/realtime-incoming/route.ts`) sets `model`,
   `instructions`, `audio.output.voice`, and (for a recognized caller) three
