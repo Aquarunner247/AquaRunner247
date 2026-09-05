@@ -43,6 +43,12 @@ export async function POST(req: Request) {
     return new NextResponse(null, { status: 400 });
   }
 
+  // TEMPORARY diagnostics -- OpenAI support asked whether any follow-up webhook events
+  // (e.g. a call-ended event) arrive after realtime.call.incoming, or whether delivery
+  // stops after accept(). This endpoint previously discarded every non-incoming event
+  // type silently, so there was no way to answer that from existing logs.
+  console.error("[conversational AI DEBUG] webhook event received:", event.type, event.id);
+
   if (event.type !== "realtime.call.incoming") {
     // Not a call we handle here (batch/eval/fine-tuning webhooks share this same
     // endpoint contract in principle, but this app only registers this URL for
