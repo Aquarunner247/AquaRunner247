@@ -90,7 +90,17 @@ export function buildRealtimeInstructions(settings: Pick<OrgPhoneAgentSettings, 
 
 export function openaiSipUri(conferenceName: string): string {
   const projectId = process.env.OPENAI_PROJECT_ID;
-  return `sip:${projectId}@sip.api.openai.com;transport=tls?X-conferenceName=${encodeURIComponent(conferenceName)}`;
+  // TEMPORARY: the ?X-conferenceName=... custom-header suffix stripped out for a targeted
+  // test -- Twilio's own status-callback logs show every SIP dial attempt failing with
+  // error 13224 "invalid phone number format" regardless of `from`/callToken/account-tier/
+  // trunk-resource changes tried so far, and the `Called` field in those logs shows no
+  // trace of this suffix ever reaching Twilio's dial layer. Testing whether the bare
+  // address alone succeeds isolates whether this suffix is what Twilio's own SIP URI
+  // validation is choking on. `conferenceName` param temporarily unused -- restore once
+  // this test's result is known, either reinstating the suffix or finding another way to
+  // correlate the call.
+  void conferenceName;
+  return `sip:${projectId}@sip.api.openai.com;transport=tls`;
 }
 
 /**
