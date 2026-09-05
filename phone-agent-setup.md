@@ -266,9 +266,11 @@ unaffected.
   `monitorRealtimeCallTranscript`), so the agent states the business name
   (org's `businessName` or `name`) and speaks first instead of waiting on
   VAD for the caller — normal phone etiquette, and otherwise the caller
-  hears dead air. Since this rides the same ~0-4s sideband-attach race as
-  the tool-calling connection, the greeting can start a couple seconds
-  after the SIP leg actually connects rather than instantly.
+  hears dead air. The sideband attach polls every 350ms (tightened from an
+  earlier 1s interval specifically to cut this dead-air window) up to a
+  ~4.9s ceiling, but the greeting still can't start until OpenAI's own
+  server-side session setup finishes — that floor (their own docs suggest
+  2-5s) isn't something client-side polling can shrink further.
 - **Conversation mode's session config is still fairly minimal** — the
   accept-webhook (`app/api/openai/realtime-incoming/route.ts`) sets `model`,
   `instructions`, `audio.output.voice`, and (for a recognized caller) three

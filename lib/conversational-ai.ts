@@ -40,14 +40,18 @@ export function findSipHeader(headers: { name: string; value: string }[], name: 
  * system's only authentication factor and can be spoofed. */
 type TranscriptLine = { speaker: "Caller" | "Agent"; text: string };
 
-const SIDEBAND_CONNECT_MAX_ATTEMPTS = 5;
-const SIDEBAND_CONNECT_RETRY_DELAY_MS = 1000;
+const SIDEBAND_CONNECT_MAX_ATTEMPTS = 15;
+const SIDEBAND_CONNECT_RETRY_DELAY_MS = 350;
 
 /** A 200 from accept() only means the SIP leg is ringing and the Realtime session is
  * being established -- attaching the sideband WebSocket immediately after can race that
  * setup and 404 (per OpenAI support). Retries with a fresh connection attempt each time
- * (a socket that's already errored/closed can't be reused), up to ~4s total, which is
- * within OpenAI's own suggested 2-5s window. */
+ * (a socket that's already errored/closed can't be reused). Polls every 350ms rather than
+ * a coarser interval so the connect (and the greeting it triggers, see
+ * monitorRealtimeCallTranscript) lands as close as possible to whenever the session
+ * actually becomes attachable, instead of quantized dead air on top of it -- ~4.9s total
+ * ceiling, covering OpenAI's own suggested 2-5s window with margin. This doesn't shrink
+ * OpenAI's actual server-side session-setup time, only the polling overshoot on top of it. */
 async function connectSidebandWithRetry(openaiCallId: string, client: OpenAI): Promise<OpenAIRealtimeWS | null> {
   for (let attempt = 1; attempt <= SIDEBAND_CONNECT_MAX_ATTEMPTS; attempt++) {
     const realtime = new OpenAIRealtimeWS({ callID: openaiCallId }, client);
