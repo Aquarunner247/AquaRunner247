@@ -1,6 +1,6 @@
 import type { OrgPhoneAgentSettings } from "@/generated/prisma/client";
 
-const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+export const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 /** OrgPhoneAgentSettings.businessHours shape: {"mon": "08:00-17:00", ...}, 24h time,
  * keyed by WEEKDAY_KEYS. A missing or null key means closed that day. Only decides the

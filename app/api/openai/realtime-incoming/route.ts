@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { prisma } from "@/lib/prisma";
 import { getOpenAiClient } from "@/lib/openai-client";
-import { callSidFromConferenceName, findSipHeader, buildRealtimeInstructions, monitorRealtimeCallTranscript } from "@/lib/conversational-ai";
+import {
+  callSidFromConferenceName,
+  findSipHeader,
+  buildRealtimeInstructions,
+  monitorRealtimeCallTranscript,
+  REALTIME_STATUS_TOOLS,
+} from "@/lib/conversational-ai";
 
 export const runtime = "nodejs";
 // Pro-tier maximum -- keeps the background transcript-monitoring connection (started via
@@ -43,12 +49,6 @@ export async function POST(req: Request) {
     return new NextResponse(null, { status: 400 });
   }
 
-  // TEMPORARY diagnostics -- OpenAI support asked whether any follow-up webhook events
-  // (e.g. a call-ended event) arrive after realtime.call.incoming, or whether delivery
-  // stops after accept(). This endpoint previously discarded every non-incoming event
-  // type silently, so there was no way to answer that from existing logs.
-  console.error("[conversational AI DEBUG] webhook event received:", event.type, event.id);
-
   if (event.type !== "realtime.call.incoming") {
     // Not a call we handle here (batch/eval/fine-tuning webhooks share this same
     // endpoint contract in principle, but this app only registers this URL for
@@ -64,19 +64,24 @@ export async function POST(req: Request) {
     const settings = call
       ? await prisma.orgPhoneAgentSettings.findUnique({
           where: { organizationId: call.organizationId },
-          select: { serviceTerritoryDescription: true },
+          select: { serviceTerritoryDescription: true, businessHours: true, allowedIssueTypes: true },
         })
       : null;
+    const hasAccountTools = call?.matchedPropertyId != null;
 
     await client.realtime.calls.accept(event.data.call_id, {
       type: "realtime",
       model: "gpt-realtime-mini",
-      instructions: buildRealtimeInstructions(settings ?? { serviceTerritoryDescription: null }),
+      instructions: buildRealtimeInstructions(
+        settings ?? { serviceTerritoryDescription: null, businessHours: null, allowedIssueTypes: [] },
+        hasAccountTools,
+      ),
       audio: { output: { voice: "marin" } },
+      tools: hasAccountTools ? REALTIME_STATUS_TOOLS : undefined,
     });
 
     if (call) {
-      waitUntil(monitorRealtimeCallTranscript(call.id, event.data.call_id, client));
+      waitUntil(monitorRealtimeCallTranscript(call, event.data.call_id, client));
     }
   } catch (err) {
     // If accept() fails, OpenAI's own SIP fallback (busy/decline) takes over on its

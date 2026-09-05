@@ -16,6 +16,28 @@ export function isStatusIntent(displayName: string): boolean {
   return STATUS_INTENTS.has(displayName);
 }
 
+/** Realtime tool names are a separate vocabulary from Dialogflow's intent display names
+ * (each provider names things its own way) -- mapped onto the same intent strings here
+ * rather than renaming buildStatusAnswer's switch, since Dialogflow's console config
+ * depends on those exact strings already. */
+const REALTIME_TOOL_TO_DIALOGFLOW_INTENT: Record<string, string> = {
+  get_next_visit: "existing-customer-next-visit",
+  get_last_visit: "existing-customer-last-visit",
+  get_assigned_technician: "existing-customer-assigned-technician",
+};
+
+/** Same status-lookup logic as buildStatusAnswer, entered from the conversational-AI
+ * agent's live tool calls (see lib/conversational-ai.ts) instead of Dialogflow's
+ * fulfillment webhook -- full reuse, same security boundary (refuses without
+ * matchedPropertyId, every query re-scoped by organizationId). */
+export async function answerRealtimeTool(
+  toolName: string,
+  call: Pick<PhoneAgentCall, "organizationId" | "matchedPropertyId">,
+): Promise<string> {
+  const intent = REALTIME_TOOL_TO_DIALOGFLOW_INTENT[toolName];
+  return intent ? buildStatusAnswer(intent, call) : FALLBACK_STATUS_TEXT;
+}
+
 /**
  * Answers a live status question using this app's own database, scoped to the property
  * matched on Caller ID for this call (lib/phone-match.ts, set in ensureFallbackCall).

@@ -115,28 +115,33 @@ call flow itself, not gated behind any of the above.
 
 ## Conversational AI mode
 
-**Status as of this writing: built, but calls do not yet connect.** Every
-test call reaches the point of dialing OpenAI's Realtime SIP endpoint, then
-fails immediately (0-duration) with a SIP 400 from OpenAI's own gateway,
-surfaced by Twilio as error 13224. Five independent causes were ruled out on
-our side (caller's own number as `from`, `callToken`, trial-vs-upgraded
-Twilio account, no Elastic SIP Trunk resource existing, the `?X-conferenceName=`
-header suffix on the SIP URI) — the failure persists identically regardless.
-An OpenAI community thread describes the same symptom (immediate SIP 400,
-0-duration) traced to OpenAI's own gateway, not the caller's Twilio
-configuration. **Next step is confirming with OpenAI directly** (support
-ticket or their community forum, citing `OPENAI_PROJECT_ID` and a failed
-call's timestamp) whether Realtime SIP is fully provisioned for this
-project — do not assume this works end-to-end until a real call connects.
+**Status: working end-to-end, confirmed on a real call.** Getting here took
+a long diagnostic chain — five separate Twilio/SIP-layer theories were ruled
+out one at a time (caller's own number as `from`, `callToken`, trial-vs-
+upgraded Twilio account, no Elastic SIP Trunk resource existing, the
+`?X-conferenceName=` header suffix on the SIP URI) before the actual cause
+surfaced: **the OpenAI project had exhausted its API credits/had no payment
+method**, which let control-plane calls like `accept()` succeed while the
+actual live Realtime session never came up — surfacing as an immediate SIP
+400 (Twilio error 13224) with no useful signal pointing at billing. If this
+ever recurs, check the OpenAI project's billing/usage page first, before
+re-diving into Twilio-side theories.
 
 Replaces the scripted phone tree + recorded voicemail with a live, real-time
 conversation (OpenAI's `gpt-realtime-mini`), for whichever org turns on
 **Settings → AI Phone Agent → Conversation mode**. Off by default per org.
+For a caller matched by Caller ID (see "Caller recognition" above), the
+agent also gets three live tools — `get_next_visit`, `get_last_visit`,
+`get_assigned_technician` — backed by the same `lib/phone-agent-status.ts`
+logic the Dialogflow path uses, so it can answer those questions with real
+account data instead of taking a message. An unrecognized caller gets no
+tools and the agent is told explicitly not to guess account details.
 
 **Real limitations to accept before turning this on**:
 - **Cost is meaningfully higher** — roughly $0.03–0.06/min all-in versus
   ~$0.01/min for the scripted phone tree. Review `maxMinutesPerDay` before
-  enabling; that cap now has real cost weight behind it.
+  enabling; that cap now has real cost weight behind it. Keep an eye on the
+  OpenAI project's usage/billing page too, given the above.
 - **No post-call transcript endpoint exists on OpenAI's side** (confirmed
   during planning — it's an open community feature request, not shipped).
   This app captures a transcript by keeping a background connection open for
@@ -146,6 +151,13 @@ conversation (OpenAI's `gpt-realtime-mini`), for whichever org turns on
   `app/api/openai/realtime-incoming/route.ts`, ~13 minutes), the call itself
   keeps going (audio flows directly Twilio ↔ OpenAI, never through this app)
   but transcript capture stops at that point.
+- **That same background connection can take a few seconds to attach**
+  (`connectSidebandWithRetry`, up to 5 attempts over ~4s — a 200 from
+  `accept()` only means the SIP leg is ringing, not that the session is
+  fully live yet). If the model attempts one of the account-lookup tools in
+  that narrow window before the connection succeeds, that turn stalls with
+  no answer — unlikely this early in a real conversation, but a known gap,
+  not engineered around in this pass.
 - **Caller-side audio transcription over SIP has documented reliability
   gaps** in OpenAI's own community reports (the model's own responses
   transcribe reliably; the caller's speech sometimes doesn't). Mitigated by
@@ -222,11 +234,20 @@ unaffected.
     a real exchange, then hang up — confirm within a minute or two a
     `PhoneAgentCall` row shows `callStatus: COMPLETED` with a transcript and
     `aiSummary`, and the escalation email arrived.
-13. With Conversation mode on, deliberately keep a call going past ~13
+13. With Conversation mode on, call from a **recognized** number and ask
+    "when's my next visit," "has my pool been serviced," and "who's my
+    technician" in the same conversation — confirm the agent answers with
+    real data for each rather than offering to take a message, and keeps
+    talking naturally afterward.
+14. With Conversation mode on, call from an **unrecognized** number and ask
+    the same questions — confirm the agent doesn't guess or invent an
+    answer and asks for details directly instead, the same as it would for
+    a new caller.
+15. With Conversation mode on, deliberately keep a call going past ~13
     minutes — confirm the call itself continues uninterrupted, and document
     what actually happens to the transcript/ticket once the monitoring
     connection's function times out.
-14. Confirm a call for an org with Conversation mode **off** is completely
+16. Confirm a call for an org with Conversation mode **off** is completely
     unaffected — falls through to the scripted phone tree exactly as before.
 
 ## Open items to flag before wider rollout
@@ -240,11 +261,10 @@ unaffected.
   logs an error and no-ops, so a call falls through to no AI participant
   being added rather than an obvious crash. No alerting exists on this yet,
   same gap as the cost-alerting item below.
-- **Conversation mode's session config is intentionally minimal** — the
-  accept-webhook (`app/api/openai/realtime-incoming/route.ts`) only sets
-  `model`, `instructions`, and `audio.output.voice`. Turn-detection/VAD
-  tuning, tool/function calling for the agent (e.g. a live "check next visit"
-  tool instead of ending the call to look it up), and any explicit audio
+- **Conversation mode's session config is still fairly minimal** — the
+  accept-webhook (`app/api/openai/realtime-incoming/route.ts`) sets `model`,
+  `instructions`, `audio.output.voice`, and (for a recognized caller) three
+  account-lookup `tools`. Turn-detection/VAD tuning and any explicit audio
   format field were left at OpenAI's defaults rather than guessed — worth
   reviewing against OpenAI's current Realtime docs if the default VAD
   behavior feels off on a real call (e.g. cutting callers off mid-sentence).

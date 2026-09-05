@@ -2,7 +2,10 @@ import twilio from "twilio";
 import OpenAI from "openai";
 import { OpenAIRealtimeWS } from "openai/realtime/ws";
 import { finalizeCallTicket } from "@/lib/phone-agent-ticket";
-import type { OrgPhoneAgentSettings } from "@/generated/prisma/client";
+import { answerRealtimeTool } from "@/lib/phone-agent-status";
+import { WEEKDAY_KEYS, type BusinessHours } from "@/lib/phone-agent";
+import type { RealtimeFunctionTool } from "openai/resources/realtime/realtime";
+import type { OrgPhoneAgentSettings, PhoneAgentCall, PhoneAgentIssueType } from "@/generated/prisma/client";
 
 const { VoiceResponse } = twilio.twiml;
 
@@ -48,10 +51,6 @@ const SIDEBAND_CONNECT_RETRY_DELAY_MS = 1000;
 async function connectSidebandWithRetry(openaiCallId: string, client: OpenAI): Promise<OpenAIRealtimeWS | null> {
   for (let attempt = 1; attempt <= SIDEBAND_CONNECT_MAX_ATTEMPTS; attempt++) {
     const realtime = new OpenAIRealtimeWS({ callID: openaiCallId }, client);
-    console.error(
-      `[conversational AI] sideband WS connect attempt ${attempt}/${SIDEBAND_CONNECT_MAX_ATTEMPTS}`,
-      JSON.stringify({ openaiCallId, url: realtime.url.toString() }),
-    );
 
     const connected = await new Promise<boolean>((resolve) => {
       let settled = false;
@@ -67,7 +66,9 @@ async function connectSidebandWithRetry(openaiCallId: string, client: OpenAI): P
         settled = true;
         realtime.socket.off("open", onOpen);
         realtime.socket.off("error", onError);
-        console.error(`[conversational AI] sideband WS attempt ${attempt} failed:`, err);
+        // A retry succeeding after this is normal (see the function's own doc comment on
+        // the accept()/session-establishment race) -- warn, not error, per attempt.
+        console.warn(`[conversational AI] sideband WS attempt ${attempt}/${SIDEBAND_CONNECT_MAX_ATTEMPTS} failed:`, err);
         resolve(false);
       };
       // The SDK's own docs warn that a failed connection is reported as an unhandled
@@ -101,13 +102,17 @@ async function connectSidebandWithRetry(openaiCallId: string, client: OpenAI): P
  * of this writing (verified during planning) -- this live-accumulation approach is the
  * only way to get a transcript at all, not a choice made for its own sake.
  */
-export async function monitorRealtimeCallTranscript(callId: string, openaiCallId: string, client: OpenAI): Promise<void> {
+export async function monitorRealtimeCallTranscript(
+  call: Pick<PhoneAgentCall, "id" | "organizationId" | "matchedPropertyId">,
+  openaiCallId: string,
+  client: OpenAI,
+): Promise<void> {
   const lines: TranscriptLine[] = [];
 
   const realtime = await connectSidebandWithRetry(openaiCallId, client);
   if (!realtime) {
     console.error("[conversational AI] sideband WS never connected after retries -- no transcript for this call");
-    await finalizeCallTicket(callId, "(transcription unavailable)", false);
+    await finalizeCallTicket(call.id, "(transcription unavailable)", false);
     return;
   }
 
@@ -116,6 +121,20 @@ export async function monitorRealtimeCallTranscript(callId: string, openaiCallId
   });
   realtime.on("response.output_audio_transcript.done", (event) => {
     if (event.transcript.trim()) lines.push({ speaker: "Agent", text: event.transcript.trim() });
+  });
+  // Only ever registered on accept() when call.matchedPropertyId is set (see
+  // REALTIME_STATUS_TOOLS's call site in the accept-webhook) -- answerRealtimeTool's own
+  // security check (no matchedPropertyId, no answer) is a second, redundant guard, not
+  // the only one.
+  realtime.on("response.function_call_arguments.done", (event) => {
+    void (async () => {
+      const output = await answerRealtimeTool(event.name, call);
+      realtime.send({
+        type: "conversation.item.create",
+        item: { type: "function_call_output", call_id: event.call_id, output },
+      });
+      realtime.send({ type: "response.create" });
+    })();
   });
   realtime.on("error", (err) => {
     console.error("[conversational AI] realtime monitoring connection error:", err);
@@ -126,23 +145,82 @@ export async function monitorRealtimeCallTranscript(callId: string, openaiCallId
   });
 
   const rawTranscript = lines.length > 0 ? lines.map((l) => `${l.speaker}: ${l.text}`).join("\n") : "(transcription unavailable)";
-  await finalizeCallTicket(callId, rawTranscript, lines.length > 0);
+  await finalizeCallTicket(call.id, rawTranscript, lines.length > 0);
 }
 
-export function buildRealtimeInstructions(settings: Pick<OrgPhoneAgentSettings, "serviceTerritoryDescription">): string {
+const ISSUE_TYPE_SPOKEN_LABEL: Record<PhoneAgentIssueType, string> = {
+  EQUIPMENT_FAILURE: "equipment problems",
+  CHEMICAL_WATER_QUALITY: "chemical or water quality issues",
+  LEAK: "leaks",
+  NO_SHOW_COMPLAINT: "no-show complaints",
+  BILLING: "billing questions",
+  OTHER: "anything else pool-service related",
+};
+
+/** Prose rendering of OrgPhoneAgentSettings.businessHours -- lib/phone-agent.ts already
+ * parses this same JSON shape for AFTER_HOURS/BUSY_OVERFLOW framing, but has no
+ * spoken-prose renderer of its own since it never needed one until now. */
+function formatBusinessHours(hours: BusinessHours | null): string | null {
+  if (!hours) return null;
+  const dayLabel: Record<(typeof WEEKDAY_KEYS)[number], string> = {
+    sun: "Sun", mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat",
+  };
+  const parts = WEEKDAY_KEYS.filter((d) => hours[d]).map((d) => `${dayLabel[d]} ${hours[d]}`);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+export function buildRealtimeInstructions(
+  settings: Pick<OrgPhoneAgentSettings, "serviceTerritoryDescription" | "businessHours" | "allowedIssueTypes">,
+  hasAccountTools: boolean,
+): string {
   const territory = settings.serviceTerritoryDescription?.trim();
+  const hours = formatBusinessHours((settings.businessHours as BusinessHours | null) ?? null);
+  const issueTypes = settings.allowedIssueTypes.length > 0 ? settings.allowedIssueTypes.map((t) => ISSUE_TYPE_SPOKEN_LABEL[t]).join(", ") : null;
+
   return [
     "You are a friendly, efficient phone assistant for a pool service company, answering because the business's own line didn't pick up.",
     "Find out why the caller is calling: a new service request, a question about their existing service, something urgent, or just a message to pass along.",
     "For any request, get their name, the property address, and a good callback number before the call ends.",
     "If it sounds urgent (equipment failure, safety issue, contamination), say you'll flag it for an immediate callback and keep the conversation brief.",
     territory ? `Your service territory: ${territory}.` : null,
+    hours ? `Normal business hours: ${hours} (24-hour time).` : null,
+    issueTypes ? `The kinds of issues this business handles: ${issueTypes}.` : null,
     "Keep responses short and conversational, like a real phone call, not a script being read aloud.",
-    "You cannot see any account-specific details about this caller -- do not guess or invent their name, address, or service history; ask them directly.",
+    hasAccountTools
+      ? "This caller's number matches an account on file. Use the get_next_visit, get_last_visit, and get_assigned_technician tools to answer those specific questions with real information instead of saying you'll take a message -- but never guess or invent any other account detail (name, address, service history) beyond what a tool actually returns."
+      : "You cannot see any account-specific details about this caller -- do not guess or invent their name, address, or service history; ask them directly.",
   ]
     .filter(Boolean)
     .join(" ");
 }
+
+/** Registered on accept() only for a recognized caller (matchedPropertyId set) -- see
+ * app/api/openai/realtime-incoming/route.ts. No parameters: the property/org come from
+ * the already-matched PhoneAgentCall row server-side, never from anything the model or
+ * caller supplies (same reasoning as the Dialogflow fulfillment webhook -- letting the
+ * model pass an address/account identifier would let a spoofed caller query arbitrary
+ * accounts). Handled in monitorRealtimeCallTranscript's response.function_call_arguments.done
+ * listener, via lib/phone-agent-status.ts's answerRealtimeTool. */
+export const REALTIME_STATUS_TOOLS: RealtimeFunctionTool[] = [
+  {
+    type: "function",
+    name: "get_next_visit",
+    description: "Look up this caller's next scheduled service visit. Use when they ask when their next visit is.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    type: "function",
+    name: "get_last_visit",
+    description: "Look up this caller's most recently completed service visit. Use when they ask if or when their pool was last serviced.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    type: "function",
+    name: "get_assigned_technician",
+    description: "Look up which technician is assigned to this caller's property. Use when they ask who their technician is.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+];
 
 export function openaiSipUri(conferenceName: string): string {
   const projectId = process.env.OPENAI_PROJECT_ID;
