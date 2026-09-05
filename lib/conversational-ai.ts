@@ -54,6 +54,9 @@ export async function monitorRealtimeCallTranscript(callId: string, openaiCallId
   const lines: TranscriptLine[] = [];
 
   const realtime = new OpenAIRealtimeWS({ callID: openaiCallId }, client);
+  // TEMPORARY diagnostics -- OpenAI support asked for the exact call_id and the exact WS
+  // URL string logged right before connecting, to rule out a blank/malformed call_id.
+  console.error("[conversational AI DEBUG] sideband WS", JSON.stringify({ openaiCallId, url: realtime.url.toString() }));
 
   realtime.on("conversation.item.input_audio_transcription.completed", (event) => {
     if (event.transcript.trim()) lines.push({ speaker: "Caller", text: event.transcript.trim() });
