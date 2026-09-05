@@ -53,7 +53,6 @@ export async function POST(req: Request) {
 
     const conferenceJoinUrl = new URL("/api/twilio/voice/conference-join", url);
     conferenceJoinUrl.searchParams.set("orgId", orgId);
-    conferenceJoinUrl.searchParams.set("callerNumber", callerNumber);
     // The "join" status callback fires again when OpenAI's own SIP leg joins this same
     // conference (a distinct CallSid Twilio assigns to that new participant) -- carrying
     // the original CallSid lets that handler recognize its own trigger call and ignore

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { verifyTwilioSignature, publicRequestUrl, readTwilioParams } from "@/lib/twilio-verify";
 import { getTwilioClient } from "@/lib/twilio-client";
 import { openaiSipUri } from "@/lib/conversational-ai";
@@ -21,10 +22,10 @@ export async function POST(req: Request) {
 
   const searchParams = new URL(req.url).searchParams;
   const originalCallSid = searchParams.get("originalCallSid");
-  const callerNumber = searchParams.get("callerNumber");
+  const orgId = searchParams.get("orgId");
   const conferenceSid = params.ConferenceSid;
 
-  if (!originalCallSid || !callerNumber || !conferenceSid || params.CallSid !== originalCallSid) {
+  if (!originalCallSid || !orgId || !conferenceSid || params.CallSid !== originalCallSid) {
     // Either malformed, or this is the OpenAI leg's own join firing the same callback --
     // nothing to do either way.
     return new NextResponse(null, { status: 204 });
@@ -36,16 +37,26 @@ export async function POST(req: Request) {
     return new NextResponse(null, { status: 204 });
   }
 
+  // `from`, when formatted as a phone number, must be a number this Twilio account owns
+  // or has verified as an outgoing caller ID -- confirmed via runtime diagnostics
+  // (Twilio error 13224 "invalid phone number format") that the original caller's own
+  // cell number fails this check outright, regardless of callToken. The org's own Twilio
+  // number is the one number guaranteed to qualify.
+  const settings = await prisma.orgPhoneAgentSettings.findUnique({
+    where: { organizationId: orgId },
+    select: { twilioPhoneNumber: true },
+  });
+  if (!settings?.twilioPhoneNumber) {
+    console.error("[conversational AI] no twilioPhoneNumber configured for org", orgId);
+    return new NextResponse(null, { status: 204 });
+  }
+
   try {
-    // callToken deliberately omitted -- confirmed via runtime diagnostics that passing it
-    // alongside a `to` that's a SIP address (not a phone number) makes Twilio reject the
-    // whole request with error 13224 "invalid phone number format" (callToken exists for
-    // preserving Caller ID on a phone-to-phone forwarded call, not a SIP dial).
     const participant = await client.conferences(conferenceSid).participants.create({
-      from: callerNumber,
+      from: settings.twilioPhoneNumber,
       to: openaiSipUri(params.FriendlyName ?? ""),
       // TEMPORARY diagnostics -- see app/api/twilio/voice/sip-participant-status/route.ts.
-      // Remove both once we understand why the caller still hears ringing-then-busy.
+      // Remove both once a call is confirmed connecting end to end.
       statusCallback: new URL("/api/twilio/voice/sip-participant-status", url).toString(),
       statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
     });
