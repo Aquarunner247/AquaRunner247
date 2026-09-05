@@ -37,6 +37,51 @@ export function findSipHeader(headers: { name: string; value: string }[], name: 
  * system's only authentication factor and can be spoofed. */
 type TranscriptLine = { speaker: "Caller" | "Agent"; text: string };
 
+const SIDEBAND_CONNECT_MAX_ATTEMPTS = 5;
+const SIDEBAND_CONNECT_RETRY_DELAY_MS = 1000;
+
+/** A 200 from accept() only means the SIP leg is ringing and the Realtime session is
+ * being established -- attaching the sideband WebSocket immediately after can race that
+ * setup and 404 (per OpenAI support). Retries with a fresh connection attempt each time
+ * (a socket that's already errored/closed can't be reused), up to ~4s total, which is
+ * within OpenAI's own suggested 2-5s window. */
+async function connectSidebandWithRetry(openaiCallId: string, client: OpenAI): Promise<OpenAIRealtimeWS | null> {
+  for (let attempt = 1; attempt <= SIDEBAND_CONNECT_MAX_ATTEMPTS; attempt++) {
+    const realtime = new OpenAIRealtimeWS({ callID: openaiCallId }, client);
+    console.error(
+      `[conversational AI] sideband WS connect attempt ${attempt}/${SIDEBAND_CONNECT_MAX_ATTEMPTS}`,
+      JSON.stringify({ openaiCallId, url: realtime.url.toString() }),
+    );
+
+    const connected = await new Promise<boolean>((resolve) => {
+      let settled = false;
+      const onOpen = () => {
+        if (settled) return;
+        settled = true;
+        realtime.socket.off("open", onOpen);
+        realtime.socket.off("error", onError);
+        resolve(true);
+      };
+      const onError = (err: unknown) => {
+        if (settled) return;
+        settled = true;
+        realtime.socket.off("open", onOpen);
+        realtime.socket.off("error", onError);
+        console.error(`[conversational AI] sideband WS attempt ${attempt} failed:`, err);
+        resolve(false);
+      };
+      realtime.socket.on("open", onOpen);
+      realtime.socket.on("error", onError);
+    });
+
+    if (connected) return realtime;
+    if (attempt < SIDEBAND_CONNECT_MAX_ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, SIDEBAND_CONNECT_RETRY_DELAY_MS));
+    }
+  }
+  return null;
+}
+
 /**
  * Attaches to an already-accepted Realtime SIP call (see
  * app/api/openai/realtime-incoming/route.ts) purely to accumulate a transcript for the
@@ -53,10 +98,12 @@ type TranscriptLine = { speaker: "Caller" | "Agent"; text: string };
 export async function monitorRealtimeCallTranscript(callId: string, openaiCallId: string, client: OpenAI): Promise<void> {
   const lines: TranscriptLine[] = [];
 
-  const realtime = new OpenAIRealtimeWS({ callID: openaiCallId }, client);
-  // TEMPORARY diagnostics -- OpenAI support asked for the exact call_id and the exact WS
-  // URL string logged right before connecting, to rule out a blank/malformed call_id.
-  console.error("[conversational AI DEBUG] sideband WS", JSON.stringify({ openaiCallId, url: realtime.url.toString() }));
+  const realtime = await connectSidebandWithRetry(openaiCallId, client);
+  if (!realtime) {
+    console.error("[conversational AI] sideband WS never connected after retries -- no transcript for this call");
+    await finalizeCallTicket(callId, "(transcription unavailable)", false);
+    return;
+  }
 
   realtime.on("conversation.item.input_audio_transcription.completed", (event) => {
     if (event.transcript.trim()) lines.push({ speaker: "Caller", text: event.transcript.trim() });
