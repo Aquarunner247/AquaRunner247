@@ -214,7 +214,7 @@ export default async function PhoneAgentSettingsPage({ searchParams }: PageProps
                 name="busyOverflowGreeting"
                 rows={2}
                 defaultValue={settings?.busyOverflowGreeting ?? ""}
-                placeholder="We're unable to take your call right now."
+                placeholder="Our team's on other calls right now."
                 className="app-field mt-1"
               />
             </label>

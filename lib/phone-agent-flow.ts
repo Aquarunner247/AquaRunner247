@@ -160,7 +160,12 @@ export function phoneTreeTwiml(
   matched: boolean,
 ): string {
   const configuredGreeting = routedAs === "AFTER_HOURS" ? settings.afterHoursGreeting : settings.busyOverflowGreeting;
-  const defaultGreeting = routedAs === "AFTER_HOURS" ? "We're closed right now." : "We're unable to take your call right now.";
+  // "We're unable to take your call" would be false the moment it's spoken -- this system
+  // just picked up and is about to gather the caller's info, the same self-contradiction
+  // fixed for the conversational-AI path's greeting (lib/conversational-ai.ts's
+  // situationPhrase). "We're closed" has no such problem -- being closed doesn't preclude
+  // an automated after-hours line, same as any real voicemail greeting.
+  const defaultGreeting = routedAs === "AFTER_HOURS" ? "We're closed right now." : "Our team's on other calls right now.";
   const greeting = configuredGreeting ?? defaultGreeting;
 
   const response = new VoiceResponse();
