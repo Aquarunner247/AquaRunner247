@@ -271,20 +271,32 @@ unaffected.
   ~4.9s ceiling, but the greeting still can't start until OpenAI's own
   server-side session setup finishes — that floor (their own docs suggest
   2-5s) isn't something client-side polling can shrink further.
-- **Auto-response is deliberately off until the opening greeting finishes** —
-  `accept()` sets `audio.input.turn_detection.create_response: false` so
-  caller-side audio/noise can't trigger a spurious auto-reply that races
-  (and garbles) the forced greeting; `monitorRealtimeCallTranscript` flips
-  it back to `true` on the greeting's `response.done` (with an 8s timeout
-  safety net in case that event never arrives — otherwise the whole rest of
-  the call would go silently unresponsive). If a real call still shows a
-  garbled or doubled-up opening, that timeout/event-ordering is the first
-  place to look. Everything else in the session config (`model`,
-  `audio.output.voice`, VAD thresholds/silence duration once auto-response
-  is back on, and the three account-lookup `tools` for a recognized caller)
-  is still at OpenAI's defaults or this file's own minimal set — worth
-  reviewing against OpenAI's current Realtime docs if turn-taking feels off
-  on a real call (e.g. cutting callers off mid-sentence).
+- **A garbled/out-of-order opening reply is a known, NOT-yet-fixed risk** —
+  a real call showed a few words spoken before the agent ever mentioned the
+  business name, most likely server VAD auto-firing a reply to caller-side
+  audio/noise in the ~0-4.9s window before the forced greeting
+  (`response.create` in `monitorRealtimeCallTranscript`) goes out. A first
+  attempt at fixing this (disabling `audio.input.turn_detection.create_response`
+  at accept() and re-enabling it via a `session.update` on the greeting's
+  `response.done`) was tried and **reverted** the same day — on a real call,
+  the caller's very next question after the greeting got no response at
+  all, meaning create_response never actually got flipped back on. Root
+  cause unconfirmed: `response.done` firing on generation-complete rather
+  than audio-playback-complete, `session.update` not behaving the same way
+  for a SIP call accepted via `calls.accept()` vs. the SDK's primary
+  documented flow, or something else entirely -- not verified against a
+  live call before shipping, which is exactly why it broke one. Any retry
+  of this fix needs an actual test call confirming auto-response survives
+  past the greeting before it ships again, not just a clean `tsc`/eslint
+  pass. Current behavior (as of this note) is the pre-fix baseline: normal
+  VAD auto-response the whole call, occasional garbled opening accepted as
+  the lesser risk vs. a call going silent.
+- Everything else in the session config (`model`, `audio.output.voice`, VAD
+  thresholds/silence duration, and the three account-lookup `tools` for a
+  recognized caller) is still at OpenAI's defaults or this file's own
+  minimal set — worth reviewing against OpenAI's current Realtime docs if
+  turn-taking feels off on a real call (e.g. cutting callers off
+  mid-sentence).
 - **A recognized caller is told never to be asked for name/address again**
   (`buildRealtimeInstructions`) — the account-lookup tools already prove who
   they are. If a future account-lookup tool is added, keep this framing in

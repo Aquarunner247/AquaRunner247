@@ -120,26 +120,6 @@ export async function monitorRealtimeCallTranscript(
     return;
   }
 
-  // The session is accepted with turn_detection.create_response: false (see
-  // realtime-incoming/route.ts's accept() call) specifically so nothing can auto-fire off
-  // caller-side audio/noise before this forced greeting goes out -- otherwise a caller who
-  // makes any sound in the ~0-4.9s sideband-attach window could get a garbled, out-of-order
-  // reply before the agent ever introduces itself. Re-enable auto-response as soon as this
-  // first response finishes so every later caller turn still gets a normal, low-latency
-  // automatic reply. The timeout is a safety net only: if response.done never arrives for
-  // some reason, leaving auto-response off for the rest of the call would silently kill it.
-  let autoResponseReenabled = false;
-  const reenableAutoResponse = () => {
-    if (autoResponseReenabled) return;
-    autoResponseReenabled = true;
-    realtime.send({
-      type: "session.update",
-      session: { type: "realtime", audio: { input: { turn_detection: { type: "server_vad", create_response: true } } } },
-    });
-  };
-  realtime.on("response.done", reenableAutoResponse);
-  setTimeout(reenableAutoResponse, 8000);
-
   // Without this, the model just waits on server VAD for the caller to speak first --
   // normal phone etiquette is the opposite (whoever picks up greets first), and the
   // caller has no way to know they've reached an AI agent rather than dead air. Fires as
