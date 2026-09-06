@@ -271,13 +271,25 @@ unaffected.
   ~4.9s ceiling, but the greeting still can't start until OpenAI's own
   server-side session setup finishes — that floor (their own docs suggest
   2-5s) isn't something client-side polling can shrink further.
-- **Conversation mode's session config is still fairly minimal** — the
-  accept-webhook (`app/api/openai/realtime-incoming/route.ts`) sets `model`,
-  `instructions`, `audio.output.voice`, and (for a recognized caller) three
-  account-lookup `tools`. Turn-detection/VAD tuning and any explicit audio
-  format field were left at OpenAI's defaults rather than guessed — worth
-  reviewing against OpenAI's current Realtime docs if the default VAD
-  behavior feels off on a real call (e.g. cutting callers off mid-sentence).
+- **Auto-response is deliberately off until the opening greeting finishes** —
+  `accept()` sets `audio.input.turn_detection.create_response: false` so
+  caller-side audio/noise can't trigger a spurious auto-reply that races
+  (and garbles) the forced greeting; `monitorRealtimeCallTranscript` flips
+  it back to `true` on the greeting's `response.done` (with an 8s timeout
+  safety net in case that event never arrives — otherwise the whole rest of
+  the call would go silently unresponsive). If a real call still shows a
+  garbled or doubled-up opening, that timeout/event-ordering is the first
+  place to look. Everything else in the session config (`model`,
+  `audio.output.voice`, VAD thresholds/silence duration once auto-response
+  is back on, and the three account-lookup `tools` for a recognized caller)
+  is still at OpenAI's defaults or this file's own minimal set — worth
+  reviewing against OpenAI's current Realtime docs if turn-taking feels off
+  on a real call (e.g. cutting callers off mid-sentence).
+- **A recognized caller is told never to be asked for name/address again**
+  (`buildRealtimeInstructions`) — the account-lookup tools already prove who
+  they are. If a future account-lookup tool is added, keep this framing in
+  mind: re-asking for identity after already answering from matched data
+  reads as broken to the caller, not cautious.
 - **No per-org cost alerting on the new, higher conversational-AI rate** —
   `maxMinutesPerDay` caps total minutes but nothing surfaces actual spend.
   Worth adding before recommending this mode to a real paying org.

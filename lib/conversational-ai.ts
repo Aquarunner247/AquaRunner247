@@ -120,10 +120,30 @@ export async function monitorRealtimeCallTranscript(
     return;
   }
 
+  // The session is accepted with turn_detection.create_response: false (see
+  // realtime-incoming/route.ts's accept() call) specifically so nothing can auto-fire off
+  // caller-side audio/noise before this forced greeting goes out -- otherwise a caller who
+  // makes any sound in the ~0-4.9s sideband-attach window could get a garbled, out-of-order
+  // reply before the agent ever introduces itself. Re-enable auto-response as soon as this
+  // first response finishes so every later caller turn still gets a normal, low-latency
+  // automatic reply. The timeout is a safety net only: if response.done never arrives for
+  // some reason, leaving auto-response off for the rest of the call would silently kill it.
+  let autoResponseReenabled = false;
+  const reenableAutoResponse = () => {
+    if (autoResponseReenabled) return;
+    autoResponseReenabled = true;
+    realtime.send({
+      type: "session.update",
+      session: { type: "realtime", audio: { input: { turn_detection: { type: "server_vad", create_response: true } } } },
+    });
+  };
+  realtime.on("response.done", reenableAutoResponse);
+  setTimeout(reenableAutoResponse, 8000);
+
   // Without this, the model just waits on server VAD for the caller to speak first --
   // normal phone etiquette is the opposite (whoever picks up greets first), and the
   // caller has no way to know they've reached an AI agent rather than dead air. Fires as
-  // soon as the sideband WS attaches (same ~0-4s race window as the attach itself, see
+  // soon as the sideband WS attaches (same ~0-4.9s race window as the attach itself, see
   // connectSidebandWithRetry's doc comment) -- a short delay before the greeting starts is
   // an accepted tradeoff of this architecture, not something worth engineering around here.
   realtime.send({ type: "response.create" });
@@ -196,15 +216,14 @@ export function buildRealtimeInstructions(
       ? `As soon as the call connects, immediately greet the caller by name-dropping the business: say something like "Thanks for calling ${organizationName}, sorry we missed you -- how can I help?" Don't wait for the caller to speak first.`
       : "As soon as the call connects, immediately greet the caller and apologize that the business's line didn't pick up. Don't wait for the caller to speak first.",
     "Find out why the caller is calling: a new service request, a question about their existing service, something urgent, or just a message to pass along.",
-    "For any request, get their name, the property address, and a good callback number before the call ends.",
+    hasAccountTools
+      ? "This caller's number is already matched to an account on file, so you already know who they are -- never ask for their name or property address, that would be redundant and strange to a caller you've clearly already recognized. Their caller-ID number is a valid callback number by default; only ask for a different one if they specifically want to be reached elsewhere. Use the get_next_visit, get_last_visit, and get_assigned_technician tools to answer those specific questions directly with real information instead of saying you'll take a message. Once you've answered, don't keep asking qualifying questions unless they raise something new -- but never guess or invent any other account detail (name, address, service history) beyond what a tool actually returns."
+      : "For any request, get their name, the property address, and a good callback number before the call ends. You cannot see any account-specific details about this caller -- do not guess or invent their name, address, or service history; ask them directly.",
     "If it sounds urgent (equipment failure, safety issue, contamination), say you'll flag it for an immediate callback and keep the conversation brief.",
     territory ? `Your service territory: ${territory}.` : null,
     hours ? `Normal business hours: ${hours} (24-hour time).` : null,
     issueTypes ? `The kinds of issues this business handles: ${issueTypes}.` : null,
     "Keep responses short and conversational, like a real phone call, not a script being read aloud.",
-    hasAccountTools
-      ? "This caller's number matches an account on file. Use the get_next_visit, get_last_visit, and get_assigned_technician tools to answer those specific questions with real information instead of saying you'll take a message -- but never guess or invent any other account detail (name, address, service history) beyond what a tool actually returns."
-      : "You cannot see any account-specific details about this caller -- do not guess or invent their name, address, or service history; ask them directly.",
   ]
     .filter(Boolean)
     .join(" ");

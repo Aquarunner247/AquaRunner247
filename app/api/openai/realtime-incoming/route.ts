@@ -84,7 +84,11 @@ export async function POST(req: Request) {
         hasAccountTools,
         organizationName,
       ),
-      audio: { output: { voice: "marin" } },
+      // create_response: false -- without this, server VAD can auto-fire a reply to
+      // whatever the caller says (or just noise) before our own forced greeting ever goes
+      // out (see monitorRealtimeCallTranscript's initial response.create), producing an
+      // out-of-order/garbled opening. Re-enabled once that greeting finishes.
+      audio: { input: { turn_detection: { type: "server_vad", create_response: false } }, output: { voice: "marin" } },
       tools: hasAccountTools ? REALTIME_STATUS_TOOLS : undefined,
     });
 
