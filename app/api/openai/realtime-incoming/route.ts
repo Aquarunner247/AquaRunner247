@@ -83,6 +83,7 @@ export async function POST(req: Request) {
         settings ?? { serviceTerritoryDescription: null, businessHours: null, allowedIssueTypes: [] },
         hasAccountTools,
         organizationName,
+        call?.routedAs ?? "BUSY_OVERFLOW",
       ),
       // near_field noise reduction + a slightly raised VAD threshold: both run before
       // anything decides whether to respond, so unlike create_response (see the revert

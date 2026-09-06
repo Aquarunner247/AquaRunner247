@@ -5,7 +5,7 @@ import { finalizeCallTicket } from "@/lib/phone-agent-ticket";
 import { answerRealtimeTool } from "@/lib/phone-agent-status";
 import { WEEKDAY_KEYS, type BusinessHours } from "@/lib/phone-agent";
 import type { RealtimeFunctionTool } from "openai/resources/realtime/realtime";
-import type { OrgPhoneAgentSettings, PhoneAgentCall, PhoneAgentIssueType } from "@/generated/prisma/client";
+import type { OrgPhoneAgentSettings, PhoneAgentCall, PhoneAgentIssueType, PhoneAgentRouteReason } from "@/generated/prisma/client";
 
 const { VoiceResponse } = twilio.twiml;
 
@@ -181,20 +181,31 @@ function formatBusinessHours(hours: BusinessHours | null): string | null {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
+/** Accurate framing for why the AI (not a human) picked up -- reused from the exact same
+ * distinction the Dialogflow phone-tree path already makes (lib/phone-agent-flow.ts's
+ * phoneTreeTwiml/resolveRouteReason). "Sorry we missed you" is simply false here: the call
+ * WAS answered, just not by a person -- saying so is a caller-facing self-contradiction. */
+function situationPhrase(routedAs: PhoneAgentRouteReason): string {
+  return routedAs === "AFTER_HOURS" ? "we're closed right now" : "our team's on other calls right now";
+}
+
 export function buildRealtimeInstructions(
   settings: Pick<OrgPhoneAgentSettings, "serviceTerritoryDescription" | "businessHours" | "allowedIssueTypes">,
   hasAccountTools: boolean,
   organizationName: string | null,
+  routedAs: PhoneAgentRouteReason,
 ): string {
   const territory = settings.serviceTerritoryDescription?.trim();
   const hours = formatBusinessHours((settings.businessHours as BusinessHours | null) ?? null);
   const issueTypes = settings.allowedIssueTypes.length > 0 ? settings.allowedIssueTypes.map((t) => ISSUE_TYPE_SPOKEN_LABEL[t]).join(", ") : null;
+  const situation = situationPhrase(routedAs);
 
   return [
     "You are a friendly, efficient phone assistant for a pool service company, answering because the business's own line didn't pick up.",
     organizationName
-      ? `As soon as the call connects, immediately greet the caller by name-dropping the business: say something like "Thanks for calling ${organizationName}, sorry we missed you -- how can I help?" Don't wait for the caller to speak first.`
-      : "As soon as the call connects, immediately greet the caller and apologize that the business's line didn't pick up. Don't wait for the caller to speak first.",
+      ? `As soon as the call connects, immediately greet the caller by name-dropping the business: say something like "Thanks for calling ${organizationName}, ${situation} -- how can I help?" Don't wait for the caller to speak first. Never phrase this as an apology for having missed the call or as "sorry we missed you" -- you DID answer, just not a person, so that phrasing would directly contradict what's happening.`
+      : `As soon as the call connects, immediately greet the caller: say something like "Thanks for calling, ${situation} -- how can I help?" Don't wait for the caller to speak first. Never phrase this as an apology for having missed the call -- you DID answer, just not a person.`,
+    "Don't repeat filler phrases like \"thanks for your patience\" or apologize for delays -- there usually isn't one, and repeating it sounds robotic and strange.",
     "Find out why the caller is calling: a new service request, a question about their existing service, something urgent, or just a message to pass along.",
     hasAccountTools
       ? "This caller's number is already matched to an account on file, so you already know who they are -- never ask for their name or property address, that would be redundant and strange to a caller you've clearly already recognized. Their caller-ID number is a valid callback number by default; only ask for a different one if they specifically want to be reached elsewhere. Use the get_next_visit, get_last_visit, and get_assigned_technician tools to answer those specific questions directly with real information instead of saying you'll take a message. Once you've answered, don't keep asking qualifying questions unless they raise something new -- but never guess or invent any other account detail (name, address, service history) beyond what a tool actually returns."
