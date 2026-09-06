@@ -291,6 +291,15 @@ unaffected.
   pass. Current behavior (as of this note) is the pre-fix baseline: normal
   VAD auto-response the whole call, occasional garbled opening accepted as
   the lesser risk vs. a call going silent.
+  Mitigated (not eliminated) since then by tightening `accept()`'s
+  `audio.input` config: `noise_reduction: { type: "near_field" }` (correct
+  choice for a phone handset, vs. `far_field` for a room/conference mic)
+  and `turn_detection.threshold` raised from the 0.5 default to 0.6, both
+  aimed at background noise/line static getting misread as the caller
+  talking. Neither touches `create_response`, so neither can reproduce the
+  silent-call regression above. This doesn't fix the case where the caller
+  says real words before the forced greeting fires -- that's a genuine
+  ordering race, not a noise-classification problem, and is still open.
 - Everything else in the session config (`model`, `audio.output.voice`, VAD
   thresholds/silence duration, and the three account-lookup `tools` for a
   recognized caller) is still at OpenAI's defaults or this file's own

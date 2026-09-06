@@ -84,7 +84,22 @@ export async function POST(req: Request) {
         hasAccountTools,
         organizationName,
       ),
-      audio: { output: { voice: "marin" } },
+      // near_field noise reduction + a slightly raised VAD threshold: both run before
+      // anything decides whether to respond, so unlike create_response (see the revert
+      // this replaces -- git blame this line) they can't cause the model to go silent for
+      // the rest of a call if something about them doesn't behave as expected. Aimed at
+      // the "she said something weird before mentioning the business" report -- a caller
+      // picking up a landline/mobile handset is close-talking (near_field), not a
+      // room/conference mic (far_field), and threshold 0.6 (default 0.5) asks for
+      // somewhat louder audio before treating it as speech, both cutting down on
+      // background noise/line static getting misread as a caller talking. Doesn't fully
+      // eliminate the race if the caller says real words before the forced greeting
+      // fires -- that's a genuine ordering problem noise filtering can't touch, still
+      // open in phone-agent-setup.md.
+      audio: {
+        input: { noise_reduction: { type: "near_field" }, turn_detection: { type: "server_vad", threshold: 0.6 } },
+        output: { voice: "marin" },
+      },
       tools: hasAccountTools ? REALTIME_STATUS_TOOLS : undefined,
     });
 
