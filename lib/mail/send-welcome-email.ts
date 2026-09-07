@@ -136,7 +136,7 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
     await logSend(params, "failed", "RESEND_API_KEY not set");
     return { ok: false, reason: "Email failed to send." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
   const resend = new Resend(apiKey);
 
   const result = await resend.emails.send({
