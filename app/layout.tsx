@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
 import Script from "next/script";
+import { headers } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SideNav } from "./components/side-nav";
@@ -43,6 +44,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Set by middleware.ts alongside the Content-Security-Policy response header -- passed
+  // to the two <Script> tags below so they're allowed under the nonce-based script-src
+  // instead of needing 'unsafe-inline'.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -68,8 +74,8 @@ export default async function RootLayout({
       <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="anonymous" />
       <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap" rel="stylesheet" />
       <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased">
-        <Script src="https://www.googletagmanager.com/gtag/js?id=G-T91TBD4WF1" strategy="afterInteractive" />
-        <Script id="google-analytics" strategy="afterInteractive">
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-T91TBD4WF1" strategy="afterInteractive" nonce={nonce} />
+        <Script id="google-analytics" strategy="afterInteractive" nonce={nonce}>
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}

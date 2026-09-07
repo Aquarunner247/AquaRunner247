@@ -10,6 +10,9 @@
 
 # testing
 /coverage
+# Playwright MCP's own screenshots/snapshots/console logs from manual browser testing --
+# local scratch output, never meant to be committed
+/.playwright-mcp/
 
 # next.js
 /.next/

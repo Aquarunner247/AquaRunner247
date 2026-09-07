@@ -2,9 +2,16 @@ import { createServerClient } from "@supabase/ssr";
 import type { SetAllCookies } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function updateSession(request: NextRequest) {
+/**
+ * `requestHeaders` defaults to the incoming request's own headers, but the top-level
+ * middleware.ts passes in a copy with `x-nonce` added (for the CSP nonce -- see that
+ * file), which needs to survive every `NextResponse.next({request})` this function
+ * constructs so app/layout.tsx can read it back out via headers(). Passed through as-is,
+ * not merged with `request.headers` again, since the caller already built it from those.
+ */
+export async function updateSession(request: NextRequest, requestHeaders: Headers = new Headers(request.headers)) {
   let supabaseResponse = NextResponse.next({
-    request,
+    request: { headers: requestHeaders },
   });
 
   const supabase = createServerClient(
@@ -18,7 +25,7 @@ export async function updateSession(request: NextRequest) {
         setAll(cookiesToSet: Parameters<SetAllCookies>[0]) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
-            request,
+            request: { headers: requestHeaders },
           });
           cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options));
         },

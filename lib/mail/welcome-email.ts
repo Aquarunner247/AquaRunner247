@@ -64,10 +64,29 @@ function assertHttpsUrl(url: string, label: string): void {
   }
 }
 
+/** logoUrl specifically (never activationUrl -- that check stays strictly https-only, it's
+ * the actual bearer-credential link) also accepts blob: -- the branding settings page's
+ * live preview (branding-form.tsx) passes URL.createObjectURL(selectedFile) here for
+ * instant local preview before a file is ever uploaded/saved. A blob: URL only exists in
+ * the browser tab that created it and is never what actually gets stored/sent -- the real
+ * send path (lib/mail/send-welcome-email.ts) only ever supplies a real https:// Supabase
+ * Storage URL pulled from the database, so this can't leak into an actual sent email. */
+function assertValidLogoUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`logoUrl is not a valid URL: ${url}`);
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "blob:") {
+    throw new Error(`logoUrl must be https:// (or a local blob: preview) -- refusing to send. Got: ${url}`);
+  }
+}
+
 export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; html: string; text: string } {
   // Fail closed: never send an email with a non-https activation link.
   assertHttpsUrl(data.activationUrl, "activationUrl");
-  if (data.logoUrl) assertHttpsUrl(data.logoUrl, "logoUrl");
+  if (data.logoUrl) assertValidLogoUrl(data.logoUrl);
 
   const orgName = escapeHtml(data.orgName);
   const firstName = escapeHtml(data.customerFirstName || "there");
