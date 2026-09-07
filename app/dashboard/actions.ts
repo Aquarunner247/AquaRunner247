@@ -76,6 +76,31 @@ export async function addAdHocStop(formData: FormData) {
     }
   }
 
+  // Assigned to a technician means this stop now has a place in that day's interleaved
+  // list (see route-day-view.tsx) -- give it a real position at the end rather than
+  // leaving it unsequenced, so it shows up in the list immediately and is draggable from
+  // there. Left null when unassigned: there's no single day's list for it to belong to yet
+  // (see AdHocStop.routeSequence's own doc comment).
+  let routeSequence: number | null = null;
+  if (technicianId) {
+    const dayStart = new Date(scheduledDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(scheduledDate);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const [maxVisitSeq, maxAdHocSeq] = await Promise.all([
+      prisma.serviceVisit.aggregate({
+        where: { organizationId: appUser.organizationId, technicianId, scheduledStart: { gte: dayStart, lte: dayEnd } },
+        _max: { routeSequence: true },
+      }),
+      prisma.adHocStop.aggregate({
+        where: { organizationId: appUser.organizationId, technicianId, scheduledDate: { gte: dayStart, lte: dayEnd } },
+        _max: { routeSequence: true },
+      }),
+    ]);
+    routeSequence = Math.max(maxVisitSeq._max.routeSequence ?? -1, maxAdHocSeq._max.routeSequence ?? -1) + 1;
+  }
+
   await prisma.adHocStop.create({
     data: {
       organizationId: appUser.organizationId,
@@ -83,6 +108,7 @@ export async function addAdHocStop(formData: FormData) {
       propertyId,
       scheduledDate,
       description,
+      routeSequence,
       createdByUserId: appUser.id,
     },
   });

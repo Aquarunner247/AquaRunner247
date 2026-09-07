@@ -6,7 +6,7 @@ import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
 import { RouteDayView } from "@/app/components/route-day-view";
 import { getOrgPlanAccess } from "@/lib/plan-tiers";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
-import { addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
+import { addAdHocStop } from "@/app/dashboard/actions";
 import { AdminSchedule } from "./admin-schedule";
 
 type PageProps = {
@@ -154,6 +154,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             status: true,
             scheduledStart: true,
             startedAt: true,
+            routeSequence: true,
             property: {
               select: { id: true, name: true, addressLine1: true, city: true, region: true, latitude: true, longitude: true },
             },
@@ -180,7 +181,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
       : prisma.adHocStop.findMany({
           where: { organizationId: appUser.organizationId, technicianId: appUser.id, scheduledDate: { gte: startOfDay, lte: endOfDay } },
           orderBy: [{ completed: "asc" }, { createdAt: "asc" }],
-          select: { id: true, description: true, completed: true, property: { select: { name: true } } },
+          select: { id: true, description: true, completed: true, routeSequence: true, createdAt: true, property: { select: { name: true } } },
         }),
     tab === "week"
       ? Promise.resolve([])
@@ -189,7 +190,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
   // Always computed from the full, unfiltered day -- the tile counts must stay stable
   // regardless of which filter is currently active (same convention as an inbox's unread
-  // badge not changing depending on which folder is open).
+  // badge not changing depending on which folder is open). Ad-hoc stops (errands, not
+  // chemistry jobs) were never part of these counts and still aren't.
   const stats = {
     total: routeStops.length,
     completed: routeStops.filter((v) => v.status === "COMPLETED").length,
@@ -197,6 +199,43 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     pending: routeStops.filter((v) => v.status === "SCHEDULED").length,
     skipped: routeStops.filter((v) => v.status === "CANCELLED").length,
   };
+
+  // Interleaves ad-hoc stops into the same ordered list as real visits (see
+  // route-day-view.tsx's DayItem) -- every ad-hoc stop here is already scoped to this
+  // technician, so no split is needed (unlike the admin page, which may be viewing a
+  // combined or a different technician's day). Sorted here, not in the DB query, because
+  // the shared sequence spans two separate tables that can't be ordered together in one
+  // Prisma query. routeSequence is null for a legacy ad-hoc stop created before this field
+  // existed -- sorts after everything with a real position, tie-broken by creation order.
+  type DayItemInput = { kind: "visit"; sequence: number; tiebreak: number; visit: (typeof dayVisits)[number] } | { kind: "adhoc"; sequence: number; tiebreak: number; stop: (typeof adHocStops)[number] };
+  const combined: DayItemInput[] = [
+    ...dayVisits.map((v) => ({ kind: "visit" as const, sequence: v.routeSequence, tiebreak: v.scheduledStart.getTime(), visit: v })),
+    ...adHocStops.map((s) => ({ kind: "adhoc" as const, sequence: s.routeSequence ?? Number.MAX_SAFE_INTEGER, tiebreak: s.createdAt.getTime(), stop: s })),
+  ];
+  combined.sort((a, b) => a.sequence - b.sequence || a.tiebreak - b.tiebreak);
+  const scheduleItems = combined.map((c) =>
+    c.kind === "visit"
+      ? {
+          kind: "visit" as const,
+          id: c.visit.id,
+          status: c.visit.status,
+          propertyId: c.visit.property.id,
+          propertyName: c.visit.property.name,
+          bodyName: c.visit.bodyOfWater.name,
+          address: [c.visit.property.addressLine1, c.visit.property.city, c.visit.property.region].filter(Boolean).join(", "),
+          scheduledStart: c.visit.scheduledStart.toISOString(),
+          startedAt: c.visit.startedAt ? c.visit.startedAt.toISOString() : null,
+          latitude: c.visit.property.latitude != null ? Number(c.visit.property.latitude) : null,
+          longitude: c.visit.property.longitude != null ? Number(c.visit.property.longitude) : null,
+        }
+      : {
+          kind: "adhoc" as const,
+          id: c.stop.id,
+          description: c.stop.description,
+          completed: c.stop.completed,
+          propertyName: c.stop.property?.name ?? null,
+        },
+  );
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl pb-24">
@@ -287,7 +326,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
         ) : (
           <>
             <RouteDayView
-              visits={routeStops}
+              items={scheduleItems}
               proAccess={proAccess}
               statusFilter={statusFilter}
               // Reordering a filtered subset doesn't have coherent semantics against the
@@ -303,35 +342,10 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
             {tab !== "map" ? (
               <div data-tour="schedule-extra-stops" className="app-card mt-4">
-                <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-brand-primary">Extra stops</p>
-                {adHocStops.length === 0 ? (
-                  <p className="mt-2 text-sm text-brand-muted">No extra stops for this day.</p>
-                ) : (
-                  <ul className="mt-2 space-y-1.5">
-                    {adHocStops.map((s) => (
-                      <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-border bg-brand-surface px-3 py-2 text-sm">
-                        <span className={s.completed ? "text-brand-muted line-through" : "text-brand-ink"}>
-                          {s.description}
-                          {s.property ? ` — ${s.property.name}` : ""}
-                        </span>
-                        <span className="flex items-center gap-2">
-                          <form action={toggleAdHocStop}>
-                            <input type="hidden" name="stopId" value={s.id} />
-                            <button type="submit" className="app-btn-ghost-sm">
-                              {s.completed ? "Undo" : "Done"}
-                            </button>
-                          </form>
-                          <form action={deleteAdHocStop}>
-                            <input type="hidden" name="stopId" value={s.id} />
-                            <button type="submit" className="app-btn-danger-sm">
-                              Delete
-                            </button>
-                          </form>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-brand-primary">Add an extra stop</p>
+                <p className="mt-1 text-xs text-brand-muted">
+                  Errands that aren&rsquo;t a service visit, e.g. a pool store run — added here, they show up in the list above, in position, and can be dragged like any other stop.
+                </p>
                 <form id="add-stop-form" action={addAdHocStop} className="mt-3 flex flex-wrap items-center gap-2 rounded border border-brand-border bg-brand-foam p-2">
                   <input type="hidden" name="scheduledDate" value={selectedYmd} />
                   <input

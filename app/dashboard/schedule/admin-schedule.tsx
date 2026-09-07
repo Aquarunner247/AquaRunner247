@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
-import { RouteDayView } from "@/app/components/route-day-view";
+import { RouteDayView, type DayItem } from "@/app/components/route-day-view";
 import { getOrgPlanAccess } from "@/lib/plan-tiers";
 import { TechnicianFilterSelect } from "@/app/components/technician-filter-select";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
@@ -205,6 +205,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             status: true,
             scheduledStart: true,
             startedAt: true,
+            routeSequence: true,
             property: {
               select: { id: true, name: true, addressLine1: true, city: true, region: true, latitude: true, longitude: true },
             },
@@ -233,8 +234,9 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     .filter((t) => technicianIdsWithStops.has(t.id))
     .map((t) => ({ id: t.id, label: t.name ?? t.email, color: colorMap.get(t.id) ?? UNASSIGNED_TECHNICIAN_COLOR }));
 
-  // Ad-hoc "Extra stops" stays org-wide regardless of the technician filter — it's a
-  // standalone utility list, not part of the route visualization.
+  // Fetched org-wide regardless of the technician filter (a stop assigned to someone other
+  // than the currently-selected technician still needs to show up somewhere -- see the
+  // split into assignedToSelectedTech/otherAdHocStops below).
   const [adHocStops, adHocProperties] = await Promise.all([
     tab === "week"
       ? Promise.resolve([])
@@ -245,6 +247,9 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             id: true,
             description: true,
             completed: true,
+            routeSequence: true,
+            createdAt: true,
+            technicianId: true,
             property: { select: { name: true } },
             technician: { select: { name: true, email: true } },
           },
@@ -261,6 +266,38 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     pending: routeStops.filter((v) => v.status === "SCHEDULED").length,
     skipped: routeStops.filter((v) => v.status === "CANCELLED").length,
   };
+
+  // Interleaving only happens when a single technician's day is being viewed -- the
+  // combined "All Technicians" view stays read-only for reordering (see RouteDayView's own
+  // isMultiTech gate) and keeps today's exact behavior: every ad-hoc stop in one flat,
+  // unfiltered box below, no merge. When a technician IS selected, only stops actually
+  // assigned to that person move into their interleaved list; everyone else's (including
+  // unassigned) stay in that same separate box so nothing an admin relies on today
+  // silently disappears.
+  const routeStopById = new Map(routeStops.map((r) => [r.id, r]));
+  let scheduleItems: DayItem[];
+  let otherAdHocStops = adHocStops;
+
+  if (selectedTechnicianId) {
+    const assignedToSelectedTech = adHocStops.filter((s) => s.technicianId === selectedTechnicianId);
+    otherAdHocStops = adHocStops.filter((s) => s.technicianId !== selectedTechnicianId);
+
+    type Combined =
+      | { kind: "visit"; sequence: number; tiebreak: number; id: string }
+      | { kind: "adhoc"; sequence: number; tiebreak: number; stop: (typeof adHocStops)[number] };
+    const combined: Combined[] = [
+      ...dayVisits.map((v) => ({ kind: "visit" as const, sequence: v.routeSequence, tiebreak: v.scheduledStart.getTime(), id: v.id })),
+      ...assignedToSelectedTech.map((s) => ({ kind: "adhoc" as const, sequence: s.routeSequence ?? Number.MAX_SAFE_INTEGER, tiebreak: s.createdAt.getTime(), stop: s })),
+    ];
+    combined.sort((a, b) => a.sequence - b.sequence || a.tiebreak - b.tiebreak);
+    scheduleItems = combined.map((c) =>
+      c.kind === "visit"
+        ? { kind: "visit" as const, ...routeStopById.get(c.id)! }
+        : { kind: "adhoc" as const, id: c.stop.id, description: c.stop.description, completed: c.stop.completed, propertyName: c.stop.property?.name ?? null },
+    );
+  } else {
+    scheduleItems = routeStops.map((v) => ({ kind: "visit" as const, ...v }));
+  }
 
   const technicianOptions = roster.map((t) => ({ id: t.id, label: t.name ?? t.email }));
 
@@ -377,7 +414,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
         ) : (
           <>
             <RouteDayView
-              visits={routeStops}
+              items={scheduleItems}
               proAccess={proAccess}
               statusFilter={statusFilter}
               // Read-only whenever viewing "All Technicians" (unchanged reasoning), AND
@@ -395,12 +432,20 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
 
             {tab !== "map" ? (
               <div className="app-card mt-4">
-                <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-primary">Extra stops</p>
-                {adHocStops.length === 0 ? (
+                <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-primary">
+                  {selectedTechnicianId ? "Other extra stops" : "Extra stops"}
+                </p>
+                {selectedTechnicianId ? (
+                  <p className="mt-1 text-xs text-brand-ink/60">
+                    Assigned to a different technician, or unassigned — an extra stop assigned to{" "}
+                    {roster.find((t) => t.id === selectedTechnicianId)?.name ?? "this technician"} shows in their list above instead.
+                  </p>
+                ) : null}
+                {otherAdHocStops.length === 0 ? (
                   <p className="mt-2 text-sm text-brand-ink/60">No extra stops for this day — add one below.</p>
                 ) : (
                   <ul className="mt-2 space-y-1.5">
-                    {adHocStops.map((s) => (
+                    {otherAdHocStops.map((s) => (
                       <li key={s.id} className="app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm">
                         <span className={s.completed ? "text-brand-icon line-through" : "text-brand-ink"}>
                           {s.description}

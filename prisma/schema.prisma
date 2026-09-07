@@ -1168,6 +1168,13 @@ model AdHocStop {
   scheduledDate DateTime
   description   String
 
+  /// Position within the assigned technician's combined day list -- shared sequence space
+  /// with ServiceVisit.routeSequence (see api/visits/reorder/route.ts), not a separate
+  /// counter, so an extra stop can sit at any position among real visits, not just at the
+  /// end. Null until a technician is assigned (see addAdHocStop): there's no single day's
+  /// list to place it in before then.
+  routeSequence Int?
+
   completed   Boolean   @default(false)
   completedAt DateTime?
 

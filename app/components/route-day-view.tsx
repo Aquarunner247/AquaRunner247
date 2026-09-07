@@ -10,6 +10,7 @@ import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technic
 import { BRAND_PRIMARY } from "@/app/lib/chart-colors";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { fetchDrivingRoute } from "@/lib/routing";
+import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 
 export type RouteStop = {
   id: string;
@@ -28,8 +29,27 @@ export type RouteStop = {
   technicianLabel?: string | null;
 };
 
+/// An "extra stop" (AdHocStop) — an errand, not a real chemistry-reading service visit.
+/// Deliberately NOT part of GPS auto-arrival, the map, or "Optimize stop order"'s
+/// driving-distance sort (see those functions below) -- it only ever participates in the
+/// list itself and its shared position/sequence.
+export type AdHocItem = {
+  id: string;
+  description: string;
+  completed: boolean;
+  propertyName: string | null;
+  technicianId?: string | null;
+  technicianLabel?: string | null;
+};
+
+/// The list's actual unit of iteration -- a day's stops interleaved regardless of which
+/// table backs them. Callers only ever include `kind: "adhoc"` items when the view is a
+/// single technician's editable day (see admin-schedule.tsx/page.tsx) -- multi-tech combined
+/// mode never receives one, so the isMultiTech-only code paths below never need to handle it.
+export type DayItem = ({ kind: "visit" } & RouteStop) | ({ kind: "adhoc" } & AdHocItem);
+
 type Props = {
-  visits: RouteStop[];
+  items: DayItem[];
   readOnly?: boolean;
   isToday?: boolean;
   /// yyyy-mm-dd for the day being viewed — used to link into the combined stop-capture screen
@@ -54,7 +74,7 @@ type Props = {
   allowGpsAutoArrival?: boolean;
   /// Purely a display filter for the list/map -- GPS auto-arrival eligibility,
   /// drag-reorder, and multi-stop-property grouping all still operate on the FULL
-  /// `visits` array regardless of this, so e.g. a technician filtered to "Completed"
+  /// `items` array regardless of this, so e.g. a technician filtered to "Completed"
   /// while walking toward their next *pending* stop still gets that stop auto-stamped on
   /// arrival even though it isn't currently rendered. Callers are expected to also pass
   /// `readOnly` whenever this isn't "all" -- reordering a filtered subset against the
@@ -66,11 +86,17 @@ type Props = {
   proAccess?: boolean;
 };
 
-function matchesStatusFilter(status: string, filter: NonNullable<Props["statusFilter"]>): boolean {
+/// An ad-hoc item has no "in progress" state -- it never matches that filter. "completed"/
+/// "pending" map onto its own completed flag.
+function matchesStatusFilter(item: DayItem, filter: NonNullable<Props["statusFilter"]>): boolean {
   if (filter === "all") return true;
-  if (filter === "completed") return status === "COMPLETED";
-  if (filter === "in_progress") return status === "IN_PROGRESS";
-  return status === "SCHEDULED"; // "pending"
+  if (item.kind === "adhoc") {
+    if (filter === "in_progress") return false;
+    return filter === "completed" ? item.completed : !item.completed;
+  }
+  if (filter === "completed") return item.status === "COMPLETED";
+  if (filter === "in_progress") return item.status === "IN_PROGRESS";
+  return item.status === "SCHEDULED"; // "pending"
 }
 
 const ARRIVAL_RADIUS_METERS = 150;
@@ -172,7 +198,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function RouteDayView({
-  visits: initialVisits,
+  items: initialItems,
   readOnly = false,
   isToday = false,
   dateYmd,
@@ -189,22 +215,22 @@ export function RouteDayView({
   // only makes sense from the technician's own device. This is defense-in-depth so a caller
   // can't accidentally get an interactive combined view by forgetting to pass readOnly.
   const effectiveReadOnly = readOnly || isMultiTech;
-  const [visits, setVisits] = useState<RouteStop[]>(initialVisits);
+  const [items, setItems] = useState<DayItem[]>(initialItems);
   const [saving, setSaving] = useState(false);
   const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported" | "unavailable">("idle");
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
-  const visitsRef = useRef<RouteStop[]>(initialVisits);
+  const itemsRef = useRef<DayItem[]>(initialItems);
   const notifiedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    setVisits(initialVisits);
-  }, [initialVisits]);
+    setItems(initialItems);
+  }, [initialItems]);
 
   useEffect(() => {
-    visitsRef.current = visits;
-  }, [visits]);
+    itemsRef.current = items;
+  }, [items]);
 
   async function stampArrival(visitId: string) {
     notifiedRef.current.add(visitId);
@@ -212,8 +238,8 @@ export function RouteDayView({
       const res = await fetch(`/api/visits/${visitId}/arrival`, { method: "PATCH" });
       if (!res.ok) return;
       const data = await res.json();
-      setVisits((prev) =>
-        prev.map((v) => (v.id === visitId ? { ...v, startedAt: data.visit.startedAt ?? v.startedAt, status: data.visit.status ?? v.status } : v)),
+      setItems((prev) =>
+        prev.map((v) => (v.kind === "visit" && v.id === visitId ? { ...v, startedAt: data.visit.startedAt ?? v.startedAt, status: data.visit.status ?? v.status } : v)),
       );
     } catch {
       notifiedRef.current.delete(visitId);
@@ -232,8 +258,11 @@ export function RouteDayView({
     function handleFix(latitude: number, longitude: number) {
       setLocationState("watching");
       const here = { latitude, longitude };
-      const eligibleIds = computeAutoArrivalEligibleIds(visitsRef.current);
-      for (const v of visitsRef.current) {
+      // Ad-hoc items were never part of GPS auto-arrival -- filter down to real visits
+      // before anything here touches status/latitude/longitude.
+      const visitItems = itemsRef.current.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
+      const eligibleIds = computeAutoArrivalEligibleIds(visitItems);
+      for (const v of visitItems) {
         if (v.startedAt || v.status === "CANCELLED" || notifiedRef.current.has(v.id)) continue;
         if (!eligibleIds.has(v.id)) continue;
         if (v.latitude == null || v.longitude == null) continue;
@@ -329,7 +358,7 @@ export function RouteDayView({
     const points: [number, number][] = [];
     // Multi-tech mode: one polyline per technician, built from that tech's contiguous
     // subsequence — safe because the "All Technicians" query is pre-ordered by technicianId,
-    // so each tech's stops are already a contiguous run in `visits`.
+    // so each tech's stops are already a contiguous run in `items`.
     type Segment = { techId: string | null | undefined; points: [number, number][]; color: string; opacity: number };
     const segments: Segment[] = [];
     let currentSegment: Segment | null = null;
@@ -340,7 +369,9 @@ export function RouteDayView({
       currentSegment = null;
     };
 
-    displayedVisits.forEach((v) => {
+    // Ad-hoc items never get a map marker -- see this module's AdHocItem doc comment.
+    const displayedVisitItems = displayedItems.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
+    displayedVisitItems.forEach((v) => {
       if (v.latitude == null || v.longitude == null) return;
       const isSkipped = v.status === "CANCELLED";
       const color = isMultiTech ? technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR : BRAND_PRIMARY;
@@ -402,27 +433,27 @@ export function RouteDayView({
       state.cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visits, statusFilter]);
+  }, [items, statusFilter]);
 
-  async function persistOrder(next: RouteStop[]) {
-    setVisits(next);
+  async function persistOrder(next: DayItem[]) {
+    setItems(next);
     setSaving(true);
     try {
       await fetch("/api/visits/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ visitIds: next.map((v) => v.id) }),
+        body: JSON.stringify({ items: next.map((v) => ({ kind: v.kind, id: v.id })) }),
       });
     } finally {
       setSaving(false);
     }
   }
 
-  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(visits, persistOrder, effectiveReadOnly);
+  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(items, persistOrder, effectiveReadOnly);
 
   async function toggleSkip(visit: RouteStop) {
     const nextStatus = visit.status === "CANCELLED" ? "SCHEDULED" : "CANCELLED";
-    setVisits((prev) => prev.map((v) => (v.id === visit.id ? { ...v, status: nextStatus } : v)));
+    setItems((prev) => prev.map((v) => (v.kind === "visit" && v.id === visit.id ? { ...v, status: nextStatus } : v)));
     await fetch(`/api/visits/${visit.id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -430,13 +461,18 @@ export function RouteDayView({
     });
   }
 
+  // Ad-hoc items were never part of driving-distance optimization -- they get appended
+  // after the optimized visits, same treatment visits-without-coordinates already get
+  // below. Still fully draggable afterward, just not part of the distance calculation.
   function optimizeRoute() {
-    const withCoords = visits.filter((v) => v.latitude != null && v.longitude != null);
-    const withoutCoords = visits.filter((v) => v.latitude == null || v.longitude == null);
+    const visitItems = items.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
+    const adhocItems = items.filter((i) => i.kind === "adhoc");
+    const withCoords = visitItems.filter((v) => v.latitude != null && v.longitude != null);
+    const withoutCoords = visitItems.filter((v) => v.latitude == null || v.longitude == null);
     if (withCoords.length < 2) return;
 
     const remaining = [...withCoords];
-    const ordered: RouteStop[] = [remaining.shift()!];
+    const ordered: (DayItem & { kind: "visit" })[] = [remaining.shift()!];
     while (remaining.length) {
       const last = ordered[ordered.length - 1];
       let bestIdx = 0;
@@ -450,19 +486,21 @@ export function RouteDayView({
       });
       ordered.push(remaining.splice(bestIdx, 1)[0]);
     }
-    void persistOrder([...ordered, ...withoutCoords]);
+    void persistOrder([...ordered, ...withoutCoords, ...adhocItems]);
   }
 
-  const missingCoords = visits.some((v) => v.latitude == null || v.longitude == null);
+  // Ad-hoc items never carry coordinates -- excluded here so their absence never triggers
+  // the "some stops don't have map coordinates yet" warning below.
+  const missingCoords = items.some((i) => i.kind === "visit" && (i.latitude == null || i.longitude == null));
 
   // The subset actually rendered in the list/map -- everything else (GPS eligibility,
-  // drag-reorder, grouping below) stays keyed off the full `visits` array. trueIndexById
+  // drag-reorder, grouping below) stays keyed off the full `items` array. trueIndexById
   // preserves each stop's real day-sequence position (badge number, marker glyph, drag
-  // index) even though displayedVisits may skip over some of them.
-  const displayedVisits = statusFilter === "all" ? visits : visits.filter((v) => matchesStatusFilter(v.status, statusFilter));
-  const trueIndexById = new Map(visits.map((v, i) => [v.id, i]));
+  // index) even though displayedItems may skip over some of them.
+  const displayedItems = statusFilter === "all" ? items : items.filter((i) => matchesStatusFilter(i, statusFilter));
+  const trueIndexById = new Map(items.map((i, idx) => [i.id, idx]));
 
-  const activeVisits = visits.filter((v) => v.status !== "CANCELLED");
+  const activeVisits = items.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit" && i.status !== "CANCELLED");
   // Group visits into contiguous same-property runs, in actual route-sequence order.
   // A property with a split layout (front pool/spa now, back pool/spa later, with other
   // stops in between) produces two separate groups here, not one combined stop — each
@@ -491,14 +529,17 @@ export function RouteDayView({
 
   // Technician sub-headers for the list, multi-tech mode only — keyed by the id of the
   // first VISIBLE visit in each contiguous technician run (visits are pre-ordered by
-  // technicianId). Built from displayedVisits, not the full visits array, so a status
+  // technicianId). Built from displayedItems, not the full items array, so a status
   // filter that happens to filter out a run's first stop doesn't make that technician's
   // header vanish entirely, and the "(N stops)" count matches what's actually shown.
+  // Ad-hoc items never appear here in practice -- isMultiTech callers never include one
+  // (see this module's DayItem doc comment) -- but technicianId/technicianLabel are common
+  // to both union members, so this reads safely either way.
   const technicianGroupStarts = new Map<string, { label: string; color: string; count: number }>();
   if (isMultiTech) {
     let prevTechId: string | null | undefined = undefined;
     let current: { label: string; color: string; count: number } | null = null;
-    for (const v of displayedVisits) {
+    for (const v of displayedItems) {
       if (v.technicianId !== prevTechId) {
         current = { label: v.technicianLabel ?? "Unassigned", color: technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR, count: 0 };
         technicianGroupStarts.set(v.id, current);
@@ -550,11 +591,65 @@ export function RouteDayView({
             </Link>
           ) : null}
           <ul className="space-y-2">
-            {displayedVisits.map((v) => {
-              const idx = trueIndexById.get(v.id) ?? 0;
-              const isSkipped = v.status === "CANCELLED";
-              const techGroup = technicianGroupStarts.get(v.id);
+            {displayedItems.map((item) => {
+              const idx = trueIndexById.get(item.id) ?? 0;
+              const techGroup = technicianGroupStarts.get(item.id);
               const handleProps = dragHandleProps(idx);
+
+              if (item.kind === "adhoc") {
+                return (
+                  <Fragment key={item.id}>
+                    {techGroup ? (
+                      <li className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wide text-brand-muted first:pt-0">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: techGroup.color }} />
+                        {techGroup.label} ({techGroup.count} stop{techGroup.count === 1 ? "" : "s"})
+                      </li>
+                    ) : null}
+                    <li
+                      ref={setItemRef(idx)}
+                      data-tour={idx === 0 ? "schedule-first-stop" : undefined}
+                      className={`flex items-center gap-3 rounded border border-brand-border bg-white p-2 ${draggingIndex === idx ? "opacity-60" : ""}`}
+                    >
+                      {!effectiveReadOnly ? (
+                        <span
+                          {...handleProps}
+                          aria-label="Drag to reorder"
+                          title="Drag to reorder"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-brand-muted cursor-grab select-none active:cursor-grabbing"
+                        >
+                          ⠿
+                        </span>
+                      ) : null}
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-sm font-medium ${item.completed ? "text-brand-muted line-through" : "text-brand-ink"}`}>
+                          {item.description}
+                          {item.propertyName ? ` — ${item.propertyName}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <form action={toggleAdHocStop}>
+                          <input type="hidden" name="stopId" value={item.id} />
+                          <button type="submit" className="app-btn-ghost-sm">
+                            {item.completed ? "Undo" : "Done"}
+                          </button>
+                        </form>
+                        <form action={deleteAdHocStop}>
+                          <input type="hidden" name="stopId" value={item.id} />
+                          <button type="submit" className="app-btn-danger-sm">
+                            Delete
+                          </button>
+                        </form>
+                      </div>
+                    </li>
+                  </Fragment>
+                );
+              }
+
+              const v = item;
+              const isSkipped = v.status === "CANCELLED";
               return (
                 <Fragment key={v.id}>
                   {techGroup ? (
@@ -640,9 +735,9 @@ export function RouteDayView({
                 </Fragment>
               );
             })}
-            {displayedVisits.length === 0 ? (
+            {displayedItems.length === 0 ? (
               <p className="text-sm text-brand-muted">
-                {visits.length === 0
+                {items.length === 0
                   ? "No stops for this day."
                   : statusFilter === "completed"
                     ? "No completed stops yet."
