@@ -92,7 +92,7 @@ export default async function PortalCompliancePage() {
       </section>
 
       <p data-tour="portal-compliance-section" className="mt-6 text-xs text-brand-muted">
-        <Link href="/portal" className="text-brand-primary underline">
+        <Link href="/portal" className="text-[var(--portal-primary,#0A6E7C)] underline">
           Back to upcoming service days
         </Link>
       </p>

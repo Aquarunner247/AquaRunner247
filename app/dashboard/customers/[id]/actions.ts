@@ -11,6 +11,7 @@ import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/cust
 import { uploadInspectionReport, deleteInspectionReport } from "@/lib/inspection-reports";
 import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
 import { sendCustomerAlertEmail, sendCustomerAccessEndedEmail } from "@/lib/email";
+import { sendWelcomeEmail } from "@/lib/mail/send-welcome-email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
 import { parseFormNumber as numOrNull } from "@/lib/form-utils";
 import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
@@ -1166,6 +1167,23 @@ export async function createCustomerLogin(formData: FormData) {
     await prisma.customerUser.create({
       data: { customerId, authUserId, email, name, active: true },
     });
+
+    // Best-effort, same as sendCustomerAccessEndedEmail below -- a welcome email failing
+    // to send shouldn't roll back or block the login that was just created. Only fires for
+    // a brand-new login, not reactivating an existing one (that's not "creating an
+    // account", and "resend" is a separate, not-yet-built action per its own README).
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    try {
+      await sendWelcomeEmail({
+        organizationId: appUser.organizationId,
+        customerId,
+        customerEmail: email,
+        customerFirstName: name.split(" ")[0] || name,
+        portalBaseUrl: appUrl,
+      });
+    } catch (err) {
+      console.error(`[create-customer-login] welcome email failed for ${email}:`, err);
+    }
   }
 
   revalidatePath(`/dashboard/customers/${customerId}`);

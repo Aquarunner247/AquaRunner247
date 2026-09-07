@@ -12,7 +12,7 @@ function isActive(currentPath: string, href: string) {
 
 function navClass(active: boolean) {
   return active
-    ? "flex items-center rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white"
+    ? "flex items-center rounded-md bg-[var(--portal-primary,#0A6E7C)] px-3 py-2 text-sm font-medium text-white"
     : "flex items-center rounded-md px-3 py-2 text-sm font-medium text-brand-border hover:bg-white/5 hover:text-white";
 }
 
@@ -24,7 +24,26 @@ const LINKS = [
   { href: "/portal/compliance", label: "Compliance" },
 ];
 
-export function PortalNav() {
+/** Text wordmark used when the org hasn't uploaded a logo -- unchanged from before this
+ * feature existed, byte-identical for every org that hasn't customized branding. */
+function Wordmark({ size }: { size: "sm" | "lg" }) {
+  if (size === "lg") {
+    return (
+      <span className="font-[family-name:var(--font-display)] text-lg font-bold uppercase leading-tight tracking-wide text-white">
+        AquaRunner <span className="text-[var(--portal-primary,#0A6E7C)]">24/7</span>
+        <br />
+        Portal
+      </span>
+    );
+  }
+  return (
+    <span className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-white">
+      AquaRunner <span className="text-[var(--portal-primary,#0A6E7C)]">24/7</span> Portal
+    </span>
+  );
+}
+
+export function PortalNav({ logoUrl, orgName }: { logoUrl: string | null; orgName: string }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -38,9 +57,10 @@ export function PortalNav() {
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-white/10 bg-brand-ink px-4 py-3 md:hidden">
-        <Link href="/portal" className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-white">
-          AquaRunner <span className="text-brand-primary">24/7</span> Portal
+      <div className="flex items-center justify-between border-b border-white/10 bg-[var(--portal-header,#06333B)] px-4 py-3 md:hidden">
+        <Link href="/portal">
+          {/* eslint-disable-next-line @next/next/no-img-element -- externally-hosted (Supabase Storage) org logo, not an app asset Next/Image can optimize */}
+          {logoUrl ? <img src={logoUrl} alt={orgName} className="h-7 max-w-[140px] object-contain" /> : <Wordmark size="sm" />}
         </Link>
         <button
           type="button"
@@ -56,13 +76,12 @@ export function PortalNav() {
       <aside
         className={`${
           menuOpen ? "block" : "hidden"
-        } w-full shrink-0 bg-brand-ink md:flex md:h-screen md:w-60 md:flex-col md:sticky md:top-0`}
+        } w-full shrink-0 bg-[var(--portal-header,#06333B)] md:flex md:h-screen md:w-60 md:flex-col md:sticky md:top-0`}
       >
         <div className="hidden px-5 py-6 md:block">
-          <Link href="/portal" className="font-[family-name:var(--font-display)] text-lg font-bold uppercase leading-tight tracking-wide text-white">
-            AquaRunner <span className="text-brand-primary">24/7</span>
-            <br />
-            Portal
+          <Link href="/portal">
+            {/* eslint-disable-next-line @next/next/no-img-element -- externally-hosted (Supabase Storage) org logo, not an app asset Next/Image can optimize */}
+            {logoUrl ? <img src={logoUrl} alt={orgName} className="h-10 max-w-[180px] object-contain" /> : <Wordmark size="lg" />}
           </Link>
         </div>
 

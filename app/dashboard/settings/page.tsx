@@ -136,6 +136,17 @@ export default async function SettingsPage() {
       </section>
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-brand-ink">Branding</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          Your logo and colors, shown in the customer portal and the welcome email sent when you create a portal
+          login for a customer.
+        </p>
+        <a href="/dashboard/settings/branding" className="app-link mt-2 inline-block text-sm">
+          Manage branding →
+        </a>
+      </section>
+
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-brand-ink">AI Phone Agent</h2>
         <p className="mt-1 text-sm text-brand-muted">
           Answers a missed call — after-hours or just busy — with an interactive voicemail that turns into a ticket.

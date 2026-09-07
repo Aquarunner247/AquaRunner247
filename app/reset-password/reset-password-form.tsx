@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export function ResetPasswordForm() {
+export function ResetPasswordForm({ portal = false }: { portal?: boolean }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +33,12 @@ export function ResetPasswordForm() {
 
     // Sign out the recovery session so the user re-authenticates with the new password --
     // avoids ambiguity over whether this account is staff or customer-portal (they share
-    // one Supabase Auth pool) by just sending everyone back through a normal sign-in.
+    // one Supabase Auth pool) by just sending everyone back through a normal sign-in. The
+    // `portal` flag (set only by the customer welcome email's recovery link, see
+    // app/reset-password/page.tsx) is the one exception -- there, the account is known to
+    // be a customer-portal login, so send it to the portal's own sign-in page instead.
     await supabase.auth.signOut();
-    window.location.href = "/login?reset=success";
+    window.location.href = portal ? "/portal/login?reset=success" : "/login?reset=success";
   }
 
   return (

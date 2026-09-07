@@ -103,6 +103,31 @@ model Organization {
   businessName  String?
   businessPhone String?
 
+  /// Shared org branding -- all optional, null = platform default. Used both by the
+  /// customer portal (app/portal/(app)/layout.tsx) and the welcome email
+  /// (lib/mail/welcome-email.ts). Deliberately just a logo + two colors, not a full
+  /// palette/theme: every surface still runs through the SAME vetted layout, so a tenant
+  /// admin can never inject markup, and legibility (this app's own outdoor-use
+  /// requirement) stays protected by the contrast check in lib/mail/validate-branding.ts,
+  /// which every one of these fields must pass before being written.
+  brandingLogoUrl      String?
+  /// Buttons, links, active-nav highlight -- both surfaces.
+  brandingPrimaryColor String?
+  /// Portal sidebar/top-bar background and the email's header band -- both surfaces.
+  brandingHeaderColor  String?
+  brandingUpdatedAt    DateTime?
+  /// userId of the admin who last edited branding or welcome-email settings --
+  /// informational only, no relation (matching how similar "who touched this" string
+  /// fields are kept elsewhere).
+  brandingUpdatedBy    String?
+
+  /// Welcome-email-only settings (not shared with the portal) -- see brandingLogoUrl above
+  /// for the fields that ARE shared.
+  welcomeEmailEnabled      Boolean @default(true)
+  welcomeEmailSupportEmail String?
+  welcomeEmailSupportPhone String?
+  welcomeEmailIntroText    String? @db.VarChar(500)
+
   planStatus           OrganizationPlanStatus @default(TRIALING)
   /// Null for orgs that predate tiered pricing and haven't been backfilled -- see
   /// lib/plan-tiers.ts, which treats a null tier the same as STARTER for limits/gating.
@@ -170,6 +195,7 @@ model Organization {
   phoneAgentCalls       PhoneAgentCall[]
   phoneAgentDailyUsage  PhoneAgentDailyUsage[]
   scrubRuns             OrganizationScrubRun[]
+  welcomeEmailSends     WelcomeEmailSend[]
 
   @@index([complianceRulesetId])
 }
@@ -594,8 +620,33 @@ model Customer {
   customerUsers       CustomerUser[]
   alerts              CustomerAlert[]
   checklistExclusions CustomerChecklistExclusion[]
+  welcomeEmailSends   WelcomeEmailSend[]
 
   @@index([organizationId])
+}
+
+/// Append-only send log for the customer welcome email -- the single most important piece
+/// for support/security: when a customer says "I never got my activation email" or "someone
+/// else got my invite", this answers when, to what address, and what happened, without
+/// guessing. Deliberately holds nothing link-derived (no token/link id) -- activation links
+/// must never hit a persistent log, see lib/mail/send-welcome-email.ts's doc comment.
+model WelcomeEmailSend {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  toEmail      String
+  sentAt       DateTime @default(now())
+  /// "sent" | "failed" | "resent" -- plain string, not an enum, since a future "resend
+  /// invite" action (explicitly out of scope for this pass) is the only other value ever
+  /// expected and doesn't warrant a schema migration of its own.
+  status       String
+  errorMessage String?
+
+  @@index([organizationId, customerId])
+  @@index([toEmail])
 }
 
 /// A customer-portal login (separate from staff `User`) — a customer's own contact who can

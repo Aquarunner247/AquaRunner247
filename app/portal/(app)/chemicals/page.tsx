@@ -61,11 +61,11 @@ export default async function PortalChemicalsPage() {
                   </span>
 
                   {resolved.kind === "org-upload" ? (
-                    <a href={resolved.url} target="_blank" rel="noreferrer" className="font-medium text-brand-primary underline">
+                    <a href={resolved.url} target="_blank" rel="noreferrer" className="font-medium text-[var(--portal-primary,#0A6E7C)] underline">
                       View / Download
                     </a>
                   ) : resolved.kind === "system-default" ? (
-                    <a href={resolved.url} target="_blank" rel="noreferrer" className="font-medium text-brand-primary underline">
+                    <a href={resolved.url} target="_blank" rel="noreferrer" className="font-medium text-[var(--portal-primary,#0A6E7C)] underline">
                       View / Download{" "}
                       {resolved.sourceLabel ? <span className="text-xs font-normal text-brand-muted">({resolved.sourceLabel})</span> : null}
                     </a>
