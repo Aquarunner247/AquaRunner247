@@ -11,7 +11,7 @@ export async function sendWaitlistNotificationEmail(signupEmail: string): Promis
   if (!apiKey || !notifyTo) {
     return { ok: false, error: "RESEND_API_KEY or WAITLIST_NOTIFICATION_EMAIL not set — notification not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
 
   const resend = new Resend(apiKey);
 
@@ -73,7 +73,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
 
   const resend = new Resend(apiKey);
 
@@ -170,7 +170,7 @@ export async function sendPhoneAgentTicketEmail(input: PhoneAgentTicketEmailInpu
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
 
   const resend = new Resend(apiKey);
 
@@ -245,7 +245,7 @@ export async function sendCancellationScrubWarningEmail(input: CancellationScrub
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
 
   const resend = new Resend(apiKey);
 
@@ -319,7 +319,7 @@ export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Pr
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
 
   const resend = new Resend(apiKey);
 
@@ -375,7 +375,7 @@ export async function sendCustomerAccessEndedEmail(input: CustomerAccessEndedEma
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
 
   const resend = new Resend(apiKey);
 
