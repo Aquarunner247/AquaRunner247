@@ -486,7 +486,13 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
                       </option>
                     ))}
                   </select>
-                  <select name="technicianId" defaultValue="" className="app-field w-auto">
+                  {/* Defaults to whichever technician's day is currently being viewed --
+                      otherwise this always fell back to "Unassigned", and an unassigned
+                      stop never merges into that technician's ordered list above (see the
+                      assignedToSelectedTech filter), so it looked like the stop never made
+                      it into the route even though it was saved. Still overridable for
+                      assigning to someone else or leaving it open. */}
+                  <select name="technicianId" defaultValue={selectedTechnicianId ?? ""} className="app-field w-auto">
                     <option value="">Unassigned</option>
                     {roster.map((t) => (
                       <option key={t.id} value={t.id}>
