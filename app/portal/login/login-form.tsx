@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { PasswordInput } from "@/app/components/password-input";
 
 export function PortalLoginForm() {
   const [email, setEmail] = useState("");
@@ -52,14 +53,13 @@ export function PortalLoginForm() {
             Forgot password?
           </Link>
         </span>
-        <input
+        <PasswordInput
           name="password"
-          type="password"
           autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+          className="w-full rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
         />
       </label>
       {error ? <p className="text-sm text-brand-danger">{error}</p> : null}

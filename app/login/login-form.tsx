@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { hasStaffAccess, getPostLoginPath } from "./actions";
+import { PasswordInput } from "@/app/components/password-input";
+import { getStaffAccessStatus, getPostLoginPath } from "./actions";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -35,12 +36,20 @@ export function LoginForm() {
     // customer-portal users share one Supabase Auth pool. Reject and sign back out
     // immediately rather than leaving a half-logged-in session where the nav shows
     // "signed in" but no /dashboard page actually works.
-    const staffAccess = await hasStaffAccess();
-    if (!staffAccess) {
+    const staffAccessStatus = await getStaffAccessStatus();
+    if (staffAccessStatus !== "ok") {
       await supabase.auth.signOut();
       setLoading(false);
-      setError("That account doesn't have staff access. Customers should sign in at the customer portal instead.");
-      setShowPortalLink(true);
+      // "error" means the check itself failed (e.g. a DB hiccup), not that this is
+      // confirmed to be a non-staff account -- telling someone with real staff access to
+      // go log in as a customer over a transient failure is actively misleading, so that
+      // case gets its own, less presumptuous message with no portal link.
+      if (staffAccessStatus === "error") {
+        setError("Something went wrong checking your account. Please try again in a moment.");
+      } else {
+        setError("That account doesn't have staff access. Customers should sign in at the customer portal instead.");
+        setShowPortalLink(true);
+      }
       return;
     }
     const postLoginPath = await getPostLoginPath();
@@ -69,14 +78,13 @@ export function LoginForm() {
             Forgot password?
           </Link>
         </span>
-        <input
+        <PasswordInput
           name="password"
-          type="password"
           autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+          className="w-full rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
         />
       </label>
       {error ? (
