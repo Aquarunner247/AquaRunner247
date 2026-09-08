@@ -4,6 +4,14 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { sendServiceSummaryEmail } from "@/lib/email";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
 import { timeZoneForState } from "@/lib/timezone";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
+
+// Long enough that the link in the email is still good whenever the recipient actually
+// opens it (people don't always open a service email the minute it lands) -- much longer
+// than the 1-hour signed URL the portal page uses, which regenerates on every load instead
+// of needing to survive unopened in an inbox.
+const PHOTO_EMAIL_LINK_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
@@ -14,7 +22,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     where: { id },
     include: {
       reading: true,
-      photos: { select: { id: true } },
+      photos: { select: { id: true, storagePath: true } },
       organization: { select: { state: true } },
       property: { select: { name: true, managerEmail: true, propertyType: true } },
       bodyOfWater: {
@@ -106,6 +114,13 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   // Never blocks or fails visit completion if email sending has an issue.
   if (visit.property.managerEmail) {
     try {
+      const supabaseAdmin = createSupabaseAdminClient();
+      const signedPhotoUrls = await Promise.all(
+        visit.photos.map(async (p) => {
+          const { data } = await supabaseAdmin.storage.from(VISIT_PHOTOS_BUCKET).createSignedUrl(p.storagePath, PHOTO_EMAIL_LINK_TTL_SECONDS);
+          return data?.signedUrl ?? null;
+        }),
+      );
       await sendServiceSummaryEmail({
         to: visit.property.managerEmail,
         propertyName: visit.property.name,
@@ -128,6 +143,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         doses: visit.doses.map((d) => ({ productName: d.productName, quantity: Number(d.quantity), unit: d.unit })),
         checklistLabels: visit.checklistCompletions.map((c) => c.label).filter(Boolean),
         techNotes: visit.techNotes,
+        photoUrls: signedPhotoUrls.filter((url): url is string => url != null),
       });
     } catch {
       // Non-critical — visit is already marked complete regardless of email outcome.

@@ -62,6 +62,12 @@ type ServiceSummaryEmailInput = {
   doses: DoseSummary[];
   checklistLabels: string[];
   techNotes: string | null;
+  /** Signed Supabase Storage URLs (see VISIT_PHOTOS_BUCKET) -- the bucket is private, so
+   * these must already be signed by the caller before this runs, with an expiry long
+   * enough to still resolve whenever the recipient actually opens the email (people don't
+   * always open a service email the minute it lands), not the short-lived one used for a
+   * page that regenerates it on every load. */
+  photoUrls: string[];
 };
 
 function fmt(n: number | null, digits = 1): string {
@@ -119,6 +125,20 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
           input.techNotes
             ? `<p style="font-size:13px; font-weight:bold; margin:0 0 4px;">Notes</p>
                <p style="font-size:14px; margin:0 0 16px; white-space:pre-wrap;">${input.techNotes}</p>`
+            : ""
+        }
+
+        ${
+          input.photoUrls.length
+            ? `<p style="font-size:13px; font-weight:bold; margin:0 0 8px;">Photos from this visit</p>
+               <div style="margin:0 0 16px;">
+                 ${input.photoUrls
+                   .map(
+                     (url) =>
+                       `<img src="${url}" alt="Service visit photo" style="display:block; width:100%; max-width:512px; border-radius:8px; margin:0 0 8px; border:1px solid #C4D9DA;" />`,
+                   )
+                   .join("")}
+               </div>`
             : ""
         }
 
