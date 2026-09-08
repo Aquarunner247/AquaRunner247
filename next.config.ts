@@ -29,6 +29,35 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "geolocation=(self), camera=(self), microphone=(), payment=()" },
         ],
       },
+      // Genuinely static /public files -- same content for every visitor regardless of
+      // org/session, so a shared CDN cache is safe here. Deliberately NOT extended to any
+      // actual page/route: this app's root layout (app/layout.tsx) calls
+      // supabase.auth.getUser() unconditionally on every request (to feed SideNav/
+      // OnboardingCallBanner), which forces Next.js to treat every single route -- public
+      // pages included -- as fully dynamic. Confirmed by testing: adding `export const
+      // revalidate` to app/p/[publicSlug]/page.tsx had zero effect (still "ƒ Dynamic" in
+      // the build output, still `Cache-Control: private, no-store` on the live response).
+      // Real Function-response caching anywhere in this app requires first decoupling that
+      // nav from the root layout (e.g. Partial Prerendering, or fetching auth state
+      // client-side instead) -- a separate, larger change, not attempted here.
+      // Filenames aren't content-hashed, so max-age is deliberately short of `immutable`:
+      // a day of caching plus a week of stale-while-revalidate cuts real repeat-request/
+      // origin load for icons/manifest without leaving a swapped-out asset stuck for long
+      // if one ever changes without a filename change. Separate rules, not one regex
+      // alternation -- Next.js's route-source parser rejects capturing groups.
+      ...["/favicon-32.png", "/manifest.webmanifest", "/icons/:path*", "/images/:path*", "/marketing/:path*", "/templates/:path*"].map(
+        (source) => ({
+          source,
+          headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
+        }),
+      ),
+      // The service worker is the one /public file that must NOT be cached like the
+      // above -- browsers already re-check it periodically regardless, but a stale cached
+      // copy here would delay that check and delay every update rollout behind it.
+      {
+        source: "/sw.js",
+        headers: [{ key: "Cache-Control", value: "no-cache" }],
+      },
     ];
   },
 };
