@@ -147,6 +147,37 @@ export default async function RoutesPage() {
         </section>
       ) : null}
 
+      <form action={createRoute} data-tour="routes-add-form" className="app-card mt-6">
+        <p className="text-sm font-semibold text-brand-ink">Add route</p>
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          <select name="dayOfWeek" required defaultValue="1" className="app-field">
+            {DAY_NAMES.slice(1).map((d, i) => (
+              <option key={d} value={i + 1}>
+                {d}
+              </option>
+            ))}
+          </select>
+          <select name="frequency" defaultValue="WEEKLY" className="app-field">
+            {Object.values(ScheduleFrequency).map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+          <select name="technicianId" defaultValue="" className="app-field">
+            <option value="">Unassigned</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name ?? u.email}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button className="app-btn-primary-sm mt-3" type="submit">
+          Add route
+        </button>
+      </form>
+
       <section className="mt-6 space-y-5">
         {routes.map((route) => (
           <div
@@ -277,37 +308,6 @@ export default async function RoutesPage() {
         ))}
         {routes.length === 0 ? <p className="text-sm text-brand-muted">No routes yet.</p> : null}
       </section>
-
-      <form action={createRoute} data-tour="routes-add-form" className="app-card mt-6">
-        <p className="text-sm font-semibold text-brand-ink">Add route</p>
-        <div className="mt-3 grid gap-2 md:grid-cols-3">
-          <select name="dayOfWeek" required defaultValue="1" className="app-field">
-            {DAY_NAMES.slice(1).map((d, i) => (
-              <option key={d} value={i + 1}>
-                {d}
-              </option>
-            ))}
-          </select>
-          <select name="frequency" defaultValue="WEEKLY" className="app-field">
-            {Object.values(ScheduleFrequency).map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-          <select name="technicianId" defaultValue="" className="app-field">
-            <option value="">Unassigned</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name ?? u.email}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button className="app-btn-primary-sm mt-3" type="submit">
-          Add route
-        </button>
-      </form>
     </main>
   );
 }
