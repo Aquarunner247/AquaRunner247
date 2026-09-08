@@ -87,11 +87,20 @@ function computeBlurScore(source: HTMLCanvasElement): number | null {
  * blur-check/review/retake UI as the web path (see loadImageIntoCanvas) rather than being
  * submitted straight through, so the experience is identical either way.
  */
+/** Chrome/Android exposes optical-ish zoom on a getUserMedia track as a non-standard
+ * `zoom` capability -- not in lib.dom's MediaTrackCapabilities/MediaTrackConstraintSet
+ * types, hence the casts everywhere this is touched. Safari/iOS reports no `zoom`
+ * capability at all (there's no web API for it there), so this feature is naturally
+ * absent rather than broken on those devices -- see setupZoom's null fallback. */
+type ZoomCapability = { min: number; max: number; step: number };
+type ZoomState = ZoomCapability & { value: number };
+
 export function CameraCapture({ onCapture, disabled }: Props) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [preview, setPreview] = useState<{ dataUrl: string; isLikelyBlurry: boolean } | null>(null);
+  const [zoom, setZoom] = useState<ZoomState | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -99,6 +108,32 @@ export function CameraCapture({ onCapture, disabled }: Props) {
   function stopStream() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    setZoom(null);
+  }
+
+  /** Reads the live track's zoom range (if the browser/camera combo exposes one) right
+   * after the stream starts, so the slider only ever appears when it'll actually do
+   * something -- no point showing a zoom control that silently no-ops. */
+  function setupZoom(stream: MediaStream) {
+    const track = stream.getVideoTracks()[0];
+    const capabilities = track?.getCapabilities?.() as (MediaTrackCapabilities & { zoom?: ZoomCapability }) | undefined;
+    const zoomCap = capabilities?.zoom;
+    if (!track || !zoomCap || zoomCap.max <= zoomCap.min) {
+      setZoom(null);
+      return;
+    }
+    const settings = track.getSettings?.() as (MediaTrackSettings & { zoom?: number }) | undefined;
+    setZoom({ ...zoomCap, value: settings?.zoom ?? zoomCap.min });
+  }
+
+  function applyZoom(value: number) {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    // Best-effort -- if the browser rejects the constraint mid-stream for some reason,
+    // leaving the slider at the requested value (rather than snapping back) is less
+    // jarring, and the next drag will just try again.
+    track.applyConstraints({ advanced: [{ zoom: value } as unknown as MediaTrackConstraintSet] }).catch(() => {});
+    setZoom((z) => (z ? { ...z, value } : z));
   }
 
   /** Draws a fully-loaded image (the native camera's output) onto canvasRef and runs it
@@ -173,6 +208,7 @@ export function CameraCapture({ onCapture, disabled }: Props) {
         audio: false,
       });
       streamRef.current = stream;
+      setupZoom(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -273,6 +309,27 @@ export function CameraCapture({ onCapture, disabled }: Props) {
                 ) : (
                   <video ref={videoRef} playsInline autoPlay muted className="h-full w-full object-cover" />
                 )}
+                {/* Only rendered when the live track itself reports a usable zoom range
+                    (see setupZoom) -- absent on iOS/Safari and plenty of Android cameras
+                    too, so this has to stay conditional rather than always-on. Not shown
+                    during review (no live track to adjust) or on native, where the OS's
+                    own camera screen already has its own zoom control. */}
+                {zoom && !preview ? (
+                  <div className="absolute inset-x-6 bottom-4 flex items-center gap-2 rounded-full bg-black/40 px-4 py-2 backdrop-blur-sm">
+                    <span className="text-xs font-medium text-white">−</span>
+                    <input
+                      type="range"
+                      aria-label="Zoom"
+                      min={zoom.min}
+                      max={zoom.max}
+                      step={zoom.step || 0.1}
+                      value={zoom.value}
+                      onChange={(e) => applyZoom(Number(e.target.value))}
+                      className="h-1.5 flex-1 accent-white"
+                    />
+                    <span className="text-sm font-medium text-white">+</span>
+                  </div>
+                ) : null}
                 <canvas ref={canvasRef} className="hidden" />
               </div>
 
