@@ -107,7 +107,13 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     }),
   ]);
   const roster = [...technicianRoster, ...nonTechnicianRouteOwners];
-  const selectedTechnicianId = roster.find((t) => t.id === sp.tech)?.id ?? null;
+  // No `tech` param at all means the admin just landed on this page fresh (as opposed to
+  // explicitly picking "All Technicians", which submits `tech=""` via the filter form
+  // below) -- default that first load to the admin's own day if they carry a route
+  // themselves (see the roster comment above), rather than the full-org view. Still just
+  // one click away via the filter dropdown either direction.
+  const selectedTechnicianId =
+    sp.tech !== undefined ? (roster.find((t) => t.id === sp.tech)?.id ?? null) : (roster.find((t) => t.id === appUser.id)?.id ?? null);
   const selectedPropertyType: "RESIDENTIAL" | "COMMERCIAL" | null =
     sp.type === "RESIDENTIAL" || sp.type === "COMMERCIAL" ? sp.type : null;
   const colorMap = getTechnicianColorMap(roster.map((t) => t.id));
