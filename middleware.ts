@@ -36,9 +36,10 @@ function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
     `script-src ${scriptSrc}`,
-    // Satoshi's CSS is served from Fontshare's own domain (see app/layout.tsx's <link>).
-    "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
-    "font-src 'self' https://cdn.fontshare.com data:",
+    "style-src 'self' 'unsafe-inline'",
+    // Satoshi is self-hosted via next/font/local (see app/layout.tsx) -- 'self' covers it,
+    // no Fontshare CDN allowance needed anymore.
+    "font-src 'self' data:",
     // data: for QR-code data-URL images (lib/qr.ts); blob: for the branding-logo upload's
     // local file preview (URL.createObjectURL, app/dashboard/settings/branding).
     `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://server.arcgisonline.com${supabaseUrl ? ` ${supabaseUrl}` : ""}`,

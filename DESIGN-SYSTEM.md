@@ -75,10 +75,12 @@ Set in `app/layout.tsx`, exposed as CSS variables. Do not add new families.
 - Mono — IBM Plex Mono → `.app-metric` for readings, permit numbers, timestamps, route IDs
 
 Display and body are the same family, differentiated by weight (Satoshi ships 300–900).
-Satoshi isn't on Google Fonts -- it's loaded via Fontshare's CDN (`<link>` tags in
-`app/layout.tsx`) rather than `next/font/google`, and wired into `--font-display`/
-`--font-body` in `app/globals.css` directly rather than through a next/font `.variable`
-className. IBM Plex Mono is unaffected, still loaded through `next/font/google` as before.
+Satoshi isn't on Google Fonts, so it goes through `next/font/local` instead of
+`next/font/google` -- the actual woff2 files live in `public/fonts/satoshi/` (pulled once
+from Fontshare's CDN, the font's own vendor-sanctioned hosting path, rather than fetched
+fresh from Fontshare on every visit), exposed as `--font-satoshi` and wired into
+`--font-display`/`--font-body` in `app/globals.css`. IBM Plex Mono is unaffected, still
+loaded through `next/font/google` as before.
 
 ## Outdoor legibility
 

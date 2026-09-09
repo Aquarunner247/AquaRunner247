@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import { headers } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
@@ -14,12 +15,23 @@ import { prisma } from "@/lib/prisma";
 import { BRAND_INK } from "@/app/lib/chart-colors";
 
 // Satoshi (display + body) isn't on Google Fonts, so it can't go through next/font/google
-// like the fonts below -- it's loaded via Fontshare's own CDN instead (see the <link>
-// tags in the returned JSX) and wired into --font-display/--font-body directly in
-// globals.css. Fontshare is the font's own vendor-sanctioned hosting path (self-hosting
-// the files is also permitted, but requires downloading them from fontshare.com by hand
-// first -- this avoids that with no meaningful cost, same tradeoff Google Fonts already
-// represents for the font below).
+// like the font below -- self-hosted instead via next/font/local, using the actual woff2
+// files pulled from Fontshare's CDN once (public/fonts/satoshi/) rather than a Fontshare
+// <link>/stylesheet fetched fresh on every visit. Wired into --font-display/--font-body
+// through this font's own --font-satoshi variable in globals.css, same pattern as
+// --font-mono below.
+const satoshi = localFont({
+  src: [
+    { path: "../public/fonts/satoshi/satoshi-300.woff2", weight: "300", style: "normal" },
+    { path: "../public/fonts/satoshi/satoshi-400.woff2", weight: "400", style: "normal" },
+    { path: "../public/fonts/satoshi/satoshi-500.woff2", weight: "500", style: "normal" },
+    { path: "../public/fonts/satoshi/satoshi-700.woff2", weight: "700", style: "normal" },
+    { path: "../public/fonts/satoshi/satoshi-900.woff2", weight: "900", style: "normal" },
+  ],
+  variable: "--font-satoshi",
+  display: "swap",
+});
+
 const mono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
@@ -70,10 +82,7 @@ export default async function RootLayout({
     !organization?.onboardingCallDeclinedAt;
 
   return (
-    <html lang="en" className={mono.variable}>
-      <link rel="preconnect" href="https://api.fontshare.com" />
-      <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="anonymous" />
-      <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap" rel="stylesheet" />
+    <html lang="en" className={`${satoshi.variable} ${mono.variable}`}>
       <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased">
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-T91TBD4WF1" strategy="afterInteractive" nonce={nonce} />
         <Script id="google-analytics" strategy="afterInteractive" nonce={nonce}>
