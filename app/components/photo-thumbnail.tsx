@@ -2,16 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
 
 type PhotoThumbnailProps = {
   src: string;
   alt: string;
   className?: string;
+  /** Pixel size for the (square) grid thumbnail -- next/image needs a real width/height
+   * for a non-`fill` image, so this must match whatever h- and w- size `className` sets
+   * (e.g. `size={96}` alongside `className="h-24 w-24 ..."`). Defaults to 96 (h-24/w-24,
+   * the most common size among today's callers) so existing call sites that predate this
+   * prop don't silently request an undersized source image.
+   *
+   * The full-size lightbox image below deliberately stays a plain <img>, not next/image:
+   * its box is sized by the actual photo's own aspect ratio via plain max-height/max-width
+   * (no known width/height to hand next/image ahead of time), and switching it to `fill`
+   * would make its click-to-close hit area the full letterboxed bounding box instead of
+   * just the visible photo -- clicking what looks like backdrop next to a tall/narrow photo
+   * would stop closing the lightbox. Not worth that regression for a single on-demand
+   * image where showing the real full-resolution original is the point anyway. */
+  size?: number;
 };
 
 /** A photo thumbnail that pops the full-size image up in an on-page lightbox when clicked. */
-export function PhotoThumbnail({ src, alt, className }: PhotoThumbnailProps) {
+export function PhotoThumbnail({ src, alt, className, size = 96 }: PhotoThumbnailProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -29,8 +44,7 @@ export function PhotoThumbnail({ src, alt, className }: PhotoThumbnailProps) {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className="cursor-zoom-in">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className={className} />
+        <Image src={src} alt={alt} width={size} height={size} className={className} />
       </button>
 
       {open && mounted

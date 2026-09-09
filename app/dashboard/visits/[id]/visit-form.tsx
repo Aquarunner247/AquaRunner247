@@ -869,6 +869,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
                   key={p.id}
                   src={p.url}
                   alt="Service visit photo"
+                  size={80}
                   className="h-20 w-20 rounded border border-brand-border object-cover"
                 />
               ) : null,

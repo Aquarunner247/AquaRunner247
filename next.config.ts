@@ -1,12 +1,31 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+// Derived from the env var rather than hardcoded so this stays correct across environments
+// without editing code -- local dev's Supabase stack is a plain http://127.0.0.1:54321,
+// production is the project's https://*.supabase.co host. Everything this app fetches
+// through next/image today lives in the visit-photos bucket (see PhotoThumbnail), served
+// from this same project, so one host covers it.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL) : null;
+
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       // Default is 1MB — too small for real inspection reports / contracts (customer documents).
       bodySizeLimit: "15mb",
     },
+  },
+  images: {
+    remotePatterns: supabaseUrl
+      ? [
+          {
+            protocol: supabaseUrl.protocol.replace(":", "") as "http" | "https",
+            hostname: supabaseUrl.hostname,
+            port: supabaseUrl.port,
+            pathname: "/storage/v1/object/sign/**",
+          },
+        ]
+      : [],
   },
   // Static headers only -- Content-Security-Policy needs a fresh nonce per request, so
   // that one lives in middleware.ts instead (which also sets it for redirects this list

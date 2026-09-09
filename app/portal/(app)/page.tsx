@@ -254,6 +254,7 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
                             key={p.id}
                             src={p.url}
                             alt="Service visit photo"
+                            size={96}
                             className="h-24 w-24 rounded border border-brand-border object-cover"
                           />
                         ) : null,
