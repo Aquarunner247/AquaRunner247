@@ -36,7 +36,7 @@ const CORE_CAPABILITIES = [
   {
     n: "06",
     title: "Customer Portal",
-    body: "Give clients self-service access to reports, service history, and updates.",
+    body: "Give clients self-service access to reports, service history, and updates — shown under your own logo and colors, not ours.",
   },
 ];
 

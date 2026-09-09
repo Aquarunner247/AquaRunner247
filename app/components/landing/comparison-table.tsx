@@ -25,9 +25,9 @@ const ROWS: ComparisonRow[] = [
     note: "Dip logs LSI readings but doesn't surface a specific dose amount.",
   },
   {
-    label: "AI phone agent answers missed calls, logs a ticket",
+    label: "AI phone agent recognizes returning callers, answers live account questions (next visit, last visit, assigned tech)",
     values: ["yes", "partial", "no", "yes", "no"],
-    note: "Skimmer offers this as a paid add-on; Pool Founder includes it in all plans.",
+    note: "Skimmer's AI Phone recognizes returning customers and answers general questions, but its public materials don't specify live per-account lookups. Pool Founder's agent also answers live billing/invoice/payment questions, which AquaRunner's doesn't.",
   },
   {
     label: "Tech pay rate set per specific body of water",
@@ -133,7 +133,7 @@ export function ComparisonTable() {
       )}
 
       <p className={styles.cmpDisclaimer}>
-        Based on each provider&rsquo;s public marketing pages and app store listings as of August 2026. Feature
+        Based on each provider&rsquo;s public marketing pages and app store listings as of September 2026. Feature
         sets change &mdash; confirm current capabilities directly with each provider before relying on this
         comparison.
       </p>

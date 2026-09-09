@@ -41,7 +41,7 @@ const FEATURES = [
   {
     n: "05",
     title: "Never miss another call",
-    body: "After hours or just too busy? The AI phone agent answers, asks what's needed, and turns it into a ticket with caller info, urgency, and a summary—ready in your dashboard when you get back.",
+    body: "After hours or just too busy? The AI phone agent picks up and has an actual conversation. For a returning customer, it pulls up their real account on the spot—next visit, last visit, who their tech is—no ticket needed. Anything it can't resolve becomes a ticket with caller info, urgency, and a summary, ready in your dashboard when you get back.",
     pro: true,
   },
   {
@@ -80,6 +80,11 @@ const FEATURES = [
     n: "12",
     title: "Equipment records and safety data sheets",
     body: "Pumps, filters, drain covers, and service dates logged per body of water. Enter the date if it's been replaced so you know if it's still under warranty. It's convenient to have that information available to you at any given time. Safety data sheets for every chemical are also available right on the tech's phone and in the customer's portal.",
+  },
+  {
+    n: "13",
+    title: "Your logo and colors, not ours",
+    body: "Upload your logo, set your brand colors, and customize the welcome email your customers get when their portal login is created. They see your business every time they check a report or get an email—not AquaRunner's.",
   },
 ];
 
