@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { withBotId } from "botid/next/config";
 
 // Derived from the env var rather than hardcoded so this stays correct across environments
 // without editing code -- local dev's Supabase stack is a plain http://127.0.0.1:54321,
@@ -81,10 +82,15 @@ const nextConfig: NextConfig = {
   },
 };
 
+// withBotId adds the proxy rewrites BotID's client-side check needs (see
+// instrumentation-client.ts's initBotId call, and checkBotId in the two protected
+// endpoints: app/api/waitlist/route.ts and app/signup/actions.ts's signUp). Applied to the
+// plain config first, same as BotID's own docs examples, before the Sentry wrapper.
+//
 // Uploads source maps at build time so Sentry shows real stack traces instead of minified
 // ones -- silently skipped if SENTRY_AUTH_TOKEN/SENTRY_ORG/SENTRY_PROJECT aren't set (e.g.
 // local dev, or before the Vercel Sentry integration is connected), never breaks the build.
-export default withSentryConfig(nextConfig, {
+export default withSentryConfig(withBotId(nextConfig), {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,

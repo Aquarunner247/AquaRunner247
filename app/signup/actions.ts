@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { checkBotId } from "botid/server";
 import { prisma } from "@/lib/prisma";
 import { createOrFindAuthUser, createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stripe, mapSubscriptionStatus, priceIdForTier, tierForPriceId, isSelfServePlanTier, type SelfServePlanTier } from "@/lib/stripe";
@@ -29,6 +30,15 @@ export async function signUp(formData: FormData) {
   // creates while this is off.
   if (process.env.SIGNUPS_ENABLED !== "true") {
     redirect("/");
+  }
+
+  // Matches the protected path registered in instrumentation-client.ts's initBotId call
+  // (Server Actions are protected by the page route they're invoked from, not a function
+  // name) -- rejected as a generic "server-error" rather than anything bot-specific, same
+  // reasoning as the waitlist route's check.
+  const botCheck = await checkBotId();
+  if (botCheck.isBot) {
+    redirect("/signup?error=server-error");
   }
 
   const businessName = String(formData.get("businessName") ?? "").trim();

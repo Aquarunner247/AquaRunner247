@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkBotId } from "botid/server";
 import { prisma } from "@/lib/prisma";
 import { sendWaitlistNotificationEmail } from "@/lib/email";
 
@@ -22,6 +23,19 @@ function isDuplicateError(err: unknown): boolean {
 }
 
 export async function POST(request: Request) {
+  // Matches the protected path registered in instrumentation-client.ts's initBotId call --
+  // both sides have to agree on the same path/method or the client never attaches a
+  // verification token for this route to check. Rejected the same way a normal failure
+  // would look to the visitor (no "bot detected" tell) since there's nothing legitimate
+  // for a bot to learn from a more specific error here.
+  const botCheck = await checkBotId();
+  if (botCheck.isBot) {
+    return NextResponse.json<WaitlistResult>(
+      { status: "error", message: "Something went wrong. Please try again." },
+      { status: 403 },
+    );
+  }
+
   let email: unknown;
   try {
     ({ email } = await request.json());

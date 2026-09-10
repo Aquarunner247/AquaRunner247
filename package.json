@@ -45,6 +45,7 @@
     "@vercel/functions": "^3.9.5",
     "@vercel/speed-insights": "^2.0.0",
     "ai": "^7.0.66",
+    "botid": "^1.5.11",
     "google-auth-library": "^11.0.2",
     "leaflet": "^1.9.4",
     "next": "^15.2.0",
