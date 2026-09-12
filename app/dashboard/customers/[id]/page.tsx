@@ -973,6 +973,22 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-brand-ink">
                     <span>Arrived: {formatLocalTime(v.startedAt, tz)}</span>
                     <span>Completed: {formatLocalTime(v.completedAt, tz)}</span>
+                    <span>
+                      Location:{" "}
+                      {v.arrivalLatitude != null && v.arrivalLongitude != null ? (
+                        <a
+                          href={`https://www.google.com/maps?q=${v.arrivalLatitude},${v.arrivalLongitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-brand-primary underline"
+                        >
+                          View on map
+                          {v.arrivalAccuracyMeters != null ? ` (±${Math.round(Number(v.arrivalAccuracyMeters))}m)` : ""}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </span>
                     <span>pH: {v.reading?.ph?.toString() ?? "—"}</span>
                     <span>
                       {v.bodyOfWater.disinfectionMethod === "BROMINE" ? "Br" : "FC"}:{" "}
@@ -1046,7 +1062,8 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     <th className="pb-2 pr-3">Tech</th>
                     <th className="pb-2 pr-3">Logged (arrived)</th>
                     <th className="pb-2 pr-3">Finished</th>
-                    <th className="pb-2">Time on site</th>
+                    <th className="pb-2 pr-3">Time on site</th>
+                    <th className="pb-2">Location</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1073,7 +1090,21 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                         <td className="py-2 pr-3 text-brand-ink">{v.technician?.name ?? "—"}</td>
                         <td className="py-2 pr-3 text-brand-ink">{formatLocalDateTime(arrivedAt, tz)}</td>
                         <td className="py-2 pr-3 text-brand-ink">{formatLocalDateTime(finishedAt, tz)}</td>
-                        <td className="py-2 font-medium text-brand-ink">{durationLabel}</td>
+                        <td className="py-2 pr-3 font-medium text-brand-ink">{durationLabel}</td>
+                        <td className="py-2">
+                          {v.arrivalLatitude != null && v.arrivalLongitude != null ? (
+                            <a
+                              href={`https://www.google.com/maps?q=${v.arrivalLatitude},${v.arrivalLongitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-brand-primary underline"
+                            >
+                              View on map
+                            </a>
+                          ) : (
+                            <span className="text-brand-control">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
