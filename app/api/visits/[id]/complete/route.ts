@@ -24,7 +24,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       reading: true,
       photos: { select: { id: true, storagePath: true } },
       organization: { select: { state: true } },
-      property: { select: { name: true, managerEmail: true, propertyType: true } },
+      property: { select: { name: true, managerEmail: true, propertyType: true, addressLine1: true, city: true, region: true } },
       bodyOfWater: {
         select: {
           id: true,
@@ -125,7 +125,13 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         to: visit.property.managerEmail,
         propertyName: visit.property.name,
         bodyOfWaterName: visit.bodyOfWater.name,
+        address: [visit.property.addressLine1, visit.property.city, visit.property.region].filter(Boolean).join(", ") || null,
         technicianName: visit.technician?.name ?? visit.technician?.email ?? null,
+        // Pre-update value, not `completed`'s -- the completion update above backfills a
+        // never-logged startedAt to completedAt so the DB row always has one, but the
+        // email needs to know whether a real, distinct arrival was ever logged (see
+        // startedAt's doc comment on ServiceSummaryEmailInput).
+        startedAt: visit.startedAt,
         completedAt,
         timeZone: timeZoneForState(visit.organization.state),
         reading: visit.reading

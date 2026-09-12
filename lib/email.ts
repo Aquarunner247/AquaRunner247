@@ -47,7 +47,15 @@ type ServiceSummaryEmailInput = {
   to: string;
   propertyName: string;
   bodyOfWaterName: string;
+  address: string | null;
   technicianName: string | null;
+  /** Null for a visit that was never logged through the GPS auto-arrival flow (see
+   * app/api/visits/[id]/arrival/route.ts) -- completedAt still backfills it at completion
+   * time on the ServiceVisit row itself (see the completion route), but that backfilled
+   * value would show arrival and completion as the exact same instant, which is more
+   * misleading than just omitting the arrival line for a visit that genuinely has no
+   * separate arrival timestamp. Only render "Arrived" when this is a real, distinct time. */
+  startedAt: Date | null;
   completedAt: Date;
   /** IANA zone, e.g. "America/Los_Angeles" -- resolve via lib/timezone.ts's
    * timeZoneForState(org.state) at the call site. This function runs server-side, where
@@ -74,6 +82,42 @@ function fmt(n: number | null, digits = 1): string {
   return n == null ? "—" : n.toFixed(digits);
 }
 
+function fmtTime(d: Date, timeZone: string): string {
+  return d.toLocaleTimeString(undefined, { timeZone, hour: "numeric", minute: "2-digit" });
+}
+
+/** "1h 12m" / "42m" / "<1m" -- never a raw minute count over 60 or a decimal, since this
+ * is read at a glance next to two clock times, not computed from. */
+function fmtDuration(startedAt: Date, completedAt: Date): string {
+  const totalMinutes = Math.round((completedAt.getTime() - startedAt.getTime()) / 60_000);
+  if (totalMinutes < 1) return "<1m";
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+/** One label/value block in the visit-info strip -- same shape whether or not `sub` is
+ * present, so the row of blocks stays evenly spaced regardless of which ones render. */
+function infoBlock(label: string, value: string, sub?: string): string {
+  return `
+    <td style="padding:12px 16px; border-right:1px solid #0F4750; vertical-align:top;">
+      <p style="margin:0; font-size:10px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#9CC3C6;">${label}</p>
+      <p style="margin:2px 0 0; font-size:15px; font-weight:bold; color:white;">${value}</p>
+      ${sub ? `<p style="margin:1px 0 0; font-size:11px; color:#9CC3C6;">${sub}</p>` : ""}
+    </td>`;
+}
+
+/** Section wrapper -- every section in the body gets the same label-then-content shape
+ * (uppercase eyebrow label, divider above all but the first) so the email reads as a
+ * sequence of distinct records rather than one running paragraph. */
+function section(label: string, contentHtml: string, first = false): string {
+  return `
+    <div style="${first ? "" : "border-top:1px solid #E3EDEE; "}padding:16px 0;">
+      <p style="margin:0 0 8px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#55696C;">${label}</p>
+      ${contentHtml}
+    </div>`;
+}
+
 export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -83,66 +127,94 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
 
   const resend = new Resend(apiKey);
 
-  const dateStr = input.completedAt.toLocaleDateString(undefined, { timeZone: input.timeZone, year: "numeric", month: "long", day: "numeric" });
-  const timeStr = input.completedAt.toLocaleTimeString(undefined, { timeZone: input.timeZone, hour: "numeric", minute: "2-digit" });
+  const dateStr = input.completedAt.toLocaleDateString(undefined, { timeZone: input.timeZone, weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  // Only a genuinely distinct arrival timestamp gets its own blocks -- see startedAt's
+  // doc comment on why a backfilled (arrival === completion) value is excluded instead of
+  // shown as a zero-length visit.
+  const hasDistinctArrival = input.startedAt != null && input.startedAt.getTime() !== input.completedAt.getTime();
+
+  const infoBlocks = [
+    infoBlock("Technician", input.technicianName ?? "—"),
+    hasDistinctArrival ? infoBlock("Arrived", fmtTime(input.startedAt!, input.timeZone)) : null,
+    infoBlock(
+      "Completed",
+      fmtTime(input.completedAt, input.timeZone),
+      hasDistinctArrival ? `${fmtDuration(input.startedAt!, input.completedAt)} on site` : undefined,
+    ),
+  ]
+    .filter((b): b is string => b != null)
+    .map((b, i, arr) => (i === arr.length - 1 ? b.replace("border-right:1px solid #0F4750; ", "") : b))
+    .join("");
+
+  const readingRows = [
+    [input.usesBromine ? "Bromine" : "Free Chlorine", `${fmt(input.usesBromine ? (input.reading?.brominePpm ?? null) : (input.reading?.freeChlorinePpm ?? null))} ppm`],
+    ["pH", fmt(input.reading?.ph ?? null)],
+    ["Total Alkalinity", `${fmt(input.reading?.alkalinityPpm ?? null, 0)} ppm`],
+    ["Cyanuric Acid", `${fmt(input.reading?.cyanuricAcidPpm ?? null, 0)} ppm`],
+    ["Water Temperature", `${fmt(input.reading?.temperatureF ?? null, 0)}°F`],
+    ["Backwash", input.reading?.backwashAt ? "Yes" : "No"],
+  ]
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:5px 0; font-size:14px; color:#55696C;">${label}</td><td style="padding:5px 0; font-size:14px; font-weight:bold; text-align:right;">${value}</td></tr>`,
+    )
+    .join("");
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
-      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+      <div style="background:#06333B; padding: 20px 24px 0; border-radius: 8px 8px 0 0;">
         <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Service Summary</p>
-        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.propertyName} — ${input.bodyOfWaterName}</h1>
-        <p style="color:#9CC3C6; font-size:13px; margin:6px 0 0;">${dateStr} at ${timeStr}</p>
+        <h1 style="color:white; font-size:20px; margin:6px 0 2px;">${input.propertyName} — ${input.bodyOfWaterName}</h1>
+        ${input.address ? `<p style="color:#9CC3C6; font-size:13px; margin:0 0 2px;">${input.address}</p>` : ""}
+        <p style="color:#9CC3C6; font-size:13px; margin:0 0 16px;">${dateStr}</p>
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed;"><tr>${infoBlocks}</tr></table>
       </div>
-      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
-        <p style="font-size:14px; margin:0 0 12px;">Technician: <strong>${input.technicianName ?? "—"}</strong></p>
-
-        <table style="width:100%; border-collapse:collapse; font-size:14px; margin-bottom:16px;">
-          <tr><td style="padding:4px 0; color:#55696C;">${input.usesBromine ? "Bromine" : "Free Chlorine"}</td><td style="text-align:right;">${fmt(input.usesBromine ? (input.reading?.brominePpm ?? null) : (input.reading?.freeChlorinePpm ?? null))} ppm</td></tr>
-          <tr><td style="padding:4px 0; color:#55696C;">pH</td><td style="text-align:right;">${fmt(input.reading?.ph ?? null)}</td></tr>
-          <tr><td style="padding:4px 0; color:#55696C;">Total Alkalinity</td><td style="text-align:right;">${fmt(input.reading?.alkalinityPpm ?? null, 0)} ppm</td></tr>
-          <tr><td style="padding:4px 0; color:#55696C;">Cyanuric Acid</td><td style="text-align:right;">${fmt(input.reading?.cyanuricAcidPpm ?? null, 0)} ppm</td></tr>
-          <tr><td style="padding:4px 0; color:#55696C;">Water Temperature</td><td style="text-align:right;">${fmt(input.reading?.temperatureF ?? null, 0)}°F</td></tr>
-          <tr><td style="padding:4px 0; color:#55696C;">Backwash</td><td style="text-align:right;">${input.reading?.backwashAt ? "Yes" : "No"}</td></tr>
-        </table>
+      <div style="border:1px solid #C4D9DA; border-top:none; padding: 0 24px; border-radius: 0 0 8px 8px;">
+        ${section(
+          "Water chemistry readings",
+          `<table style="width:100%; border-collapse:collapse;">${readingRows}</table>`,
+          true,
+        )}
 
         ${
           input.doses.length
-            ? `<p style="font-size:13px; font-weight:bold; margin:0 0 4px;">Chemicals added</p>
-               <ul style="font-size:14px; margin:0 0 16px; padding-left:18px;">
-                 ${input.doses.map((d) => `<li>${d.productName}: ${d.quantity} ${d.unit}</li>`).join("")}
-               </ul>`
+            ? section(
+                "Chemicals added",
+                `<ul style="font-size:14px; margin:0; padding-left:18px;">
+                   ${input.doses.map((d) => `<li style="margin-bottom:2px;">${d.productName}: <strong>${d.quantity} ${d.unit}</strong></li>`).join("")}
+                 </ul>`,
+              )
             : ""
         }
 
         ${
           input.checklistLabels.length
-            ? `<p style="font-size:13px; font-weight:bold; margin:0 0 4px;">Service checklist completed</p>
-               <p style="font-size:14px; margin:0 0 16px;">${input.checklistLabels.join(", ")}</p>`
+            ? section(
+                "Service checklist completed",
+                `<ul style="font-size:14px; margin:0; padding-left:0; list-style:none;">
+                   ${input.checklistLabels.map((label) => `<li style="margin-bottom:3px;">&#10003; ${label}</li>`).join("")}
+                 </ul>`,
+              )
             : ""
         }
 
-        ${
-          input.techNotes
-            ? `<p style="font-size:13px; font-weight:bold; margin:0 0 4px;">Notes</p>
-               <p style="font-size:14px; margin:0 0 16px; white-space:pre-wrap;">${input.techNotes}</p>`
-            : ""
-        }
+        ${input.techNotes ? section("Notes", `<p style="font-size:14px; margin:0; white-space:pre-wrap;">${input.techNotes}</p>`) : ""}
 
         ${
           input.photoUrls.length
-            ? `<p style="font-size:13px; font-weight:bold; margin:0 0 8px;">Photos from this visit</p>
-               <div style="margin:0 0 16px;">
-                 ${input.photoUrls
-                   .map(
-                     (url) =>
-                       `<img src="${url}" alt="Service visit photo" style="display:block; width:100%; max-width:512px; border-radius:8px; margin:0 0 8px; border:1px solid #C4D9DA;" />`,
-                   )
-                   .join("")}
-               </div>`
+            ? section(
+                "Photos from this visit",
+                input.photoUrls
+                  .map(
+                    (url) =>
+                      `<img src="${url}" alt="Service visit photo" style="display:block; width:100%; max-width:512px; border-radius:8px; margin:0 0 8px; border:1px solid #C4D9DA;" />`,
+                  )
+                  .join(""),
+              )
             : ""
         }
 
-        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+        <p style="font-size:12px; color:#55696C; margin:16px 0 0; border-top:1px solid #C4D9DA; padding:12px 0 20px;">
           This is an automated summary from AquaRunner 24/7 Pro.
         </p>
       </div>
