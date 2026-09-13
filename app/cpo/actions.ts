@@ -130,7 +130,12 @@ export async function logReadingNow(formData: FormData) {
   });
 
   revalidatePath("/cpo");
-  revalidatePath(`/cpo/properties/${body.propertyId}`);
+  // Redirect (not just revalidatePath) so the page shows something happened -- every
+  // field here is pre-filled from the last logged reading, so submitting a value that
+  // happens to match (or the field just re-rendering with what was typed) looked
+  // identical before and after the click. The "Last reading logged <date>" text nearby
+  // does update too, but that's a subtle, easy-to-miss signal on its own.
+  redirect(`/cpo/properties/${body.propertyId}?saved=1`);
 }
 
 /** createUser is already fully generic (branches on the submitted role, org-scoped, seat-

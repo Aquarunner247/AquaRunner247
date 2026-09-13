@@ -11,13 +11,15 @@ const EQUIPMENT_FIELD_KEYS: ReadingFieldKey[] = ["pumpPressurePsi", "vacGaugeRea
 
 type PageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ saved?: string }>;
 };
 
-export default async function CpoPropertyPage({ params }: PageProps) {
+export default async function CpoPropertyPage({ params, searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
 
   const { id } = await params;
+  const sp = (await searchParams) ?? {};
   const property = await prisma.property.findFirst({
     where: { id, organizationId: appUser.organizationId },
     include: {
@@ -65,6 +67,8 @@ export default async function CpoPropertyPage({ params }: PageProps) {
         <h1 className="text-2xl font-semibold text-brand-ink">{property.name}</h1>
         {property.managerName ? <p className="mt-1 text-sm text-brand-muted">{property.managerName}</p> : null}
       </header>
+
+      {sp.saved === "1" ? <p className="mt-6 text-sm text-brand-ok">Saved.</p> : null}
 
       <section className="mt-6 space-y-4">
         {bodiesWithQr.map((body) => {
