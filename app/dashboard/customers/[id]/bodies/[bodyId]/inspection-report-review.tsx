@@ -199,6 +199,38 @@ export function InspectionReportReview({
                       placeholder="Serial #"
                       className={inputClass}
                     />
+                    <label className="flex items-center gap-1 text-xs text-brand-muted">
+                      Qty
+                      <input
+                        name={`equipment_${i}_quantity`}
+                        type="number"
+                        min={1}
+                        step={1}
+                        defaultValue={eq.quantity ?? 1}
+                        className={`${inputClass} w-14`}
+                      />
+                    </label>
+                    {/* BTU/ASME only ever apply to heaters, but shown for every row rather
+                        than switched by the kind <select> above -- same choice this form
+                        already made for Serial #, which doesn't apply to every kind either
+                        (see Equipment's own schema comments). Keeping every field visible
+                        regardless of kind avoids adding per-row client state just to
+                        show/hide two inputs. */}
+                    <label className="flex items-center gap-1 text-xs text-brand-muted">
+                      BTU
+                      <input
+                        name={`equipment_${i}_btu`}
+                        type="number"
+                        step={1}
+                        defaultValue={eq.btu ?? ""}
+                        placeholder="Heater only"
+                        className={`${inputClass} w-24`}
+                      />
+                    </label>
+                    <label className="flex items-center gap-1 text-xs text-brand-muted">
+                      <input type="checkbox" name={`equipment_${i}_asmeCertified`} defaultChecked={eq.asmeCertified ?? false} />
+                      ASME certified
+                    </label>
                   </li>
                 ))}
               </ul>

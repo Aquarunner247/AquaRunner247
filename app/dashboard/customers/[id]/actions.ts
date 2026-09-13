@@ -416,7 +416,10 @@ export async function updateCustomerChecklist(formData: FormData) {
       : []),
   ]);
 
-  revalidatePath(`/dashboard/customers/${customerId}`);
+  // A redirect (not just revalidatePath) so the page actually shows something changed --
+  // the checkboxes already reflect what was just submitted, so a bare revalidate looked
+  // identical before and after and gave no sign the click did anything.
+  redirect(`/dashboard/customers/${customerId}?tab=overview&checklistSaved=1`);
 }
 
 /** Inspector contact info + last inspection date -- optional, added post-signup, per body of water. */
@@ -450,7 +453,10 @@ export async function updateBodyInspection(formData: FormData) {
 
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${customerId}`);
-  revalidatePath(`/dashboard/customers/${customerId}/bodies/${bodyId}`);
+  // Redirect (not just revalidatePath) so the page shows something happened -- every
+  // field here is pre-filled from current DB state, so a bare revalidate looks identical
+  // before and after the click.
+  redirect(`/dashboard/customers/${customerId}/bodies/${bodyId}?saved=1`);
 }
 
 export async function uploadInspectionReportAction(formData: FormData) {
@@ -538,13 +544,38 @@ export async function applyInspectionReportExtraction(formData: FormData) {
     if (formData.get(`equipment_${i}_include`) == null) continue;
     const kindRaw = String(formData.get(`equipment_${i}_kind`) ?? "").trim();
     const kind = (Object.values(EquipmentKind) as string[]).includes(kindRaw) ? (kindRaw as EquipmentKind) : EquipmentKind.OTHER;
-    equipmentToCreate.push({
+    const quantityRaw = numOrNull(formData.get(`equipment_${i}_quantity`));
+    const btuRaw = numOrNull(formData.get(`equipment_${i}_btu`));
+    // BTU/ASME (heaters) and quantity (valve/filter/drain-cover/skimmer-cover) only ever
+    // apply to specific kinds -- same kind-gating createEquipment's manual "Add equipment"
+    // form already applies, so a row re-classified in the review form (or one the model
+    // associated with the wrong kind) doesn't persist a stray value for a field that isn't
+    // meaningful for its actual kind.
+    const hasQuantity =
+      kind === EquipmentKind.VALVE ||
+      kind === EquipmentKind.FILTER ||
+      kind === EquipmentKind.MAIN_DRAIN_COVER ||
+      kind === EquipmentKind.SKIMMER_COVER;
+    const base = {
       bodyOfWaterId: body.id,
       kind,
       make: String(formData.get(`equipment_${i}_make`) ?? "").trim() || null,
       model: String(formData.get(`equipment_${i}_model`) ?? "").trim() || null,
       serialNumber: String(formData.get(`equipment_${i}_serialNumber`) ?? "").trim() || null,
-    });
+      btu: kind === EquipmentKind.HEATER && btuRaw != null ? Math.round(btuRaw) : null,
+      asmeCertified: kind === EquipmentKind.HEATER ? formData.get(`equipment_${i}_asmeCertified`) === "on" : null,
+    };
+    const count = quantityRaw != null ? Math.max(1, Math.round(quantityRaw)) : 1;
+    if (hasQuantity) {
+      equipmentToCreate.push({ ...base, quantity: count > 1 ? count : null });
+    } else if (count > 1) {
+      // This kind has no quantity column of its own (see hasQuantity above) -- create one
+      // row per unit instead of either dropping the count the report gave or writing it to
+      // a field the rest of the app doesn't read for this kind.
+      for (let n = 0; n < count; n++) equipmentToCreate.push({ ...base, quantity: null });
+    } else {
+      equipmentToCreate.push({ ...base, quantity: null });
+    }
   }
   if (equipmentToCreate.length > 0) {
     await prisma.equipment.createMany({ data: equipmentToCreate });

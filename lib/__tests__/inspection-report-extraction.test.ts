@@ -29,8 +29,9 @@ describe("extractInspectionReportData", () => {
       volumeGallons: 18000,
       maximumOccupancy: 45,
       equipment: [
-        { kind: "PUMP", make: "Pentair", model: "WhisperFlo", serialNumber: "PF-2291-A" },
-        { kind: "FILTER", make: "Sta-Rite", model: "System 3", serialNumber: null },
+        { kind: "PUMP", make: "Pentair", model: "WhisperFlo", serialNumber: "PF-2291-A", quantity: 2, btu: null, asmeCertified: null },
+        { kind: "FILTER", make: "Sta-Rite", model: "System 3", serialNumber: null, quantity: null, btu: null, asmeCertified: null },
+        { kind: "HEATER", make: "Raypak", model: "H-Series", serialNumber: "RP-9910", quantity: null, btu: 400000, asmeCertified: true },
       ],
     };
     const result = await extractInspectionReportData(DUMMY_BYTES, "application/pdf", mockModelReturning(fixture));
@@ -38,8 +39,11 @@ describe("extractInspectionReportData", () => {
     expect(result.inspectionDate).toBe("2026-06-14");
     expect(result.volumeGallons).toBe(18000);
     expect(result.maximumOccupancy).toBe(45);
-    expect(result.equipment).toHaveLength(2);
-    expect(result.equipment[0]).toMatchObject({ kind: "PUMP", make: "Pentair", model: "WhisperFlo", serialNumber: "PF-2291-A" });
+    expect(result.equipment).toHaveLength(3);
+    // Two identical pumps on the report collapse into one entry with quantity: 2, not two
+    // separate entries -- exactly the behavior the schema's own description demands.
+    expect(result.equipment[0]).toMatchObject({ kind: "PUMP", make: "Pentair", model: "WhisperFlo", serialNumber: "PF-2291-A", quantity: 2 });
+    expect(result.equipment[2]).toMatchObject({ kind: "HEATER", btu: 400000, asmeCertified: true });
   });
 
   it("falls back to OTHER for an equipment item that doesn't fit a known kind", async () => {
@@ -48,7 +52,7 @@ describe("extractInspectionReportData", () => {
       inspectionDate: null,
       volumeGallons: null,
       maximumOccupancy: null,
-      equipment: [{ kind: "OTHER", make: "Generic Corp", model: "UV-500", serialNumber: null }],
+      equipment: [{ kind: "OTHER", make: "Generic Corp", model: "UV-500", serialNumber: null, quantity: null, btu: null, asmeCertified: null }],
     };
     const result = await extractInspectionReportData(DUMMY_BYTES, "image/jpeg", mockModelReturning(fixture));
     expect(result.equipment[0].kind).toBe("OTHER");
