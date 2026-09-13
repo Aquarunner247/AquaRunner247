@@ -15,7 +15,7 @@ import {
 } from "./actions";
 
 type PageProps = {
-  searchParams?: Promise<{ edit?: string }>;
+  searchParams?: Promise<{ edit?: string; saved?: string }>;
 };
 
 function fmtMoney(n: number): string {
@@ -271,6 +271,7 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
           Determines the &ldquo;This pay period&rdquo; window shown on technicians&rsquo; estimated-earnings card. Pay
           structure is flat-rate-per-property only for now (the only option available).
         </p>
+        {sp.saved === "1" ? <p className="mt-2 text-sm text-brand-ok">Saved.</p> : null}
         <form action={updatePayrollSettings} className="mt-3 space-y-3">
           <label className="block text-sm">
             <span className="text-brand-ink">Pay period type</span>

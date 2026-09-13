@@ -30,7 +30,7 @@ import { timeZoneForState, formatLocalDateTime, formatLocalTime } from "@/lib/ti
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ tab?: string; edit?: string; error?: string; suggestRoute?: string }>;
+  searchParams?: Promise<{ tab?: string; edit?: string; error?: string; suggestRoute?: string; checklistSaved?: string }>;
 };
 
 export default async function CustomerDetailPage({ params, searchParams }: PageProps) {
@@ -586,6 +586,8 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               </Link>{" "}
               settings page.
             </p>
+
+            {sp.checklistSaved === "1" ? <p className="mt-3 text-sm text-brand-ok">Saved.</p> : null}
 
             {isEnded ? (
               <div className="mt-3 grid gap-1.5 sm:grid-cols-2">

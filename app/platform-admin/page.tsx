@@ -20,8 +20,13 @@ const TIER_OPTIONS: { value: string; label: string }[] = [
   { value: "COMPLIANCE", label: "Compliance" },
 ];
 
-export default async function PlatformAdminPage() {
+type PageProps = {
+  searchParams?: Promise<{ saved?: string }>;
+};
+
+export default async function PlatformAdminPage({ searchParams }: PageProps) {
   await requirePlatformAdmin();
+  const sp = (await searchParams) ?? {};
 
   // Intentional exception: this is the one place in the app that queries across ALL
   // organizations. Every other query in the codebase must scope by organizationId — do not
@@ -59,6 +64,8 @@ export default async function PlatformAdminPage() {
           Compliance data preview →
         </Link>
       </header>
+
+      {sp.saved === "1" ? <p className="mt-6 text-sm text-brand-ok">Saved.</p> : null}
 
       {waitingList.length > 0 ? (
         <section className="mt-6 rounded-lg border border-brand-warn/30 bg-brand-warnFill p-4">

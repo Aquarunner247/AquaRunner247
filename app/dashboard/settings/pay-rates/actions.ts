@@ -89,7 +89,10 @@ export async function updateTechnicianPayRate(formData: FormData) {
     data: { rateAmount, isBundled, bundledIntoBodyOfWaterId, effectiveDate },
   });
 
-  revalidatePath("/dashboard/settings/pay-rates");
+  // Redirect to close the inline edit form (same "?edit=<id>" toggle the page's own
+  // Cancel link uses) -- every field here is pre-filled from current DB state, so
+  // staying on the same edit form after a bare revalidate looked identical before and
+  // after the click, same issue updateChemicalProduct already avoids this way.
   redirect("/dashboard/settings/pay-rates");
 }
 
@@ -144,5 +147,8 @@ export async function updatePayrollSettings(formData: FormData) {
     },
   });
 
-  revalidatePath("/dashboard/settings/pay-rates");
+  // Redirect (not just revalidatePath) so the page shows something happened -- every
+  // field here is pre-filled from current DB state, so a bare revalidate looks identical
+  // before and after the click.
+  redirect("/dashboard/settings/pay-rates?saved=1");
 }

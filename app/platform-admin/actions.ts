@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
@@ -23,7 +24,10 @@ export async function setOrganizationPlanTier(formData: FormData) {
     data: { planTier: planTierRaw as PlanTier },
   });
 
-  revalidatePath("/platform-admin");
+  // Redirect (not just revalidatePath) so the page shows something happened -- the tier
+  // <select> already shows whatever was picked the moment it was chosen, so a bare
+  // revalidate looked identical before and after the click.
+  redirect("/platform-admin?saved=1");
 }
 
 export async function compOrganization(formData: FormData) {

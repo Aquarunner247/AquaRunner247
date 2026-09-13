@@ -9,7 +9,7 @@ import { getSdsSignedUrl, resolveSds } from "@/lib/sds-documents";
 import type { ChemicalType } from "@/generated/prisma/enums";
 
 type PageProps = {
-  searchParams?: Promise<{ from?: string; to?: string; propertyId?: string; edit?: string; targetSaveError?: string }>;
+  searchParams?: Promise<{ from?: string; to?: string; propertyId?: string; edit?: string; targetSaveError?: string; saved?: string }>;
 };
 
 const CHEMICAL_GROUP_LABELS: Record<ChemicalType, string> = {
@@ -171,6 +171,8 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
           page, then try again.
         </p>
       ) : null}
+
+      {sp.saved === "1" ? <p className="app-card mt-6 text-sm text-brand-ok">Saved.</p> : null}
 
       <section data-tour="chemicals-products" className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Chemical products</h2>

@@ -171,7 +171,10 @@ export async function updateUserRole(formData: FormData) {
   }
 
   await prisma.user.update({ where: { id: userId }, data: { role } });
-  revalidatePath("/dashboard/users");
+  // Redirect (not just revalidatePath) so the page shows something happened -- the role
+  // <select> already shows whatever was picked the moment the user chose it, so a bare
+  // revalidate looked identical before and after the click.
+  redirect("/dashboard/users?tab=staff&saved=1");
 }
 
 export async function deleteStaffUser(formData: FormData) {

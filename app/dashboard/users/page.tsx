@@ -9,7 +9,7 @@ import { NameInput } from "@/app/components/name-input";
 import { createUser, deleteStaffUser, deleteCustomerUser, updateUserRole } from "./actions";
 
 type PageProps = {
-  searchParams?: Promise<{ error?: string; tab?: string }>;
+  searchParams?: Promise<{ error?: string; tab?: string; saved?: string }>;
 };
 
 export default async function UsersPage({ searchParams }: PageProps) {
@@ -98,6 +98,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
           </section>
 
           <section data-tour="users-team-list" className="app-card mt-4">
+            {params.saved === "1" ? <p className="mb-3 text-sm text-brand-ok">Saved.</p> : null}
             <ul className="space-y-2">
               {users.map((u) => (
                 <li key={u.id} className="app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm">

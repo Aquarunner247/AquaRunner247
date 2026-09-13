@@ -192,7 +192,10 @@ export async function updateChemicalTypeSettings(formData: FormData) {
     }
   }
 
-  revalidatePath("/dashboard/chemicals");
+  // Redirect (not just revalidatePath) so the page shows something happened -- every
+  // field here (checkboxes, price, radio, select, target range) is pre-filled from
+  // current DB state, so a bare revalidate looks identical before and after the click.
+  redirect("/dashboard/chemicals?saved=1");
 }
 
 export async function uploadChemicalSds(formData: FormData) {

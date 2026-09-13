@@ -25,7 +25,7 @@ import { InspectionReportReview } from "./inspection-report-review";
 
 type PageProps = {
   params: Promise<{ id: string; bodyId: string }>;
-  searchParams?: Promise<{ imported?: string; importError?: string; importedMonths?: string }>;
+  searchParams?: Promise<{ imported?: string; importError?: string; importedMonths?: string; saved?: string }>;
 };
 
 function fmtMoney(n: number): string {
@@ -369,6 +369,8 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
           Optional — the current inspector&rsquo;s contact info, the last inspection date, and any inspection reports
           for this specific venue.
         </p>
+
+        {sp.saved === "1" ? <p className="mt-2 text-sm text-brand-ok">Saved.</p> : null}
 
         {!isEnded ? (
           <form action={updateBodyInspection} className="mt-3 space-y-2">
