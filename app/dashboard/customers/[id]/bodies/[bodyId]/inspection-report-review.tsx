@@ -46,12 +46,20 @@ export function InspectionReportReview({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [extracted, setExtracted] = useState<ExtractedInspectionData | null>(null);
 
+  // `reports` can change after this component's initial mount -- most notably, a body's
+  // very first inspection report upload takes this from an empty list to a one-item list,
+  // but `reportId` was already initialized to "" against that empty list and a useState
+  // initializer only runs once. Falling back here (rather than in a useEffect) is what
+  // lets a freshly uploaded report actually become selectable without a full page reload;
+  // it also recovers cleanly if the previously-selected report gets deleted elsewhere.
+  const selectedReportId = reports.some((r) => r.id === reportId) ? reportId : (reports[0]?.id ?? "");
+
   async function handleExtract() {
-    if (!reportId) return;
+    if (!selectedReportId) return;
     setStatus("loading");
     setErrorMessage(null);
     try {
-      const res = await fetch(`/api/inspection-reports/${reportId}/extract`, { method: "POST" });
+      const res = await fetch(`/api/inspection-reports/${selectedReportId}/extract`, { method: "POST" });
       const body = (await res.json()) as { ok: boolean; data?: ExtractedInspectionData; error?: string };
       if (!res.ok || !body.ok || !body.data) {
         setErrorMessage(body.error || "Something went wrong reading that report.");
@@ -76,7 +84,7 @@ export function InspectionReportReview({
         everything below before anything is saved.
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <select value={reportId} onChange={(e) => setReportId(e.target.value)} className={inputClass}>
+        <select value={selectedReportId} onChange={(e) => setReportId(e.target.value)} className={inputClass}>
           {reports.map((r) => (
             <option key={r.id} value={r.id}>
               {r.label}

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { generateQrDataUrl, publicBodyOfWaterUrl } from "@/lib/qr";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
+import { SubmitButton } from "@/app/components/submit-button";
 import { BodyQrCode } from "@/app/components/body-qr-code";
 import { EquipmentForm } from "./equipment-form";
 import { EquipmentItem } from "./equipment-item";
@@ -475,9 +476,9 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
                   className="rounded border border-brand-control px-2 py-1.5 text-sm"
                 />
                 <input type="file" name="file" required className="text-sm" />
-                <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+                <SubmitButton pendingLabel="Uploading…" className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">
                   Upload
-                </button>
+                </SubmitButton>
               </form>
 
               <InspectionReportReview
