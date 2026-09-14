@@ -9,7 +9,7 @@ import { Geolocation } from "@capacitor/geolocation";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_PRIMARY } from "@/app/lib/chart-colors";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
-import { fetchDrivingRoute } from "@/lib/routing";
+import { fetchDrivingRoute, computeOptimizedStopOrder } from "@/lib/routing";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 
 export type RouteStop = {
@@ -109,10 +109,6 @@ function haversineMeters(a: { latitude: number | null; longitude: number | null 
   const dLon = toRad(b.longitude - a.longitude);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
-}
-
-function haversineMiles(a: { latitude: number | null; longitude: number | null }, b: { latitude: number | null; longitude: number | null }) {
-  return haversineMeters(a, b) / 1609.34;
 }
 
 /**
@@ -217,6 +213,7 @@ export function RouteDayView({
   const effectiveReadOnly = readOnly || isMultiTech;
   const [items, setItems] = useState<DayItem[]>(initialItems);
   const [saving, setSaving] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported" | "unavailable">("idle");
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -464,29 +461,26 @@ export function RouteDayView({
   // Ad-hoc items were never part of driving-distance optimization -- they get appended
   // after the optimized visits, same treatment visits-without-coordinates already get
   // below. Still fully draggable afterward, just not part of the distance calculation.
-  function optimizeRoute() {
+  // Real driving duration via lib/routing.ts's computeOptimizedStopOrder, falling back to
+  // straight-line distance if OSRM's table service is unreachable.
+  async function optimizeRoute() {
     const visitItems = items.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
     const adhocItems = items.filter((i) => i.kind === "adhoc");
-    const withCoords = visitItems.filter((v) => v.latitude != null && v.longitude != null);
+    const withCoords = visitItems.filter((v) => v.latitude != null && v.longitude != null) as (DayItem & {
+      kind: "visit";
+      latitude: number;
+      longitude: number;
+    })[];
     const withoutCoords = visitItems.filter((v) => v.latitude == null || v.longitude == null);
     if (withCoords.length < 2) return;
 
-    const remaining = [...withCoords];
-    const ordered: (DayItem & { kind: "visit" })[] = [remaining.shift()!];
-    while (remaining.length) {
-      const last = ordered[ordered.length - 1];
-      let bestIdx = 0;
-      let bestDist = Infinity;
-      remaining.forEach((candidate, idx) => {
-        const d = haversineMiles(last, candidate);
-        if (d < bestDist) {
-          bestDist = d;
-          bestIdx = idx;
-        }
-      });
-      ordered.push(remaining.splice(bestIdx, 1)[0]);
+    setOptimizing(true);
+    try {
+      const ordered = await computeOptimizedStopOrder(withCoords);
+      await persistOrder([...ordered, ...withoutCoords, ...adhocItems]);
+    } finally {
+      setOptimizing(false);
     }
-    void persistOrder([...ordered, ...withoutCoords, ...adhocItems]);
   }
 
   // Ad-hoc items never carry coordinates -- excluded here so their absence never triggers
@@ -579,10 +573,10 @@ export function RouteDayView({
               type="button"
               data-tour="schedule-optimize-route"
               onClick={optimizeRoute}
-              disabled={saving}
+              disabled={saving || optimizing}
               className="app-btn-primary-sm mb-2"
             >
-              Optimize stop order
+              {optimizing ? "Optimizing…" : "Optimize stop order"}
             </button>
           ) : null}
           {!effectiveReadOnly && !proAccess ? (

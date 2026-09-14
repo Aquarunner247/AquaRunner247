@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { RouteBuilderMap } from "@/app/components/route-builder-map";
-import { haversineMiles } from "@/lib/geocode";
+import { computeOptimizedStopOrder } from "@/lib/routing";
 import { removeRouteStop } from "./actions";
 
 export type RouteStopItem = {
@@ -28,6 +28,7 @@ type Props = {
 export function RouteStopsList({ routeId, stops: initialStops, proAccess = true }: Props) {
   const [stops, setStops] = useState(initialStops);
   const [saving, setSaving] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
 
   // The server re-sends a fresh `stops` prop after add/remove-stop actions revalidate
   // this page, but React reuses this already-mounted instance rather than remounting it,
@@ -53,11 +54,11 @@ export function RouteStopsList({ routeId, stops: initialStops, proAccess = true 
 
   const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(stops, persistOrder);
 
-  /** Same straight-line nearest-neighbor heuristic as the day-of schedule's "Optimize stop
-   * order" (see RouteDayView) -- reorders the route's default stop sequence, not a single
-   * day's actual visits. Stops with no property coordinates yet (not geocoded) are left in
-   * place at the end, same as there. */
-  function optimizeStops() {
+  /** Reorders the route's default stop sequence (not a single day's actual visits) by real
+   * driving duration -- see lib/routing.ts's computeOptimizedStopOrder, which falls back to
+   * straight-line distance if OSRM's table service is unreachable. Stops with no property
+   * coordinates yet (not geocoded) are left in place at the end, same as before. */
+  async function optimizeStops() {
     const withCoords = stops.filter((s) => s.latitude != null && s.longitude != null) as (RouteStopItem & {
       latitude: number;
       longitude: number;
@@ -65,22 +66,13 @@ export function RouteStopsList({ routeId, stops: initialStops, proAccess = true 
     const withoutCoords = stops.filter((s) => s.latitude == null || s.longitude == null);
     if (withCoords.length < 2) return;
 
-    const remaining = [...withCoords];
-    const ordered: RouteStopItem[] = [remaining.shift()!];
-    while (remaining.length) {
-      const last = ordered[ordered.length - 1] as RouteStopItem & { latitude: number; longitude: number };
-      let bestIdx = 0;
-      let bestDist = Infinity;
-      remaining.forEach((candidate, idx) => {
-        const d = haversineMiles(last, candidate);
-        if (d < bestDist) {
-          bestDist = d;
-          bestIdx = idx;
-        }
-      });
-      ordered.push(remaining.splice(bestIdx, 1)[0]);
+    setOptimizing(true);
+    try {
+      const ordered = await computeOptimizedStopOrder(withCoords);
+      await persistOrder([...ordered, ...withoutCoords]);
+    } finally {
+      setOptimizing(false);
     }
-    void persistOrder([...ordered, ...withoutCoords]);
   }
 
   if (stops.length === 0) {
@@ -90,8 +82,8 @@ export function RouteStopsList({ routeId, stops: initialStops, proAccess = true 
   return (
     <div className="mt-3">
       {proAccess ? (
-        <button type="button" onClick={optimizeStops} disabled={saving} className="app-btn-secondary-sm mb-2">
-          Optimize stop order
+        <button type="button" onClick={optimizeStops} disabled={saving || optimizing} className="app-btn-secondary-sm mb-2">
+          {optimizing ? "Optimizing…" : "Optimize stop order"}
         </button>
       ) : (
         <Link href="/dashboard/billing" className="mb-2 block text-xs font-medium text-brand-primary underline">
