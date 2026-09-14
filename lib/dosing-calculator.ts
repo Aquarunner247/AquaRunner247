@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getOrganizationRuleset, isComplianceActive, chlorineFamilyThreshold, activeChemistryThresholds } from "@/lib/compliance";
-import { formatDose, convertToBillingUnit } from "@/lib/dosing-units";
+import { formatDose, convertToBillingUnit, daysUntilNextWeekday, computeTabletRecommendation, buildTabletNote } from "@/lib/dosing-units";
 import type { ChemicalType, ChemicalProductForm, DosingUnit, DisinfectionMethod, ChlorineFeedMechanism } from "@/generated/prisma/enums";
 
-export { formatLiquidOz, formatWeightOz, convertToBillingUnit } from "@/lib/dosing-units";
+export { formatLiquidOz, formatWeightOz, convertToBillingUnit, daysUntilNextWeekday, computeTabletRecommendation } from "@/lib/dosing-units";
 
 /**
  * The chemicals this calculator can automatically recommend a dose for -- every one of
@@ -253,6 +253,33 @@ function feedMechanismPrefix(mechanism: ChlorineFeedMechanism): string {
   return "";
 }
 
+/** Resolves how many days until this body of water's next regularly-scheduled visit, used
+ * to project a tablet-feeder maintenance dose (see computeTabletRecommendation).
+ * Deliberately reads the recurring pattern directly (RecurringStop -> RecurringRoute.dayOfWeek)
+ * rather than querying ServiceVisit for "the next scheduled visit" the way
+ * lib/phone-agent-status.ts's nextVisitAnswer does -- those rows only exist once someone
+ * has actually loaded that day's schedule (see ensureVisitsGeneratedForDate), so a future
+ * date nobody has browsed to yet may have no row at all. RecurringRoute.frequency
+ * (WEEKLY/BIWEEKLY/CUSTOM) isn't read here because it isn't read anywhere in visit
+ * generation either -- every active route matching today's weekday generates a visit
+ * every week regardless of its frequency value, so there's no biweekly cadence to account
+ * for today. Null when the body has no active recurring stop at all (ad-hoc-only, or not
+ * yet routed). The actual weekday-distance arithmetic is daysUntilNextWeekday in
+ * lib/dosing-units.ts (kept Prisma-free and unit-tested there); this is just the DB lookup
+ * feeding it.
+ */
+async function daysUntilNextVisit(bodyOfWaterId: string, organizationId: string): Promise<number | null> {
+  const stops = await prisma.recurringStop.findMany({
+    where: { bodyOfWaterId, route: { organizationId, active: true } },
+    select: { route: { select: { dayOfWeek: true } } },
+  });
+  const weekdays = stops.map((s) => s.route.dayOfWeek).filter((d): d is number => d != null);
+
+  // JS getDay(): Sun=0..Sat=6 -> ISO weekday Mon=1..Sun=7, same conversion visit-generation.ts uses.
+  const todayIso = ((new Date().getDay() + 6) % 7) + 1;
+  return daysUntilNextWeekday(todayIso, weekdays);
+}
+
 /** FREE_CHLORINE only ever raises via a product in this calculator (no "too high"
  * guidance existed in the prior version either, beyond what Table C -- sodium thiosulfate
  * -- now actually provides, so FC-too-high IS handled, unlike Salt-too-high which still
@@ -340,6 +367,35 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     const direction: "UP" | "DOWN" = current < resolved.targetValue ? "UP" : "DOWN";
     const productChemicalType = productChemicalTypeFor(key, direction);
     const feedPrefix = key === "FREE_CHLORINE" ? feedMechanismPrefix(visit.bodyOfWater.chlorineFeedMechanism) : "";
+
+    // Additional, independent recommendation -- not a replacement for whatever the normal
+    // liquid/granular pick below produces (or doesn't). An org running a tablet feeder can
+    // still have a granular product enabled for periodic shock treatment; showing both
+    // gives the tech the real choice instead of hiding one. Only for direction === "UP" --
+    // tablets only ever raise chlorine, so a too-high reading (DOWN) stays on the existing
+    // sodium-thiosulfate path untouched.
+    if (key === "FREE_CHLORINE" && direction === "UP" && visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FEEDER") {
+      const tabletSetting = enabledProductsByType.get("FREE_CHLORINE")?.find((s) => s.catalogProduct.form === "TABLET");
+      if (tabletSetting) {
+        const days = await daysUntilNextVisit(visit.bodyOfWater.id, visit.organizationId);
+        const tablet = computeTabletRecommendation(gallons, current, resolved.targetValue, days, Number(tabletSetting.catalogProduct.dosingConstant));
+        recommendations.push(
+          buildRecommendation({
+            chemicalKey: key,
+            currentValue: current,
+            targetValue: resolved.targetValue,
+            targetMin: resolved.boundMin,
+            targetMax: resolved.boundMax,
+            productName: tabletSetting.catalogProduct.name,
+            formattedDose: formatDose(tablet.totalTablets, "TABLET"),
+            note: buildTabletNote(tablet),
+            rawAmount: tablet.totalTablets,
+            dosingUnit: "TABLET",
+            billingLink: buildBillingLink(tabletSetting.linkedBillingProduct, tablet.totalTablets, "TABLET"),
+          }),
+        );
+      }
+    }
 
     if (!productChemicalType) {
       // CYA/Calcium Hardness too-high: no chemical corrects either -- partial drain/

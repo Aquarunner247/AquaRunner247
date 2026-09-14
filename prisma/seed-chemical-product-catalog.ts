@@ -118,18 +118,19 @@ const PRODUCTS: {
     sdsSourceLabel: "Olin Chlor Alkali",
   },
   // Tablet erosion feeders release chlorine continuously, not as a batch ppm-delta dose --
-  // Taylor's tables have no dosing constant for that, so this is 0 and never used for a
-  // computed recommendation (see dosing-calculator.ts, which excludes TABLET-form products
-  // from the automatic pick). Cataloged so orgs running a feeder can enable/price it for
-  // billing/refill tracking. Same product family as the granular Trichlor 90% above, so it
-  // reuses that entry's SDS.
+  // still excluded from the ordinary automatic pick in dosing-calculator.ts
+  // (pickPrimaryProduct filters TABLET-form products out entirely for that path).
+  // dosingConstant matches the granular Trichlor 90% above (same chemical, same
+  // concentration, same source SDS) -- used ONLY by computeTabletRecommendation's
+  // separate tablet-feeder path, which converts an ounce-based dose into a tablet count
+  // via a known tablet weight rather than treating this as an instant batch correction.
   {
     name: 'Trichlor Tablets 90% (3")',
     chemicalType: "FREE_CHLORINE",
     form: "TABLET",
     activePercent: 90,
     dosingUnit: "TABLET",
-    dosingConstant: 0,
+    dosingConstant: 1.48,
     displayOrder: 8.5,
     sdsDocumentUrl: "https://spearcorp.com/wp-content/uploads/2016/10/Tri-Chlor-SDS.pdf",
     sdsSourceLabel: "Spear Corporation",

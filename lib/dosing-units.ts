@@ -108,3 +108,98 @@ export function convertToBillingUnit(amount: number, dosingUnit: DosingUnit, bil
   if (factor == null) return null;
   return Math.round((amount / factor) * 100) / 100;
 }
+
+// ---------------------------------------------------------------------------
+// Tablet-feeder dosing -- lib/dosing-calculator.ts's pickPrimaryProduct deliberately
+// excludes TABLET-form products from the ordinary ppm-delta pick (an erosion feeder
+// releases chlorine continuously, not as an instant batch dose the way pouring
+// liquid/granular does). This is the separate, real math for that instead of no
+// recommendation at all -- kept in this Prisma-free module (not dosing-calculator.ts
+// itself) purely so it's unit-testable without a live database, same reason every other
+// function in this file lives here rather than there.
+// ---------------------------------------------------------------------------
+
+/** Standard 3" trichlor tablet net weight -- commonly 8 oz, though some manufacturers run
+ * closer to 7 oz. The one number in computeTabletRecommendation that isn't a fixed
+ * chemistry constant, so it's called out explicitly in the recommendation note rather
+ * than left as an invisible assumption. */
+const TABLET_WEIGHT_OZ = 8;
+
+/** Standard starting-point ratio manufacturers publish for sizing a 3" trichlor feeder --
+ * roughly one tablet sustains 10,000 gallons for about a week under normal bather load.
+ * A heuristic, not a Taylor-table figure like every other dosingConstant in
+ * dosing-calculator.ts -- every source that publishes it also says to adjust from actual
+ * test results, which is why it's surfaced as its own labeled component in the note
+ * (buildTabletNote) instead of folded silently into one opaque number. */
+const TABLET_MAINTENANCE_GALLONS_PER_WEEK = 10_000;
+
+function roundOneDecimal(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+/** Pure date-math core of dosing-calculator.ts's daysUntilNextVisit -- given today's ISO
+ * weekday (Mon=1..Sun=7) and every weekday this body is regularly serviced on (a body can
+ * be on more than one route), returns days until the soonest upcoming occurrence (1-7), or
+ * null if given no weekdays at all. */
+export function daysUntilNextWeekday(todayIso: number, scheduledWeekdays: number[]): number | null {
+  if (scheduledWeekdays.length === 0) return null;
+  const distances = scheduledWeekdays.map((d) => {
+    const diff = (d - todayIso + 7) % 7;
+    // A route day of "today" means next week's occurrence (7 days), not 0 -- this runs
+    // while today's own visit is being logged, so the gap that matters is until the
+    // *next* one, not a zero-day gap to itself.
+    return diff === 0 ? 7 : diff;
+  });
+  return Math.min(...distances);
+}
+
+export type TabletRecommendation = {
+  immediateTablets: number;
+  maintenanceTablets: number;
+  totalTablets: number;
+  daysUntilNextVisit: number | null;
+};
+
+/** Tablet-feeder equivalent of the ppm-delta dose computed for every other product in
+ * dosing-calculator.ts. Two components, kept separate rather than blended into one number:
+ *  - immediateTablets: today's actual measured deficit, converted with the SAME
+ *    Taylor-sourced dosing constant used for granular Trichlor 90% (tablet and granular
+ *    are the same chemical at the same concentration) -- exact chemistry, not a guess.
+ *  - maintenanceTablets: a heuristic projection (TABLET_MAINTENANCE_GALLONS_PER_WEEK) for
+ *    keeping the feeder stocked until the next scheduled visit -- 0 when
+ *    daysUntilNextVisit is null (no recurring schedule found for this body).
+ * Never returns 0 total once called -- callers only call this when FC is confirmed low.
+ */
+export function computeTabletRecommendation(
+  volumeGallons: number,
+  currentPpm: number,
+  targetPpm: number,
+  daysUntilNextVisit: number | null,
+  dosingConstant: number,
+): TabletRecommendation {
+  const immediateOz = dosingConstant * Math.max(0, targetPpm - currentPpm) * (volumeGallons / 10_000);
+  const immediateTablets = immediateOz / TABLET_WEIGHT_OZ;
+  const maintenanceTablets =
+    daysUntilNextVisit != null ? (volumeGallons / TABLET_MAINTENANCE_GALLONS_PER_WEEK) * (daysUntilNextVisit / 7) : 0;
+  return {
+    immediateTablets,
+    maintenanceTablets,
+    totalTablets: Math.max(1, Math.round(immediateTablets + maintenanceTablets)),
+    daysUntilNextVisit,
+  };
+}
+
+/** Assembles the tablet recommendation's note -- both precision caveats (tablet weight,
+ * CYA buildup) stated directly rather than left implicit, per this feature's whole reason
+ * for existing as a heuristic-flagged estimate instead of an exact Taylor-table dose. */
+export function buildTabletNote(t: TabletRecommendation): string {
+  const breakdown =
+    t.daysUntilNextVisit != null
+      ? `Roughly ${roundOneDecimal(t.immediateTablets)} tablet(s) to correct today's reading, plus ${roundOneDecimal(t.maintenanceTablets)} to keep the feeder stocked for the ${t.daysUntilNextVisit} day${t.daysUntilNextVisit === 1 ? "" : "s"} until the next visit.`
+      : "Covers only today's correction -- no recurring schedule found for this body, so a maintenance amount couldn't be projected.";
+  return [
+    breakdown,
+    `Assumes a standard ${TABLET_WEIGHT_OZ} oz 3" tablet (some brands run closer to 7 oz -- check your product's label).`,
+    "Each dissolved tablet adds roughly 3 ppm of CYA per 10,000 gal -- watch cumulative stabilizer levels against your state's compliance max.",
+  ].join(" ");
+}
