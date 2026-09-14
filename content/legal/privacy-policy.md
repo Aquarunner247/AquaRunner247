@@ -53,6 +53,9 @@ We do not use End Customer personal information for our own marketing purposes, 
 - **Resend** — transactional email delivery
 - **Supabase** — authentication and database hosting
 - **Vercel** — application hosting
+- **Twilio** — handles, records, and transcribes inbound calls to your configured phone number
+- **OpenAI, via Vercel AI Gateway** — parses call transcripts into structured service requests and extracts data from uploaded inspection reports
+- **Google (Dialogflow)** — conversational phone-agent fulfillment
 - Our payment processor (e.g., Stripe) for billing
 - [Add/remove based on your actual stack — e.g., if you use QuickBooks integration, note that Organizations who connect it are sharing data with Intuit under Intuit's own terms, not yours]
 
