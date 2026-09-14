@@ -1273,16 +1273,29 @@ export async function sendCustomerAlert(formData: FormData) {
         ? [{ email: customer.properties[0].managerEmail, name: customer.name }]
         : [];
 
-  for (const recipient of recipients) {
-    await sendCustomerAlertEmail({
-      to: recipient.email,
-      customerName: recipient.name,
-      subject,
-      message,
-    });
+  revalidatePath(`/dashboard/customers/${customerId}`);
+
+  // The alert itself is always saved (it's visible in the portal and the list below
+  // regardless of email) -- but the admin has no other way to know whether the *email*
+  // copy actually went out, or whether there was even anyone to email in the first place
+  // (no active portal login and no property manager email on file both silently produce
+  // an empty recipient list). Surface all three outcomes explicitly rather than the
+  // previous fire-and-forget loop that discarded every result.
+  if (recipients.length === 0) {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&alertSent=no-recipients`);
   }
 
-  revalidatePath(`/dashboard/customers/${customerId}`);
+  const results = await Promise.all(
+    recipients.map((recipient) => sendCustomerAlertEmail({ to: recipient.email, customerName: recipient.name, subject, message })),
+  );
+  const failureCount = results.filter((r) => !r.ok).length;
+  if (failureCount === 0) {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&alertSent=1`);
+  } else if (failureCount === results.length) {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&alertSent=failed`);
+  } else {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&alertSent=partial`);
+  }
 }
 
 /**

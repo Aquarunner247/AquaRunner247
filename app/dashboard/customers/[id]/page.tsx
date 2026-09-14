@@ -30,7 +30,7 @@ import { timeZoneForState, formatLocalDateTime, formatLocalTime } from "@/lib/ti
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ tab?: string; edit?: string; error?: string; suggestRoute?: string; checklistSaved?: string }>;
+  searchParams?: Promise<{ tab?: string; edit?: string; error?: string; suggestRoute?: string; checklistSaved?: string; alertSent?: string }>;
 };
 
 export default async function CustomerDetailPage({ params, searchParams }: PageProps) {
@@ -712,6 +712,17 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             ) : (
               <form action={sendCustomerAlert} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
                 <input type="hidden" name="customerId" value={customer.id} />
+                {sp.alertSent === "1" ? (
+                  <p className="mb-2 text-sm text-brand-ok">Sent.</p>
+                ) : sp.alertSent === "partial" ? (
+                  <p className="mb-2 text-sm text-brand-warn">Saved, but the email failed to send to at least one recipient.</p>
+                ) : sp.alertSent === "failed" ? (
+                  <p className="mb-2 text-sm text-brand-danger">Saved, but the email failed to send — check the recipient address(es).</p>
+                ) : sp.alertSent === "no-recipients" ? (
+                  <p className="mb-2 text-sm text-brand-warn">
+                    Saved, but no email was sent — this customer has no active portal login and no manager email on file to send to.
+                  </p>
+                ) : null}
                 <div className="grid gap-2">
                   <input name="subject" required placeholder="Subject" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
                   <textarea
