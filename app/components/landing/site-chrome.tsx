@@ -16,7 +16,9 @@ export function Brand({ className }: { className?: string }) {
   );
 }
 
-type NavPage = "home" | "pricing" | "features" | "compliance";
+// "legal" (Terms/Privacy) intentionally matches none of the nav links below -- those pages
+// aren't part of primary nav, so nothing should highlight as active while viewing them.
+type NavPage = "home" | "pricing" | "features" | "compliance" | "legal";
 
 /** The waitlist section only exists on Home and the Compliance page -- everywhere else
  * needs the cross-page anchor (/#waitlist) rather than a same-page one (#waitlist) those
@@ -58,6 +60,8 @@ export function SiteFooter() {
           <span>AquaRunner 24/7 — Las Vegas, NV</span>
           <span>&copy; 2026</span>
           <a href="mailto:hello@aquarunner247.com">hello@aquarunner247.com</a>
+          <Link href="/terms">Terms of Service</Link>
+          <Link href="/privacy">Privacy Policy</Link>
         </p>
       </div>
     </footer>
