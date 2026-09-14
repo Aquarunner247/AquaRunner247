@@ -40,21 +40,21 @@ export default async function BodyOfWaterPlacardPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-6 bg-brand-surface px-4 py-10 print:min-h-0 print:gap-0 print:bg-white print:py-0">
-      <div className="w-full max-w-sm rounded-sm border-t-[6px] border-brand-anchor bg-white p-6 shadow-softLg print:shadow-none print:border print:border-t-[6px] print:border-brand-border print:border-t-brand-anchor">
+      <div className="w-full max-w-sm rounded-sm border-t-[6px] border-brand-anchor bg-white p-6 shadow-softLg print:shadow-none print:border print:border-t-[6px] print:border-black print:border-t-black">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-display text-2xl font-bold leading-none tracking-tight text-brand-ink">{body.property.name}</p>
-            <p className="mt-2 text-xs font-bold uppercase tracking-widest text-brand-muted">{body.name}</p>
+            <p className="font-display text-2xl font-bold leading-none tracking-tight text-brand-ink print:text-black">{body.property.name}</p>
+            <p className="mt-2 text-xs font-bold uppercase tracking-widest text-brand-muted print:text-black">{body.name}</p>
           </div>
-          <span className="whitespace-nowrap border border-brand-border px-2 py-1 text-[0.62rem] font-bold uppercase tracking-widest text-brand-muted">
+          <span className="whitespace-nowrap border border-brand-border px-2 py-1 text-[0.62rem] font-bold uppercase tracking-widest text-brand-muted print:border-black print:text-black">
             Scan me
           </span>
         </div>
-        <div className="mt-4 aspect-square w-full border border-brand-border bg-white p-3">
+        <div className="mt-4 aspect-square w-full border border-brand-border bg-white p-3 print:border-black">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qrDataUrl} alt={`QR code for ${body.name} public log`} className="h-full w-full" />
         </div>
-        <p className="mt-4 border-t border-brand-border pt-3 text-sm leading-relaxed text-brand-muted">
+        <p className="mt-4 border-t border-brand-border pt-3 text-sm leading-relaxed text-brand-muted print:border-black print:text-black">
           Scan to view the current, complete record for this pool — no login needed.
         </p>
       </div>
