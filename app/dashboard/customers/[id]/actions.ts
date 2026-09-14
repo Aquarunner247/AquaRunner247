@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
 import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/geocode";
-import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/customer-documents";
+import { uploadDocumentForCustomer, deleteDocumentForCustomer, moveCustomerDocumentToInspectionReport } from "@/lib/customer-documents";
 import { uploadInspectionReport, deleteInspectionReport } from "@/lib/inspection-reports";
 import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
 import { sendCustomerAlertEmail, sendCustomerAccessEndedEmail } from "@/lib/email";
@@ -1138,8 +1138,43 @@ export async function uploadCustomerDocument(formData: FormData) {
   });
   if (!customer) return;
 
-  await uploadDocumentForCustomer(customerId, formData);
+  const result = await uploadDocumentForCustomer(customerId, formData);
   revalidatePath(`/dashboard/customers/${customerId}`);
+
+  // Redirect (rather than just revalidating) only for the inspection-report case -- that
+  // file doesn't show up in this page's Documents list at all, it lands on the matching
+  // body of water's own page instead, so silently doing nothing here would look like the
+  // upload vanished.
+  if (result.kind === "inspection-report") {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&docAttached=${encodeURIComponent(result.bodyOfWaterName)}`);
+  }
+}
+
+/** Manual counterpart to the auto-attach in uploadDocumentForCustomer, for a document that
+ * was flagged as "looks like an inspection report" but couldn't be auto-attached because
+ * the customer has more than one body of water and the filename didn't uniquely name one. */
+export async function attachCustomerDocumentAsInspectionReport(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const documentId = String(formData.get("documentId") ?? "").trim();
+  const bodyOfWaterId = String(formData.get("bodyOfWaterId") ?? "").trim();
+  if (!customerId || !documentId || !bodyOfWaterId) return;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
+    select: { id: true },
+  });
+  if (!customer) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyOfWaterId, property: { customerId } },
+    select: { id: true },
+  });
+  if (!body) return;
+
+  await moveCustomerDocumentToInspectionReport(customerId, documentId, bodyOfWaterId);
+  revalidatePath(`/dashboard/customers/${customerId}`);
+  redirect(`/dashboard/customers/${customerId}?tab=overview&docAttached=1`);
 }
 
 export async function deleteCustomerDocument(formData: FormData) {

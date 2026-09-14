@@ -14,12 +14,14 @@ import {
   updateProperty,
   uploadCustomerDocument,
   deleteCustomerDocument,
+  attachCustomerDocumentAsInspectionReport,
   createCustomerLogin,
   deleteCustomerLogin,
   sendCustomerAlert,
   updateCustomerChecklist,
 } from "./actions";
 import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
+import { looksLikeInspectionReport } from "@/lib/inspection-report-detection";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { RouteSuggestionPanel } from "@/app/components/route-suggestion-panel";
@@ -30,7 +32,15 @@ import { timeZoneForState, formatLocalDateTime, formatLocalTime } from "@/lib/ti
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ tab?: string; edit?: string; error?: string; suggestRoute?: string; checklistSaved?: string; alertSent?: string }>;
+  searchParams?: Promise<{
+    tab?: string;
+    edit?: string;
+    error?: string;
+    suggestRoute?: string;
+    checklistSaved?: string;
+    alertSent?: string;
+    docAttached?: string;
+  }>;
 };
 
 export default async function CustomerDetailPage({ params, searchParams }: PageProps) {
@@ -104,6 +114,12 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       }),
     );
   })();
+
+  // Flattened for the "attach as inspection report" picker on a document that was flagged
+  // but couldn't be auto-attached (ambiguous body match) -- see looksLikeInspectionReport.
+  const allBodiesFlat = customer.properties.flatMap((property) =>
+    property.bodiesOfWater.map((body) => ({ id: body.id, name: body.name, propertyName: property.name })),
+  );
 
   const customerUsers = await prisma.customerUser.findMany({
     where: { customerId: customer.id },
@@ -476,42 +492,84 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
           <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
             <h2 className="text-base font-semibold text-brand-ink">Documents</h2>
-            <p className="mt-1 text-sm text-brand-muted">Inspection reports, contracts, and other files for this customer.</p>
+            <p className="mt-1 text-sm text-brand-muted">
+              Contracts and other files for this customer. A file that looks like an inspection report is detected
+              automatically and filed under the matching aquatic venue&rsquo;s Inspections section instead.
+            </p>
+
+            {sp.docAttached === "1" ? (
+              <p className="mt-2 text-sm text-brand-ok">Attached as an inspection report.</p>
+            ) : sp.docAttached ? (
+              <p className="mt-2 text-sm text-brand-ok">
+                Detected as an inspection report — attached to &ldquo;{sp.docAttached}&rdquo; instead of the general documents
+                list.
+              </p>
+            ) : null}
 
             {documentsWithUrls.length ? (
               <ul className="mt-3 space-y-1 text-sm text-brand-ink">
-                {documentsWithUrls.map((doc) => (
-                  <li
-                    key={doc.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-border bg-brand-surface px-2 py-1.5"
-                  >
-                    <span>
-                      {doc.url ? (
-                        <a href={doc.url} target="_blank" rel="noreferrer" className="font-medium text-brand-primary underline">
-                          {doc.label}
-                        </a>
-                      ) : (
-                        <span className="font-medium text-brand-ink">{doc.label}</span>
-                      )}
-                      <span className="ml-2 text-xs text-brand-muted">{doc.createdAt.toLocaleDateString()}</span>
-                    </span>
-                    {isEnded ? (
-                      <button type="button" disabled aria-disabled="true" className="cursor-not-allowed rounded px-2 py-1 text-base text-brand-muted opacity-50">
-                        🗑
-                      </button>
-                    ) : (
-                      <form action={deleteCustomerDocument}>
-                        <input type="hidden" name="customerId" value={customer.id} />
-                        <input type="hidden" name="documentId" value={doc.id} />
-                        <ConfirmSubmitButton
-                          label="🗑"
-                          confirmMessage={`Delete "${doc.label}"?`}
-                          className="rounded px-2 py-1 text-base hover:bg-brand-border"
-                        />
-                      </form>
-                    )}
-                  </li>
-                ))}
+                {documentsWithUrls.map((doc) => {
+                  const flaggedAsInspection = !isEnded && looksLikeInspectionReport(doc.label) && allBodiesFlat.length > 0;
+                  return (
+                    <li key={doc.id} className="rounded border border-brand-border bg-brand-surface px-2 py-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>
+                          {doc.url ? (
+                            <a href={doc.url} target="_blank" rel="noreferrer" className="font-medium text-brand-primary underline">
+                              {doc.label}
+                            </a>
+                          ) : (
+                            <span className="font-medium text-brand-ink">{doc.label}</span>
+                          )}
+                          <span className="ml-2 text-xs text-brand-muted">{doc.createdAt.toLocaleDateString()}</span>
+                        </span>
+                        {isEnded ? (
+                          <button
+                            type="button"
+                            disabled
+                            aria-disabled="true"
+                            className="cursor-not-allowed rounded px-2 py-1 text-base text-brand-muted opacity-50"
+                          >
+                            🗑
+                          </button>
+                        ) : (
+                          <form action={deleteCustomerDocument}>
+                            <input type="hidden" name="customerId" value={customer.id} />
+                            <input type="hidden" name="documentId" value={doc.id} />
+                            <ConfirmSubmitButton
+                              label="🗑"
+                              confirmMessage={`Delete "${doc.label}"?`}
+                              className="rounded px-2 py-1 text-base hover:bg-brand-border"
+                            />
+                          </form>
+                        )}
+                      </div>
+                      {flaggedAsInspection ? (
+                        <form
+                          action={attachCustomerDocumentAsInspectionReport}
+                          className="mt-2 flex flex-wrap items-center gap-2 border-t border-brand-border pt-2"
+                        >
+                          <input type="hidden" name="customerId" value={customer.id} />
+                          <input type="hidden" name="documentId" value={doc.id} />
+                          <span className="text-xs text-brand-warn">
+                            Looks like an inspection report, but this customer has more than one aquatic venue —
+                          </span>
+                          <select name="bodyOfWaterId" required className="rounded border border-brand-control px-2 py-1 text-xs">
+                            <option value="">Attach to…</option>
+                            {allBodiesFlat.map((body) => (
+                              <option key={body.id} value={body.id}>
+                                {body.propertyName} — {body.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button type="submit" className="rounded bg-brand-primary px-2 py-1 text-xs font-medium text-white">
+                            Attach
+                          </button>
+                        </form>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="mt-2 text-sm text-brand-muted">No documents uploaded yet.</p>
