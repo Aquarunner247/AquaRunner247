@@ -30,6 +30,7 @@ import { PropertyContactFields } from "@/app/components/property-contact-fields"
 import { NameInput } from "@/app/components/name-input";
 import { timeZoneForState, formatLocalDateTime, formatLocalTime } from "@/lib/timezone";
 import { ALERT_PLACEHOLDER_HINT } from "@/lib/alert-placeholders";
+import { AlertOutcomeBadge } from "@/app/components/alert-outcome-badge";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -216,27 +217,6 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
     tab === target
       ? "rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white"
       : "rounded px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-surface";
-
-  // Null (an alert sent before this field existed) intentionally renders nothing here --
-  // "status unknown" is more honest than guessing a badge for a row that predates tracking.
-  function alertOutcomeBadge(a: { sendOutcome: string | null; recipientCount: number | null; failedRecipientCount: number | null }) {
-    if (!a.sendOutcome) return null;
-    const delivered = (a.recipientCount ?? 0) - (a.failedRecipientCount ?? 0);
-    if (a.sendOutcome === "SENT") {
-      return <span className="app-pill-good">Delivered to {a.recipientCount ?? delivered}</span>;
-    }
-    if (a.sendOutcome === "PARTIAL") {
-      return (
-        <span className="app-pill-attention">
-          Delivered to {delivered} of {a.recipientCount}
-        </span>
-      );
-    }
-    if (a.sendOutcome === "FAILED") {
-      return <span className="app-pill-danger">Failed to send</span>;
-    }
-    return <span className="app-pill-inactive">No email on file</span>;
-  }
 
   // Smart Route Placement — shown once, right after createCustomer redirects here with
   // ?suggestRoute=1. Reuses the already-computed schedule maps above instead of a new
@@ -829,7 +809,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium text-brand-ink">{a.subject}</span>
                       <span className="flex items-center gap-2">
-                        {alertOutcomeBadge(a)}
+                        <AlertOutcomeBadge {...a} />
                         <span className="text-xs text-brand-muted">{formatLocalDateTime(a.createdAt, tz)}</span>
                       </span>
                     </div>

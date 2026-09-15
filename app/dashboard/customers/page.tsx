@@ -95,6 +95,9 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
               <Link href="/dashboard/customers/import" className="app-btn-secondary-sm">
                 Import from CSV
               </Link>
+              <Link href="/dashboard/customers/alerts" className="app-btn-secondary-sm">
+                Sent alerts
+              </Link>
             </>
           ) : null}
           <Link href="/dashboard" className="app-link">
