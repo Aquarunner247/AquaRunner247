@@ -29,6 +29,7 @@ import { FilterTypeFields } from "@/app/components/filter-type-fields";
 import { PropertyContactFields } from "@/app/components/property-contact-fields";
 import { NameInput } from "@/app/components/name-input";
 import { timeZoneForState, formatLocalDateTime, formatLocalTime } from "@/lib/timezone";
+import { ALERT_PLACEHOLDER_HINT } from "@/lib/alert-placeholders";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -791,6 +792,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     className="rounded border border-brand-control px-2 py-1.5 text-sm"
                   />
                 </div>
+                <p className="mt-1 text-xs text-brand-muted">
+                  You can use {ALERT_PLACEHOLDER_HINT} — they&rsquo;ll be filled in with this customer&rsquo;s own info.
+                </p>
                 <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                   Send alert
                 </button>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ALERT_PLACEHOLDER_HINT } from "@/lib/alert-placeholders";
 
 type Customer = {
   id: string;
@@ -124,6 +125,10 @@ export function CustomerBulkList({
               <input name="subject" required placeholder="Subject" className="app-field" />
               <textarea name="message" required rows={3} placeholder="Message" className="app-field" />
             </div>
+            <p className="mt-1 text-xs text-brand-muted">
+              You can use {ALERT_PLACEHOLDER_HINT} — each customer gets their own property/manager name filled in
+              automatically, so you don&rsquo;t have to write it in individually.
+            </p>
             <button type="submit" disabled={selectedCount === 0} className="app-btn-primary-sm mt-3">
               Send to {selectedCount || "0"} customer{selectedCount === 1 ? "" : "s"}
             </button>

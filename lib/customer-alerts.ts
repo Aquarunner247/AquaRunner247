@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { sendCustomerAlertEmail } from "@/lib/email";
+import { applyAlertPlaceholders } from "@/lib/alert-placeholders";
 
 export type CustomerAlertOutcome = "sent" | "partial" | "failed" | "no-recipients" | "not-found";
+
+export { ALERT_PLACEHOLDER_HINT } from "@/lib/alert-placeholders";
 
 /**
  * Core logic shared by the single-customer "Send alert" form
@@ -23,16 +26,23 @@ export async function sendAlertToCustomer(params: {
   message: string;
   createdByUserId: string;
 }): Promise<CustomerAlertOutcome> {
-  const { customerId, organizationId, subject, message, createdByUserId } = params;
+  const { customerId, organizationId, createdByUserId } = params;
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, organizationId, relationshipEndedAt: null },
     include: {
       customerUsers: { where: { active: true }, select: { email: true, name: true } },
-      properties: { select: { managerEmail: true }, take: 1 },
+      properties: { select: { managerEmail: true, managerName: true, name: true }, take: 1 },
     },
   });
   if (!customer) return "not-found";
+
+  // Falls back to the customer's own account name when a property has no manager name (or
+  // no property at all yet) on file, rather than rendering a blank "Hi ," greeting.
+  const property = customer.properties[0];
+  const placeholderValues = { propertyName: property?.name || customer.name, managerName: property?.managerName || customer.name };
+  const subject = applyAlertPlaceholders(params.subject, placeholderValues);
+  const message = applyAlertPlaceholders(params.message, placeholderValues);
 
   await prisma.customerAlert.create({
     data: { customerId, subject, message, createdByUserId },
