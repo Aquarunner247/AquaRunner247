@@ -11,6 +11,7 @@ export type BrandingFormValue = {
   supportEmail: string;
   supportPhone: string;
   introText: string;
+  serviceSummaryCcEmail: string;
 };
 
 type Actions = {
@@ -18,6 +19,7 @@ type Actions = {
   uploadLogo: (formData: FormData) => void;
   removeLogo: (formData: FormData) => void;
   updateWelcomeEmailSettings: (formData: FormData) => void;
+  updateServiceSummaryCcEmail: (formData: FormData) => void;
 };
 
 const DEFAULT_PRIMARY_COLOR = "#0A6E7C";
@@ -188,6 +190,32 @@ export function BrandingForm({
 
             <button className="app-btn-primary-sm" type="submit">
               Save email settings
+            </button>
+          </form>
+        </section>
+
+        <section className="app-card">
+          <h2 className="text-sm font-semibold text-brand-ink">Service summary emails</h2>
+          <p className="mt-1 text-xs text-brand-muted">
+            When a technician completes a visit, the customer gets an emailed summary. Add an address here to also
+            get a copy of every one of those — the customer never sees this address.
+          </p>
+
+          <form action={actions.updateServiceSummaryCcEmail} className="mt-3 space-y-4">
+            <label className="block text-sm">
+              <span className="text-brand-ink">Send a copy of every service summary to</span>
+              <input
+                type="email"
+                name="serviceSummaryCcEmail"
+                value={value.serviceSummaryCcEmail}
+                onChange={(e) => update("serviceSummaryCcEmail", e.target.value)}
+                placeholder="office@yourcompany.com"
+                className="app-field mt-1"
+              />
+            </label>
+
+            <button className="app-btn-primary-sm" type="submit">
+              Save
             </button>
           </form>
         </section>

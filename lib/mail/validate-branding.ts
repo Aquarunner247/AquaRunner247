@@ -148,3 +148,15 @@ export function validateWelcomeEmailSettings(input: WelcomeEmailSettingsInput): 
 
   return out;
 }
+
+/** Validates the optional org-wide BCC address for completed-visit service-summary emails
+ * (Organization.serviceSummaryCcEmail) -- same format check as welcome-email's supportEmail,
+ * kept separate since the two settings are conceptually unrelated (one's shown to a
+ * customer, this one is never customer-visible). Returns null for an empty/absent value. */
+export function validateServiceSummaryCcEmail(value: string | null): string | null {
+  if (!value) return null;
+  if (!EMAIL_RE.test(value) || value.length > 254) {
+    throw new BrandingValidationError("Service-summary CC email is not valid.");
+  }
+  return value;
+}

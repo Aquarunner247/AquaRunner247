@@ -4,7 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { validateOrgBranding, validateWelcomeEmailSettings, BrandingValidationError } from "@/lib/mail/validate-branding";
+import {
+  validateOrgBranding,
+  validateWelcomeEmailSettings,
+  validateServiceSummaryCcEmail,
+  BrandingValidationError,
+} from "@/lib/mail/validate-branding";
 import { uploadBrandingLogo, removeBrandingLogo, LogoUploadError } from "@/lib/mail/branding-logo";
 
 async function requireAdmin() {
@@ -114,6 +119,30 @@ export async function updateWelcomeEmailSettings(formData: FormData) {
       brandingUpdatedAt: new Date(),
       brandingUpdatedBy: appUser.id,
     },
+  });
+
+  revalidatePath(PAGE_PATH);
+  redirect(`${PAGE_PATH}?saved=1`);
+}
+
+export async function updateServiceSummaryCcEmail(formData: FormData) {
+  const appUser = await requireAdmin();
+
+  const ccEmail = String(formData.get("serviceSummaryCcEmail") ?? "").trim() || null;
+
+  let validated: string | null;
+  try {
+    validated = validateServiceSummaryCcEmail(ccEmail);
+  } catch (err) {
+    if (err instanceof BrandingValidationError) {
+      redirect(`${PAGE_PATH}?error=${encodeURIComponent(err.message)}`);
+    }
+    throw err;
+  }
+
+  await prisma.organization.update({
+    where: { id: appUser.organizationId },
+    data: { serviceSummaryCcEmail: validated },
   });
 
   revalidatePath(PAGE_PATH);

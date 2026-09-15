@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { updateBranding, uploadLogo, removeLogo, updateWelcomeEmailSettings } from "./actions";
+import { updateBranding, uploadLogo, removeLogo, updateWelcomeEmailSettings, updateServiceSummaryCcEmail } from "./actions";
 import { BrandingForm } from "./branding-form";
 
 type PageProps = {
@@ -28,6 +28,7 @@ export default async function BrandingSettingsPage({ searchParams }: PageProps) 
       welcomeEmailSupportEmail: true,
       welcomeEmailSupportPhone: true,
       welcomeEmailIntroText: true,
+      serviceSummaryCcEmail: true,
     },
   });
 
@@ -53,7 +54,7 @@ export default async function BrandingSettingsPage({ searchParams }: PageProps) 
       </header>
 
       <BrandingForm
-        actions={{ updateBranding, uploadLogo, removeLogo, updateWelcomeEmailSettings }}
+        actions={{ updateBranding, uploadLogo, removeLogo, updateWelcomeEmailSettings, updateServiceSummaryCcEmail }}
         orgName={orgName}
         initial={{
           logoUrl: organization?.brandingLogoUrl ?? "",
@@ -63,6 +64,7 @@ export default async function BrandingSettingsPage({ searchParams }: PageProps) 
           supportEmail: organization?.welcomeEmailSupportEmail ?? "",
           supportPhone: organization?.welcomeEmailSupportPhone ?? "",
           introText: organization?.welcomeEmailIntroText ?? "",
+          serviceSummaryCcEmail: organization?.serviceSummaryCcEmail ?? "",
         }}
         error={sp.error ? decodeURIComponent(sp.error) : null}
         saved={sp.saved === "1"}

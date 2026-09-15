@@ -76,6 +76,10 @@ type ServiceSummaryEmailInput = {
    * always open a service email the minute it lands), not the short-lived one used for a
    * page that regenerates it on every load. */
   photoUrls: string[];
+  /** Organization.serviceSummaryCcEmail, if the org has set one -- BCC'd so the org keeps
+   * its own copy of everything sent to a customer, without the customer ever seeing that
+   * address in the message headers. Null (most orgs) sends only to `to`, unchanged. */
+  ccEmail?: string | null;
 };
 
 function fmt(n: number | null, digits = 1): string {
@@ -225,6 +229,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
     const result = await resend.emails.send({
       from: fromAddress,
       to: input.to,
+      bcc: input.ccEmail ?? undefined,
       subject: `Service Summary — ${input.propertyName} — ${input.bodyOfWaterName} — ${dateStr}`,
       html,
     });

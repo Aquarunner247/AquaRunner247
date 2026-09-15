@@ -128,6 +128,12 @@ model Organization {
   welcomeEmailSupportPhone String?
   welcomeEmailIntroText    String? @db.VarChar(500)
 
+  /// When set, every service-summary email sent on visit completion (see
+  /// app/api/visits/[id]/complete/route.ts, lib/email.ts's sendServiceSummaryEmail) also
+  /// BCCs this address -- lets the org keep its own copy of everything sent to a customer.
+  /// Null (the default) sends only to the customer, same as before this field existed.
+  serviceSummaryCcEmail String?
+
   planStatus           OrganizationPlanStatus @default(TRIALING)
   /// Null for orgs that predate tiered pricing and haven't been backfilled -- see
   /// lib/plan-tiers.ts, which treats a null tier the same as STARTER for limits/gating.
