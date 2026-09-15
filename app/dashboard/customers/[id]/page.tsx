@@ -770,7 +770,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             ) : (
               <form action={sendCustomerAlert} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
                 <input type="hidden" name="customerId" value={customer.id} />
-                {sp.alertSent === "1" ? (
+                {sp.alertSent === "sent" ? (
                   <p className="mb-2 text-sm text-brand-ok">Sent.</p>
                 ) : sp.alertSent === "partial" ? (
                   <p className="mb-2 text-sm text-brand-warn">Saved, but the email failed to send to at least one recipient.</p>

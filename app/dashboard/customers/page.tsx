@@ -3,11 +3,30 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { NewCustomerFormFields } from "@/app/components/new-customer-form-fields";
-import { createCustomer } from "./actions";
+import { createCustomer, sendBulkCustomerAlert } from "./actions";
+import { CustomerBulkList } from "./customer-bulk-list";
 
 type PageProps = {
-  searchParams?: Promise<{ new?: string }>;
+  searchParams?: Promise<{ new?: string; bulkAlertSent?: string; bulkAlertError?: string }>;
 };
+
+type BulkAlertSummary = { total: number; sent: number; partial: number; failed: number; noRecipients: number; notFound: number };
+
+function summarizeBulkAlert(raw: string): string | null {
+  let summary: BulkAlertSummary;
+  try {
+    summary = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const parts: string[] = [];
+  if (summary.sent > 0) parts.push(`sent to ${summary.sent} of ${summary.total}`);
+  if (summary.partial > 0) parts.push(`${summary.partial} only partly delivered`);
+  if (summary.failed > 0) parts.push(`${summary.failed} failed to send`);
+  if (summary.noRecipients > 0) parts.push(`${summary.noRecipients} had no email on file`);
+  if (summary.notFound > 0) parts.push(`${summary.notFound} no longer active`);
+  return parts.length ? parts.join(", ") + "." : `Nothing sent — ${summary.total} customer${summary.total === 1 ? "" : "s"} selected.`;
+}
 
 export default async function CustomersAdminPage({ searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
@@ -103,46 +122,16 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
         </section>
       ) : null}
 
-      <section data-tour="customers-list" className="mt-6 space-y-6">
+      {sp.bulkAlertSent ? (
+        <p className="app-card-inset mt-6 text-sm text-brand-ok">{summarizeBulkAlert(sp.bulkAlertSent) ?? "Sent."}</p>
+      ) : null}
+      {sp.bulkAlertError ? <p className="app-card-inset mt-6 text-sm text-brand-danger">{decodeURIComponent(sp.bulkAlertError)}</p> : null}
+
+      <section data-tour="customers-list" className="mt-6">
         {customers.length === 0 ? (
           <p className="app-card-inset text-sm text-brand-muted">No customers yet.</p>
         ) : (
-          customerGroups.map((group) => (
-            <div key={group.letter}>
-              <p className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">{group.letter}</p>
-              <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
-                {group.customers.map((customer) => {
-                  const property = customer.properties[0];
-                  const venueCount = customer.properties.reduce((sum, p) => sum + p.bodiesOfWater.length, 0);
-                  return (
-                    <Link
-                      key={customer.id}
-                      href={`/dashboard/customers/${customer.id}`}
-                      className="group flex items-center gap-3 rounded-xl border border-brand-border/90 bg-white p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary/40 hover:shadow-soft"
-                    >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-foam font-[family-name:var(--font-display)] text-sm font-bold text-brand-primary">
-                        {customer.name.trim().charAt(0).toUpperCase() || "?"}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-brand-ink group-hover:text-brand-ink">{customer.name}</p>
-                        <p className="mt-0.5 truncate text-xs text-brand-muted">
-                          {property?.managementCompany ? `${property.managementCompany.name} · ` : ""}
-                          {[property?.city, property?.region].filter(Boolean).join(", ") || "No address on file"}
-                        </p>
-                      </div>
-                      {customer.relationshipEndedAt ? (
-                        <span className="app-badge shrink-0 bg-brand-border text-brand-muted">Ended</span>
-                      ) : (
-                        <span className="app-badge shrink-0">
-                          {venueCount} venue{venueCount === 1 ? "" : "s"}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))
+          <CustomerBulkList groups={customerGroups} sendBulkCustomerAlert={sendBulkCustomerAlert} />
         )}
       </section>
     </main>

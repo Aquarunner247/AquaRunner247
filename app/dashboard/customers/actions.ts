@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
 import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/geocode";
+import { sendAlertToCustomer, type CustomerAlertOutcome } from "@/lib/customer-alerts";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -251,4 +252,40 @@ export async function createBodyOfWater(formData: FormData) {
   if (returnPath.startsWith("/dashboard/customers")) {
     revalidatePath(returnPath);
   }
+}
+
+/**
+ * Sends the same subject/message to a set of selected customers -- but as individual
+ * emails, one per customer via sendAlertToCustomer (the same per-customer recipient
+ * resolution and CustomerAlert row the single-customer "Send alert" form uses), never as
+ * one message with everyone in To/Cc. Each customer only ever sees their own address.
+ */
+export async function sendBulkCustomerAlert(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerIds = formData.getAll("customerIds").map(String).filter(Boolean);
+  const subject = String(formData.get("subject") ?? "").trim();
+  const message = String(formData.get("message") ?? "").trim();
+
+  if (customerIds.length === 0 || !subject || !message) {
+    redirect(`/dashboard/customers?bulkAlertError=${encodeURIComponent("Select at least one customer, and fill in both a subject and a message.")}`);
+  }
+
+  const outcomes = await Promise.all(
+    customerIds.map((customerId) =>
+      sendAlertToCustomer({ customerId, organizationId: appUser.organizationId, subject, message, createdByUserId: appUser.id }),
+    ),
+  );
+
+  const count = (outcome: CustomerAlertOutcome) => outcomes.filter((o) => o === outcome).length;
+  const summary = {
+    total: customerIds.length,
+    sent: count("sent"),
+    partial: count("partial"),
+    failed: count("failed"),
+    noRecipients: count("no-recipients"),
+    notFound: count("not-found"),
+  };
+
+  revalidatePath("/dashboard/customers");
+  redirect(`/dashboard/customers?bulkAlertSent=${encodeURIComponent(JSON.stringify(summary))}`);
 }
