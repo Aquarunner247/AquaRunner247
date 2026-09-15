@@ -692,8 +692,24 @@ model CustomerAlert {
 
   createdAt DateTime @default(now())
 
+  /// Set once, right after the send attempt in lib/customer-alerts.ts's
+  /// sendAlertToCustomer -- never updated again. Null for alerts created before this field
+  /// existed; the UI shows those as "status unknown" rather than a false badge.
+  sendOutcome CustomerAlertSendOutcome?
+  /// How many recipients this alert actually went to (0 for NO_RECIPIENTS) -- lets the UI
+  /// show "Delivered to 2 of 2" instead of just a bare status word.
+  recipientCount       Int?
+  failedRecipientCount Int?
+
   @@index([customerId])
   @@index([createdByUserId])
+}
+
+enum CustomerAlertSendOutcome {
+  SENT
+  PARTIAL
+  FAILED
+  NO_RECIPIENTS
 }
 
 /// Uploaded files (inspection reports, contracts, etc.) shown on a customer's Overview tab.

@@ -1,3 +1,4 @@
+import type { CustomerAlertSendOutcome } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { sendCustomerAlertEmail } from "@/lib/email";
 import { applyAlertPlaceholders } from "@/lib/alert-placeholders";
@@ -5,6 +6,18 @@ import { applyAlertPlaceholders } from "@/lib/alert-placeholders";
 export type CustomerAlertOutcome = "sent" | "partial" | "failed" | "no-recipients" | "not-found";
 
 export { ALERT_PLACEHOLDER_HINT } from "@/lib/alert-placeholders";
+
+/** Maps the outcome this function returns (used in redirect query params, e.g.
+ * ?alertSent=no-recipients) onto the DB enum persisted on the CustomerAlert row --
+ * two representations of the same four real outcomes ("not-found" never reaches this map,
+ * the row is never created in that case). Kept as an explicit table rather than a casing
+ * transform so the two can't silently drift if one side's spelling ever changes. */
+const OUTCOME_TO_DB: Record<Exclude<CustomerAlertOutcome, "not-found">, CustomerAlertSendOutcome> = {
+  sent: "SENT",
+  partial: "PARTIAL",
+  failed: "FAILED",
+  "no-recipients": "NO_RECIPIENTS",
+};
 
 /**
  * Core logic shared by the single-customer "Send alert" form
@@ -47,10 +60,6 @@ export async function sendAlertToCustomer(params: {
   const subject = applyAlertPlaceholders(params.subject, placeholderValues);
   const message = applyAlertPlaceholders(params.message, placeholderValues);
 
-  await prisma.customerAlert.create({
-    data: { customerId, subject, message, createdByUserId },
-  });
-
   const recipients =
     customer.customerUsers.length > 0
       ? customer.customerUsers.map((cu) => ({ email: cu.email, name: cu.name ?? customer.name }))
@@ -58,14 +67,33 @@ export async function sendAlertToCustomer(params: {
         ? [{ email: customer.properties[0].managerEmail, name: customer.name }]
         : [];
 
-  if (recipients.length === 0) return "no-recipients";
+  // Resolve the actual send outcome BEFORE writing the row, so it's created once with its
+  // final state baked in rather than created pending and updated after -- one insert, no
+  // window where the row exists with a stale/missing outcome.
+  let outcome: CustomerAlertOutcome;
+  let failedRecipientCount = 0;
+  if (recipients.length === 0) {
+    outcome = "no-recipients";
+  } else {
+    const replyTo = organization?.welcomeEmailSupportEmail ?? null;
+    const results = await Promise.all(
+      recipients.map((recipient) => sendCustomerAlertEmail({ to: recipient.email, customerName: recipient.name, subject, message, replyTo })),
+    );
+    failedRecipientCount = results.filter((r) => !r.ok).length;
+    outcome = failedRecipientCount === 0 ? "sent" : failedRecipientCount === results.length ? "failed" : "partial";
+  }
 
-  const replyTo = organization?.welcomeEmailSupportEmail ?? null;
-  const results = await Promise.all(
-    recipients.map((recipient) => sendCustomerAlertEmail({ to: recipient.email, customerName: recipient.name, subject, message, replyTo })),
-  );
-  const failureCount = results.filter((r) => !r.ok).length;
-  if (failureCount === 0) return "sent";
-  if (failureCount === results.length) return "failed";
-  return "partial";
+  await prisma.customerAlert.create({
+    data: {
+      customerId,
+      subject,
+      message,
+      createdByUserId,
+      sendOutcome: OUTCOME_TO_DB[outcome],
+      recipientCount: recipients.length,
+      failedRecipientCount,
+    },
+  });
+
+  return outcome;
 }
