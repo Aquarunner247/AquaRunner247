@@ -40,49 +40,55 @@ const FEATURES = [
   },
   {
     n: "05",
+    title: "Smarter route sequencing",
+    body: "One tap reorders a route by real driving time, not just a straight line on a map, so back-to-back stops actually make sense on the road.",
+    pro: true,
+  },
+  {
+    n: "06",
     title: "Never miss another call",
     body: "After hours or just too busy? The AI phone agent picks up and has an actual conversation. For a returning customer, it pulls up their real account on the spot—next visit, last visit, who their tech is—no ticket needed. Anything it can't resolve becomes a ticket with caller info, urgency, and a summary, ready in your dashboard when you get back.",
     pro: true,
   },
   {
-    n: "06",
+    n: "07",
     title: "A checklist that's actually yours",
     body: "Starts with a real technician checklist. Add, remove, or reorder anything. Turn individual items off for specific clients without changing what everyone else sees.",
   },
   {
-    n: "07",
+    n: "08",
     title: "A portal just for your customers",
     body: "Give each customer their own login. They see the day's readings, what was dosed, and photos from the visit—plus a link to the full history and a CSV download.",
   },
   {
-    n: "08",
+    n: "09",
     title: "Inspections tracked pool by pool",
     body: "Log the inspector's contact info, last inspection date, and the actual report—per body of water. Properties with multiple pools don't always get inspected on the same day. HOA manager contacts live right alongside it.",
   },
   {
-    n: "09",
+    n: "10",
     title: "Know exactly how much to add",
-    body: "Enter today's reading and the app calculates the exact dose to hit target for free chlorine, alkalinity, cyanuric acid, calcium hardness, or salt. It pulls from your chemical catalog and logs the correct units automatically. No more wasting chemicals by guessing how much to put in.",
+    body: "Enter today's reading and the app calculates the exact dose to hit target for free chlorine, alkalinity, cyanuric acid, calcium hardness, or salt. Running a tablet feeder instead? It also factors in the days until your next visit, so you're not guessing how many tablets to leave behind. Pulls from your chemical catalog and logs the correct units automatically—no more wasting chemicals by guessing.",
     pro: true,
   },
   {
-    n: "10",
+    n: "11",
     title: "Keeps working with no signal",
     body: "Backyards and mechanical rooms don't always have service. Readings, photos, and doses queue on the phone and sync the moment a connection returns—nothing lost, nothing re-entered.",
   },
   {
-    n: "11",
+    n: "12",
     title: "Tech sees their expected pay after each stop is complete",
     body: "Set a rate per technician and per body of water. Real earnings total up as visits are logged, motivating them to get all of their pools done and not skip any.",
     pro: true,
   },
   {
-    n: "12",
+    n: "13",
     title: "Equipment records and safety data sheets",
     body: "Pumps, filters, drain covers, and service dates logged per body of water. Enter the date if it's been replaced so you know if it's still under warranty. It's convenient to have that information available to you at any given time. Safety data sheets for every chemical are also available right on the tech's phone and in the customer's portal.",
   },
   {
-    n: "13",
+    n: "14",
     title: "Your logo and colors, not ours",
     body: "Upload your logo, set your brand colors, and customize the welcome email your customers get when their portal login is created. They see your business every time they check a report or get an email—not AquaRunner's.",
   },
@@ -182,7 +188,8 @@ export default function FeaturesPage() {
             <p className={styles.featFoot}>
               <strong>And your customers hear about it.</strong>{" "}
               <span className={styles.muted}>
-                Every service call sends them a full emailed report with readings, notes, and photos included.
+                Every service call sends them a clearly laid-out emailed report—arrival and completion time, location,
+                readings, chemicals dosed, checklist, and photos—not everything dumped into one paragraph.
               </span>
             </p>
           </div>
