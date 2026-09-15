@@ -142,6 +142,10 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
   const result = await resend.emails.send({
     from: fromAddress,
     to: params.customerEmail,
+    // Without this, a reply lands on the `from` address, which has no inbound mail
+    // configured at all and bounces -- same fix as the other customer-facing sends
+    // (lib/email.ts), same Organization.welcomeEmailSupportEmail source.
+    replyTo: org.welcomeEmailSupportEmail ?? undefined,
     subject,
     html,
     text,

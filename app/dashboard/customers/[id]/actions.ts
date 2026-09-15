@@ -1099,7 +1099,7 @@ export async function endCustomerRelationship(formData: FormData) {
     where: { id: customerId, organizationId: appUser.organizationId },
     include: {
       customerUsers: { where: { active: true }, select: { email: true, name: true } },
-      organization: { select: { name: true, businessName: true } },
+      organization: { select: { name: true, businessName: true, welcomeEmailSupportEmail: true } },
     },
   });
   if (!customer || customer.relationshipEndedAt) return;
@@ -1118,6 +1118,7 @@ export async function endCustomerRelationship(formData: FormData) {
         customerName: cu.name ?? customer.name,
         organizationName,
         subscribeUrl: `${appUrl}/portal/login?redirect=/portal/subscribe`,
+        replyTo: customer.organization.welcomeEmailSupportEmail,
       });
     } catch (err) {
       console.error(`[end-customer-relationship] access-ended email failed for ${cu.email}:`, err);

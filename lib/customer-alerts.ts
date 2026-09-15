@@ -28,13 +28,16 @@ export async function sendAlertToCustomer(params: {
 }): Promise<CustomerAlertOutcome> {
   const { customerId, organizationId, createdByUserId } = params;
 
-  const customer = await prisma.customer.findFirst({
-    where: { id: customerId, organizationId, relationshipEndedAt: null },
-    include: {
-      customerUsers: { where: { active: true }, select: { email: true, name: true } },
-      properties: { select: { managerEmail: true, managerName: true, name: true }, take: 1 },
-    },
-  });
+  const [customer, organization] = await Promise.all([
+    prisma.customer.findFirst({
+      where: { id: customerId, organizationId, relationshipEndedAt: null },
+      include: {
+        customerUsers: { where: { active: true }, select: { email: true, name: true } },
+        properties: { select: { managerEmail: true, managerName: true, name: true }, take: 1 },
+      },
+    }),
+    prisma.organization.findUnique({ where: { id: organizationId }, select: { welcomeEmailSupportEmail: true } }),
+  ]);
   if (!customer) return "not-found";
 
   // Falls back to the customer's own account name when a property has no manager name (or
@@ -57,8 +60,9 @@ export async function sendAlertToCustomer(params: {
 
   if (recipients.length === 0) return "no-recipients";
 
+  const replyTo = organization?.welcomeEmailSupportEmail ?? null;
   const results = await Promise.all(
-    recipients.map((recipient) => sendCustomerAlertEmail({ to: recipient.email, customerName: recipient.name, subject, message })),
+    recipients.map((recipient) => sendCustomerAlertEmail({ to: recipient.email, customerName: recipient.name, subject, message, replyTo })),
   );
   const failureCount = results.filter((r) => !r.ok).length;
   if (failureCount === 0) return "sent";

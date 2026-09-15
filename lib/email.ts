@@ -80,6 +80,10 @@ type ServiceSummaryEmailInput = {
    * its own copy of everything sent to a customer, without the customer ever seeing that
    * address in the message headers. Null (most orgs) sends only to `to`, unchanged. */
   ccEmail?: string | null;
+  /** See CustomerAlertEmailInput.replyTo (lib/email.ts) -- same Organization.
+   * welcomeEmailSupportEmail source, same reasoning: without it, a reply lands on
+   * no-reply@mail.aquarunner247.com, which bounces (no inbound mail configured there). */
+  replyTo?: string | null;
 };
 
 function fmt(n: number | null, digits = 1): string {
@@ -230,6 +234,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
       from: fromAddress,
       to: input.to,
       bcc: input.ccEmail ?? undefined,
+      replyTo: input.replyTo ?? undefined,
       subject: `Service Summary — ${input.propertyName} — ${input.bodyOfWaterName} — ${dateStr}`,
       html,
     });
@@ -409,6 +414,12 @@ type CustomerAlertEmailInput = {
   customerName: string;
   subject: string;
   message: string;
+  /** Organization.welcomeEmailSupportEmail, if the org has set one -- without this, a
+   * reply lands on the `from` address (no-reply@mail.aquarunner247.com), which has no
+   * inbound mail configured at all and bounces. Null sends with no reply-to header, same
+   * as before this field existed (falls back to whatever Resend/the client does by
+   * default, i.e. replying to the from address). */
+  replyTo?: string | null;
 };
 
 export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Promise<{ ok: boolean; error?: string }> {
@@ -441,6 +452,7 @@ export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Pr
     const result = await resend.emails.send({
       from: fromAddress,
       to: input.to,
+      replyTo: input.replyTo ?? undefined,
       subject: input.subject,
       html,
     });
@@ -458,6 +470,8 @@ type CustomerAccessEndedEmailInput = {
   customerName: string;
   organizationName: string;
   subscribeUrl: string;
+  /** See CustomerAlertEmailInput.replyTo -- same reasoning, same fallback. */
+  replyTo?: string | null;
 };
 
 /**
@@ -509,6 +523,7 @@ export async function sendCustomerAccessEndedEmail(input: CustomerAccessEndedEma
     const result = await resend.emails.send({
       from: fromAddress,
       to: input.to,
+      replyTo: input.replyTo ?? undefined,
       subject: "Your pool compliance portal access has changed",
       html,
     });

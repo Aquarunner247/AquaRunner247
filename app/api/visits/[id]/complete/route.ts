@@ -23,7 +23,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     include: {
       reading: true,
       photos: { select: { id: true, storagePath: true } },
-      organization: { select: { state: true, serviceSummaryCcEmail: true } },
+      organization: { select: { state: true, serviceSummaryCcEmail: true, welcomeEmailSupportEmail: true } },
       property: { select: { name: true, managerEmail: true, propertyType: true, addressLine1: true, city: true, region: true } },
       bodyOfWater: {
         select: {
@@ -135,6 +135,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         completedAt,
         timeZone: timeZoneForState(visit.organization.state),
         ccEmail: visit.organization.serviceSummaryCcEmail,
+        replyTo: visit.organization.welcomeEmailSupportEmail,
         reading: visit.reading
           ? {
               ph: visit.reading.ph != null ? Number(visit.reading.ph) : null,
