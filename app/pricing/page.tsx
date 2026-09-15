@@ -51,6 +51,7 @@ export default function PricingPage() {
                   <li>Unlimited pools</li>
                   <li>1 user</li>
                   <li>Every feature — nothing held back for the price</li>
+                  <li>AI phone agent, dosing calculator, and route optimization included</li>
                   <li>State-specific compliance log sheets</li>
                   <li>Printable, laminate-ready sheets + QR codes for pump rooms</li>
                 </ul>
@@ -71,6 +72,7 @@ export default function PricingPage() {
                   <li>Unlimited pools</li>
                   <li>Up to 5 users</li>
                   <li>Full chemical logging, service reports, and photos</li>
+                  <li>Customer portal, equipment records, and safety data sheets</li>
                   <li>State-specific compliance log sheets</li>
                   <li>Printable, laminate-ready sheets + QR codes for pump rooms</li>
                 </ul>
@@ -92,9 +94,10 @@ export default function PricingPage() {
                   <li>Unlimited pools</li>
                   <li>Up to 10 users</li>
                   <li>Everything in Starter, plus:</li>
-                  <li>Route optimization</li>
-                  <li>Advanced custom reports</li>
-                  <li>Full work order tools</li>
+                  <li>AI phone agent that answers live account questions</li>
+                  <li>Automatic chemical dosing recommendations</li>
+                  <li>Route optimization by real driving time</li>
+                  <li>Technician pay-rate tracking per pool</li>
                   <li>Priority support</li>
                 </ul>
                 <a className={styles.btn} href="#waitlist">
@@ -109,6 +112,7 @@ export default function PricingPage() {
                 </div>
                 <p className={styles.priceAmount}>Custom</p>
                 <ul className={styles.priceList}>
+                  <li>Everything in Pro</li>
                   <li>Volume pricing for large multi-crew operations</li>
                   <li>Dedicated onboarding and support</li>
                 </ul>
