@@ -65,9 +65,11 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
       orderBy: [{ property: { name: "asc" } }, { name: "asc" }],
       select: { id: true, name: true, property: { select: { name: true } } },
     }),
+    // Ordered by the raw ids, which sort essentially at random relative to what's actually
+    // shown (technician name, property/body name) -- the real display order is built below
+    // from bodiesOfWater (already property-name/body-name sorted), not trusted from here.
     prisma.technicianPayRate.findMany({
       where: { organizationId: appUser.organizationId },
-      orderBy: [{ technicianId: "asc" }, { bodyOfWaterId: "asc" }, { effectiveDate: "desc" }],
       include: {
         technician: { select: { id: true, name: true, email: true } },
         bodyOfWater: { select: { id: true, name: true, property: { select: { name: true } } } },
@@ -99,6 +101,92 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
 
   const editingRate = editingId ? rates.find((r) => r.id === editingId) : null;
 
+  // Grouped by venue (not flattened by raw id order, which sorted at random relative to
+  // what's on screen) so a newly-added rate lands next to its own body of water instead of
+  // wherever its technician/body id happened to fall. bodiesOfWater is already sorted
+  // property name -> body name; that order IS the group order here. Only venues with at
+  // least one rate on record get a group -- a venue with none at all is already covered by
+  // the "Missing pay rates" banner above, repeating it here as an empty group would just
+  // add noise.
+  const ratesByBody = new Map<string, typeof rates>();
+  for (const r of rates) {
+    const arr = ratesByBody.get(r.bodyOfWaterId) ?? [];
+    arr.push(r);
+    ratesByBody.set(r.bodyOfWaterId, arr);
+  }
+  const venueGroups = bodiesOfWater
+    .map((body) => {
+      const venueRates = (ratesByBody.get(body.id) ?? []).slice().sort((a, b) => {
+        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+        const nameA = a.technician.name ?? a.technician.email;
+        const nameB = b.technician.name ?? b.technician.email;
+        if (nameA !== nameB) return nameA.localeCompare(nameB);
+        return b.effectiveDate.getTime() - a.effectiveDate.getTime();
+      });
+      return { body, activeRates: venueRates.filter((r) => r.isActive), pastRates: venueRates.filter((r) => !r.isActive) };
+    })
+    .filter((g) => g.activeRates.length > 0 || g.pastRates.length > 0);
+
+  function renderRateRow(r: (typeof rates)[number]) {
+    const isEditing = editingRate?.id === r.id;
+    if (isEditing) {
+      return (
+        <form key={r.id} action={updateTechnicianPayRate} className="flex flex-wrap items-center gap-2 px-3 py-2">
+          <input type="hidden" name="id" value={r.id} />
+          <span className="text-sm font-medium text-brand-ink">{r.technician.name ?? r.technician.email}</span>
+          <input name="rateAmount" type="number" step="0.01" defaultValue={r.rateAmount.toString()} className="app-field w-28" required />
+          <label className="flex items-center gap-1 text-xs text-brand-ink">
+            <input type="checkbox" name="isBundled" defaultChecked={r.isBundled} />
+            Bundled (pay folded into another body)
+          </label>
+          <select name="bundledIntoBodyOfWaterId" defaultValue={r.bundledIntoBodyOfWaterId ?? ""} className="app-field">
+            <option value="">— not bundled —</option>
+            {bodiesOfWater
+              .filter((b) => b.id !== r.bodyOfWaterId)
+              .map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} ({b.property.name})
+                </option>
+              ))}
+          </select>
+          <input name="effectiveDate" type="date" defaultValue={toYmd(r.effectiveDate)} className="app-field" required />
+          <button type="submit" className="app-btn-primary-sm">
+            Save
+          </button>
+          <a href="/dashboard/settings/pay-rates" className="app-btn-secondary-sm">
+            Cancel
+          </a>
+        </form>
+      );
+    }
+    return (
+      <div key={r.id} className={`flex items-center gap-2 px-3 py-2 ${r.isActive ? "" : "opacity-60"}`}>
+        <div className="grid flex-1 grid-cols-4 items-center gap-2 text-sm">
+          <span className="font-medium text-brand-ink">{r.technician.name ?? r.technician.email}</span>
+          <span className="app-metric text-brand-ink/70">
+            {fmtMoney(Number(r.rateAmount))}
+            {r.isBundled ? ` · bundled into ${r.bundledIntoBodyOfWater?.name ?? "another body"}` : ""}
+          </span>
+          <span className="text-xs text-brand-muted">Effective {toYmd(r.effectiveDate)}</span>
+          <span className="text-xs text-brand-muted">{r.isActive ? "Active" : "Voided"}</span>
+        </div>
+        <a href={`/dashboard/settings/pay-rates?edit=${r.id}`} className="app-btn-secondary-sm">
+          Edit
+        </a>
+        {r.isActive ? (
+          <form action={deactivateTechnicianPayRate}>
+            <input type="hidden" name="id" value={r.id} />
+            <ConfirmSubmitButton
+              label="Void"
+              confirmMessage={`Void this rate for ${r.technician.name ?? r.technician.email} at ${r.bodyOfWater.name}? This keeps it on record but stops it applying going forward.`}
+              className="app-btn-danger-sm"
+            />
+          </form>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
       <div className="text-sm text-brand-muted">
@@ -120,8 +208,8 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
       </header>
 
       {unrated.length > 0 ? (
-        <section className="mt-6 rounded-lg border border-brand-danger/30 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-brand-danger">Missing pay rates ({unrated.length})</h2>
+        <section className="mt-6 rounded-lg border border-brand-warn/30 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-brand-warn">Missing pay rates ({unrated.length})</h2>
           <p className="mt-1 text-xs text-brand-muted">
             These properties are on an active route with a technician assigned, but have no pay rate set for that
             technician — visits there won&rsquo;t count toward that tech&rsquo;s estimated earnings until one is
@@ -140,80 +228,38 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
 
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         <h2 className="text-base font-semibold text-brand-ink">Rate table</h2>
-        <div className="mt-3 space-y-2">
-          {rates.map((r) => {
-            const isEditing = editingRate?.id === r.id;
+        <p className="mt-1 text-xs text-brand-muted">Grouped by venue — each shows its active rate(s) first; past/voided rates are tucked away.</p>
+        <div className="mt-3 space-y-3">
+          {venueGroups.map(({ body, activeRates, pastRates }) => {
+            const editingIsInPast = pastRates.some((r) => r.id === editingRate?.id);
             return (
-              <div key={r.id} className={`app-card-inset ${r.isActive ? "" : "opacity-50"}`}>
-                {!isEditing ? (
-                  <div className="flex items-center gap-2">
-                    <div className="grid flex-1 grid-cols-5 items-center gap-2 text-sm">
-                      <span className="font-medium text-brand-ink">{r.technician.name ?? r.technician.email}</span>
-                      <span className="text-brand-ink/80">
-                        {r.bodyOfWater.name} ({r.bodyOfWater.property.name})
-                      </span>
-                      <span className="app-metric text-brand-ink/70">
-                        {fmtMoney(Number(r.rateAmount))}
-                        {r.isBundled ? " · bundled" : ""}
-                      </span>
-                      <span className="text-xs text-brand-muted">Effective {toYmd(r.effectiveDate)}</span>
-                      <span className="text-xs text-brand-muted">{r.isActive ? "Active" : "Voided"}</span>
+              <div key={body.id} className="overflow-hidden rounded-lg border border-brand-border">
+                <div className="border-b border-brand-border bg-brand-surface px-3 py-1.5">
+                  <p className="text-sm font-semibold text-brand-ink">
+                    {body.property.name} <span className="text-brand-muted">— {body.name}</span>
+                  </p>
+                </div>
+                <div className="divide-y divide-brand-border">
+                  {activeRates.length > 0 ? (
+                    activeRates.map((r) => renderRateRow(r))
+                  ) : (
+                    <p className="px-3 py-2 text-sm text-brand-muted">No active rate for this venue.</p>
+                  )}
+                </div>
+                {pastRates.length > 0 ? (
+                  <details className="border-t border-brand-border bg-brand-surface px-3 py-2" open={editingIsInPast || undefined}>
+                    <summary className="cursor-pointer text-xs font-medium text-brand-muted">
+                      {pastRates.length} past rate{pastRates.length === 1 ? "" : "s"}
+                    </summary>
+                    <div className="mt-2 divide-y divide-brand-border rounded border border-brand-border bg-white">
+                      {pastRates.map((r) => renderRateRow(r))}
                     </div>
-                    <a href={`/dashboard/settings/pay-rates?edit=${r.id}`} className="app-btn-secondary-sm">
-                      Edit
-                    </a>
-                    {r.isActive ? (
-                      <form action={deactivateTechnicianPayRate}>
-                        <input type="hidden" name="id" value={r.id} />
-                        <ConfirmSubmitButton
-                          label="Void"
-                          confirmMessage={`Void this rate for ${r.technician.name ?? r.technician.email} at ${r.bodyOfWater.name}? This keeps it on record but stops it applying going forward.`}
-                          className="app-btn-danger-sm"
-                        />
-                      </form>
-                    ) : null}
-                  </div>
-                ) : (
-                  <form action={updateTechnicianPayRate} className="flex flex-wrap items-center gap-2">
-                    <input type="hidden" name="id" value={r.id} />
-                    <span className="text-sm font-medium text-brand-ink">
-                      {r.technician.name ?? r.technician.email} — {r.bodyOfWater.name}
-                    </span>
-                    <input
-                      name="rateAmount"
-                      type="number"
-                      step="0.01"
-                      defaultValue={r.rateAmount.toString()}
-                      className="app-field w-28"
-                      required
-                    />
-                    <label className="flex items-center gap-1 text-xs text-brand-ink">
-                      <input type="checkbox" name="isBundled" defaultChecked={r.isBundled} />
-                      Bundled (pay folded into another body)
-                    </label>
-                    <select name="bundledIntoBodyOfWaterId" defaultValue={r.bundledIntoBodyOfWaterId ?? ""} className="app-field">
-                      <option value="">— not bundled —</option>
-                      {bodiesOfWater
-                        .filter((b) => b.id !== r.bodyOfWaterId)
-                        .map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name} ({b.property.name})
-                          </option>
-                        ))}
-                    </select>
-                    <input name="effectiveDate" type="date" defaultValue={toYmd(r.effectiveDate)} className="app-field" required />
-                    <button type="submit" className="app-btn-primary-sm">
-                      Save
-                    </button>
-                    <a href="/dashboard/settings/pay-rates" className="app-btn-secondary-sm">
-                      Cancel
-                    </a>
-                  </form>
-                )}
+                  </details>
+                ) : null}
               </div>
             );
           })}
-          {rates.length === 0 ? <p className="app-card-inset text-sm text-brand-ink/60">No pay rates set yet.</p> : null}
+          {venueGroups.length === 0 ? <p className="app-card-inset text-sm text-brand-ink/60">No pay rates set yet.</p> : null}
         </div>
 
         <form action={createTechnicianPayRate} className="app-card-inset mt-4">
@@ -265,8 +311,8 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
         </form>
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-brand-ink">Payroll period</h2>
+      <details className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm" open={sp.saved === "1" || undefined}>
+        <summary className="cursor-pointer text-base font-semibold text-brand-ink">Payroll period</summary>
         <p className="mt-1 text-sm text-brand-muted">
           Determines the &ldquo;This pay period&rdquo; window shown on technicians&rsquo; estimated-earnings card. Pay
           structure is flat-rate-per-property only for now (the only option available).
@@ -335,7 +381,7 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
             Save
           </button>
         </form>
-      </section>
+      </details>
     </main>
   );
 }
