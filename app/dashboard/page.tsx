@@ -90,32 +90,30 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const bodyPropertyFilter = selectedPropertyType ? { propertyType: selectedPropertyType } : {};
     const visitPropertyFilter = selectedPropertyType ? { property: { propertyType: selectedPropertyType } } : {};
 
-    const [customersCount, managementCompaniesCount, bodiesCount, upcomingCount, weekTotalCount, weekCompletedCount] = await Promise.all([
+    // The three serviceVisit counts below used to be three separate COUNT queries against
+    // the exact same table/organization/week-window, differing only by status filter --
+    // this dashboard is the single heaviest-traffic page in the app, and every visitor
+    // held up to 6 simultaneous connections for this one batch (see the EMAXCONNSESSION
+    // incident this was added to fix: Supabase's Session pooler caps the whole project at
+    // 15 total connections). Fetching the week's visits once and slicing three ways in JS
+    // gets identical numbers from one round trip instead of three -- 4 queries in this
+    // batch now, not 6.
+    const [customersCount, managementCompaniesCount, bodiesCount, weekVisits] = await Promise.all([
       prisma.customer.count({ where: { organizationId: orgId, relationshipEndedAt: null, ...customerPropertyFilter } }),
       prisma.managementCompany.count({ where: { organizationId: orgId } }),
       prisma.bodyOfWater.count({ where: { property: { organizationId: orgId, ...bodyPropertyFilter } } }),
-      prisma.serviceVisit.count({
-        where: {
-          organizationId: orgId,
-          scheduledStart: { gte: weekStart, lt: weekEnd },
-          status: { in: ["SCHEDULED", "IN_PROGRESS"] },
-          ...visitPropertyFilter,
-        },
-      }),
-      prisma.serviceVisit.count({
+      prisma.serviceVisit.findMany({
         where: { organizationId: orgId, scheduledStart: { gte: weekStart, lt: weekEnd }, ...visitPropertyFilter },
-      }),
-      prisma.serviceVisit.count({
-        where: { organizationId: orgId, scheduledStart: { gte: weekStart, lt: weekEnd }, status: "COMPLETED", ...visitPropertyFilter },
+        select: { status: true },
       }),
     ]);
     stats = {
       customers: customersCount,
       managementCompanies: managementCompaniesCount,
       bodiesOfWater: bodiesCount,
-      upcomingThisWeek: upcomingCount,
-      weekTotal: weekTotalCount,
-      weekCompleted: weekCompletedCount,
+      upcomingThisWeek: weekVisits.filter((v) => v.status === "SCHEDULED" || v.status === "IN_PROGRESS").length,
+      weekTotal: weekVisits.length,
+      weekCompleted: weekVisits.filter((v) => v.status === "COMPLETED").length,
     };
 
     const [recentVisits, recentCustomers] = await Promise.all([
