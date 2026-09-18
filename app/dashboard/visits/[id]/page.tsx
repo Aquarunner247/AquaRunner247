@@ -74,6 +74,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           requiresPH: true,
           requiresAlkalinity: true,
           requiresCYA: true,
+          requiresComplianceReadings: true,
           volumeGallons: true,
         },
       },
@@ -113,7 +114,11 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   // entirely from the org's own linked state and this body of water's own disinfection
   // method -- see activeReadingFields's doc comment. Not used by the residential form,
   // which keeps its own simpler per-body requiresFC/PH/Alkalinity/CYA toggle system.
-  const readingFields = activeReadingFields(ruleset, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod, cyaRequired);
+  // requiresComplianceReadings false means this client's own staff handles chemistry/
+  // gauges -- an empty array here is what makes the tech's form show only the checklist.
+  const readingFields = visit.bodyOfWater.requiresComplianceReadings
+    ? activeReadingFields(ruleset, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod, cyaRequired)
+    : [];
 
   const chemicalProducts = await prisma.chemicalProduct.findMany({
     where: { organizationId: appUser.organizationId, active: true },

@@ -212,6 +212,29 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               </span>
             </label>
           )}
+          {!isResidential ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="requiresComplianceReadings"
+                defaultChecked={body.requiresComplianceReadings}
+                disabled={isEnded}
+                className="h-4 w-4 rounded border-brand-control"
+              />
+              <span className="text-brand-ink">Track chemistry &amp; equipment readings for this venue</span>
+            </label>
+          ) : null}
+          {!isResidential && !body.requiresComplianceReadings ? (
+            <p className="text-xs text-brand-warn">
+              Off — technicians only see the checklist and photo requirement here, no chemistry or gauge fields.
+              Turn this back on if this client&rsquo;s own staff stops handling water chemistry.
+            </p>
+          ) : !isResidential ? (
+            <p className="text-xs text-brand-muted">
+              Turn off if this client&rsquo;s own staff (or a separate CPO) already handles water chemistry and
+              gauge readings — technicians will only see the checklist and photo requirement here.
+            </p>
+          ) : null}
           <label className="block text-sm">
             <span className="text-brand-ink">Chlorine feed mechanism</span>
             <select

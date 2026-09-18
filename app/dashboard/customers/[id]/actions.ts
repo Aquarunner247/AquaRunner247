@@ -363,7 +363,7 @@ export async function updateBodyOfWater(formData: FormData) {
     const disinfectionMethod = (Object.values(DisinfectionMethod) as string[]).includes(disinfectionMethodRaw)
       ? (disinfectionMethodRaw as DisinfectionMethod)
       : DisinfectionMethod.CHLORINE;
-    commercialFields = { disinfectionMethod };
+    commercialFields = { disinfectionMethod, requiresComplianceReadings: formData.get("requiresComplianceReadings") != null };
   }
 
   await prisma.bodyOfWater.update({

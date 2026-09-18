@@ -829,6 +829,15 @@ model BodyOfWater {
   requiresAlkalinity Boolean @default(true)
   requiresCYA        Boolean @default(true)
 
+  /// Commercial only. When false, this body's visits skip chemistry AND gauge/equipment
+  /// readings entirely -- activeReadingFields (lib/compliance.ts) returns none, so the
+  /// technician sees only the checklist and photo requirement, and completion doesn't
+  /// require any reading. For a client whose own in-house staff already handles water
+  /// chemistry/compliance, and this org is contracted purely for physical cleaning.
+  /// Default true -- every existing commercial body keeps today's full state-driven
+  /// compliance behavior unchanged.
+  requiresComplianceReadings Boolean @default(true)
+
   /// Commercial only. Which disinfectant this specific body of water actually uses --
   /// most states' regulations give chlorine and bromine as alternatives (never both at
   /// once for the same body of water), and the app has no other way to know which one a

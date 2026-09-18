@@ -35,6 +35,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
           requiresPH: true,
           requiresAlkalinity: true,
           requiresCYA: true,
+          requiresComplianceReadings: true,
         },
       },
       technician: { select: { name: true, email: true } },
@@ -76,13 +77,18 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         ...(visit.bodyOfWater.requiresAlkalinity ? [visit.reading?.alkalinityPpm] : []),
         ...(visit.bodyOfWater.requiresCYA && cyaRequired ? [visit.reading?.cyanuricAcidPpm] : []),
       ]
-    : // Chemistry AND gauge/meter fields are both state-driven -- must match exactly what
-      // the visit form itself showed as required (see activeReadingFields), or completion
-      // could block on a field the technician was never shown, or silently accept a visit
-      // missing a reading this state actually requires.
-      activeReadingFields(ruleset, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod, cyaRequired)
-        .filter((f) => f.required)
-        .map((f) => visit.reading?.[f.key]);
+    : !visit.bodyOfWater.requiresComplianceReadings
+      ? // This client's own staff handles chemistry/gauges -- nothing to require here,
+        // matching the empty readingFields the visit form itself showed (see the
+        // dashboard/visits/[id] page's own requiresComplianceReadings check).
+        []
+      : // Chemistry AND gauge/meter fields are both state-driven -- must match exactly what
+        // the visit form itself showed as required (see activeReadingFields), or completion
+        // could block on a field the technician was never shown, or silently accept a visit
+        // missing a reading this state actually requires.
+        activeReadingFields(ruleset, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod, cyaRequired)
+          .filter((f) => f.required)
+          .map((f) => visit.reading?.[f.key]);
   const missingReadings = requiredReadings.some((v) => v == null);
   if (missingReadings) {
     return NextResponse.json({ error: "MISSING_REQUIRED_READINGS" }, { status: 400 });

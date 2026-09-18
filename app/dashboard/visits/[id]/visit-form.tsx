@@ -645,40 +645,49 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         </div>
       ) : null}
 
-      <div data-tour="visit-chemistry" className="app-card">
-        <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
-        <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
-        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional</p>
-        <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
-      </div>
-
-      {hasVolume ? (
-        <DosingCard
-          visitId={visitId}
-          dosing={dosing}
-          bromineStatus={bromineStatus}
-          onApplyDose={applyDoseFromCard}
-          onPrefillDoseForm={prefillDoseForm}
-        />
-      ) : (
-        <div className="app-card">
-          <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
-            Recommended Dosing
-          </h2>
-          <p className="mt-1 text-sm text-brand-muted">
-            This body of water has no volume set — measure it now to get dosing recommendations.
-          </p>
-          <div className="mt-3">
-            <VisitVolumeCalculator
-              visitId={visitId}
-              onSaved={(result) => {
-                setHasVolume(true);
-                if (result.dosing) setDosing(result.dosing);
-              }}
-            />
+      {/* readingFields is only ever empty for a body flagged as not tracking compliance
+          readings (see app/dashboard/visits/[id]/page.tsx) -- every other path (including
+          an unsupported state's fallback field set) still returns a real field list, so
+          this is a reliable signal to hide chemistry/dosing entirely rather than show an
+          empty "required" area above an "Optional" section the client doesn't want touched. */}
+      {readingFields.length > 0 ? (
+        <>
+          <div data-tour="visit-chemistry" className="app-card">
+            <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
+            <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
+            <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional</p>
+            <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
           </div>
-        </div>
-      )}
+
+          {hasVolume ? (
+            <DosingCard
+              visitId={visitId}
+              dosing={dosing}
+              bromineStatus={bromineStatus}
+              onApplyDose={applyDoseFromCard}
+              onPrefillDoseForm={prefillDoseForm}
+            />
+          ) : (
+            <div className="app-card">
+              <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
+                Recommended Dosing
+              </h2>
+              <p className="mt-1 text-sm text-brand-muted">
+                This body of water has no volume set — measure it now to get dosing recommendations.
+              </p>
+              <div className="mt-3">
+                <VisitVolumeCalculator
+                  visitId={visitId}
+                  onSaved={(result) => {
+                    setHasVolume(true);
+                    if (result.dosing) setDosing(result.dosing);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
 
       {equipmentFields.length > 0 ? (
         <div className="app-card">
