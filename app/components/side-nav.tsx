@@ -241,9 +241,9 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] font-medium ${active ? "text-white" : "text-brand-icon"}`}
+                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[11px] font-semibold ${active ? "text-white" : "text-brand-mutedOnDark"}`}
                 >
-                  <NavIcon kind={link.icon} className="h-5 w-5" />
+                  <NavIcon kind={link.icon} className="h-6 w-6" strokeWidth={2.2} />
                   {link.label}
                 </Link>
               );
@@ -253,9 +253,9 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
                 type="button"
                 onClick={() => setSheetOpen((v) => !v)}
                 aria-label="More"
-                className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] font-medium ${sheetOpen ? "text-white" : "text-brand-icon"}`}
+                className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[11px] font-semibold ${sheetOpen ? "text-white" : "text-brand-mutedOnDark"}`}
               >
-                <NavIcon kind="more" className="h-5 w-5" />
+                <NavIcon kind="more" className="h-6 w-6" strokeWidth={2.2} />
                 More
               </button>
             ) : null}

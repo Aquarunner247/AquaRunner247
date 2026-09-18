@@ -53,11 +53,11 @@ export function TechBottomNav({ dateYmd }: { dateYmd: string }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] font-medium ${
-              isActive(item.href) ? "text-white" : "text-brand-icon"
+            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[11px] font-semibold ${
+              isActive(item.href) ? "text-white" : "text-brand-mutedOnDark"
             }`}
           >
-            <NavIcon kind={item.kind} />
+            <NavIcon kind={item.kind} className="h-6 w-6" strokeWidth={2.2} />
             {item.label}
           </Link>
         ))}
@@ -75,11 +75,11 @@ export function TechBottomNav({ dateYmd }: { dateYmd: string }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] font-medium ${
-              isActive(item.href) ? "text-white" : "text-brand-icon"
+            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[11px] font-semibold ${
+              isActive(item.href) ? "text-white" : "text-brand-mutedOnDark"
             }`}
           >
-            <NavIcon kind={item.kind} />
+            <NavIcon kind={item.kind} className="h-6 w-6" strokeWidth={2.2} />
             {item.label}
           </Link>
         ))}

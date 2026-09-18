@@ -72,6 +72,13 @@ const config: Config = {
           dangerFill: "#F7E3E0",
 
           icon: "#55696C",
+          // `muted`/`icon` above are contrast-checked against light surfaces only (5.2:1 on
+          // brand-surface) -- reusing either one as inactive-nav-item text/icon color on a
+          // brand-ink background (the mobile bottom nav) measured only ~2.35:1, illegible
+          // in direct sun or a dark pump room (the exact report that added this token).
+          // Already proven as a muted-on-ink label color in the service-summary email
+          // template before being formalized here.
+          mutedOnDark: "#9CC3C6", // secondary text/icons on brand-ink background   7.1:1 on ink
         },
       },
       boxShadow: {

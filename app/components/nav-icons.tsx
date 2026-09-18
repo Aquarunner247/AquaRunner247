@@ -17,8 +17,19 @@ export type NavIconKind =
 /** Shared stroke-icon set for every staff nav surface (desktop rail, admin/office
  * bottom nav, technician bottom nav) so they stay visually consistent instead of
  * each nav component maintaining its own icon set. */
-export function NavIcon({ kind, className = "h-5 w-5" }: { kind: NavIconKind; className?: string }) {
-  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8 } as const;
+export function NavIcon({
+  kind,
+  className = "h-5 w-5",
+  strokeWidth = 1.8,
+}: {
+  kind: NavIconKind;
+  className?: string;
+  /** Default matches every existing caller's look. The mobile bottom nav (tech and
+   * admin/office) passes a bolder value -- a thin 1.8 stroke at small size is exactly what
+   * washes out in direct sun or a dim pump room, the report that added this prop. */
+  strokeWidth?: number;
+}) {
+  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth } as const;
 
   switch (kind) {
     case "dashboard":
