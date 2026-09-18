@@ -98,6 +98,9 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
               <Link href="/dashboard/customers/alerts" className="app-btn-secondary-sm">
                 Sent alerts
               </Link>
+              <Link href="/dashboard/customers/placards" className="app-btn-secondary-sm">
+                Print placards
+              </Link>
             </>
           ) : null}
           <Link href="/dashboard" className="app-link">
