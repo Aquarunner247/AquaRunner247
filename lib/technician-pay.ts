@@ -253,3 +253,67 @@ export async function getTechnicianEarnings(
 
   return { todayTotal, todayVisitCount, periodTotal, periodStart: period.start, periodEnd: period.end };
 }
+
+export type PayrollExportRow = {
+  technicianName: string;
+  technicianEmail: string;
+  propertyName: string;
+  bodyOfWaterName: string;
+  visitDate: Date;
+  amount: number;
+};
+
+/**
+ * Every rated, completed visit's payout in [start, end], across every technician -- the raw
+ * material for a payroll CSV export (see app/api/exports/quickbooks/technician-pay). Same
+ * "never fabricate a $0" principle as getTechnicianEarnings: an unrated visit (no active
+ * rate row covering it) is silently excluded here too, not zeroed -- the existing "Unrated
+ * visits" admin surface is where those get flagged, not this export. A bundled row
+ * (isBundled: true, folded into another body's rate) is excluded for the same reason: its
+ * real payout already shows up as the OTHER body's line, including it again here would
+ * double-count that technician's total for the period.
+ */
+export async function getPayrollExportRows(organizationId: string, start: Date, end: Date): Promise<PayrollExportRow[]> {
+  const settings = await getOrgPayrollSettings(organizationId);
+  if (settings.payStructureType !== "PER_PROPERTY") return []; // only structure implemented today -- see resolveRateForVisit
+
+  const visits = await prisma.serviceVisit.findMany({
+    where: { organizationId, status: "COMPLETED", technicianId: { not: null }, completedAt: { gte: start, lte: end } },
+    orderBy: { completedAt: "asc" },
+    select: {
+      completedAt: true,
+      technicianId: true,
+      bodyOfWaterId: true,
+      technician: { select: { name: true, email: true } },
+      property: { select: { name: true } },
+      bodyOfWater: { select: { name: true } },
+    },
+  });
+  if (visits.length === 0) return [];
+
+  // Loaded once per technician (not once per visit) -- same batching principle
+  // loadActiveRatesByBody itself exists for, just extended across every tech in the range.
+  const technicianIds = Array.from(new Set(visits.map((v) => v.technicianId).filter((id): id is string => id != null)));
+  const ratesByTechnician = new Map<string, Map<string, ActiveRate[]>>();
+  await Promise.all(
+    technicianIds.map(async (technicianId) => {
+      ratesByTechnician.set(technicianId, await loadActiveRatesByBody(organizationId, technicianId));
+    }),
+  );
+
+  const rows: PayrollExportRow[] = [];
+  for (const visit of visits) {
+    if (!visit.completedAt || !visit.technicianId) continue;
+    const resolved = pickRate(ratesByTechnician.get(visit.technicianId)?.get(visit.bodyOfWaterId), visit.completedAt);
+    if (!resolved || resolved.isBundled) continue;
+    rows.push({
+      technicianName: visit.technician?.name ?? visit.technician?.email ?? "Unknown",
+      technicianEmail: visit.technician?.email ?? "",
+      propertyName: visit.property.name,
+      bodyOfWaterName: visit.bodyOfWater.name,
+      visitDate: visit.completedAt,
+      amount: resolved.rateAmount,
+    });
+  }
+  return rows;
+}
