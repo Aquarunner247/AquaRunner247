@@ -42,14 +42,20 @@ function buildPoolConfig(): PoolConfig {
   const config: PoolConfig = {
     connectionString: raw,
     /**
-     * Supabase's Session pooler caps total clients at 15 (see pool_size in the Supabase
-     * dashboard). Fluid Compute can run several function instances concurrently, each
-     * holding its own Pool (cached per-instance, not shared) — node-pg's unconfigured
-     * default of max=10 per Pool means as few as 2 concurrent instances exhaust the
-     * server-side cap (EMAXCONNSESSION). Keep this well below 15 so several instances
-     * can coexist, and release idle connections quickly so they don't sit held.
+     * Supabase's Session pooler caps total clients project-wide (see Pool Size under
+     * Project Settings > Database > Connection pooling) -- raised from 15 to 40 on
+     * 2026-09-19 alongside a Nano -> Micro compute upgrade (60 raw max_connections now),
+     * after a real EMAXCONNSESSION incident. Fluid Compute can run several function
+     * instances concurrently, each holding its own Pool (cached per-instance, not shared)
+     * -- this must stay well below the pooler's Pool Size so several instances can coexist
+     * without exhausting it, and leave real headroom for Supabase's own internal use
+     * (Studio, Realtime, direct/admin connections) rather than claiming the whole pool.
+     * 4 was picked to match the admin dashboard's own heaviest single-request batch
+     * (app/dashboard/page.tsx's 4-query Promise.all) -- high enough that its busiest page
+     * never queues internally on its own pool, while 40/4 = 10 concurrent instances can
+     * still run at once before hitting the pooler's ceiling (vs. 5 at the old 15/3).
      */
-    max: 3,
+    max: 4,
     idleTimeoutMillis: 10_000,
   };
 
