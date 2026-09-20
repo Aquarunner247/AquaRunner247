@@ -652,6 +652,7 @@ model WelcomeEmailSend {
   errorMessage String?
 
   @@index([organizationId, customerId])
+  @@index([customerId])
   @@index([toEmail])
 }
 
@@ -1874,6 +1875,8 @@ model OrgPhoneAgentSettings {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([updatedByUserId])
 }
 
 /// One row per inbound call that falls through to the agent -- created early (as soon as
