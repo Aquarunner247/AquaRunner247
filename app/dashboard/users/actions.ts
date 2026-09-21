@@ -177,6 +177,62 @@ export async function updateUserRole(formData: FormData) {
   redirect("/dashboard/users?tab=staff&saved=1");
 }
 
+/**
+ * Directly sets a new password for a staff login via the Supabase Admin API -- no old
+ * password needed, no email/reset-link round trip, since this is an admin acting on
+ * someone else's account (the classic case: a technician is locked out and can't run the
+ * self-service "forgot password" flow themselves in the moment). Share the new password
+ * with them the same way a freshly-created login's temporary password is shared.
+ */
+export async function resetStaffUserPassword(formData: FormData) {
+  const appUser = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const password = String(formData.get("password") ?? "").trim();
+  if (!userId || !password) return;
+  if (password.length < 8) {
+    redirect(`/dashboard/users?tab=staff&passwordError=${encodeURIComponent("Password must be at least 8 characters.")}`);
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId, organizationId: appUser.organizationId },
+    select: { id: true, name: true, email: true, authUserId: true },
+  });
+  if (!user?.authUserId) return;
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(user.authUserId, { password });
+  if (error) {
+    redirect(`/dashboard/users?tab=staff&passwordError=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/dashboard/users?tab=staff&passwordSaved=${encodeURIComponent(user.name ?? user.email)}`);
+}
+
+/** Same as resetStaffUserPassword, for a customer-portal login instead of a staff one. */
+export async function resetCustomerUserPassword(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerUserId = String(formData.get("customerUserId") ?? "").trim();
+  const password = String(formData.get("password") ?? "").trim();
+  if (!customerUserId || !password) return;
+  if (password.length < 8) {
+    redirect(`/dashboard/users?tab=customers&passwordError=${encodeURIComponent("Password must be at least 8 characters.")}`);
+  }
+
+  const customerUser = await prisma.customerUser.findFirst({
+    where: { id: customerUserId, customer: { organizationId: appUser.organizationId } },
+    select: { id: true, name: true, email: true, authUserId: true },
+  });
+  if (!customerUser?.authUserId) return;
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(customerUser.authUserId, { password });
+  if (error) {
+    redirect(`/dashboard/users?tab=customers&passwordError=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/dashboard/users?tab=customers&passwordSaved=${encodeURIComponent(customerUser.name ?? customerUser.email)}`);
+}
+
 export async function deleteStaffUser(formData: FormData) {
   const appUser = await requireAdmin();
   const userId = String(formData.get("userId") ?? "").trim();

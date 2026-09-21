@@ -6,10 +6,24 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { AddUserFormFields } from "@/app/components/add-user-form-fields";
 import { NameInput } from "@/app/components/name-input";
-import { createUser, deleteStaffUser, deleteCustomerUser, updateUserRole } from "./actions";
+import {
+  createUser,
+  deleteStaffUser,
+  deleteCustomerUser,
+  updateUserRole,
+  resetStaffUserPassword,
+  resetCustomerUserPassword,
+} from "./actions";
 
 type PageProps = {
-  searchParams?: Promise<{ error?: string; tab?: string; saved?: string }>;
+  searchParams?: Promise<{
+    error?: string;
+    tab?: string;
+    saved?: string;
+    resetPassword?: string;
+    passwordSaved?: string;
+    passwordError?: string;
+  }>;
 };
 
 export default async function UsersPage({ searchParams }: PageProps) {
@@ -99,39 +113,71 @@ export default async function UsersPage({ searchParams }: PageProps) {
 
           <section data-tour="users-team-list" className="app-card mt-4">
             {params.saved === "1" ? <p className="mb-3 text-sm text-brand-ok">Saved.</p> : null}
+            {params.passwordSaved ? (
+              <p className="mb-3 text-sm text-brand-ok">Password updated for {params.passwordSaved}. Share the new password with them directly.</p>
+            ) : null}
+            {params.passwordError ? <p className="mb-3 text-sm text-brand-danger">{params.passwordError}</p> : null}
             <ul className="space-y-2">
               {users.map((u) => (
-                <li key={u.id} className="app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span>
-                    <span className="font-medium text-brand-ink">{u.name ?? u.email}</span>
-                    <span className="ml-2 text-brand-ink/60">
-                      {u.email}
-                      {u.phone ? ` · ${u.phone}` : ""}
+                <li key={u.id} className="app-card-inset text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      <span className="font-medium text-brand-ink">{u.name ?? u.email}</span>
+                      <span className="ml-2 text-brand-ink/60">
+                        {u.email}
+                        {u.phone ? ` · ${u.phone}` : ""}
+                      </span>
                     </span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <form action={updateUserRole} className="flex items-center gap-1">
-                      <input type="hidden" name="userId" value={u.id} />
-                      <select key={u.role} name="role" defaultValue={u.role} className="app-field w-auto py-1 text-xs">
-                        {Object.values(UserRole).map((r) => (
-                          <option key={r} value={r}>
-                            {r}
-                          </option>
-                        ))}
-                      </select>
-                      <button className="app-btn-secondary-sm" type="submit">
-                        Save
-                      </button>
-                    </form>
-                    <form action={deleteStaffUser}>
-                      <input type="hidden" name="userId" value={u.id} />
-                      <ConfirmSubmitButton
-                        label="Delete"
-                        confirmMessage={`Permanently delete ${u.name ?? u.email}? This also removes their login — they will no longer be able to sign in.`}
-                        className="app-btn-danger-sm"
-                      />
-                    </form>
+                    <div className="flex items-center gap-2">
+                      <form action={updateUserRole} className="flex items-center gap-1">
+                        <input type="hidden" name="userId" value={u.id} />
+                        <select key={u.role} name="role" defaultValue={u.role} className="app-field w-auto py-1 text-xs">
+                          {Object.values(UserRole).map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                        <button className="app-btn-secondary-sm" type="submit">
+                          Save
+                        </button>
+                      </form>
+                      {params.resetPassword === u.id ? (
+                        <a href="/dashboard/users?tab=staff" className="app-btn-secondary-sm">
+                          Cancel
+                        </a>
+                      ) : (
+                        <a href={`/dashboard/users?tab=staff&resetPassword=${u.id}`} className="app-btn-secondary-sm">
+                          Reset password
+                        </a>
+                      )}
+                      <form action={deleteStaffUser}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <ConfirmSubmitButton
+                          label="Delete"
+                          confirmMessage={`Permanently delete ${u.name ?? u.email}? This also removes their login — they will no longer be able to sign in.`}
+                          className="app-btn-danger-sm"
+                        />
+                      </form>
+                    </div>
                   </div>
+                  {params.resetPassword === u.id ? (
+                    <form action={resetStaffUserPassword} className="mt-2 flex flex-wrap items-center gap-2 border-t border-brand-border pt-2">
+                      <input type="hidden" name="userId" value={u.id} />
+                      <input
+                        name="password"
+                        type="text"
+                        required
+                        minLength={8}
+                        placeholder="New password (min 8 characters)"
+                        className="app-field w-64"
+                      />
+                      <button className="app-btn-primary-sm" type="submit">
+                        Set password
+                      </button>
+                      <span className="text-xs text-brand-ink/60">Share this with {u.name ?? u.email} directly.</span>
+                    </form>
+                  ) : null}
                 </li>
               ))}
               {users.length === 0 ? <p className="app-card-inset text-sm text-brand-ink/60">No team members yet — add one below.</p> : null}
@@ -179,28 +225,62 @@ export default async function UsersPage({ searchParams }: PageProps) {
         </>
       ) : (
         <section className="app-card mt-4">
+          {params.passwordSaved ? (
+            <p className="mb-3 text-sm text-brand-ok">Password updated for {params.passwordSaved}. Share the new password with them directly.</p>
+          ) : null}
+          {params.passwordError ? <p className="mb-3 text-sm text-brand-danger">{params.passwordError}</p> : null}
           <ul className="space-y-2">
             {customerUsers.map((cu) => (
-              <li key={cu.id} className="app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span>
-                  <span className="font-medium text-brand-ink">{cu.name ?? cu.email}</span>
-                  <span className="ml-2 text-brand-ink/60">{cu.email}</span>
-                  <span className="ml-2 text-brand-ink/60">
-                    ·{" "}
-                    <Link href={`/dashboard/customers/${cu.customer.id}`} className="app-link">
-                      {cu.customer.name}
-                    </Link>
+              <li key={cu.id} className="app-card-inset text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    <span className="font-medium text-brand-ink">{cu.name ?? cu.email}</span>
+                    <span className="ml-2 text-brand-ink/60">{cu.email}</span>
+                    <span className="ml-2 text-brand-ink/60">
+                      ·{" "}
+                      <Link href={`/dashboard/customers/${cu.customer.id}`} className="app-link">
+                        {cu.customer.name}
+                      </Link>
+                    </span>
+                    {!cu.active ? <span className="app-pill-inactive ml-2">Inactive</span> : null}
                   </span>
-                  {!cu.active ? <span className="app-pill-inactive ml-2">Inactive</span> : null}
-                </span>
-                <form action={deleteCustomerUser}>
-                  <input type="hidden" name="customerUserId" value={cu.id} />
-                  <ConfirmSubmitButton
-                    label="Delete"
-                    confirmMessage={`Remove portal access for ${cu.name ?? cu.email}? They will no longer be able to sign in.`}
-                    className="app-btn-danger-sm"
-                  />
-                </form>
+                  <div className="flex items-center gap-2">
+                    {params.resetPassword === cu.id ? (
+                      <a href="/dashboard/users?tab=customers" className="app-btn-secondary-sm">
+                        Cancel
+                      </a>
+                    ) : (
+                      <a href={`/dashboard/users?tab=customers&resetPassword=${cu.id}`} className="app-btn-secondary-sm">
+                        Reset password
+                      </a>
+                    )}
+                    <form action={deleteCustomerUser}>
+                      <input type="hidden" name="customerUserId" value={cu.id} />
+                      <ConfirmSubmitButton
+                        label="Delete"
+                        confirmMessage={`Remove portal access for ${cu.name ?? cu.email}? They will no longer be able to sign in.`}
+                        className="app-btn-danger-sm"
+                      />
+                    </form>
+                  </div>
+                </div>
+                {params.resetPassword === cu.id ? (
+                  <form action={resetCustomerUserPassword} className="mt-2 flex flex-wrap items-center gap-2 border-t border-brand-border pt-2">
+                    <input type="hidden" name="customerUserId" value={cu.id} />
+                    <input
+                      name="password"
+                      type="text"
+                      required
+                      minLength={8}
+                      placeholder="New password (min 8 characters)"
+                      className="app-field w-64"
+                    />
+                    <button className="app-btn-primary-sm" type="submit">
+                      Set password
+                    </button>
+                    <span className="text-xs text-brand-ink/60">Share this with {cu.name ?? cu.email} directly.</span>
+                  </form>
+                ) : null}
               </li>
             ))}
             {customerUsers.length === 0 ? (
