@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
 import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/geocode";
-import { sendAlertToCustomer, type CustomerAlertOutcome } from "@/lib/customer-alerts";
+import { sendAlertToCustomer } from "@/lib/customer-alerts";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -270,22 +270,16 @@ export async function sendBulkCustomerAlert(formData: FormData) {
     redirect(`/dashboard/customers?bulkAlertError=${encodeURIComponent("Select at least one customer, and fill in both a subject and a message.")}`);
   }
 
-  const outcomes = await Promise.all(
+  // Shared across every row this batch creates so the "Sent alerts" page can filter down to
+  // exactly this send afterward -- lets an admin see which specific customers failed
+  // instead of just an aggregate count (see CustomerAlert.batchId's own doc comment).
+  const batchId = crypto.randomUUID();
+  await Promise.all(
     customerIds.map((customerId) =>
-      sendAlertToCustomer({ customerId, organizationId: appUser.organizationId, subject, message, createdByUserId: appUser.id }),
+      sendAlertToCustomer({ customerId, organizationId: appUser.organizationId, subject, message, createdByUserId: appUser.id, batchId }),
     ),
   );
 
-  const count = (outcome: CustomerAlertOutcome) => outcomes.filter((o) => o === outcome).length;
-  const summary = {
-    total: customerIds.length,
-    sent: count("sent"),
-    partial: count("partial"),
-    failed: count("failed"),
-    noRecipients: count("no-recipients"),
-    notFound: count("not-found"),
-  };
-
   revalidatePath("/dashboard/customers");
-  redirect(`/dashboard/customers?bulkAlertSent=${encodeURIComponent(JSON.stringify(summary))}`);
+  redirect(`/dashboard/customers/alerts?batch=${batchId}`);
 }

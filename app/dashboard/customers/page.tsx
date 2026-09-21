@@ -7,26 +7,8 @@ import { createCustomer, sendBulkCustomerAlert } from "./actions";
 import { CustomerBulkList } from "./customer-bulk-list";
 
 type PageProps = {
-  searchParams?: Promise<{ new?: string; bulkAlertSent?: string; bulkAlertError?: string }>;
+  searchParams?: Promise<{ new?: string; bulkAlertError?: string }>;
 };
-
-type BulkAlertSummary = { total: number; sent: number; partial: number; failed: number; noRecipients: number; notFound: number };
-
-function summarizeBulkAlert(raw: string): string | null {
-  let summary: BulkAlertSummary;
-  try {
-    summary = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  const parts: string[] = [];
-  if (summary.sent > 0) parts.push(`sent to ${summary.sent} of ${summary.total}`);
-  if (summary.partial > 0) parts.push(`${summary.partial} only partly delivered`);
-  if (summary.failed > 0) parts.push(`${summary.failed} failed to send`);
-  if (summary.noRecipients > 0) parts.push(`${summary.noRecipients} had no email on file`);
-  if (summary.notFound > 0) parts.push(`${summary.notFound} no longer active`);
-  return parts.length ? parts.join(", ") + "." : `Nothing sent — ${summary.total} customer${summary.total === 1 ? "" : "s"} selected.`;
-}
 
 export default async function CustomersAdminPage({ searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
@@ -128,9 +110,6 @@ export default async function CustomersAdminPage({ searchParams }: PageProps) {
         </section>
       ) : null}
 
-      {sp.bulkAlertSent ? (
-        <p className="app-card-inset mt-6 text-sm text-brand-ok">{summarizeBulkAlert(sp.bulkAlertSent) ?? "Sent."}</p>
-      ) : null}
       {sp.bulkAlertError ? <p className="app-card-inset mt-6 text-sm text-brand-danger">{decodeURIComponent(sp.bulkAlertError)}</p> : null}
 
       <section data-tour="customers-list" className="mt-6">

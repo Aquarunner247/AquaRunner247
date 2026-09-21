@@ -38,8 +38,11 @@ export async function sendAlertToCustomer(params: {
   subject: string;
   message: string;
   createdByUserId: string;
+  /** Shared across every row one bulk send creates -- see CustomerAlert.batchId's own doc
+   * comment. Omitted (null) for a single-customer send. */
+  batchId?: string | null;
 }): Promise<CustomerAlertOutcome> {
-  const { customerId, organizationId, createdByUserId } = params;
+  const { customerId, organizationId, createdByUserId, batchId = null } = params;
 
   const [customer, organization] = await Promise.all([
     prisma.customer.findFirst({
@@ -92,6 +95,7 @@ export async function sendAlertToCustomer(params: {
       sendOutcome: OUTCOME_TO_DB[outcome],
       recipientCount: recipients.length,
       failedRecipientCount,
+      batchId,
     },
   });
 

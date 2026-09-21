@@ -702,8 +702,15 @@ model CustomerAlert {
   recipientCount       Int?
   failedRecipientCount Int?
 
+  /// Shared across every row a single bulk send created (app/dashboard/customers/actions.ts's
+  /// sendBulkCustomerAlert) -- lets the "Sent alerts" page filter down to exactly one batch
+  /// so an admin can see which specific customers failed, not just an aggregate count. Null
+  /// for a single-customer send and for every alert sent before this field existed.
+  batchId String?
+
   @@index([customerId])
   @@index([createdByUserId])
+  @@index([batchId])
 }
 
 enum CustomerAlertSendOutcome {
