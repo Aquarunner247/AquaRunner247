@@ -95,3 +95,51 @@ export function startOfLocalDay(date: Date, timeZone: string): Date {
   const driftMs = asUtc - guess.getTime();
   return new Date(guess.getTime() - driftMs);
 }
+
+/** "YYYY-MM-DD" for the calendar day `date` falls on in `timeZone`. The schedule pages use
+ * this (never a bare Date's own getDay()/getDate(), which read the SERVER's clock -- UTC on
+ * Vercel) to decide which day a visitor is looking at or what "today" means for them. */
+export function ymdInTimeZone(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** The UTC instant range [start, end) for local calendar day `ymd` ("YYYY-MM-DD") in
+ * `timeZone`. `end` is exclusive (start of the next local day) -- use `lt: end`, not
+ * `lte`, in Prisma range queries built from this. Noon UTC on the target Y-M-D is never on
+ * a different calendar day in `timeZone` for any real-world UTC offset (-12 to +14), so
+ * it's safe to feed straight into startOfLocalDay. */
+export function localDayBounds(ymd: string, timeZone: string): { start: Date; end: Date } {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const noonUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const start = startOfLocalDay(noonUtc, timeZone);
+  const nextNoonUtc = new Date(noonUtc.getTime() + 24 * 60 * 60 * 1000);
+  const end = startOfLocalDay(nextNoonUtc, timeZone);
+  return { start, end };
+}
+
+/** Add `days` (may be negative) to a "YYYY-MM-DD" string as pure Gregorian calendar-day
+ * arithmetic -- no timezone or DST involved, since it never leaves Y-M-D/UTC-scratchpad
+ * space. This is the right tool for "what day is this + N days", as opposed to
+ * localDayBounds, which is the only place an actual IANA zone should enter the picture. */
+export function addDaysToYmd(ymd: string, days: number): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** ISO weekday (Mon=1..Sun=7) for a "YYYY-MM-DD" string -- independent of any timezone,
+ * since it's derived from the calendar string itself, not from an instant. */
+export function isoWeekdayOfYmd(ymd: string): number {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const jsDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay(); // Sun=0..Sat=6
+  return ((jsDay + 6) % 7) + 1;
+}
+
+/** The Monday ("YYYY-MM-DD") of the week containing `ymd`. */
+export function startOfWeekYmd(ymd: string): string {
+  const weekday = isoWeekdayOfYmd(ymd); // Mon=1..Sun=7
+  return addDaysToYmd(ymd, -(weekday - 1));
+}

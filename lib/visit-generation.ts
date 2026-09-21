@@ -1,23 +1,25 @@
 import { prisma } from "@/lib/prisma";
-
-// Anchor time for the first stop of a route; each stop then offsets from here
-// using its etaOffsetMinutes.
-const ROUTE_START_HOUR = 0;
+import { localDayBounds, isoWeekdayOfYmd } from "@/lib/timezone";
 
 /**
  * Ensures a ServiceVisit exists for every active route stop scheduled to run
- * on the given date, for the given organization. Idempotent — safe to call
+ * on the given calendar day, for the given organization. Idempotent — safe to call
  * on every dashboard load; it only creates visits that don't already exist
  * for that recurringStopId + day.
+ *
+ * `ymd` ("YYYY-MM-DD") + `timeZone` are the org's own local calendar day, resolved by the
+ * caller (e.g. via ymdInTimeZone(new Date(), timeZoneForState(org.state))) -- this function
+ * used to re-derive its own day boundaries and weekday from a bare Date with
+ * .setHours()/.getDay(), which read the SERVER's clock (always UTC on Vercel), not the
+ * org's. For roughly 7 hours a day (whenever local time and the UTC calendar date
+ * diverge -- e.g. any time after ~5pm Pacific), that generated visits for the wrong day
+ * and made the schedule pages look at the wrong day's stops, which is why GPS auto-arrival
+ * could appear to silently stop working during that window: the visit list on screen
+ * wasn't the technician's actual day.
  */
-export async function ensureVisitsGeneratedForDate(organizationId: string, date: Date) {
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(date);
-  dayEnd.setHours(23, 59, 59, 999);
-
-  // JS getDay(): Sun=0..Sat=6. Our schema uses ISO weekday: Mon=1..Sun=7.
-  const isoWeekday = ((date.getDay() + 6) % 7) + 1;
+export async function ensureVisitsGeneratedForDate(organizationId: string, ymd: string, timeZone: string) {
+  const { start: dayStart, end: dayEnd } = localDayBounds(ymd, timeZone);
+  const isoWeekday = isoWeekdayOfYmd(ymd);
 
   const routes = await prisma.recurringRoute.findMany({
     where: { organizationId, active: true, dayOfWeek: isoWeekday },
@@ -32,15 +34,17 @@ export async function ensureVisitsGeneratedForDate(organizationId: string, date:
       const existing = await prisma.serviceVisit.findFirst({
         where: {
           recurringStopId: stop.id,
-          scheduledStart: { gte: dayStart, lte: dayEnd },
+          scheduledStart: { gte: dayStart, lt: dayEnd },
         },
         select: { id: true },
       });
       if (existing) continue;
 
-      const scheduledStart = new Date(dayStart);
-      scheduledStart.setHours(ROUTE_START_HOUR, 0, 0, 0);
-      scheduledStart.setMinutes(scheduledStart.getMinutes() + (stop.etaOffsetMinutes ?? 0));
+      // dayStart is already the correct UTC instant for local midnight (see
+      // localDayBounds) -- offsetting it with .getTime() arithmetic, not .setHours(),
+      // keeps that instant intact instead of reinterpreting it in the server's own
+      // (UTC) clock.
+      const scheduledStart = new Date(dayStart.getTime() + (stop.etaOffsetMinutes ?? 0) * 60_000);
 
       await prisma.serviceVisit.create({
         data: {

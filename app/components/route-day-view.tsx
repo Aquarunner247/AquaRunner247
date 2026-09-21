@@ -23,6 +23,11 @@ export type RouteStop = {
   startedAt: string | null;
   latitude: number | null;
   longitude: number | null;
+  /// Per-property override of ARRIVAL_RADIUS_METERS (Property.geofenceMeters) -- null/0
+  /// means "use the default". Lets an admin widen the radius for a property where GPS is
+  /// unreliable (e.g. an indoor pump room, underground garage) instead of that stop simply
+  /// never auto-arriving.
+  geofenceMeters?: number | null;
   /// Set only for the admin "All Technicians" view — absent for a technician's own view
   /// and for an admin's single-technician view (both single-color, as before).
   technicianId?: string | null;
@@ -100,6 +105,15 @@ function matchesStatusFilter(item: DayItem, filter: NonNullable<Props["statusFil
 }
 
 const ARRIVAL_RADIUS_METERS = 150;
+
+/// A GPS fix's reported accuracy is a radius (68% confidence), not an error bound to
+/// ignore -- indoors (pump rooms, garages) it's routinely 50-100m+ even with
+/// enableHighAccuracy, so comparing raw distance against a bare 150m radius silently
+/// rejects a tech who is genuinely standing at the property. Widening the effective
+/// radius by the fix's own accuracy (capped, so a degenerate cell-tower-only fix reporting
+/// several hundred meters of accuracy can't stamp arrival from far away) fixes that without
+/// touching the base radius for a normal outdoor fix, where accuracy is usually <20m.
+const ACCURACY_BUFFER_CAP_METERS = 100;
 
 function haversineMeters(a: { latitude: number | null; longitude: number | null }, b: { latitude: number | null; longitude: number | null }) {
   if (a.latitude == null || a.longitude == null || b.latitude == null || b.longitude == null) return Infinity;
@@ -251,10 +265,15 @@ export function RouteDayView({
 
     // Shared by both the native and web watch below -- given a fresh fix, clear any
     // earlier "signal lost" state (the phone may have recovered since) and check every
-    // visit for an auto-arrival stamp.
-    function handleFix(latitude: number, longitude: number) {
+    // visit for an auto-arrival stamp. `accuracy` (meters, 68% confidence radius per the
+    // Geolocation spec) widens the effective radius rather than gating on it -- a fix is
+    // still used even when accuracy is poor, just compared against a more forgiving
+    // distance, which is what actually matters for a tech standing in a low-signal pump
+    // room rather than genuinely far from the property.
+    function handleFix(latitude: number, longitude: number, accuracy: number | null | undefined) {
       setLocationState("watching");
       const here = { latitude, longitude };
+      const buffer = accuracy != null && Number.isFinite(accuracy) ? Math.min(Math.max(accuracy, 0), ACCURACY_BUFFER_CAP_METERS) : 0;
       // Ad-hoc items were never part of GPS auto-arrival -- filter down to real visits
       // before anything here touches status/latitude/longitude.
       const visitItems = itemsRef.current.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
@@ -263,7 +282,8 @@ export function RouteDayView({
         if (v.startedAt || v.status === "CANCELLED" || notifiedRef.current.has(v.id)) continue;
         if (!eligibleIds.has(v.id)) continue;
         if (v.latitude == null || v.longitude == null) continue;
-        if (haversineMeters(here, v) <= ARRIVAL_RADIUS_METERS) {
+        const radius = v.geofenceMeters && v.geofenceMeters > 0 ? v.geofenceMeters : ARRIVAL_RADIUS_METERS;
+        if (haversineMeters(here, v) <= radius + buffer) {
           void stampArrival(v.id);
         }
       }
@@ -289,7 +309,7 @@ export function RouteDayView({
       Geolocation.watchPosition({ enableHighAccuracy: true, timeout: 20_000 }, (position, err) => {
         if (torndown) return;
         if (position) {
-          handleFix(position.coords.latitude, position.coords.longitude);
+          handleFix(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
         } else {
           handleFailureMessage(err instanceof Error ? err.message : err?.message);
         }
@@ -300,9 +320,28 @@ export function RouteDayView({
         })
         .catch((err) => handleFailureMessage(err instanceof Error ? err.message : String(err)));
 
+      // The app is a Capacitor WebView that stays loaded when backgrounded (see
+      // capacitor.config.ts) but has no background-location entitlement configured, so
+      // watchPosition's stream can go stale while a tech is out of the app (navigating with
+      // a real maps app, or with the phone locked) -- there's no fix for that short of a
+      // native background-location rewrite. What this DOES fix: the common case of coming
+      // straight back into the app after a minute away, where the stale watch hasn't
+      // delivered a fresh fix yet even though the tech has since arrived. Forcing one fresh
+      // read on foreground return closes that gap without needing true background tracking.
+      function handleVisible() {
+        if (document.visibilityState !== "visible") return;
+        Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 20_000 })
+          .then((position) => handleFix(position.coords.latitude, position.coords.longitude, position.coords.accuracy))
+          .catch(() => {
+            // Best-effort -- the ongoing watch above is still the source of truth for errors.
+          });
+      }
+      document.addEventListener("visibilitychange", handleVisible);
+
       return () => {
         torndown = true;
         if (watchId) void Geolocation.clearWatch({ id: watchId });
+        document.removeEventListener("visibilitychange", handleVisible);
       };
     }
 
@@ -313,7 +352,7 @@ export function RouteDayView({
 
     setLocationState("watching");
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => handleFix(pos.coords.latitude, pos.coords.longitude),
+      (pos) => handleFix(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
       (err) => {
         // Previously only PERMISSION_DENIED was surfaced -- TIMEOUT/POSITION_UNAVAILABLE
         // (a lost GPS fix, common in a parking garage or near tall buildings) were
@@ -325,7 +364,23 @@ export function RouteDayView({
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 20_000 },
     );
 
-    return () => navigator.geolocation.clearWatch(watchId);
+    // Same foreground-return gap as the native branch above, for the plain mobile-web case.
+    function handleVisible() {
+      if (document.visibilityState !== "visible") return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => handleFix(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+        () => {
+          // Best-effort -- the ongoing watch above is still the source of truth for errors.
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
+      );
+    }
+    document.addEventListener("visibilitychange", handleVisible);
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      document.removeEventListener("visibilitychange", handleVisible);
+    };
   }, [effectiveReadOnly, isToday, allowGpsAutoArrival]);
 
   // Initialize the map once

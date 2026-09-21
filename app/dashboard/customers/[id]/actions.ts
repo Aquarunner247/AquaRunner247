@@ -25,6 +25,14 @@ async function requireAdmin() {
   return appUser;
 }
 
+/** A blank field or 0-or-negative input both mean "use the default 150m" (see
+ * ARRIVAL_RADIUS_METERS in route-day-view.tsx) -- only a positive override is worth
+ * persisting. */
+function parseGeofenceMetersInput(formData: FormData): number | null {
+  const n = numOrNull(formData.get("geofenceMeters"));
+  return n != null && n > 0 ? Math.round(n) : null;
+}
+
 function parsePropertyType(formData: FormData): PropertyType {
   const raw = String(formData.get("propertyType") ?? "COMMERCIAL").trim();
   return (Object.values(PropertyType) as string[]).includes(raw) ? (raw as PropertyType) : PropertyType.COMMERCIAL;
@@ -88,6 +96,7 @@ export async function updateCustomerAndPrimaryProperty(formData: FormData) {
   const region = String(formData.get("region") ?? "").trim();
   const postalCode = String(formData.get("postalCode") ?? "").trim();
   const propertyType = parsePropertyType(formData);
+  const geofenceMeters = parseGeofenceMetersInput(formData);
 
   // Manager/Maintenance (commercial) and Owner/access notes/dog (residential) are mutually
   // exclusive on the form -- only the block matching propertyType is ever rendered/submitted.
@@ -158,6 +167,7 @@ export async function updateCustomerAndPrimaryProperty(formData: FormData) {
       city: city || null,
       region: region || null,
       postalCode: postalCode || null,
+      geofenceMeters,
     },
   });
 
@@ -214,6 +224,7 @@ export async function updateProperty(formData: FormData) {
   const region = String(formData.get("region") ?? "").trim();
   const postalCode = String(formData.get("postalCode") ?? "").trim();
   const propertyType = parsePropertyType(formData);
+  const geofenceMeters = parseGeofenceMetersInput(formData);
 
   // Manager/Maintenance (commercial) and Owner/access notes/dog (residential) are mutually
   // exclusive on the form -- only the block matching propertyType is ever rendered/submitted.
@@ -281,6 +292,7 @@ export async function updateProperty(formData: FormData) {
       city: city || null,
       region: region || null,
       postalCode: postalCode || null,
+      geofenceMeters,
     },
   });
 

@@ -9,31 +9,14 @@ import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 import { getTechnicianColorMap, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { WaveProgress } from "@/app/components/wave-progress";
+import { timeZoneForState, ymdInTimeZone, localDayBounds, addDaysToYmd, startOfWeekYmd } from "@/lib/timezone";
 
 type Props = {
   appUser: { id: string; organizationId: string };
   searchParams: Promise<{ tab?: string; date?: string; tech?: string; type?: string; status?: string }>;
 };
 
-function parseDateParam(raw: string | undefined): Date {
-  if (!raw) return new Date();
-  const parsed = new Date(`${raw}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return new Date();
-  return parsed;
-}
-
-function toYmd(date: Date): string {
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
-
-function startOfWeek(d: Date) {
-  const day = d.getDay(); // 0 = Sunday
-  const diff = day === 0 ? -6 : 1 - day; // back up to Monday
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
-}
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const TABS = ["day", "week", "map", "list"] as const;
 type Tab = (typeof TABS)[number];
@@ -59,24 +42,27 @@ type StatusFilterValue = (typeof STATUS_FILTERS)[number];
  */
 export async function AdminSchedule({ appUser, searchParams }: Props) {
   const sp = await searchParams;
-  const { proAccess } = await getOrgPlanAccess(appUser.organizationId);
+  const [{ proAccess }, organization] = await Promise.all([
+    getOrgPlanAccess(appUser.organizationId),
+    prisma.organization.findUnique({ where: { id: appUser.organizationId }, select: { state: true } }),
+  ]);
+  const tz = timeZoneForState(organization?.state);
   const tab: Tab = TABS.includes((sp.tab ?? "") as Tab) ? ((sp.tab ?? "day") as Tab) : "day";
   const statusFilter: StatusFilterValue = STATUS_FILTERS.includes((sp.status ?? "") as StatusFilterValue)
     ? ((sp.status ?? "all") as StatusFilterValue)
     : "all";
 
-  const selectedDate = parseDateParam(sp.date);
-  const startOfDay = new Date(selectedDate);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(selectedDate);
-  endOfDay.setHours(23, 59, 59, 999);
-  const prevDate = new Date(startOfDay);
-  prevDate.setDate(prevDate.getDate() - 1);
-  const nextDate = new Date(startOfDay);
-  nextDate.setDate(nextDate.getDate() + 1);
-  const selectedYmd = toYmd(startOfDay);
-  const todayYmd = toYmd(new Date());
+  // Derived directly from the query-string's own "YYYY-MM-DD" (or "today" in the org's own
+  // timezone when absent) -- never round-tripped through a bare Date's .getDay()/.setHours(),
+  // which read the SERVER's clock (always UTC on Vercel), not the org's. See
+  // ensureVisitsGeneratedForDate's doc comment for what that naive math used to break.
+  const selectedYmd = sp.date && YMD_RE.test(sp.date) ? sp.date : ymdInTimeZone(new Date(), tz);
+  const { start: startOfDay, end: dayEnd } = localDayBounds(selectedYmd, tz);
+  const prevYmd = addDaysToYmd(selectedYmd, -1);
+  const nextYmd = addDaysToYmd(selectedYmd, 1);
+  const todayYmd = ymdInTimeZone(new Date(), tz);
   const isToday = selectedYmd === todayYmd;
+  const selectedDateLabel = new Date(`${selectedYmd}T12:00:00Z`);
 
   // Fetched once, reused for: the filter dropdown, the technician-color assignment, and
   // validating `sp.tech` (a non-matching id — wrong org, stale id — silently falls back to
@@ -155,14 +141,12 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
   let weekData: { ymd: string; label: string; total: number; completed: number; skipped: number }[] = [];
 
   if (tab === "week") {
-    const weekStart = startOfWeek(selectedDate);
+    const weekStartYmd = startOfWeekYmd(selectedYmd);
     for (let i = 0; i < 7; i++) {
-      const day = new Date(weekStart);
-      day.setDate(weekStart.getDate() + i);
-      await ensureVisitsGeneratedForDate(appUser.organizationId, day);
+      await ensureVisitsGeneratedForDate(appUser.organizationId, addDaysToYmd(weekStartYmd, i), tz);
     }
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 7);
+    const weekStart = localDayBounds(weekStartYmd, tz).start;
+    const weekEnd = localDayBounds(addDaysToYmd(weekStartYmd, 7), tz).start;
 
     const weekVisits = await prisma.serviceVisit.findMany({
       where: {
@@ -175,10 +159,8 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     });
 
     weekData = Array.from({ length: 7 }, (_, i) => {
-      const day = new Date(weekStart);
-      day.setDate(weekStart.getDate() + i);
-      const ymd = toYmd(day);
-      const dayVisits = weekVisits.filter((v) => toYmd(v.scheduledStart) === ymd);
+      const ymd = addDaysToYmd(weekStartYmd, i);
+      const dayVisits = weekVisits.filter((v) => ymdInTimeZone(v.scheduledStart, tz) === ymd);
       return {
         ymd,
         label: WEEKDAY_LABELS[i + 1],
@@ -188,7 +170,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
       };
     });
   } else {
-    await ensureVisitsGeneratedForDate(appUser.organizationId, startOfDay);
+    await ensureVisitsGeneratedForDate(appUser.organizationId, selectedYmd, tz);
   }
 
   // Same query shape whether "All Technicians" or a single one is selected — the only
@@ -201,7 +183,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
       : await prisma.serviceVisit.findMany({
           where: {
             organizationId: appUser.organizationId,
-            scheduledStart: { gte: startOfDay, lte: endOfDay },
+            scheduledStart: { gte: startOfDay, lt: dayEnd },
             ...(selectedTechnicianId ? { technicianId: selectedTechnicianId } : {}),
             ...(selectedPropertyType ? { property: { propertyType: selectedPropertyType } } : {}),
           },
@@ -247,7 +229,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     tab === "week"
       ? Promise.resolve([])
       : prisma.adHocStop.findMany({
-          where: { organizationId: appUser.organizationId, scheduledDate: { gte: startOfDay, lte: endOfDay } },
+          where: { organizationId: appUser.organizationId, scheduledDate: { gte: startOfDay, lt: dayEnd } },
           orderBy: [{ completed: "asc" }, { createdAt: "asc" }],
           select: {
             id: true,
@@ -343,13 +325,13 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
 
         {tab !== "week" ? (
           <div className="mt-4 flex items-center justify-between text-white">
-            <Link href={dayHref(toYmd(prevDate))} className="rounded px-2 py-1 text-lg transition hover:bg-white/10" aria-label="Previous day">
+            <Link href={dayHref(prevYmd)} className="rounded px-2 py-1 text-lg transition hover:bg-white/10" aria-label="Previous day">
               ‹
             </Link>
             <p className="text-sm font-medium">
-              {selectedDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+              {selectedDateLabel.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: tz })}
             </p>
-            <Link href={dayHref(toYmd(nextDate))} className="rounded px-2 py-1 text-lg transition hover:bg-white/10" aria-label="Next day">
+            <Link href={dayHref(nextYmd)} className="rounded px-2 py-1 text-lg transition hover:bg-white/10" aria-label="Next day">
               ›
             </Link>
           </div>

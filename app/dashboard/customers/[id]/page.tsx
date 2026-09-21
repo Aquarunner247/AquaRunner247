@@ -448,6 +448,26 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                             initialPostalCode={primaryProperty.postalCode}
                           />
                         </div>
+                        <div className="mt-2">
+                          <label className="text-xs font-medium text-brand-ink" htmlFor={`geofenceMeters-${primaryProperty.id}`}>
+                            GPS arrival radius (meters)
+                          </label>
+                          <input
+                            id={`geofenceMeters-${primaryProperty.id}`}
+                            type="number"
+                            name="geofenceMeters"
+                            min={0}
+                            step={10}
+                            defaultValue={primaryProperty.geofenceMeters ?? ""}
+                            placeholder="Default 150m"
+                            className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-48"
+                          />
+                          <p className="mt-1 text-xs text-brand-muted">
+                            How close a tech&apos;s phone must be for a stop here to auto-log arrival. Raise this for a property where
+                            GPS struggles — an indoor pump room, a parking structure, dense buildings — instead of leaving it on
+                            the 150m default.
+                          </p>
+                        </div>
                       </div>
                     </>
                   ) : null}
@@ -931,6 +951,26 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       initialRegion={property.region}
                       initialPostalCode={property.postalCode}
                     />
+                    <div>
+                      <label className="text-xs font-medium text-brand-ink" htmlFor={`geofenceMeters-${property.id}`}>
+                        GPS arrival radius (meters)
+                      </label>
+                      <input
+                        id={`geofenceMeters-${property.id}`}
+                        type="number"
+                        name="geofenceMeters"
+                        min={0}
+                        step={10}
+                        defaultValue={property.geofenceMeters ?? ""}
+                        placeholder="Default 150m"
+                        className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-48"
+                      />
+                      <p className="mt-1 text-xs text-brand-muted">
+                        How close a tech&apos;s phone must be for a stop here to auto-log arrival. Raise this for a property where GPS
+                        struggles — an indoor pump room, a parking structure, dense buildings — instead of leaving it on the 150m
+                        default.
+                      </p>
+                    </div>
                     <div className="flex items-center gap-2">
                       <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                         Save property
