@@ -41,7 +41,15 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- Required at runtime on Android 13+ (API 33) for any notification to show at all. -->
+    <!-- Lets GPS auto-arrival keep working while a tech has the app backgrounded (navigating
+    with Maps, phone locked). @capacitor-community/background-geolocation's own manifest
+    already contributes FOREGROUND_SERVICE/FOREGROUND_SERVICE_LOCATION for its notification
+    service; this is the one permission that's the app's own responsibility to declare and
+    justify (Play Console requires a separate "Background location" disclosure for it). -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- Required at runtime on Android 13+ (API 33) for any notification to show at all,
+    including the persistent "tracking your location" notification the OS requires while the
+    foreground service above is active. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

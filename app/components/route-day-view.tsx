@@ -4,8 +4,9 @@ import "leaflet/dist/leaflet.css";
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
-import { Capacitor } from "@capacitor/core";
-import { Geolocation } from "@capacitor/geolocation";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+import type { BackgroundGeolocationPlugin } from "@capacitor-community/background-geolocation";
+import { PushNotifications } from "@capacitor/push-notifications";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_PRIMARY } from "@/app/lib/chart-colors";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
@@ -103,6 +104,10 @@ function matchesStatusFilter(item: DayItem, filter: NonNullable<Props["statusFil
   if (filter === "in_progress") return item.status === "IN_PROGRESS";
   return item.status === "SCHEDULED"; // "pending"
 }
+
+// No JS entrypoint ships from @capacitor-community/background-geolocation (it's types-only
+// -- see its package.json) -- this is the documented way to obtain the plugin.
+const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
 
 const ARRIVAL_RADIUS_METERS = 150;
 
@@ -263,14 +268,26 @@ export function RouteDayView({
   useEffect(() => {
     if (effectiveReadOnly || !isToday || !allowGpsAutoArrival) return;
 
+    // Nothing left to auto-stamp -- skip starting a watcher at all rather than requesting
+    // permissions/showing Android's persistent tracking notification for no reason. On
+    // native this is also the ongoing check that tears the background watcher down the
+    // moment the day's actual route wraps up, so a tech isn't drained/tracked till midnight
+    // after their last stop.
+    function isDayFullyDone() {
+      const visitItems = itemsRef.current.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
+      return visitItems.every((v) => v.status === "COMPLETED" || v.status === "CANCELLED");
+    }
+
     // Shared by both the native and web watch below -- given a fresh fix, clear any
     // earlier "signal lost" state (the phone may have recovered since) and check every
     // visit for an auto-arrival stamp. `accuracy` (meters, 68% confidence radius per the
     // Geolocation spec) widens the effective radius rather than gating on it -- a fix is
     // still used even when accuracy is poor, just compared against a more forgiving
     // distance, which is what actually matters for a tech standing in a low-signal pump
-    // room rather than genuinely far from the property.
-    function handleFix(latitude: number, longitude: number, accuracy: number | null | undefined) {
+    // room rather than genuinely far from the property. Returns whether the day is now
+    // fully done, so callers can tear their watcher down immediately after the last stamp
+    // rather than waiting for the next fix to notice.
+    function handleFix(latitude: number, longitude: number, accuracy: number | null | undefined): boolean {
       setLocationState("watching");
       const here = { latitude, longitude };
       const buffer = accuracy != null && Number.isFinite(accuracy) ? Math.min(Math.max(accuracy, 0), ACCURACY_BUFFER_CAP_METERS) : 0;
@@ -287,6 +304,7 @@ export function RouteDayView({
           void stampArrival(v.id);
         }
       }
+      return isDayFullyDone();
     }
 
     // A denied/unavailable fix has no error code to branch on here (unlike the web
@@ -298,51 +316,76 @@ export function RouteDayView({
     }
 
     if (Capacitor.isNativePlatform()) {
-      // A bare Capacitor WebView doesn't reliably bridge the web geolocation permission
-      // prompt to the OS on its own -- the native plugin is needed here, not just used for
-      // parity with the camera wiring. watchPosition's setup is itself async (unlike the
-      // synchronous browser API below), so the watch id it resolves to has to be captured
-      // in a ref-like local rather than returned directly from the effect.
-      let watchId: string | null = null;
+      if (isDayFullyDone()) return;
+
+      // @capacitor-community/background-geolocation, not @capacitor/geolocation's
+      // watchPosition -- the latter stops delivering fixes once the app is backgrounded
+      // (no background-location entitlement wired to it), which is exactly the gap that
+      // made auto-arrival unreliable for a tech who backgrounds the app to use Maps, or
+      // just locks their phone between stops. Setting `backgroundMessage` is what tells
+      // this plugin to keep delivering fixes in the background -- on Android that means a
+      // persistent "Tracking your route" notification and a foreground service (both
+      // required by the OS, not optional); on iOS it escalates the location permission
+      // from "While Using" to "Always" and turns on the blue background-location pill.
+      let watcherId: string | null = null;
       let torndown = false;
-      setLocationState("watching");
-      Geolocation.watchPosition({ enableHighAccuracy: true, timeout: 20_000 }, (position, err) => {
-        if (torndown) return;
-        if (position) {
-          handleFix(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
-        } else {
-          handleFailureMessage(err instanceof Error ? err.message : err?.message);
-        }
-      })
-        .then((id) => {
-          if (torndown) void Geolocation.clearWatch({ id });
-          else watchId = id;
-        })
-        .catch((err) => handleFailureMessage(err instanceof Error ? err.message : String(err)));
 
-      // The app is a Capacitor WebView that stays loaded when backgrounded (see
-      // capacitor.config.ts) but has no background-location entitlement configured, so
-      // watchPosition's stream can go stale while a tech is out of the app (navigating with
-      // a real maps app, or with the phone locked) -- there's no fix for that short of a
-      // native background-location rewrite. What this DOES fix: the common case of coming
-      // straight back into the app after a minute away, where the stale watch hasn't
-      // delivered a fresh fix yet even though the tech has since arrived. Forcing one fresh
-      // read on foreground return closes that gap without needing true background tracking.
-      function handleVisible() {
-        if (document.visibilityState !== "visible") return;
-        Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 20_000 })
-          .then((position) => handleFix(position.coords.latitude, position.coords.longitude, position.coords.accuracy))
-          .catch(() => {
-            // Best-effort -- the ongoing watch above is still the source of truth for errors.
-          });
-      }
-      document.addEventListener("visibilitychange", handleVisible);
-
-      return () => {
+      function teardown() {
         torndown = true;
-        if (watchId) void Geolocation.clearWatch({ id: watchId });
-        document.removeEventListener("visibilitychange", handleVisible);
-      };
+        if (watcherId) {
+          const id = watcherId;
+          watcherId = null;
+          void BackgroundGeolocation.removeWatcher({ id });
+        }
+      }
+
+      (async () => {
+        // Android 13+ requires this OS permission before it will show the persistent
+        // notification the foreground service needs -- without it, Android silently
+        // refuses to keep tracking once backgrounded. Reuses the PushNotifications plugin
+        // purely for its permission prompt (no push registration happens); deliberately
+        // Android-only, since iOS has no equivalent and this would otherwise trigger an
+        // unrelated "Would Like to Send You Notifications" prompt for no reason.
+        if (Capacitor.getPlatform() === "android") {
+          try {
+            await PushNotifications.requestPermissions();
+          } catch {
+            // Best-effort -- addWatcher below still runs; Android may just fail to show
+            // the notification (and so may stop delivering background updates) without it.
+          }
+        }
+        if (torndown) return;
+        setLocationState("watching");
+        try {
+          const id = await BackgroundGeolocation.addWatcher(
+            {
+              backgroundTitle: "Tracking your route",
+              backgroundMessage: "Logs your arrival at each stop automatically. Cancel to stop tracking for today.",
+              requestPermissions: true,
+              stale: false,
+              distanceFilter: 15,
+            },
+            (location, error) => {
+              if (torndown) return;
+              if (error) {
+                handleFailureMessage(error.code === "NOT_AUTHORIZED" ? "denied" : error.message);
+                return;
+              }
+              if (!location) return;
+              if (handleFix(location.latitude, location.longitude, location.accuracy)) {
+                setLocationState("idle");
+                teardown();
+              }
+            },
+          );
+          if (torndown) void BackgroundGeolocation.removeWatcher({ id });
+          else watcherId = id;
+        } catch (err) {
+          handleFailureMessage(err instanceof Error ? err.message : String(err));
+        }
+      })();
+
+      return teardown;
     }
 
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
@@ -350,9 +393,16 @@ export function RouteDayView({
       return;
     }
 
+    if (isDayFullyDone()) return;
+
     setLocationState("watching");
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => handleFix(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+      (pos) => {
+        if (handleFix(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy)) {
+          setLocationState("idle");
+          navigator.geolocation.clearWatch(watchId);
+        }
+      },
       (err) => {
         // Previously only PERMISSION_DENIED was surfaced -- TIMEOUT/POSITION_UNAVAILABLE
         // (a lost GPS fix, common in a parking garage or near tall buildings) were
@@ -364,11 +414,19 @@ export function RouteDayView({
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 20_000 },
     );
 
-    // Same foreground-return gap as the native branch above, for the plain mobile-web case.
+    // Plain mobile browsers can't background-track at all (no equivalent of the native
+    // plugin above -- the tab is simply suspended), so this is the only mitigation
+    // available here: force one fresh fix the moment the tab/PWA regains focus, in case
+    // the tech arrived while it was backgrounded and the suspended watch missed it.
     function handleVisible() {
       if (document.visibilityState !== "visible") return;
       navigator.geolocation.getCurrentPosition(
-        (pos) => handleFix(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+        (pos) => {
+          if (handleFix(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy)) {
+            setLocationState("idle");
+            navigator.geolocation.clearWatch(watchId);
+          }
+        },
         () => {
           // Best-effort -- the ongoing watch above is still the source of truth for errors.
         },

@@ -4,4 +4,8 @@
     <string name="title_activity_main">AquaRunner 24/7 Pro</string>
     <string name="package_name">com.aquarunner247.app</string>
     <string name="custom_url_scheme">com.aquarunner247.app</string>
+
+    <!-- @capacitor-community/background-geolocation: text for the persistent notification
+    Android requires while a tech's route is being tracked in the background. -->
+    <string name="capacitor_background_geolocation_notification_channel_name">Route tracking</string>
 </resources>

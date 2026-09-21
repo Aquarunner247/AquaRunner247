@@ -24,6 +24,10 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: false,
+    // Required by @capacitor-community/background-geolocation: without this, Android stops
+    // delivering location updates to the WebView bridge after ~5 minutes in the background
+    // (see that plugin's README/issue #89) regardless of the foreground service staying alive.
+    useLegacyBridge: true,
   },
 };
 

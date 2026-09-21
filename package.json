@@ -25,6 +25,7 @@
     "cap:open:android": "cap open android"
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
     "@capacitor/android": "^8.5.0",
     "@capacitor/camera": "^8.2.3",
     "@capacitor/core": "^8.5.0",
