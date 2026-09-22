@@ -363,7 +363,17 @@ export function RouteDayView({
               backgroundMessage: "Logs your arrival at each stop automatically. Cancel to stop tracking for today.",
               requestPermissions: true,
               stale: false,
-              distanceFilter: 15,
+              // 0, not a battery-saving distance, deliberately -- distanceFilter suppresses a
+              // fix until the device has moved that many meters from the LAST one delivered.
+              // A tech who parks and walks the final stretch to the pool/pump room, then
+              // stands there working, stops generating qualifying movement once inside the
+              // radius -- so with a nonzero filter, no fix ever lands while he's actually
+              // there, and the first one that does is often when he moves again to leave.
+              // That's exactly why arrival was only getting logged "at the end of the stop."
+              // The plugin's own Android LocationRequest still caps delivery at 1/second
+              // (see BackgroundGeolocationService.java), so this doesn't increase raw GPS
+              // polling -- it only stops good, in-radius fixes from being silently dropped.
+              distanceFilter: 0,
             },
             (location, error) => {
               if (torndown) return;
