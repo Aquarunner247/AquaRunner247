@@ -26,7 +26,11 @@ export const READING_BOUNDS: Record<string, { min: number; max: number; step: nu
   pumpPressurePsi: { min: 0, max: 60, step: 1 },
   vacGaugeReading: { min: -30, max: 0, step: 1 },
   filterPressurePsi: { min: 0, max: 60, step: 1 },
-  flowMeterGpm: { min: 0, max: 150, step: 1 },
+  // 300, not 150 -- a large commercial system's real flow rate legitimately lands in the
+  // 150-200 GPM range (turnover-rate requirements scale with pool volume). 150 as the
+  // ceiling was rejecting genuine, repeated readings at multiple commercial properties in
+  // production, not catching typos.
+  flowMeterGpm: { min: 0, max: 300, step: 1 },
 };
 
 /** True when `key` has no configured bound (nothing to check) or `value` falls within it. */
