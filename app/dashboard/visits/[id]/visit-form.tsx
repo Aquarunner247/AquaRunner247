@@ -13,6 +13,7 @@ import { convertToBillingUnit } from "@/lib/dosing-units";
 import type { ReadingFieldSpec } from "@/lib/compliance";
 import type { DosingResult } from "@/lib/dosing-calculator";
 import type { DosingUnit } from "@/generated/prisma/enums";
+import { READING_BOUNDS } from "@/lib/reading-bounds";
 
 type Dose = {
   id: string;
@@ -50,27 +51,8 @@ type FieldConfig = {
   zoneMax?: number;
 };
 
-/** Sanity bounds and step size for the numeric slider input -- deliberately NOT
- * state-derived (they're just input guards against absurd values, wide enough to cover
- * every state's actual regulatory range for that parameter), unlike everything else
- * about a reading field (chemistry OR gauge/meter), which comes from the org's own
- * ComplianceRuleset via activeReadingFields (see lib/compliance.ts) and is passed in as
- * `readingFields`. */
-const READING_INPUT_BOUNDS: Record<string, { min: number; max: number; step: number }> = {
-  freeChlorinePpm: { min: 0, max: 30, step: 0.5 },
-  brominePpm: { min: 0, max: 30, step: 0.5 },
-  ph: { min: 6, max: 15, step: 0.1 },
-  alkalinityPpm: { min: 0, max: 300, step: 1 },
-  cyanuricAcidPpm: { min: 0, max: 150, step: 1 },
-  temperatureF: { min: 50, max: 110, step: 1 },
-  pumpPressurePsi: { min: 0, max: 60, step: 1 },
-  vacGaugeReading: { min: -30, max: 0, step: 1 },
-  filterPressurePsi: { min: 0, max: 60, step: 1 },
-  flowMeterGpm: { min: 0, max: 150, step: 1 },
-};
-
 function toFieldConfig(spec: ReadingFieldSpec): FieldConfig {
-  const bounds = READING_INPUT_BOUNDS[spec.key] ?? { min: 0, max: 100, step: 1 };
+  const bounds = READING_BOUNDS[spec.key] ?? { min: 0, max: 100, step: 1 };
   return {
     key: spec.key,
     label: spec.label,
@@ -241,6 +223,32 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reading]);
 
+  // A field with a value outside its sane bounds (see lib/reading-bounds.ts -- e.g. "74"
+  // typed for pH instead of "7.4") never actually reaches the server (see sanitizeReading
+  // below), so it must block completion exactly like a missing required field would --
+  // otherwise a technician could complete a visit believing a reading saved when it silently
+  // didn't.
+  const invalidFieldKeys = useMemo(() => {
+    const keys = new Set<keyof Reading>();
+    for (const f of allFields) {
+      if (reading[f.key] === "") continue;
+      const n = Number(reading[f.key]);
+      if (!Number.isFinite(n) || n < f.min || n > f.max) keys.add(f.key);
+    }
+    return keys;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reading]);
+  const hasInvalidReading = invalidFieldKeys.size > 0;
+
+  /** Empty string -> null (clears the field, unchanged from before). Out-of-range -> the
+   * server never sees the field at all (`undefined` is dropped by JSON.stringify), so an
+   * absurd typed value can never overwrite a previously-saved good one -- invalidFieldKeys
+   * above is what actually tells the technician why nothing happened. */
+  function sanitizeReading(key: keyof Reading): string | null | undefined {
+    if (invalidFieldKeys.has(key)) return undefined;
+    return reading[key] || null;
+  }
+
   async function saveReading(source: "auto" | "manual") {
     if (dosingRetryRef.current) {
       window.clearTimeout(dosingRetryRef.current);
@@ -253,18 +261,18 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       label: "Water reading",
       visitId,
       body: {
-        ph: reading.ph || null,
-        freeChlorinePpm: reading.freeChlorinePpm || null,
-        brominePpm: reading.brominePpm || null,
-        alkalinityPpm: reading.alkalinityPpm || null,
-        cyanuricAcidPpm: reading.cyanuricAcidPpm || null,
-        calciumHardnessPpm: reading.calciumHardnessPpm || null,
-        saltPpm: reading.saltPpm || null,
-        temperatureF: reading.temperatureF || null,
-        pumpPressurePsi: reading.pumpPressurePsi || null,
-        vacGaugeReading: reading.vacGaugeReading || null,
-        flowMeterGpm: reading.flowMeterGpm || null,
-        filterPressurePsi: reading.filterPressurePsi || null,
+        ph: sanitizeReading("ph"),
+        freeChlorinePpm: sanitizeReading("freeChlorinePpm"),
+        brominePpm: sanitizeReading("brominePpm"),
+        alkalinityPpm: sanitizeReading("alkalinityPpm"),
+        cyanuricAcidPpm: sanitizeReading("cyanuricAcidPpm"),
+        calciumHardnessPpm: sanitizeReading("calciumHardnessPpm"),
+        saltPpm: sanitizeReading("saltPpm"),
+        temperatureF: sanitizeReading("temperatureF"),
+        pumpPressurePsi: sanitizeReading("pumpPressurePsi"),
+        vacGaugeReading: sanitizeReading("vacGaugeReading"),
+        flowMeterGpm: sanitizeReading("flowMeterGpm"),
+        filterPressurePsi: sanitizeReading("filterPressurePsi"),
         backwashPerformed,
         backwashAt: backwashPerformed && backwashTime ? `${new Date().toISOString().slice(0, 10)}T${backwashTime}:00` : null,
       },
@@ -478,8 +486,9 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
 
   function renderSlider(f: FieldConfig) {
     const isSet = reading[f.key] !== "";
+    const isInvalid = invalidFieldKeys.has(f.key);
     const fallback = f.zoneMin !== undefined && f.zoneMax !== undefined ? (f.zoneMin + f.zoneMax) / 2 : (f.min + f.max) / 2;
-    const value = isSet ? Number(reading[f.key]) : fallback;
+    const value = isSet && !isInvalid ? Number(reading[f.key]) : fallback;
     const zoneLeft = f.zoneMin !== undefined ? pct(f.zoneMin, f.min, f.max) : null;
     const zoneWidth = f.zoneMin !== undefined && f.zoneMax !== undefined ? pct(f.zoneMax, f.min, f.max) - zoneLeft! : null;
     const markerLeft = pct(value, f.min, f.max);
@@ -501,6 +510,8 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
             <input
               type="number"
               step={f.step}
+              min={f.min}
+              max={f.max}
               value={reading[f.key]}
               disabled={isCompleted}
               placeholder={fallback.toString()}
@@ -509,11 +520,18 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
                 const val = raw !== "" && Number.isInteger(f.step) ? String(roundToStep(Number(raw), f.step)) : raw;
                 setReading((prev) => ({ ...prev, [f.key]: val }));
               }}
-              className="w-16 rounded border border-brand-control px-1.5 py-0.5 text-right font-[family-name:var(--font-mono)] text-sm text-brand-ink disabled:bg-brand-foam"
+              className={`w-16 rounded border px-1.5 py-0.5 text-right font-[family-name:var(--font-mono)] text-sm disabled:bg-brand-foam ${
+                isInvalid ? "border-brand-danger text-brand-danger" : "border-brand-control text-brand-ink"
+              }`}
             />
             {f.unitLabel ? <span className="text-xs text-brand-muted">{f.unitLabel}</span> : null}
           </span>
         </div>
+        {isInvalid ? (
+          <p className="mt-1 text-xs text-brand-danger">
+            Enter a value between {f.min} and {f.max} — this didn&rsquo;t save.
+          </p>
+        ) : null}
 
         <div className="relative mt-3 h-6">
           <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-brand-foam" />
@@ -524,7 +542,9 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
             />
           ) : null}
           <div
-            className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-brand-ink shadow ${isSet ? "bg-brand-primary" : "bg-brand-border"}`}
+            className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-brand-ink shadow ${
+              isInvalid ? "bg-brand-danger" : isSet ? "bg-brand-primary" : "bg-brand-border"
+            }`}
             style={{ left: `${markerLeft}%` }}
           />
           <input
@@ -893,12 +913,14 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         <button
           type="button"
           onClick={() => void completeVisit()}
-          disabled={isCompleted || requiredMissing || photoCount < 1 || completingVisit}
+          disabled={isCompleted || requiredMissing || hasInvalidReading || photoCount < 1 || completingVisit}
           className="rounded bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primaryHover disabled:cursor-not-allowed disabled:bg-brand-control"
         >
           {isCompleted ? "Visit completed" : completingVisit ? "Completing..." : "Complete service visit"}
         </button>
-        {!isCompleted && (requiredMissing || photoCount < 1) ? (
+        {!isCompleted && hasInvalidReading ? (
+          <p className="mt-2 text-sm text-brand-danger">Fix the reading(s) marked in red above before completing.</p>
+        ) : !isCompleted && (requiredMissing || photoCount < 1) ? (
           <p className="mt-2 text-sm text-brand-warn">Completion requires all required (*) readings and at least one photo.</p>
         ) : null}
       </div>

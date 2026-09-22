@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { computeAndSaveDosingRecommendation } from "@/lib/dosing-calculator";
 import { getOrgPlanAccess } from "@/lib/plan-tiers";
+import { isWithinReadingBounds } from "@/lib/reading-bounds";
 
 type ReadingPayload = {
   ph?: number | null;
@@ -83,6 +84,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     flowMeterGpm: numOrNull(raw.flowMeterGpm),
     backwashAt,
   };
+
+  // Authoritative backstop against an absurd value (e.g. "74" for pH, a missing decimal
+  // point) reaching the database -- the visit forms already block this in the UI, but that's
+  // only a UX nicety a client bug or bypass could get around. Rejects the whole request
+  // rather than silently dropping the one bad field, so the technician sees it immediately
+  // instead of a reading that quietly never saved.
+  const outOfRange = Object.entries(data)
+    .filter(([key, value]) => typeof value === "number" && !isWithinReadingBounds(key, value))
+    .map(([key]) => key);
+  if (outOfRange.length > 0) {
+    return NextResponse.json({ error: "OUT_OF_RANGE", fields: outOfRange }, { status: 400 });
+  }
 
   const cleaned = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
 

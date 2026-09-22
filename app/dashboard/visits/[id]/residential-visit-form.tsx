@@ -10,6 +10,7 @@ import { PhotoThumbnail } from "@/app/components/photo-thumbnail";
 import { convertToBillingUnit } from "@/lib/dosing-units";
 import type { DosingResult } from "@/lib/dosing-calculator";
 import type { DosingUnit } from "@/generated/prisma/enums";
+import { READING_BOUNDS } from "@/lib/reading-bounds";
 
 type Dose = {
   id: string;
@@ -48,17 +49,15 @@ function chemistryFieldsFor(props: {
   cyaRequired: boolean;
 }): FieldConfig[] {
   return [
-    { key: "freeChlorinePpm", label: "Free Chlorine", unitLabel: "ppm", required: props.requiresFC, min: 0, max: 30, step: 0.5 },
-    { key: "ph", label: "pH", unitLabel: "", required: props.requiresPH, min: 6, max: 15, step: 0.1 },
-    { key: "alkalinityPpm", label: "Total Alkalinity", unitLabel: "ppm", required: props.requiresAlkalinity, min: 0, max: 300, step: 1 },
+    { key: "freeChlorinePpm", label: "Free Chlorine", unitLabel: "ppm", required: props.requiresFC, ...READING_BOUNDS.freeChlorinePpm },
+    { key: "ph", label: "pH", unitLabel: "", required: props.requiresPH, ...READING_BOUNDS.ph },
+    { key: "alkalinityPpm", label: "Total Alkalinity", unitLabel: "ppm", required: props.requiresAlkalinity, ...READING_BOUNDS.alkalinityPpm },
     {
       key: "cyanuricAcidPpm",
       label: "Cyanuric Acid",
       unitLabel: props.cyaRequired ? "ppm" : "ppm, checked in the last 30 days",
       required: props.requiresCYA && props.cyaRequired,
-      min: 0,
-      max: 100,
-      step: 1,
+      ...READING_BOUNDS.cyanuricAcidPpm,
     },
   ];
 }
@@ -195,6 +194,30 @@ export function ResidentialVisitForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reading, requiresFC, requiresPH, requiresAlkalinity, requiresCYA]);
 
+  // A field with a value outside its sane bounds (see lib/reading-bounds.ts -- e.g. "74"
+  // typed for pH instead of "7.4") never actually reaches the server (see sanitizeReading
+  // below), so it must block completion exactly like a missing required field would.
+  const invalidFieldKeys = useMemo(() => {
+    const keys = new Set<keyof Reading>();
+    for (const f of chemistryFields) {
+      if (reading[f.key] === "") continue;
+      const n = Number(reading[f.key]);
+      if (!Number.isFinite(n) || n < f.min || n > f.max) keys.add(f.key);
+    }
+    return keys;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reading, requiresFC, requiresPH, requiresAlkalinity, requiresCYA]);
+  const hasInvalidReading = invalidFieldKeys.size > 0;
+
+  /** Empty string -> null (clears the field, unchanged from before). Out-of-range -> the
+   * server never sees the field at all (`undefined` is dropped by JSON.stringify), so an
+   * absurd typed value can never overwrite a previously-saved good one -- invalidFieldKeys
+   * above is what actually tells the technician why nothing happened. */
+  function sanitizeReading(key: keyof Reading): string | null | undefined {
+    if (invalidFieldKeys.has(key)) return undefined;
+    return reading[key] || null;
+  }
+
   async function saveReading(source: "auto" | "manual") {
     try {
       setSaveState("saving");
@@ -202,10 +225,10 @@ export function ResidentialVisitForm({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ph: reading.ph || null,
-          freeChlorinePpm: reading.freeChlorinePpm || null,
-          alkalinityPpm: reading.alkalinityPpm || null,
-          cyanuricAcidPpm: reading.cyanuricAcidPpm || null,
+          ph: sanitizeReading("ph"),
+          freeChlorinePpm: sanitizeReading("freeChlorinePpm"),
+          alkalinityPpm: sanitizeReading("alkalinityPpm"),
+          cyanuricAcidPpm: sanitizeReading("cyanuricAcidPpm"),
         }),
       });
       if (!response.ok) throw new Error("Save failed");
@@ -348,8 +371,9 @@ export function ResidentialVisitForm({
 
   function renderSlider(f: FieldConfig) {
     const isSet = reading[f.key] !== "";
+    const isInvalid = invalidFieldKeys.has(f.key);
     const fallback = (f.min + f.max) / 2;
-    const value = isSet ? Number(reading[f.key]) : fallback;
+    const value = isSet && !isInvalid ? Number(reading[f.key]) : fallback;
     const markerLeft = pct(value, f.min, f.max);
 
     return (
@@ -363,6 +387,8 @@ export function ResidentialVisitForm({
             <input
               type="number"
               step={f.step}
+              min={f.min}
+              max={f.max}
               value={reading[f.key]}
               disabled={isCompleted}
               placeholder={fallback.toString()}
@@ -371,16 +397,25 @@ export function ResidentialVisitForm({
                 const val = raw !== "" && Number.isInteger(f.step) ? String(roundToStep(Number(raw), f.step)) : raw;
                 setReading((prev) => ({ ...prev, [f.key]: val }));
               }}
-              className="w-16 rounded border border-brand-control px-1.5 py-0.5 text-right font-[family-name:var(--font-mono)] text-sm text-brand-ink disabled:bg-brand-foam"
+              className={`w-16 rounded border px-1.5 py-0.5 text-right font-[family-name:var(--font-mono)] text-sm disabled:bg-brand-foam ${
+                isInvalid ? "border-brand-danger text-brand-danger" : "border-brand-control text-brand-ink"
+              }`}
             />
             {f.unitLabel ? <span className="text-xs text-brand-muted">{f.unitLabel}</span> : null}
           </span>
         </div>
+        {isInvalid ? (
+          <p className="mt-1 text-xs text-brand-danger">
+            Enter a value between {f.min} and {f.max} — this didn&rsquo;t save.
+          </p>
+        ) : null}
 
         <div className="relative mt-3 h-6">
           <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-brand-foam" />
           <div
-            className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-brand-ink shadow ${isSet ? "bg-brand-primary" : "bg-brand-border"}`}
+            className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-brand-ink shadow ${
+              isInvalid ? "bg-brand-danger" : isSet ? "bg-brand-primary" : "bg-brand-border"
+            }`}
             style={{ left: `${markerLeft}%` }}
           />
           <input
@@ -637,12 +672,14 @@ export function ResidentialVisitForm({
         <button
           type="button"
           onClick={() => void completeVisit()}
-          disabled={isCompleted || requiredMissing || photoCount < 1 || completingVisit}
+          disabled={isCompleted || requiredMissing || hasInvalidReading || photoCount < 1 || completingVisit}
           className="rounded bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primaryHover disabled:cursor-not-allowed disabled:bg-brand-control"
         >
           {isCompleted ? "Visit completed" : completingVisit ? "Completing..." : "Complete service visit"}
         </button>
-        {!isCompleted && (requiredMissing || photoCount < 1) ? (
+        {!isCompleted && hasInvalidReading ? (
+          <p className="mt-2 text-sm text-brand-danger">Fix the reading(s) marked in red above before completing.</p>
+        ) : !isCompleted && (requiredMissing || photoCount < 1) ? (
           <p className="mt-2 text-sm text-brand-warn">Completion requires all required (*) readings and at least one photo.</p>
         ) : null}
       </div>
