@@ -17,9 +17,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 const TIER_LABELS: Record<SelfServePlanTier, string> = {
-  SOLO: "Solo — $49/month",
-  STARTER: "Starter — $99/month",
-  PRO: "Pro — $149/month",
+  SERVICE: "Service — $99/month",
+  WHITE_LABEL: "White Label — $149/month",
   COMPLIANCE: "AquaRunner Compliance — $19/month",
 };
 

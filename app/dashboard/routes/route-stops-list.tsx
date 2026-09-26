@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
@@ -20,12 +19,9 @@ export type RouteStopItem = {
 type Props = {
   routeId: string;
   stops: RouteStopItem[];
-  /// Route optimization is a Pro feature (see lib/plan-tiers.ts) -- defaults to true so any
-  /// caller that hasn't been updated to pass it doesn't lose the button.
-  proAccess?: boolean;
 };
 
-export function RouteStopsList({ routeId, stops: initialStops, proAccess = true }: Props) {
+export function RouteStopsList({ routeId, stops: initialStops }: Props) {
   const [stops, setStops] = useState(initialStops);
   const [saving, setSaving] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
@@ -81,15 +77,9 @@ export function RouteStopsList({ routeId, stops: initialStops, proAccess = true 
 
   return (
     <div className="mt-3">
-      {proAccess ? (
-        <button type="button" onClick={optimizeStops} disabled={saving || optimizing} className="app-btn-secondary-sm mb-2">
-          {optimizing ? "Optimizing…" : "Optimize stop order"}
-        </button>
-      ) : (
-        <Link href="/dashboard/billing" className="mb-2 block text-xs font-medium text-brand-primary underline">
-          Upgrade to Pro to optimize stop order
-        </Link>
-      )}
+      <button type="button" onClick={optimizeStops} disabled={saving || optimizing} className="app-btn-secondary-sm mb-2">
+        {optimizing ? "Optimizing…" : "Optimize stop order"}
+      </button>
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_360px]">
         <ol className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
           {stops.map((stop, idx) => {

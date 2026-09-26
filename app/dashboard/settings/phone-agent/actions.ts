@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { getOrgPlanAccess } from "@/lib/plan-tiers";
 import { parseFormNumber } from "@/lib/form-utils";
 import type { PhoneAgentIssueType } from "@/generated/prisma/enums";
 
@@ -51,8 +50,6 @@ function parseBusinessHours(formData: FormData): Record<string, string> {
 
 export async function updatePhoneAgentSettings(formData: FormData) {
   const appUser = await requireAdmin();
-  const { proAccess } = await getOrgPlanAccess(appUser.organizationId);
-  if (!proAccess) redirect("/dashboard/settings/phone-agent");
 
   const twilioPhoneNumber = String(formData.get("twilioPhoneNumber") ?? "").trim() || null;
   const primaryPhoneNumber = String(formData.get("primaryPhoneNumber") ?? "").trim() || null;

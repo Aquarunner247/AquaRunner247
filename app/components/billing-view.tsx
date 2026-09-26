@@ -15,9 +15,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const TIER_LABELS: Record<string, string> = {
-  SOLO: "Solo",
-  STARTER: "Starter",
-  PRO: "Pro",
+  SERVICE: "Service",
+  WHITE_LABEL: "White Label",
   ENTERPRISE: "Enterprise",
   COMPLIANCE: "Compliance",
 };

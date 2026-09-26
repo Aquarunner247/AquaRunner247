@@ -113,8 +113,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   });
 
   // The dosing calculator (exact-dose recommendations for free chlorine, alkalinity, CYA,
-  // calcium hardness, salt) is a Pro feature -- see lib/plan-tiers.ts. Starter orgs still
-  // get their reading saved above; they just don't get a computed recommendation back.
+  // calcium hardness, salt) is part of the pool-service product, not the separate
+  // AquaRunner Compliance one (see lib/plan-tiers-core.ts's isComplianceTier) -- a
+  // Compliance org's reading still saves above; it just doesn't get a computed
+  // recommendation back. Every pool-service tier (Service, White Label, Enterprise) gets
+  // this -- it's no longer gated by price.
   //
   // The reading write above must never be held hostage to this step: a transient failure
   // here (e.g. Supabase's session-pooler connection cap -- see lib/prisma.ts's doc
@@ -122,10 +125,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   // reported "Save failed" and leaving ChemistryRecommendation stuck on a stale snapshot
   // from before this reading, with no signal to the client that it needed a retry.
   // dosingStale tells the client that distinctly from "nothing to recommend."
-  const { proAccess } = await getOrgPlanAccess(visit.organizationId);
+  const { planTier } = await getOrgPlanAccess(visit.organizationId);
   let dosing = null;
   let dosingStale = false;
-  if (proAccess) {
+  if (planTier !== "COMPLIANCE") {
     try {
       dosing = await computeAndSaveDosingRecommendation(id);
     } catch (err) {

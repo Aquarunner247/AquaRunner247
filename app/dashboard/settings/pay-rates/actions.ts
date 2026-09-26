@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { getOrgPlanAccess } from "@/lib/plan-tiers";
 import { parseFormNumber } from "@/lib/form-utils";
 import { createPayRateRow } from "@/lib/technician-pay";
 import type { PayPeriodType } from "@/generated/prisma/enums";
@@ -13,15 +12,6 @@ async function requireAdmin() {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN") redirect("/dashboard");
-  return appUser;
-}
-
-/** Pay rates is a Pro feature (see lib/plan-tiers.ts) -- every mutation here re-checks it,
- * matching the whole-page gate on the pay-rates settings page. */
-async function requireProAdmin() {
-  const appUser = await requireAdmin();
-  const { proAccess } = await getOrgPlanAccess(appUser.organizationId);
-  if (!proAccess) redirect("/dashboard/settings/pay-rates");
   return appUser;
 }
 
@@ -40,7 +30,7 @@ function toYmd(raw: FormDataEntryValue | null): Date | null {
  * (updateTechnicianPayRate) below.
  */
 export async function createTechnicianPayRate(formData: FormData) {
-  const appUser = await requireProAdmin();
+  const appUser = await requireAdmin();
   const technicianId = String(formData.get("technicianId") ?? "").trim();
   const bodyOfWaterId = String(formData.get("bodyOfWaterId") ?? "").trim();
   const rateAmount = parseFormNumber(formData.get("rateAmount"));
@@ -73,7 +63,7 @@ export async function createTechnicianPayRate(formData: FormData) {
  * an in-place edit, not a new historical version. Use createTechnicianPayRate instead when
  * the rate is genuinely changing going forward. */
 export async function updateTechnicianPayRate(formData: FormData) {
-  const appUser = await requireProAdmin();
+  const appUser = await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   const rateAmount = parseFormNumber(formData.get("rateAmount"));
   const isBundled = formData.get("isBundled") != null;
@@ -100,7 +90,7 @@ export async function updateTechnicianPayRate(formData: FormData) {
  * -- TechnicianPayRate is an audit trail (Section 3 of the spec); a hard delete would erase
  * the record of what a rate used to be. */
 export async function deactivateTechnicianPayRate(formData: FormData) {
-  const appUser = await requireProAdmin();
+  const appUser = await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
 
@@ -114,7 +104,7 @@ export async function deactivateTechnicianPayRate(formData: FormData) {
 const VALID_PAY_PERIOD_TYPES: PayPeriodType[] = ["WEEKLY", "BIWEEKLY", "SEMI_MONTHLY", "MONTHLY"];
 
 export async function updatePayrollSettings(formData: FormData) {
-  const appUser = await requireProAdmin();
+  const appUser = await requireAdmin();
   const payPeriodTypeRaw = String(formData.get("payPeriodType") ?? "").trim();
   const payPeriodType = VALID_PAY_PERIOD_TYPES.includes(payPeriodTypeRaw as PayPeriodType) ? (payPeriodTypeRaw as PayPeriodType) : "SEMI_MONTHLY";
 

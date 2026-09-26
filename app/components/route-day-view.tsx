@@ -87,9 +87,6 @@ type Props = {
   /// full day's real underlying sequence isn't coherent (same reasoning as the existing
   /// multi-tech read-only gate).
   statusFilter?: "all" | "completed" | "in_progress" | "pending";
-  /// Route optimization is a Pro feature (see lib/plan-tiers.ts) -- defaults to true so
-  /// existing call sites that haven't been updated to pass it don't lose the button.
-  proAccess?: boolean;
 };
 
 /// An ad-hoc item has no "in progress" state -- it never matches that filter. "completed"/
@@ -222,7 +219,6 @@ export function RouteDayView({
   technicianLegend,
   allowGpsAutoArrival = true,
   statusFilter = "all",
-  proAccess = true,
 }: Props) {
   const isMultiTech = Boolean(technicianColors);
   // Multi-technician mode is always read-only, regardless of the readOnly prop: reordering
@@ -691,7 +687,7 @@ export function RouteDayView({
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         <div className={layout === "mapOnly" ? "hidden" : ""}>
-          {!effectiveReadOnly && proAccess ? (
+          {!effectiveReadOnly ? (
             <button
               type="button"
               data-tour="schedule-optimize-route"
@@ -701,11 +697,6 @@ export function RouteDayView({
             >
               {optimizing ? "Optimizing…" : "Optimize stop order"}
             </button>
-          ) : null}
-          {!effectiveReadOnly && !proAccess ? (
-            <Link href="/dashboard/billing" className="mb-2 block text-xs font-medium text-brand-primary underline">
-              Upgrade to Pro to optimize stop order
-            </Link>
           ) : null}
           <ul className="space-y-2">
             {displayedItems.map((item) => {

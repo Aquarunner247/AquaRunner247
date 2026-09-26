@@ -2,7 +2,6 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
 import { RouteDayView, type DayItem } from "@/app/components/route-day-view";
-import { getOrgPlanAccess } from "@/lib/plan-tiers";
 import { TechnicianFilterSelect } from "@/app/components/technician-filter-select";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
@@ -42,10 +41,10 @@ type StatusFilterValue = (typeof STATUS_FILTERS)[number];
  */
 export async function AdminSchedule({ appUser, searchParams }: Props) {
   const sp = await searchParams;
-  const [{ proAccess }, organization] = await Promise.all([
-    getOrgPlanAccess(appUser.organizationId),
-    prisma.organization.findUnique({ where: { id: appUser.organizationId }, select: { state: true } }),
-  ]);
+  const organization = await prisma.organization.findUnique({
+    where: { id: appUser.organizationId },
+    select: { state: true },
+  });
   const tz = timeZoneForState(organization?.state);
   const tab: Tab = TABS.includes((sp.tab ?? "") as Tab) ? ((sp.tab ?? "day") as Tab) : "day";
   const statusFilter: StatusFilterValue = STATUS_FILTERS.includes((sp.status ?? "") as StatusFilterValue)
@@ -403,7 +402,6 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
           <>
             <RouteDayView
               items={scheduleItems}
-              proAccess={proAccess}
               statusFilter={statusFilter}
               // Read-only whenever viewing "All Technicians" (unchanged reasoning), AND
               // whenever a status filter is active -- reordering a filtered subset

@@ -215,10 +215,10 @@ function resolveFromForm(formData: FormData): ResolvedSignup {
     stripeCustomerId: null,
     stripeSubscriptionId: null,
     planStatus: "TRIALING",
-    // Falls back to Starter rather than throwing -- this dev-only path (no Stripe price
+    // Falls back to Service rather than throwing -- this dev-only path (no Stripe price
     // configured) already trusts every other resubmitted field, and defaulting keeps local
     // dev usable even from an older link that predates the tier param.
-    planTier: tier ?? "STARTER",
+    planTier: tier ?? "SERVICE",
     trialEndsAt: null,
     currentPeriodEnd: null,
   };

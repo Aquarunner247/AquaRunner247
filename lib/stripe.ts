@@ -6,17 +6,16 @@ import type { OrganizationPlanStatus, PlanTier } from "@/generated/prisma/client
  * custom/contact-us and set manually by a platform admin, never chosen at checkout.
  * COMPLIANCE is AquaRunner Compliance (app/cpo), a separate product from the pool-service
  * tiers, but shares the same self-serve checkout mechanism. */
-export type SelfServePlanTier = "SOLO" | "STARTER" | "PRO" | "COMPLIANCE";
+export type SelfServePlanTier = "SERVICE" | "WHITE_LABEL" | "COMPLIANCE";
 
 const SELF_SERVE_TIER_PRICE_ENV: Record<SelfServePlanTier, string> = {
-  SOLO: "STRIPE_PRICE_ID_SOLO",
-  STARTER: "STRIPE_PRICE_ID_STARTER",
-  PRO: "STRIPE_PRICE_ID_PRO",
+  SERVICE: "STRIPE_PRICE_ID_SERVICE",
+  WHITE_LABEL: "STRIPE_PRICE_ID_WHITE_LABEL",
   COMPLIANCE: "STRIPE_PRICE_ID_COMPLIANCE",
 };
 
 export function isSelfServePlanTier(value: string): value is SelfServePlanTier {
-  return value === "SOLO" || value === "STARTER" || value === "PRO" || value === "COMPLIANCE";
+  return value === "SERVICE" || value === "WHITE_LABEL" || value === "COMPLIANCE";
 }
 
 export function priceIdForTier(tier: SelfServePlanTier): string | null {
@@ -29,9 +28,8 @@ export function priceIdForTier(tier: SelfServePlanTier): string | null {
  * one of the self-serve tiers (e.g. a custom Enterprise price, or unset env vars). */
 export function tierForPriceId(priceId: string | null | undefined): PlanTier | null {
   if (!priceId) return null;
-  if (priceId === process.env.STRIPE_PRICE_ID_SOLO) return "SOLO";
-  if (priceId === process.env.STRIPE_PRICE_ID_STARTER) return "STARTER";
-  if (priceId === process.env.STRIPE_PRICE_ID_PRO) return "PRO";
+  if (priceId === process.env.STRIPE_PRICE_ID_SERVICE) return "SERVICE";
+  if (priceId === process.env.STRIPE_PRICE_ID_WHITE_LABEL) return "WHITE_LABEL";
   if (priceId === process.env.STRIPE_PRICE_ID_COMPLIANCE) return "COMPLIANCE";
   return null;
 }

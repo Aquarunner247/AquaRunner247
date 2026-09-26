@@ -7,10 +7,11 @@ import styles from "../landing.module.css";
 export const metadata: Metadata = {
   title: "Pricing — AquaRunner 24/7",
   description:
-    "Solo, Starter, Pro, or Enterprise — no per-pool fees, ever. Pricing scales with your crew, not how many pools you service. Every plan starts with a 14-day free trial.",
+    "Service, White Label, or Enterprise — no per-pool fees, ever, and nothing held back for the price. Plans differ by how your customers see the software, not by what you're allowed to use. Every plan starts with a 14-day free trial.",
   openGraph: {
     title: "Pricing — AquaRunner 24/7",
-    description: "No per-pool fees, ever. Pricing scales with your crew, not how many pools you service.",
+    description:
+      "No per-pool fees, ever. The same full feature set at every price — plans differ by branding and scale, not by what you can use.",
     type: "website",
   },
 };
@@ -29,48 +30,31 @@ export default function PricingPage() {
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>Pricing</p>
-                <h1 className={styles.displayL}>One flat price. Every pool included.</h1>
+                <h1 className={styles.displayL}>One company. Every pool. One price.</h1>
               </div>
             </div>
 
             <p className={styles.priceIntro}>
-              No per-pool fees. Ever. Pricing scales with your crew, not with how many pools you service. Every plan
-              starts with a 14-day free trial.
+              No per-pool fees. Ever. Residential, commercial, or both — every plan runs the full AquaRunner
+              platform, including AI dosing and the AI phone agent. Plans differ by how your customers see the
+              software and how many locations you run, not by what you&rsquo;re allowed to use. Every plan starts
+              with a 14-day free trial.
             </p>
 
             <div className={styles.priceGrid}>
-              <article className={styles.priceCard}>
+              <article className={`${styles.priceCard} ${styles.priceCardFeatured}`}>
+                <span className={styles.priceBadge}>Most popular</span>
                 <div className={styles.priceCardHead}>
-                  <h3>Solo</h3>
-                  <p className={styles.priceFor}>For a one-person operation</p>
-                </div>
-                <p className={styles.priceAmount}>
-                  $49<span>/month</span>
-                </p>
-                <ul className={styles.priceList}>
-                  <li>Unlimited pools</li>
-                  <li>1 user</li>
-                  <li>Every feature — nothing held back for the price</li>
-                  <li>AI phone agent, dosing calculator, and route optimization included</li>
-                  <li>State-specific compliance log sheets</li>
-                  <li>Printable, laminate-ready sheets + QR codes for pump rooms</li>
-                </ul>
-                <a className={styles.btn} href="#waitlist">
-                  Join the waitlist
-                </a>
-              </article>
-
-              <article className={styles.priceCard}>
-                <div className={styles.priceCardHead}>
-                  <h3>Starter</h3>
-                  <p className={styles.priceFor}>Best for smaller commercial and residential routes</p>
+                  <h3>Service</h3>
+                  <p className={styles.priceFor}>For residential, commercial, or mixed pool-service companies</p>
                 </div>
                 <p className={styles.priceAmount}>
                   $99<span>/month</span>
                 </p>
                 <ul className={styles.priceList}>
-                  <li>Unlimited pools</li>
-                  <li>Up to 5 users</li>
+                  <li>Unlimited pools, one account for residential and commercial work</li>
+                  <li>Up to 5 staff logins — unlimited customers on the portal, always</li>
+                  <li>AI phone agent, dosing calculator, and route optimization — included, not upsold</li>
                   <li>Full chemical logging, service reports, and photos</li>
                   <li>Customer portal, equipment records, and safety data sheets</li>
                   <li>State-specific compliance log sheets</li>
@@ -81,24 +65,21 @@ export default function PricingPage() {
                 </a>
               </article>
 
-              <article className={`${styles.priceCard} ${styles.priceCardFeatured}`}>
-                <span className={styles.priceBadge}>Most popular</span>
+              <article className={styles.priceCard}>
                 <div className={styles.priceCardHead}>
-                  <h3>Pro</h3>
-                  <p className={styles.priceFor}>For multi-tech commercial operators</p>
+                  <h3>White Label</h3>
+                  <p className={styles.priceFor}>For companies that want their own brand in front of customers</p>
                 </div>
                 <p className={styles.priceAmount}>
                   $149<span>/month</span>
                 </p>
                 <ul className={styles.priceList}>
-                  <li>Unlimited pools</li>
-                  <li>Up to 10 users</li>
-                  <li>Everything in Starter, plus:</li>
-                  <li>AI phone agent that answers live account questions</li>
-                  <li>Automatic chemical dosing recommendations</li>
-                  <li>Route optimization by real driving time</li>
-                  <li>Technician pay-rate tracking per pool</li>
-                  <li>Priority support</li>
+                  <li>Everything in Service, plus:</li>
+                  <li>Up to 10 staff logins — unlimited customers on the portal, always</li>
+                  <li>Your logo and colors throughout the customer-facing experience</li>
+                  <li>Branded customer portal, service reports, and email/text notifications</li>
+                  <li>Branded QR-code landing page for every body of water</li>
+                  <li>AquaRunner branding minimized wherever your customers look</li>
                 </ul>
                 <a className={styles.btn} href="#waitlist">
                   Join the waitlist
@@ -108,12 +89,13 @@ export default function PricingPage() {
               <article className={styles.priceCard}>
                 <div className={styles.priceCardHead}>
                   <h3>Enterprise</h3>
-                  <p className={styles.priceFor}>Large commercial operations</p>
+                  <p className={styles.priceFor}>Large, multi-location operations</p>
                 </div>
                 <p className={styles.priceAmount}>Custom</p>
                 <ul className={styles.priceList}>
-                  <li>Everything in Pro</li>
-                  <li>Volume pricing for large multi-crew operations</li>
+                  <li>Everything in White Label, plus:</li>
+                  <li>Custom domain for your branded customer experience</li>
+                  <li>Volume pricing for multi-location, multi-crew operations</li>
                   <li>Dedicated onboarding and support</li>
                 </ul>
                 <a className={styles.btn} href="mailto:hello@aquarunner247.com">

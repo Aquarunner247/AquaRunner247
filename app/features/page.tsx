@@ -36,19 +36,16 @@ const FEATURES = [
     n: "04",
     title: "Routes that build themselves",
     body: "Add a new customer and the app suggests the best tech and route based on where your team already is. You still make the final call.",
-    pro: true,
   },
   {
     n: "05",
     title: "Smarter route sequencing",
     body: "One tap reorders a route by real driving time, not just a straight line on a map, so back-to-back stops actually make sense on the road.",
-    pro: true,
   },
   {
     n: "06",
     title: "Never miss another call",
     body: "After hours or just too busy? The AI phone agent picks up and has an actual conversation. For a returning customer, it pulls up their real account on the spot—next visit, last visit, who their tech is—no ticket needed. Anything it can't resolve becomes a ticket with caller info, urgency, and a summary, ready in your dashboard when you get back.",
-    pro: true,
   },
   {
     n: "07",
@@ -69,7 +66,6 @@ const FEATURES = [
     n: "10",
     title: "Know exactly how much to add",
     body: "Enter today's reading and the app calculates the exact dose to hit target for free chlorine, alkalinity, cyanuric acid, calcium hardness, or salt. Running a tablet feeder instead? It also factors in the days until your next visit, so you're not guessing how many tablets to leave behind. Pulls from your chemical catalog and logs the correct units automatically—no more wasting chemicals by guessing.",
-    pro: true,
   },
   {
     n: "11",
@@ -80,7 +76,6 @@ const FEATURES = [
     n: "12",
     title: "Tech sees their expected pay after each stop is complete",
     body: "Set a rate per technician and per body of water. Real earnings total up as visits are logged, motivating them to get all of their pools done and not skip any.",
-    pro: true,
   },
   {
     n: "13",
@@ -91,6 +86,7 @@ const FEATURES = [
     n: "14",
     title: "Your logo and colors, not ours",
     body: "Upload your logo, set your brand colors, and customize the welcome email your customers get when their portal login is created. They see your business every time they check a report or get an email—not AquaRunner's.",
+    whiteLabel: true,
   },
 ];
 
@@ -177,7 +173,7 @@ export default function FeaturesPage() {
                 <article className={styles.featItem} key={feature.n}>
                   <div className={styles.featHead}>
                     <span className={styles.featNum}>{feature.n}</span>
-                    {feature.pro && <span className={styles.featPro}>Pro</span>}
+                    {feature.whiteLabel && <span className={styles.featPro}>White Label</span>}
                   </div>
                   <h3>{feature.title}</h3>
                   <p>{feature.body}</p>
