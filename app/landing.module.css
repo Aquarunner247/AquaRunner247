@@ -345,6 +345,11 @@
   gap: clamp(18px, 2vw, 28px);
 }
 
+.navSignIn {
+  display: inline-block;
+  white-space: nowrap;
+}
+
 .navLink {
   font-size: 0.86rem;
   font-weight: 600;
@@ -1952,8 +1957,30 @@
 }
 
 @media (max-width: 860px) {
+  /* The marketing links collapse on phones, but Sign in stays -- a technician opening
+     the site on their phone still needs a way into the app. Hide the links themselves
+     rather than the <nav>, so the landmark and the .navIn flex row both survive. */
   .navLinks {
+    gap: 0;
+  }
+
+  .navLinks .navLink {
     display: none;
+  }
+
+  .navLinks .navSignIn {
+    display: inline-block;
+  }
+
+  /* Brand + Sign in + the CTA have to share a 375px row. Tighten the gap and the
+     button's horizontal padding only -- min-height stays 44px for the touch target. */
+  .navIn {
+    gap: 12px;
+  }
+
+  .navBtn {
+    padding-inline: 1em;
+    font-size: 0.85rem;
   }
 }
 
@@ -2027,7 +2054,7 @@
 
   .navBtn {
     font-size: 0.8rem;
-    padding: 0.8em 1.05em;
+    padding: 0.8em 0.85em;
   }
 
   .brand svg {
@@ -2037,6 +2064,11 @@
 
   .brandName {
     font-size: 1.05rem;
+  }
+
+  /* "Join the waitlist" no longer fits beside the brand and Sign in at 375px. */
+  .navBtnWord {
+    display: none;
   }
 
   .heroEyebrow {
@@ -2189,5 +2221,31 @@
 @media (max-width: 720px) {
   .cmpTable {
     min-width: 580px;
+  }
+}
+
+/* 360px Androids: the brand, Sign in and the CTA share one row, and adding Sign in
+   pushed it 13px over. Buy the room back from the gap and the wordmark, never from
+   the CTA's 44px touch target. */
+@media (max-width: 380px) {
+  .navIn {
+    gap: 8px;
+  }
+
+  .brand svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .brandName {
+    font-size: 0.98rem;
+  }
+}
+
+/* Below ~340px there is genuinely no room for brand + Sign in + CTA, and the CTA wins.
+   This is the pre-Sign-in layout, so the narrowest phones are no worse off than before. */
+@media (max-width: 340px) {
+  .navLinks .navSignIn {
+    display: none;
   }
 }

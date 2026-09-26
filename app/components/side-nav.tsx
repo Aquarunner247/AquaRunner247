@@ -93,7 +93,7 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
         <Link
           href="/"
           className="hidden font-[family-name:var(--font-display)] text-lg font-extrabold text-brand-border md:block"
-          title="AquaRunner 24/7 Pro"
+          title="AquaRunner 24/7"
         >
           A<span className="text-white">24</span>
         </Link>

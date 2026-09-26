@@ -14,6 +14,15 @@ export const metadata: Metadata = {
     description:
       "A QR code and state-specific compliance log for every body of water your in-house CPO maintains. $19/month.",
     type: "website",
+    url: "/for-property-managers",
+    siteName: "AquaRunner 24/7",
+    images: [{ url: "/og/compliance.png", width: 1200, height: 630, alt: "AquaRunner Compliance — your CPO keeps the water right, AquaRunner proves it." }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AquaRunner Compliance — for properties with an in-house CPO",
+    description: "A QR code and state-specific compliance log for every body of water your in-house CPO maintains. $19/month.",
+    images: ["/og/compliance.png"],
   },
 };
 

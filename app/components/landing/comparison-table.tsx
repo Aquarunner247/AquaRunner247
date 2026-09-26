@@ -39,7 +39,7 @@ const ROWS: ComparisonRow[] = [
     values: ["yes", "no", "no", "no", "no"],
   },
   {
-    label: "Fully offline — logs, photos, doses sync when back online",
+    label: "Logs, photos, and doses queue offline and sync when back online",
     values: ["yes", "yes", "yes", "yes", "yes"],
   },
 ];

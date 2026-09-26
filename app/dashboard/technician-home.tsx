@@ -72,7 +72,7 @@ export async function TechnicianHome({
   return (
     <main className="mx-auto min-h-screen max-w-2xl pb-24 lg:max-w-4xl">
       <header className="bg-brand-ink px-4 pb-6 pt-6 lg:px-8 lg:pb-8 lg:pt-8">
-        <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-brand-border">AquaRunner 24/7 Pro</p>
+        <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-brand-border">AquaRunner 24/7</p>
         <h1 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-white lg:text-3xl">Welcome back, {firstName}!</h1>
       </header>
 

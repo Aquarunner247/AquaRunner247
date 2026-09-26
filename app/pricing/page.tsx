@@ -7,12 +7,21 @@ import styles from "../landing.module.css";
 export const metadata: Metadata = {
   title: "Pricing — AquaRunner 24/7",
   description:
-    "Service, White Label, or Enterprise — no per-pool fees, ever, and nothing held back for the price. Plans differ by how your customers see the software, not by what you're allowed to use. Every plan starts with a 14-day free trial.",
+    "Service, White Label, or Enterprise — no per-pool fees, ever, and no feature held back for a higher price. Plans differ by how many staff logins you need and how your customers see the software, not by which features you get. Every plan starts with a 14-day free trial.",
   openGraph: {
     title: "Pricing — AquaRunner 24/7",
     description:
-      "No per-pool fees, ever. The same full feature set at every price — plans differ by branding and scale, not by what you can use.",
+      "No per-pool fees, ever. The same full feature set at every price — plans differ by seats and branding, not by which features you get.",
     type: "website",
+    url: "/pricing",
+    siteName: "AquaRunner 24/7",
+    images: [{ url: "/og/pricing.png", width: 1200, height: 630, alt: "AquaRunner 24/7 pricing — One company. Every pool. One price." }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pricing — AquaRunner 24/7",
+    description: "No per-pool fees, ever. The same full feature set at every price — plans differ by seats and branding, not by which features you get.",
+    images: ["/og/pricing.png"],
   },
 };
 
@@ -36,8 +45,8 @@ export default function PricingPage() {
 
             <p className={styles.priceIntro}>
               No per-pool fees. Ever. Residential, commercial, or both — every plan runs the full AquaRunner
-              platform, including AI dosing and the AI phone agent. Plans differ by how your customers see the
-              software and how many locations you run, not by what you&rsquo;re allowed to use. Every plan starts
+              platform, including AI dosing and the AI phone agent. Plans differ by how many staff logins you
+              need and how your customers see the software, not by which features you get. Every plan starts
               with a 14-day free trial.
             </p>
 
@@ -76,10 +85,10 @@ export default function PricingPage() {
                 <ul className={styles.priceList}>
                   <li>Everything in Service, plus:</li>
                   <li>Up to 10 staff logins — unlimited customers on the portal, always</li>
-                  <li>Your logo and colors throughout the customer-facing experience</li>
-                  <li>Branded customer portal, service reports, and email/text notifications</li>
-                  <li>Branded QR-code landing page for every body of water</li>
+                  <li>Your logo and brand colors on the customer portal your clients log into</li>
+                  <li>Your branding on the welcome email that sets up their login</li>
                   <li>AquaRunner branding minimized wherever your customers look</li>
+                  <li>On the roadmap: branded service reports and QR landing pages</li>
                 </ul>
                 <a className={styles.btn} href="#waitlist">
                   Join the waitlist
@@ -94,9 +103,10 @@ export default function PricingPage() {
                 <p className={styles.priceAmount}>Custom</p>
                 <ul className={styles.priceList}>
                   <li>Everything in White Label, plus:</li>
-                  <li>Custom domain for your branded customer experience</li>
+                  <li>Unlimited staff logins</li>
                   <li>Volume pricing for multi-location, multi-crew operations</li>
                   <li>Dedicated onboarding and support</li>
+                  <li>Custom domains and integrations scoped with you case by case</li>
                 </ul>
                 <a className={styles.btn} href="mailto:hello@aquarunner247.com">
                   Contact us

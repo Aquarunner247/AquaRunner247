@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { BRAND_INK } from "@/app/lib/chart-colors";
+import { siteUrl } from "../lib/site-url";
 
 // Satoshi (display + body) isn't on Google Fonts, so it can't go through next/font/google
 // like the font below -- self-hosted instead via next/font/local, using the actual woff2
@@ -39,9 +40,23 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AquaRunner 24/7 Pro",
+  // Without this, every page's relative openGraph image resolves against nothing and the
+  // og:image tag is dropped entirely.
+  metadataBase: new URL(siteUrl()),
+  title: "AquaRunner 24/7",
   description: "Commercial pool maintenance — scheduling, service logs, and health-department-friendly records.",
   manifest: "/manifest.webmanifest",
+  // A default so a link to any page without its own openGraph block still previews as
+  // something branded. The marketing pages each override this with their own image.
+  openGraph: {
+    type: "website",
+    siteName: "AquaRunner 24/7",
+    images: [{ url: "/og/home.png", width: 1200, height: 630, alt: "AquaRunner 24/7" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/og/home.png"],
+  },
   icons: {
     icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],

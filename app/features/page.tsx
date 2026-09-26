@@ -13,6 +13,15 @@ export const metadata: Metadata = {
     title: "Features — AquaRunner 24/7",
     description: "A QR code on every body of water, and compliance built for your state.",
     type: "website",
+    url: "/features",
+    siteName: "AquaRunner 24/7",
+    images: [{ url: "/og/features.png", width: 1200, height: 630, alt: "AquaRunner 24/7 features — a QR code on every body of water." }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Features — AquaRunner 24/7",
+    description: "A QR code on every body of water, and compliance built for your state.",
+    images: ["/og/features.png"],
   },
 };
 
@@ -85,7 +94,7 @@ const FEATURES = [
   {
     n: "14",
     title: "Your logo and colors, not ours",
-    body: "Upload your logo, set your brand colors, and customize the welcome email your customers get when their portal login is created. They see your business every time they check a report or get an email—not AquaRunner's.",
+    body: "Upload your logo, set your brand colors, and customize the welcome email your customers get when their portal login is created. Every time they log in to check a visit, they see your business—not AquaRunner's.",
     whiteLabel: true,
   },
 ];

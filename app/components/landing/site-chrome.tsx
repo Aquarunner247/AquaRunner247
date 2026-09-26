@@ -40,11 +40,14 @@ export function SiteNav({ current }: { current: NavPage }) {
             href="/for-property-managers"
             className={current === "compliance" ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
           >
-            Compliance
+            For Property Managers
+          </Link>
+          <Link href="/login" className={`${styles.navLink} ${styles.navSignIn}`}>
+            Sign in
           </Link>
         </nav>
         <a className={`${styles.btn} ${styles.navBtn}`} href={waitlistHref}>
-          Join the waitlist
+          Join<span className={styles.navBtnWord}> the</span> waitlist
         </a>
       </div>
     </header>
@@ -58,7 +61,7 @@ export function SiteFooter() {
         <Brand />
         <p className={styles.footMeta}>
           <span>AquaRunner 24/7 — Las Vegas, NV</span>
-          <span>&copy; 2026</span>
+          <span>&copy; {new Date().getFullYear()}</span>
           <a href="mailto:hello@aquarunner247.com">hello@aquarunner247.com</a>
           <Link href="/terms">Terms of Service</Link>
           <Link href="/privacy">Privacy Policy</Link>

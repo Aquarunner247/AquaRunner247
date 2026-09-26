@@ -10,33 +10,33 @@ import styles from "./landing.module.css";
 const CORE_CAPABILITIES = [
   {
     n: "01",
-    title: "50-State Compliance",
-    body: "Keep location-specific requirements, service documentation, and inspection history organized across every state you serve.",
+    title: "Your state's rules, enforced at the pool",
+    body: "Every state that has a commercial pool code is already built in — all 49 of them. Idaho and Mississippi don't have one. Your tech logs exactly what your state requires, and the app won't let them close out the job without it.",
   },
   {
     n: "02",
-    title: "Optimized Routes",
-    body: "Build efficient technician schedules, reduce drive time, and keep every recurring stop on track.",
+    title: "Routes ordered by real drive time",
+    body: "One tap reorders the day using actual driving times on real roads, not straight lines across a map. Back-to-back stops end up actually being back-to-back.",
   },
   {
     n: "03",
-    title: "Recurring Service Plans",
-    body: "Set weekly, biweekly, and custom service frequencies once — then keep work flowing automatically.",
+    title: "Arrival that logs itself",
+    body: "The app records arrival when your tech reaches the pool — phone in the pocket, screen off, app in the background. No clocking in, no rounding up, no arguing about it later.",
   },
   {
     n: "04",
-    title: "Digital Field Reports",
-    body: "Record readings, chemicals, photos, repairs, notes, and sign-offs from the property.",
+    title: "Proof every visit happened",
+    body: "Photos are taken in the app, timestamped and geotagged where they were shot — not pulled from a camera roll. The app even flags a blurry one before your tech walks away from the pool.",
   },
   {
     n: "05",
-    title: "Live Operations View",
-    body: "See completed work, upcoming stops, and overdue tasks across the whole team at a glance.",
+    title: "Exactly how much to add",
+    body: "Enter today's reading and get the dose, off Taylor's published numbers — chlorine, alkalinity, cyanuric acid, calcium hardness, salt. Running a tablet feeder? It counts the days until your next visit so you're not guessing how many to leave.",
   },
   {
     n: "06",
-    title: "Customer Portal",
-    body: "Give clients self-service access to reports, service history, and updates — shown under your own logo and colors, not ours.",
+    title: "A portal for your customers",
+    body: "Every customer gets their own login: the day's readings, what was dosed, the photos, and the whole history as a CSV. On White Label it carries your logo instead of ours.",
   },
 ];
 
@@ -44,34 +44,43 @@ const WORKFLOW_STEPS = [
   {
     n: "01",
     role: "Operations",
-    body: "Build schedules, assign routes, and identify exceptions before the day starts.",
+    body: "Build the day, assign it, and see the problems before anyone leaves the yard.",
   },
   {
     n: "02",
     role: "Technicians",
-    body: "Follow the route, complete the checklist, and document work at the property.",
+    body: "Work the route, log the readings, shoot the photos — all from the pool deck.",
   },
   {
     n: "03",
     role: "Management",
-    body: "Review completion, resolve issues, and maintain a reliable history across every account.",
+    body: "See what got done, what got skipped, and what's still open across every account.",
   },
   {
     n: "04",
     role: "Customers",
-    body: "Access service documentation and updates without waiting for a call or email.",
+    body: "Read today's report without calling you to ask whether anybody showed up.",
   },
 ];
 
 export const metadata: Metadata = {
-  title: "AquaRunner 24/7 — Simple pricing for pool operators",
+  title: "AquaRunner 24/7 — Pool service software for every pool you run",
   description:
-    "No per-pool fees, ever. A QR code on every pool and compliance logs built for your state put the record in an inspector's hands on site. Join the waitlist.",
+    "Residential and commercial pools on one account, with no per-pool fees. A QR code on every body of water and compliance logs built for your state put the record in an inspector's hands on site. Join the waitlist.",
   openGraph: {
-    title: "AquaRunner 24/7 — Simple pricing for pool operators",
+    title: "AquaRunner 24/7 — Pool service software for every pool you run",
     description:
-      "No per-pool fees, ever. State-specific compliance and a QR code on every pool, built by real pool service professionals in Las Vegas, Nevada.",
+      "One company. Every pool. One app. Residential and commercial in one account, state-specific compliance, and a QR code on every pool — built by real pool service professionals in Las Vegas, Nevada.",
     type: "website",
+    url: "/",
+    siteName: "AquaRunner 24/7",
+    images: [{ url: "/og/home.png", width: 1200, height: 630, alt: "AquaRunner 24/7 — One company. Every pool. One app." }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AquaRunner 24/7 — Pool service software for every pool you run",
+    description: "One company. Every pool. One app. Residential and commercial in one account, state-specific compliance, and a QR code on every pool — built by real pool service professionals in Las Vegas, Nevada.",
+    images: ["/og/home.png"],
   },
 };
 
@@ -92,16 +101,19 @@ export default function Home() {
               <div className={styles.heroCopy}>
                 <p className={`${styles.eyebrow} ${styles.heroEyebrow}`}>
                   <span className={styles.heroDot} aria-hidden="true" />
-                  In development — built by real pool service professionals, not programmers
+                  Built by pool professionals in Las Vegas, Nevada
                 </p>
-                <h1 className={styles.displayXl}>Streamline pool operations with real-time, always-on digital access.</h1>
-                <p className={`${styles.lede} ${styles.heroSub}`}>No more paper logs. One simple price. No per-pool fees.</p>
+                <h1 className={styles.displayXl}>One company. Every pool. One app.</h1>
+                <p className={`${styles.lede} ${styles.heroSub}`}>
+                  Backyard pools and commercial properties run on the same account. AquaRunner changes the workflow
+                  to match the pool you&rsquo;re standing at — a quick chemistry check at a residential stop, the
+                  full state-required log at a commercial property.
+                </p>
 
                 <WaitlistForm label="Get on the waitlist" />
 
                 <p className={styles.heroBuilt}>
-                  Run your pool business smarter with purpose-built software for seamless operations, compliance, and
-                  growth. Built by pool professionals, for pool professionals.
+                  No per-pool fees. Ever. One flat price, every body of water you service.
                 </p>
               </div>
 
@@ -122,16 +134,16 @@ export default function Home() {
           <div className={styles.wrap}>
             <div className={styles.heroStrip}>
               <div>
-                <p className={styles.heroStripLeadText}>
-                  <b>One dedicated QR code for each body of water:</b> Designed to be printed, laminated and
-                  displayed in the pump room.
-                </p>
+                <b>Residential and commercial, one account</b>
+                A backyard route and a hotel property don&rsquo;t need two subscriptions.
               </div>
               <div>
-                <b>Each code provides instant access to digital logs and historical records.</b>
+                <b>A QR code on every body of water</b>
+                Print it, laminate it, hang it in the pump room. Anyone who scans it sees the current record.
               </div>
               <div>
-                <b>Eliminating paper binders and making inspection preparation faster, easier, and more organized.</b>
+                <b>Your state&rsquo;s rules, already built in</b>
+                Technicians log exactly what your state requires — they can&rsquo;t close out the job without it.
               </div>
             </div>
           </div>
@@ -141,22 +153,20 @@ export default function Home() {
         <section className={`${styles.onInk} ${styles.band}`}>
           <div className={`${styles.wrap} ${styles.bandGrid}`}>
             <p className={styles.bandQuote}>
-              When you need more than a skimmer — dive deeper with AquaRunner 24/7. It&rsquo;s what&rsquo;s below the
-              surface that matters.
+              Anyone can say the pool was serviced today. AquaRunner is how you prove it.
             </p>
             <div className={styles.bandSide}>
               <p>
-                <strong>Prove your pool is safe, every day:</strong> Track what matters most — water quality,
-                maintenance checks, and compliance records — in one simple tool. Built by pool professionals for
-                real-world operations, AquaRunner makes it easier to keep pools safe, stay accountable, and prove
-                every check was completed.
+                Readings, photos, doses, and the checklist are captured at the pool and timestamped as they&rsquo;re
+                entered. When a customer asks, a property manager asks, or an inspector asks, the answer is already
+                on file — you&rsquo;re not reconstructing it from memory and a glovebox full of paper.
               </p>
-              <p>It&rsquo;s in final development now. Join the waitlist for priority access.</p>
+              <p>AquaRunner is in final development. Join the waitlist for first access.</p>
             </div>
           </div>
         </section>
 
-        {/* ---------- core capability grid ---------- */}
+        {/* ---------- residential + commercial ---------- */}
         <section className={`${styles.onFoam} ${styles.sec}`}>
           <div className={styles.wrap}>
             <div className={styles.secHead}>
@@ -164,29 +174,45 @@ export default function Home() {
                 01
               </span>
               <div className={styles.secHeadText}>
-                <p className={styles.eyebrow}>Built for commercial pool operations</p>
-                <h2 className={styles.displayL}>One system for every route, record, and requirement.</h2>
+                <p className={styles.eyebrow}>Residential. Commercial. Both.</p>
+                <h2 className={styles.displayL}>Every pool you service, in one account.</h2>
               </div>
             </div>
 
-            <p className={`${styles.lede} ${styles.ledeWide}`}>
-              AquaRunner connects field technicians, office teams, and customer records in one operational
-              platform — so every service visit is scheduled, documented, and ready for review.
-            </p>
+            <div className={styles.diffTwo}>
+              <div className={styles.coreCard}>
+                <span className={styles.coreCardNum}>Residential</span>
+                <h3>Run the route and get out</h3>
+                <p>
+                  Backyard pools get the light version — only the readings you actually take on a residential stop,
+                  and the things that matter when you pull up: the gate code, where to park, and whether there&rsquo;s
+                  a dog back there before your tech opens the side gate. Finish the stop and the customer gets a clean
+                  emailed report with photos.
+                </p>
+              </div>
 
-            <div className={styles.coreGrid}>
-              {CORE_CAPABILITIES.map((c) => (
-                <div className={styles.coreCard} key={c.n}>
-                  <span className={styles.coreCardNum}>{c.n}</span>
-                  <h3>{c.title}</h3>
-                  <p>{c.body}</p>
-                </div>
-              ))}
+              <div className={styles.coreCard}>
+                <span className={styles.coreCardNum}>Commercial</span>
+                <h3>Prove every visit</h3>
+                <p>
+                  Commercial properties get the property manager and the maintenance contact, every body of water on
+                  the site as its own record, the chemistry your state requires, the equipment and drain-cover
+                  details, and the QR code for the pump room. Same login, same app — it just asks for more, because
+                  the county does.
+                </p>
+              </div>
             </div>
+
+            <p className={styles.featFoot}>
+              <strong>Most companies do some of both.</strong>{" "}
+              <span className={styles.muted}>
+                That&rsquo;s one subscription, not two — and one place to look when a customer calls.
+              </span>
+            </p>
           </div>
         </section>
 
-        {/* ---------- compliance spotlight ---------- */}
+        {/* ---------- what nothing else does ---------- */}
         <section className={`${styles.onInk} ${styles.sec}`}>
           <div className={styles.wrap}>
             <div className={styles.secHead}>
@@ -194,22 +220,22 @@ export default function Home() {
                 02
               </span>
               <div className={styles.secHeadText}>
-                <p className={styles.eyebrow}>Compliance, built into the workflow</p>
-                <h2 className={styles.displayL}>STATE SPECIFIC RECORDS — ALWAYS INSPECTION READY</h2>
+                <p className={styles.eyebrow}>What nothing else does</p>
+                <h2 className={styles.displayL}>An inspector walks up. Everything they need is already on the wall.</h2>
               </div>
             </div>
 
             <div className={styles.diffLead}>
               <p className={styles.lede}>
-                Compliance doesn&rsquo;t belong in scattered spreadsheets, buried texts, or fading paper logs.
-                AquaRunner brings requirements, service histories, and chemical records into one property-centered
-                system — built around the regulations your state actually enforces.
+                AquaRunner was built around two simple things: a QR code for every body of water, and compliance
+                rules already set for your state. Together they replace the binder, the water-stained logs, and the
+                call back to the office.
               </p>
               <ul className={`${styles.diffAside} ${styles.proofList}`}>
-                <li>State-specific requirements organized at the property level</li>
-                <li>Time-stamped chemical and inspection records</li>
-                <li>Clear visibility into missing documentation</li>
-                <li>A complete, searchable service history when an inspector asks</li>
+                <li>Every pool, spa, splash pad, and fountain gets its own record and its own code</li>
+                <li>Time-stamped chemical and inspection records, kept by body of water</li>
+                <li>Missing documentation is visible before an inspector finds it</li>
+                <li>A complete, searchable, downloadable history when someone asks</li>
               </ul>
             </div>
 
@@ -232,27 +258,25 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ---------- field-to-office workflow ---------- */}
-        <section className={`${styles.onFoam} ${styles.sec}`}>
+        {/* ---------- core capability grid ---------- */}
+        <section className={styles.sec}>
           <div className={styles.wrap}>
             <div className={styles.secHead}>
               <span className={styles.secNum} aria-hidden="true">
                 03
               </span>
               <div className={styles.secHeadText}>
-                <p className={styles.eyebrow}>End to end</p>
-                <h2 className={styles.displayL}>From the first stop to the final report, everyone stays aligned.</h2>
+                <p className={styles.eyebrow}>The rest of the job</p>
+                <h2 className={styles.displayL}>Everything the day actually needs.</h2>
               </div>
             </div>
 
-            <div className={styles.workflowSteps}>
-              {WORKFLOW_STEPS.map((step) => (
-                <div className={styles.workflowStep} key={step.n}>
-                  <span className={styles.workflowStepNum} aria-hidden="true">
-                    {step.n}
-                  </span>
-                  <h3>{step.role}</h3>
-                  <p>{step.body}</p>
+            <div className={styles.coreGrid}>
+              {CORE_CAPABILITIES.map((c) => (
+                <div className={styles.coreCard} key={c.n}>
+                  <span className={styles.coreCardNum}>{c.n}</span>
+                  <h3>{c.title}</h3>
+                  <p>{c.body}</p>
                 </div>
               ))}
             </div>
@@ -268,7 +292,7 @@ export default function Home() {
               </span>
               <div className={styles.secHeadText}>
                 <p className={styles.eyebrow}>In the field</p>
-                <h2 className={styles.displayL}>BUILT BY POOL PROFESSIONALS — FOR POOL PROFESSIONALS</h2>
+                <h2 className={styles.displayL}>Built for a phone, in the sun, with one hand free.</h2>
               </div>
             </div>
 
@@ -286,10 +310,27 @@ export default function Home() {
 
               <AppPreview />
             </div>
+
+            <p className={`${styles.lede} ${styles.ledeWide}`}>
+              Mechanical rooms and walled backyards don&rsquo;t always have service. Readings, photos, and doses
+              queue on the phone and sync the second a signal comes back — nothing lost, nothing typed twice.
+            </p>
+
+            <div className={styles.workflowSteps}>
+              {WORKFLOW_STEPS.map((step) => (
+                <div className={styles.workflowStep} key={step.n}>
+                  <span className={styles.workflowStepNum} aria-hidden="true">
+                    {step.n}
+                  </span>
+                  <h3>{step.role}</h3>
+                  <p>{step.body}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* ---------- testimonial ---------- */}
+        {/* ---------- why we built this ---------- */}
         <section className={`${styles.onInk} ${styles.sec} ${styles.quote}`}>
           <div className={styles.quoteBg} aria-hidden="true">
             <Image
@@ -305,17 +346,18 @@ export default function Home() {
             <div className={styles.quoteGrid}>
               <blockquote>
                 <p>&ldquo;Paper logs are a thing of the past. It&rsquo;s a godsend, really.&rdquo;</p>
-                <cite>Owner, AquaRunner 24/7 — Las Vegas, NV</cite>
+                <cite>Why we built this — the owner, AquaRunner 24/7, Las Vegas</cite>
               </blockquote>
               <div className={styles.quoteRest}>
                 <p>
-                  &ldquo;We wanted a way to make our techs&rsquo; lives easier. Now we satisfy inspectors with a clean,
-                  easy way to view pool reports, and customers get a comprehensive report via email for every service
-                  call, including photos.
+                  We run a commercial pool service company here in Las Vegas. We built AquaRunner for our own techs
+                  first, because we wanted a way to make their lives easier — and because we were tired of hunting
+                  through a binder every time an inspector pulled up.
                 </p>
                 <p>
-                  Not to mention easier than ever route scheduling, with automatic suggestions on which tech and route
-                  to place any new customer on.&rdquo;
+                  Now inspectors get a clean way to view pool reports, customers get a full report by email after
+                  every service call with photos attached, and scheduling suggests which tech and which route a new
+                  customer belongs on. Every feature in here exists because a day in the field demanded it.
                 </p>
               </div>
             </div>
@@ -349,7 +391,7 @@ export default function Home() {
                 <ul className={styles.ctaList}>
                   <li>First access to the 14-day free trial at launch.</li>
                   <li>No per-pool fees. Ever.</li>
-                  <li>Built by people who service commercial pools every day.</li>
+                  <li>Built by people who service pools every day.</li>
                 </ul>
               </div>
 

@@ -8,7 +8,7 @@ export default async function BillingExpiredPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16 text-center">
-      <p className="text-sm font-medium uppercase tracking-wide text-brand-primary">AquaRunner 24/7 Pro</p>
+      <p className="text-sm font-medium uppercase tracking-wide text-brand-primary">AquaRunner 24/7</p>
       <h1 className="mt-2 text-2xl font-semibold text-brand-ink">Subscription ended</h1>
       {appUser.role === "ADMIN" ? (
         <>
