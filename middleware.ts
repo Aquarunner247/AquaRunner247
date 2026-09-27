@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 /**
@@ -59,6 +59,28 @@ function buildCsp(nonce: string): string {
   ].join("; ");
 }
 
+/**
+ * Paths with no signed-in user to refresh. updateSession() below calls
+ * supabase.auth.getUser(), which is a network round trip to the Supabase Auth server on
+ * every request -- worth paying on an authenticated screen, pure latency on a public one.
+ * The marketing pages alone took ~1,500 of those in a day, and /p/ is the inspector record
+ * an inspector scans on site, where it was adding a round trip for a page that has no
+ * session at all.
+ *
+ * Deliberately a denylist of known-public paths rather than an allowlist of authenticated
+ * ones: forgetting to list a public path here only leaves it unoptimised, whereas forgetting
+ * to list an authenticated path in an allowlist would stop its session refreshing. /login,
+ * /signup, /auth/callback, /portal and every /api route are all left to updateSession, since
+ * they read or refresh the session even when nobody is signed in yet.
+ */
+const PUBLIC_EXACT_PATHS = new Set(["/", "/robots.txt", "/sitemap.xml", "/sw.js", "/manifest.webmanifest"]);
+const PUBLIC_PATH_PREFIXES = ["/features", "/for-property-managers", "/pricing", "/privacy", "/terms", "/p/", "/og/"];
+
+function needsSessionRefresh(pathname: string): boolean {
+  if (PUBLIC_EXACT_PATHS.has(pathname)) return false;
+  return !PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 export async function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csp = buildCsp(nonce);
@@ -66,7 +88,12 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
 
-  const response = await updateSession(request, requestHeaders);
+  // CSP is applied either way -- skipping the session refresh must not skip the header, or
+  // the marketing pages would quietly lose their Content-Security-Policy.
+  const response = needsSessionRefresh(request.nextUrl.pathname)
+    ? await updateSession(request, requestHeaders)
+    : NextResponse.next({ request: { headers: requestHeaders } });
+
   response.headers.set("Content-Security-Policy", csp);
   return response;
 }

@@ -49,37 +49,62 @@ export async function ensureVisitsGeneratedForDate(organizationId: string, ymd: 
   });
   if (!routes.length) return;
 
-  for (const route of routes) {
-    for (const stop of route.stops) {
-      if (!stop.bodyOfWaterId) continue; // visits require a body of water
+  // Visits require a body of water.
+  const candidates = routes.flatMap((route) =>
+    route.stops.filter((stop) => stop.bodyOfWaterId != null).map((stop) => ({ route, stop })),
+  );
+  if (!candidates.length) return;
 
-      const existing = await prisma.serviceVisit.findFirst({
-        where: {
-          recurringStopId: stop.id,
-          scheduledStart: { gte: dayStart, lt: dayEnd },
-        },
-        select: { id: true },
-      });
-      if (existing) continue;
+  // One existence query for the whole day, not one per stop. This used to loop with an
+  // awaited findFirst (and then an awaited create) inside it, so a technician's 11-stop
+  // Monday cost 11 sequential round trips through the pooler before the page could render --
+  // every single load, since this runs on each schedule view. The week tab called the whole
+  // function seven times over, so ~77. Individually the queries are ~1ms; it's the serial
+  // round-trip latency that was being paid.
+  // Read-then-write, serialized per (org, day) by a transaction-scoped advisory lock.
+  //
+  // The check and the insert are not atomic, so two overlapping calls for the same day -- a
+  // technician opening their schedule while an admin views the same date, entirely normal --
+  // can both see "nothing generated" and both insert. The previous per-stop loop had the same
+  // race but interleaved, so one caller usually started seeing the other's rows partway
+  // through; batching removes that accidental interleaving and would let both insert the full
+  // set, i.e. every stop duplicated on the technician's day.
+  //
+  // There's no unique constraint on (recurringStopId, scheduledStart) to lean on, so
+  // createMany's skipDuplicates has nothing to match and can't help here. The lock costs one
+  // extra statement and is released on commit; adding that unique index would make this
+  // robust without the lock, and is the better long-term fix.
+  const lockKey = `aquarunner:visit-generation:${organizationId}:${ymd}`;
 
-      // dayStart is already the correct UTC instant for local midnight (see
-      // localDayBounds) -- offsetting it with .getTime() arithmetic, not .setHours(),
-      // keeps that instant intact instead of reinterpreting it in the server's own
-      // (UTC) clock.
-      const scheduledStart = new Date(dayStart.getTime() + (stop.etaOffsetMinutes ?? 0) * 60_000);
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
 
-      await prisma.serviceVisit.create({
-        data: {
-          organizationId,
-          propertyId: stop.propertyId,
-          bodyOfWaterId: stop.bodyOfWaterId,
-          technicianId: route.technicianId,
-          recurringStopId: stop.id,
-          routeSequence: stop.sortOrder,
-          scheduledStart,
-          status: "SCHEDULED",
-        },
-      });
-    }
-  }
+    const existing = await tx.serviceVisit.findMany({
+      where: {
+        recurringStopId: { in: candidates.map(({ stop }) => stop.id) },
+        scheduledStart: { gte: dayStart, lt: dayEnd },
+      },
+      select: { recurringStopId: true },
+    });
+    const alreadyGenerated = new Set(existing.map((visit) => visit.recurringStopId));
+
+    const missing = candidates.filter(({ stop }) => !alreadyGenerated.has(stop.id));
+    if (!missing.length) return;
+
+    await tx.serviceVisit.createMany({
+      data: missing.map(({ route, stop }) => ({
+        organizationId,
+        propertyId: stop.propertyId,
+        bodyOfWaterId: stop.bodyOfWaterId!,
+        technicianId: route.technicianId,
+        recurringStopId: stop.id,
+        routeSequence: stop.sortOrder,
+        // dayStart is already the correct UTC instant for local midnight (see localDayBounds)
+        // -- offsetting it with .getTime() arithmetic, not .setHours(), keeps that instant
+        // intact instead of reinterpreting it in the server's own (UTC) clock.
+        scheduledStart: new Date(dayStart.getTime() + (stop.etaOffsetMinutes ?? 0) * 60_000),
+        status: "SCHEDULED" as const,
+      })),
+    });
+  });
 }

@@ -1,8 +1,26 @@
+import { cache } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 
-async function lookupAppUser() {
+/**
+ * Memoized per request with React's cache(), because this is the most-called function in the
+ * app (78 modules) and it is not cheap: supabase.auth.getUser() is a network round trip to
+ * the Supabase Auth server on every call -- it re-validates the JWT rather than trusting the
+ * cookie -- followed by a Prisma User lookup (two, when the authUserId miss falls through to
+ * email).
+ *
+ * Without this, one dashboard navigation paid for it twice over: app/dashboard/layout.tsx
+ * and the page beneath it each call getCurrentAppUser independently, so the same user was
+ * fetched and re-validated twice while rendering a single screen. That showed up in
+ * Postgres as ~36k auth session lookups against a far smaller number of page views.
+ *
+ * cache() dedupes only within a single server request, which is exactly the desired scope --
+ * nothing is shared between users or across requests, so there is no staleness window: a
+ * change to the user's row is picked up by the next request either way. The middleware's own
+ * getUser() call can't be deduped from here (separate runtime, before rendering starts).
+ */
+const lookupAppUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -10,7 +28,7 @@ async function lookupAppUser() {
 
   if (!user) return null;
   return getAppUserForAuthUser(user);
-}
+});
 
 // A DB error here (e.g. the connection pool momentarily maxed out under load -- see the
 // pool-sizing comment in lib/prisma.ts) is indistinguishable from "not staff" to a caller
