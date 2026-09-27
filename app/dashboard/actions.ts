@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { timeZoneForState, ymdInTimeZone, localDayBounds } from "@/lib/timezone";
 
 export async function signOut() {
   const supabase = await createClient();
@@ -47,9 +48,29 @@ export async function addAdHocStop(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
   if (!description) return;
 
+  // The form posts the org-local day being viewed as "YYYY-MM-DD". It has to be resolved
+  // through localDayBounds in the ORG's zone -- the same conversion every read of these rows
+  // uses (admin-schedule.tsx, schedule/page.tsx) -- and NOT via
+  // `new Date("<ymd>T00:00:00")`, which has no zone suffix and so parses in the SERVER's
+  // zone: always UTC on Vercel. That stored midnight UTC, which for any org behind UTC falls
+  // inside the PREVIOUS local day's bounds, so every extra stop appeared a day early (a
+  // Nevada org adding one for Saturday saw it on Friday, or not at all if they only checked
+  // the day they picked). Exactly the failure ensureVisitsGeneratedForDate's doc comment
+  // describes fixing for visit generation; this call site was left behind.
+  const org = await prisma.organization.findUnique({
+    where: { id: appUser.organizationId },
+    select: { state: true },
+  });
+  const timeZone = timeZoneForState(org?.state);
+
   const scheduledDateRaw = String(formData.get("scheduledDate") ?? "").trim();
-  const scheduledDate = scheduledDateRaw ? new Date(`${scheduledDateRaw}T00:00:00`) : new Date();
-  if (Number.isNaN(scheduledDate.getTime())) return;
+  // A malformed value is rejected rather than quietly falling back to today, which would
+  // put the stop on a day nobody asked for. Empty means "no date posted" -> the org's today.
+  if (scheduledDateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDateRaw)) return;
+  const scheduledYmd = scheduledDateRaw || ymdInTimeZone(new Date(), timeZone);
+
+  const { start: dayStart, end: dayEnd } = localDayBounds(scheduledYmd, timeZone);
+  const scheduledDate = dayStart;
 
   const propertyIdRaw = String(formData.get("propertyId") ?? "").trim();
   let propertyId: string | null = null;
@@ -83,18 +104,17 @@ export async function addAdHocStop(formData: FormData) {
   // (see AdHocStop.routeSequence's own doc comment).
   let routeSequence: number | null = null;
   if (technicianId) {
-    const dayStart = new Date(scheduledDate);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(scheduledDate);
-    dayEnd.setHours(23, 59, 59, 999);
-
+    // dayStart/dayEnd come from localDayBounds above (org zone, end exclusive). This used to
+    // bracket the day with .setHours() on the server's own clock, which is the same
+    // wrong-zone window as the bug fixed above -- it counted a day 7h offset from the one
+    // the stop was being added to.
     const [maxVisitSeq, maxAdHocSeq] = await Promise.all([
       prisma.serviceVisit.aggregate({
-        where: { organizationId: appUser.organizationId, technicianId, scheduledStart: { gte: dayStart, lte: dayEnd } },
+        where: { organizationId: appUser.organizationId, technicianId, scheduledStart: { gte: dayStart, lt: dayEnd } },
         _max: { routeSequence: true },
       }),
       prisma.adHocStop.aggregate({
-        where: { organizationId: appUser.organizationId, technicianId, scheduledDate: { gte: dayStart, lte: dayEnd } },
+        where: { organizationId: appUser.organizationId, technicianId, scheduledDate: { gte: dayStart, lt: dayEnd } },
         _max: { routeSequence: true },
       }),
     ]);
