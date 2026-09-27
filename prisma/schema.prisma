@@ -1161,6 +1161,14 @@ model RecurringRoute {
   /// assignment via addRouteStop.
   maxCapacity Int?
 
+  /// Service window, as calendar dates (@db.Date, no time-of-day — a route starts on a
+  /// day, not at an instant, and storing a timestamp would drift across time zones).
+  /// Both bounds are inclusive. startsOn null = no start bound, endsOn null = runs
+  /// forever. Enforced in ensureVisitsGeneratedForDate, which won't create a visit for a
+  /// date outside the window, and honored by the schedule month projection.
+  startsOn DateTime? @db.Date
+  endsOn   DateTime? @db.Date
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

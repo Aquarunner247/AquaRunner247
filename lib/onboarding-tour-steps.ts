@@ -56,9 +56,14 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
       optional: true,
     },
     {
+      target: "routes-view-toggle",
+      title: "List or Week",
+      body: "List is where you build and edit a route's stops. Week lays all seven days out side by side so you can see how the work is spread across your techs — click any day there to come back here and edit it. The filters below apply to both.",
+    },
+    {
       target: "routes-add-form",
       title: "Add a route",
-      body: "A route is one technician's day: pick the weekday, how often it repeats, and who runs it. One route per tech per weekday. Once it exists you'll set its stops and its stop limit on the route itself, just below.",
+      body: "A route is one technician's day: pick the weekday, who runs it, and optionally the dates it starts and stops running — leave the end date blank to run indefinitely. Routes repeat weekly. Once it exists you'll set its stops and its stop limit on the route itself, just below.",
     },
     {
       target: "routes-stop-list",
@@ -172,6 +177,11 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
     },
   ],
   "/dashboard/schedule": [
+    {
+      target: "admin-schedule-tabs",
+      title: "Day, Week, Month, Map or List",
+      body: "Month is the overview — the whole month's workload at a glance, with each day clickable. Days nobody has opened yet show a projection from your weekly route template, marked with a dot, since their visits aren't created until the day is opened.",
+    },
     {
       target: "admin-schedule-tech-filter",
       title: "View one technician or all of them",

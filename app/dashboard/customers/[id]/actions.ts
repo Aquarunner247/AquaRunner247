@@ -17,6 +17,8 @@ import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
 import { parseFormNumber as numOrNull } from "@/lib/form-utils";
 import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
 import { createPayRateRow } from "@/lib/technician-pay";
+import { routeStillRunsFilter } from "@/lib/route-projection";
+import { timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -1343,8 +1345,22 @@ export async function assignNewCustomerToRoute(formData: FormData) {
   });
   if (!body) return;
 
+  // Mirrors the suggest endpoint's candidate filter: a route whose endsOn has passed will
+  // never generate another visit, so assigning a customer to it would silently give them no
+  // service at all.
+  const routeOrg = await prisma.organization.findUnique({
+    where: { id: appUser.organizationId },
+    select: { state: true },
+  });
+  const routeTodayYmd = ymdInTimeZone(new Date(), timeZoneForState(routeOrg?.state));
+
   const route = await prisma.recurringRoute.findFirst({
-    where: { id: routeId, organizationId: appUser.organizationId, active: true },
+    where: {
+      id: routeId,
+      organizationId: appUser.organizationId,
+      active: true,
+      ...routeStillRunsFilter(routeTodayYmd),
+    },
     select: { id: true, dayOfWeek: true, maxCapacity: true },
   });
   if (!route) return;

@@ -3,9 +3,15 @@ import { localDayBounds, isoWeekdayOfYmd } from "@/lib/timezone";
 
 /**
  * Ensures a ServiceVisit exists for every active route stop scheduled to run
- * on the given calendar day, for the given organization. Idempotent — safe to call
+ * on the given calendar day, for the given organization, skipping any route whose
+ * startsOn/endsOn service window doesn't cover that date. Idempotent — safe to call
  * on every dashboard load; it only creates visits that don't already exist
  * for that recurringStopId + day.
+ *
+ * Note it does NOT read RecurringRoute.frequency: a BIWEEKLY or CUSTOM route still
+ * generates every matching weekday, exactly as WEEKLY does. That predates the service
+ * window and is unchanged here -- see the note in lib/dosing-calculator.ts's
+ * daysUntilNextVisit, which relies on the same "every week regardless" behavior.
  *
  * `ymd` ("YYYY-MM-DD") + `timeZone` are the org's own local calendar day, resolved by the
  * caller (e.g. via ymdInTimeZone(new Date(), timeZoneForState(org.state))) -- this function
@@ -21,8 +27,24 @@ export async function ensureVisitsGeneratedForDate(organizationId: string, ymd: 
   const { start: dayStart, end: dayEnd } = localDayBounds(ymd, timeZone);
   const isoWeekday = isoWeekdayOfYmd(ymd);
 
+  // A route only runs inside its service window. Both bounds are inclusive and either may
+  // be null (no start bound / never ends). startsOn and endsOn are @db.Date, so Prisma
+  // hands them back as UTC midnight of that calendar date -- compared against the same
+  // representation of `ymd`, NOT against dayStart, which is local midnight expressed as a
+  // UTC instant and would be off by the org's offset (enough to include or exclude a whole
+  // boundary day).
+  const ymdUtcMidnight = new Date(`${ymd}T00:00:00.000Z`);
+
   const routes = await prisma.recurringRoute.findMany({
-    where: { organizationId, active: true, dayOfWeek: isoWeekday },
+    where: {
+      organizationId,
+      active: true,
+      dayOfWeek: isoWeekday,
+      AND: [
+        { OR: [{ startsOn: null }, { startsOn: { lte: ymdUtcMidnight } }] },
+        { OR: [{ endsOn: null }, { endsOn: { gte: ymdUtcMidnight } }] },
+      ],
+    },
     include: { stops: { orderBy: { sortOrder: "asc" } } },
   });
   if (!routes.length) return;

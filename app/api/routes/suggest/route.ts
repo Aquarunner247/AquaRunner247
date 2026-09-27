@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { prisma } from "@/lib/prisma";
 import { suggestRouteForNewCustomer, type CandidateRouteInput } from "@/lib/route-suggestion";
+import { routeStillRunsFilter } from "@/lib/route-projection";
+import { timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 
 type SuggestPayload = { propertyId?: string };
 
@@ -25,8 +27,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ suggestions: [], reason: "NOT_GEOCODED" });
   }
 
+  // A route whose service window has closed can never take another visit, so it's not a
+  // candidate -- judged against the org's own local date, not the server's.
+  const org = await prisma.organization.findUnique({
+    where: { id: appUser.organizationId },
+    select: { state: true },
+  });
+  const todayYmd = ymdInTimeZone(new Date(), timeZoneForState(org?.state));
+
   const routes = await prisma.recurringRoute.findMany({
-    where: { organizationId: appUser.organizationId, active: true },
+    where: { organizationId: appUser.organizationId, active: true, ...routeStillRunsFilter(todayYmd) },
     include: {
       technician: { select: { name: true, email: true } },
       stops: {

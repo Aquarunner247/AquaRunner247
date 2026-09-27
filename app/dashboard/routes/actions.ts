@@ -17,6 +17,23 @@ async function requireAdmin() {
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
+/**
+ * Parses a <input type="date"> value ("YYYY-MM-DD") into the UTC-midnight Date a @db.Date
+ * column round-trips as. Anchoring at UTC rather than `new Date("2026-03-01")`-in-local
+ * keeps the stored day equal to the day that was typed regardless of server time zone.
+ * Returns null for an empty field, which is the meaningful "no bound" value for both
+ * startsOn (no start) and endsOn (never ends) -- so a bad value is rejected by the caller
+ * rather than silently becoming "unbounded".
+ */
+function parseDateFieldOrNull(raw: string): { ok: true; value: Date | null } | { ok: false } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: true, value: null };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return { ok: false };
+  const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return { ok: false };
+  return { ok: true, value: parsed };
+}
+
 export async function createRoute(formData: FormData) {
   const appUser = await requireAdmin();
   const technicianId = String(formData.get("technicianId") ?? "").trim();
@@ -33,6 +50,11 @@ export async function createRoute(formData: FormData) {
     ? (frequencyRaw as ScheduleFrequency)
     : ScheduleFrequency.WEEKLY;
 
+  const startsOn = parseDateFieldOrNull(String(formData.get("startsOn") ?? ""));
+  const endsOn = parseDateFieldOrNull(String(formData.get("endsOn") ?? ""));
+  if (!startsOn.ok || !endsOn.ok) return;
+  if (startsOn.value && endsOn.value && endsOn.value < startsOn.value) return;
+
   if (technicianId) {
     const tech = await prisma.user.findFirst({
       where: { id: technicianId, organizationId: appUser.organizationId },
@@ -48,6 +70,8 @@ export async function createRoute(formData: FormData) {
       technicianId: technicianId || null,
       dayOfWeek,
       frequency,
+      startsOn: startsOn.value,
+      endsOn: endsOn.value,
       active: true,
     },
   });
@@ -129,6 +153,43 @@ export async function updateRouteCapacity(formData: FormData) {
   revalidatePath("/dashboard/routes");
 }
 
+/**
+ * Sets the route's service window. An empty "starts on" means no start bound, an empty
+ * "ends on" means it never ends -- both are the normal cases, so a blank field clears the
+ * bound rather than being rejected.
+ *
+ * Changing the window doesn't touch visits that already exist. Narrowing it stops FUTURE
+ * generation only: a date someone already loaded the schedule for has real ServiceVisit
+ * rows, and those are the service record (or a tech's assigned work), not something to
+ * silently delete here. Use the route/stop delete paths for that, which are explicit about
+ * only removing unstarted visits.
+ */
+export async function updateRouteWindow(formData: FormData) {
+  const appUser = await requireAdmin();
+  const routeId = String(formData.get("routeId") ?? "").trim();
+  if (!routeId) return;
+
+  const route = await prisma.recurringRoute.findFirst({
+    where: { id: routeId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!route) return;
+
+  const startsOn = parseDateFieldOrNull(String(formData.get("startsOn") ?? ""));
+  const endsOn = parseDateFieldOrNull(String(formData.get("endsOn") ?? ""));
+  if (!startsOn.ok || !endsOn.ok) return;
+  if (startsOn.value && endsOn.value && endsOn.value < startsOn.value) return;
+
+  await prisma.recurringRoute.update({
+    where: { id: route.id },
+    data: { startsOn: startsOn.value, endsOn: endsOn.value },
+  });
+
+  revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard/schedule");
+  revalidatePath("/dashboard");
+}
+
 export async function duplicateRoute(formData: FormData) {
   const appUser = await requireAdmin();
   const routeId = String(formData.get("routeId") ?? "").trim();
@@ -143,6 +204,8 @@ export async function duplicateRoute(formData: FormData) {
     select: {
       technicianId: true,
       frequency: true,
+      startsOn: true,
+      endsOn: true,
       stops: {
         orderBy: { sortOrder: "asc" },
         select: { propertyId: true, bodyOfWaterId: true, sortOrder: true, etaOffsetMinutes: true },
@@ -164,6 +227,8 @@ export async function duplicateRoute(formData: FormData) {
       technicianId: source.technicianId,
       dayOfWeek: targetDayOfWeek,
       frequency: source.frequency,
+      startsOn: source.startsOn,
+      endsOn: source.endsOn,
       active: true,
       stops: {
         create: source.stops.map((s) => ({

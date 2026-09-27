@@ -143,3 +143,46 @@ export function startOfWeekYmd(ymd: string): string {
   const weekday = isoWeekdayOfYmd(ymd); // Mon=1..Sun=7
   return addDaysToYmd(ymd, -(weekday - 1));
 }
+
+/** The first day ("YYYY-MM-DD") of the month containing `ymd`. */
+export function startOfMonthYmd(ymd: string): string {
+  return `${ymd.slice(0, 7)}-01`;
+}
+
+/** Number of days in the month containing `ymd`. */
+export function daysInMonthOfYmd(ymd: string): number {
+  const [year, month] = ymd.split("-").map(Number);
+  // Day 0 of the *next* month is the last day of this one, in pure UTC arithmetic.
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** Shifts by whole months from the 1st, so it never lands on a day the target month
+ * doesn't have (adding a month to Jan 31 gives Feb 1, not Mar 3). */
+export function addMonthsToYmd(ymd: string, months: number): string {
+  const [year, month] = ymd.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1 + months, 1));
+  return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * The month containing `ymd` laid out as Monday-first calendar weeks. Each row has exactly
+ * 7 slots; slots outside the month are null rather than spilling into the neighbouring
+ * month's dates, so a cell can't be clicked through to a day the grid isn't showing.
+ * Derived entirely from the calendar string, so it's timezone-independent like the rest of
+ * this file's ymd helpers.
+ */
+export function monthGridWeeks(ymd: string): (string | null)[][] {
+  const monthStart = startOfMonthYmd(ymd);
+  const dayCount = daysInMonthOfYmd(ymd);
+  const leadingBlanks = isoWeekdayOfYmd(monthStart) - 1; // Mon=1 -> 0 blanks
+
+  const slots: (string | null)[] = [
+    ...Array<null>(leadingBlanks).fill(null),
+    ...Array.from({ length: dayCount }, (_, i) => addDaysToYmd(monthStart, i)),
+  ];
+  while (slots.length % 7 !== 0) slots.push(null);
+
+  const weeks: (string | null)[][] = [];
+  for (let i = 0; i < slots.length; i += 7) weeks.push(slots.slice(i, i + 7));
+  return weeks;
+}

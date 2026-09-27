@@ -8,7 +8,18 @@ import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { addAdHocStop, toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 import { getTechnicianColorMap, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { WaveProgress } from "@/app/components/wave-progress";
-import { timeZoneForState, ymdInTimeZone, localDayBounds, addDaysToYmd, startOfWeekYmd } from "@/lib/timezone";
+import {
+  timeZoneForState,
+  ymdInTimeZone,
+  localDayBounds,
+  addDaysToYmd,
+  startOfWeekYmd,
+  startOfMonthYmd,
+  addMonthsToYmd,
+  monthGridWeeks,
+} from "@/lib/timezone";
+import { projectedStopsForYmd, type ProjectableRoute } from "@/lib/route-projection";
+import { ScheduleMonthView, type MonthDay } from "./schedule-month-view";
 
 type Props = {
   appUser: { id: string; organizationId: string };
@@ -17,7 +28,7 @@ type Props = {
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const TABS = ["day", "week", "map", "list"] as const;
+const TABS = ["day", "week", "month", "map", "list"] as const;
 type Tab = (typeof TABS)[number];
 
 // The four stat tiles double as filters -- "all" (Total Jobs) is the unfiltered default.
@@ -50,6 +61,10 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
   const statusFilter: StatusFilterValue = STATUS_FILTERS.includes((sp.status ?? "") as StatusFilterValue)
     ? ((sp.status ?? "all") as StatusFilterValue)
     : "all";
+  // Week and Month both replace the day view wholesale, so every day-scoped query below is
+  // skipped for them rather than fetched and thrown away, and the day nav / stat tiles
+  // (which describe one day) are hidden.
+  const isOverview = tab === "week" || tab === "month";
 
   // Derived directly from the query-string's own "YYYY-MM-DD" (or "today" in the org's own
   // timezone when absent) -- never round-tripped through a bare Date's .getDay()/.setHours(),
@@ -114,7 +129,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
   }
   function dayHref(ymd: string) {
     const params = new URLSearchParams();
-    params.set("tab", tab === "week" ? "day" : tab);
+    params.set("tab", isOverview ? "day" : tab);
     params.set("date", ymd);
     if (selectedTechnicianId) params.set("tech", selectedTechnicianId);
     if (selectedPropertyType) params.set("type", selectedPropertyType);
@@ -138,6 +153,10 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
   }
 
   let weekData: { ymd: string; label: string; total: number; completed: number; skipped: number }[] = [];
+  let monthWeeks: (MonthDay | null)[][] = [];
+  let monthLabel = "";
+  let prevMonthYmd = "";
+  let nextMonthYmd = "";
 
   if (tab === "week") {
     const weekStartYmd = startOfWeekYmd(selectedYmd);
@@ -168,6 +187,86 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
         skipped: dayVisits.filter((v) => v.status === "CANCELLED").length,
       };
     });
+  } else if (tab === "month") {
+    const monthStartYmd = startOfMonthYmd(selectedYmd);
+    prevMonthYmd = addMonthsToYmd(monthStartYmd, -1);
+    nextMonthYmd = addMonthsToYmd(monthStartYmd, 1);
+    monthLabel = new Date(`${monthStartYmd}T00:00:00.000Z`).toLocaleDateString(undefined, {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+
+    // Deliberately NOT calling ensureVisitsGeneratedForDate across the month: that would
+    // create a month of ServiceVisit rows as a side effect of looking at a calendar, ~30x
+    // the per-day work. Real rows where they exist, the route template's projection
+    // everywhere else -- see lib/route-projection.ts.
+    const monthStart = localDayBounds(monthStartYmd, tz).start;
+    const monthEnd = localDayBounds(nextMonthYmd, tz).start;
+
+    const [monthVisits, templateRoutes] = await Promise.all([
+      prisma.serviceVisit.findMany({
+        where: {
+          organizationId: appUser.organizationId,
+          scheduledStart: { gte: monthStart, lt: monthEnd },
+          ...(selectedTechnicianId ? { technicianId: selectedTechnicianId } : {}),
+          ...(selectedPropertyType ? { property: { propertyType: selectedPropertyType } } : {}),
+        },
+        select: { scheduledStart: true, status: true },
+      }),
+      prisma.recurringRoute.findMany({
+        where: {
+          organizationId: appUser.organizationId,
+          active: true,
+          ...(selectedTechnicianId ? { technicianId: selectedTechnicianId } : {}),
+        },
+        select: {
+          dayOfWeek: true,
+          startsOn: true,
+          endsOn: true,
+          stops: { select: { property: { select: { propertyType: true } } } },
+        },
+      }),
+    ]);
+
+    // The property-type filter has to be applied to the projection too, or filtering to
+    // COMMERCIAL would still project residential stops on unvisited days.
+    const projectable: ProjectableRoute[] = templateRoutes.map((route) => ({
+      dayOfWeek: route.dayOfWeek,
+      startsOn: route.startsOn,
+      endsOn: route.endsOn,
+      stopCount: selectedPropertyType
+        ? route.stops.filter((stop) => stop.property.propertyType === selectedPropertyType).length
+        : route.stops.length,
+    }));
+
+    const visitsByYmd = new Map<string, { total: number; completed: number; skipped: number }>();
+    for (const visit of monthVisits) {
+      const ymd = ymdInTimeZone(visit.scheduledStart, tz);
+      const bucket = visitsByYmd.get(ymd) ?? { total: 0, completed: 0, skipped: 0 };
+      bucket.total += 1;
+      if (visit.status === "COMPLETED") bucket.completed += 1;
+      if (visit.status === "CANCELLED") bucket.skipped += 1;
+      visitsByYmd.set(ymd, bucket);
+    }
+
+    monthWeeks = monthGridWeeks(monthStartYmd).map((week) =>
+      week.map((ymd) => {
+        if (ymd === null) return null;
+        const real = visitsByYmd.get(ymd);
+        const projectedTotal = projectedStopsForYmd(projectable, ymd);
+        return {
+          ymd,
+          dayOfMonth: Number(ymd.slice(8, 10)),
+          total: real ? real.total : projectedTotal,
+          completed: real?.completed ?? 0,
+          skipped: real?.skipped ?? 0,
+          projected: !real && projectedTotal > 0,
+          isToday: ymd === todayYmd,
+          isPast: ymd < todayYmd,
+        } satisfies MonthDay;
+      }),
+    );
   } else {
     await ensureVisitsGeneratedForDate(appUser.organizationId, selectedYmd, tz);
   }
@@ -177,7 +276,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
   // first so the map's per-tech polylines and the list's grouped headers are trivial
   // (each tech's stops are already a contiguous run), no client-side regrouping needed.
   const dayVisits =
-    tab === "week"
+    isOverview
       ? []
       : await prisma.serviceVisit.findMany({
           where: {
@@ -225,7 +324,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
   // than the currently-selected technician still needs to show up somewhere -- see the
   // split into assignedToSelectedTech/otherAdHocStops below).
   const [adHocStops, adHocProperties] = await Promise.all([
-    tab === "week"
+    isOverview
       ? Promise.resolve([])
       : prisma.adHocStop.findMany({
           where: { organizationId: appUser.organizationId, scheduledDate: { gte: startOfDay, lt: dayEnd } },
@@ -241,7 +340,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             technician: { select: { name: true, email: true } },
           },
         }),
-    tab === "week"
+    isOverview
       ? Promise.resolve([])
       : prisma.property.findMany({ where: { organizationId: appUser.organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
@@ -295,7 +394,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
       <header className="bg-brand-ink px-4 pb-4 pt-6">
         <h1 className="font-display text-xl font-bold uppercase tracking-wide text-white">Schedule</h1>
 
-        <div className="app-tabs mt-4 grid grid-cols-4 bg-white/10">
+        <div data-tour="admin-schedule-tabs" className="app-tabs mt-4 grid grid-cols-5 bg-white/10">
           {TABS.map((t) => (
             <Link key={t} href={tabHref(t)} className={`text-center ${tab === t ? "app-tab-active" : "app-tab text-brand-border hover:text-white"}`}>
               {t}
@@ -322,7 +421,37 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
           />
         </div>
 
-        {tab !== "week" ? (
+        {tab === "month" ? (
+          <div className="mt-4 flex items-center justify-between text-white">
+            <Link
+              href={`/dashboard/schedule?${new URLSearchParams({
+                tab: "month",
+                date: prevMonthYmd,
+                ...(selectedTechnicianId ? { tech: selectedTechnicianId } : {}),
+                ...(selectedPropertyType ? { type: selectedPropertyType } : {}),
+              }).toString()}`}
+              className="rounded px-2 py-1 text-lg transition hover:bg-white/10"
+              aria-label="Previous month"
+            >
+              ‹
+            </Link>
+            <p className="text-sm font-medium">{monthLabel}</p>
+            <Link
+              href={`/dashboard/schedule?${new URLSearchParams({
+                tab: "month",
+                date: nextMonthYmd,
+                ...(selectedTechnicianId ? { tech: selectedTechnicianId } : {}),
+                ...(selectedPropertyType ? { type: selectedPropertyType } : {}),
+              }).toString()}`}
+              className="rounded px-2 py-1 text-lg transition hover:bg-white/10"
+              aria-label="Next month"
+            >
+              ›
+            </Link>
+          </div>
+        ) : null}
+
+        {!isOverview ? (
           <div className="mt-4 flex items-center justify-between text-white">
             <Link href={dayHref(prevYmd)} className="rounded px-2 py-1 text-lg transition hover:bg-white/10" aria-label="Previous day">
               ‹
@@ -336,7 +465,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
           </div>
         ) : null}
 
-        {tab !== "week" ? (
+        {!isOverview ? (
           <div data-tour="admin-schedule-stats" className="mt-4 rounded-xl bg-white/5 p-3 text-white">
             <div className="grid grid-cols-4 gap-2 text-center">
               <Link href={statusHref("all")} className={statTileClass(statusFilter === "all")}>
@@ -366,7 +495,13 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
       </header>
 
       <div className="px-4 py-4">
-        {tab === "week" ? (
+        {tab === "month" ? (
+          <ScheduleMonthView
+            weeks={monthWeeks}
+            weekdayLabels={[1, 2, 3, 4, 5, 6, 7].map((d) => WEEKDAY_LABELS[d].slice(0, 3))}
+            dayHref={dayHref}
+          />
+        ) : tab === "week" ? (
           <div className="space-y-2">
             {weekData.map((d) => (
               <Link

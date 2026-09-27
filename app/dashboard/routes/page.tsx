@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ScheduleFrequency } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
+import { timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
 import { WaveProgress } from "@/app/components/wave-progress";
 import { RouteStopsList } from "./route-stops-list";
+import { RouteFilters } from "./route-filters";
+import { RouteWeekView } from "./route-week-view";
 import {
   createRoute,
   deleteRoute,
@@ -15,12 +17,39 @@ import {
   geocodeAllProperties,
   updateRouteTechnician,
   updateRouteCapacity,
+  updateRouteWindow,
   duplicateRoute,
 } from "./actions";
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-export default async function RoutesPage() {
+/** startsOn/endsOn are @db.Date, so they come back as UTC midnight of the calendar date
+ * that was stored. Both formatting and comparison therefore happen in UTC -- rendering
+ * them in the org's zone would show the previous day for any zone behind UTC. */
+function ymdFromDateColumn(date: Date | null): string {
+  return date ? date.toISOString().slice(0, 10) : "";
+}
+
+function formatDateColumn(date: Date): string {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+/** Plain-language service window, e.g. "Runs Mar 3 – Oct 12", "Runs from Mar 3", "Runs until
+ * Oct 12", or null when the route is unbounded in both directions (the common case, where
+ * saying "runs always" would just be noise). */
+function describeWindow(startsOn: Date | null, endsOn: Date | null): string | null {
+  if (startsOn && endsOn) return `Runs ${formatDateColumn(startsOn)} – ${formatDateColumn(endsOn)}`;
+  if (startsOn) return `Runs from ${formatDateColumn(startsOn)}`;
+  if (endsOn) return `Runs until ${formatDateColumn(endsOn)}`;
+  return null;
+}
+
+type PageProps = {
+  searchParams?: Promise<{ tech?: string; day?: string; view?: string }>;
+};
+
+export default async function RoutesPage({ searchParams }: PageProps) {
+  const sp = (await searchParams) ?? {};
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN") redirect("/dashboard");
@@ -79,6 +108,14 @@ export default async function RoutesPage() {
   const orgRuleset = await getOrganizationRuleset(appUser.organizationId);
   const allowMultipleDailyVisits = requiresMultipleDailyVisits(orgRuleset);
 
+  // "Is this route running today" is judged against the org's own local date, not the
+  // server's -- same reason ensureVisitsGeneratedForDate takes an org-resolved ymd.
+  const org = await prisma.organization.findUnique({
+    where: { id: appUser.organizationId },
+    select: { state: true },
+  });
+  const todayUtcMidnight = new Date(`${ymdInTimeZone(new Date(), timeZoneForState(org?.state))}T00:00:00.000Z`);
+
   const scheduledBodyIdsByDay = new Map<number, Set<string>>();
   for (const route of routes) {
     const day = route.dayOfWeek ?? 0;
@@ -101,6 +138,43 @@ export default async function RoutesPage() {
       allBodiesOfWater.filter((b) => !scheduledIds.has(b.id)),
     );
   }
+
+  // Filtering is applied for *rendering only* -- scheduledBodyIdsByDay and
+  // availableBodiesByRoute above are deliberately built from every route in the org, since
+  // the "already on a route this weekday" exclusion has to account for routes the current
+  // filter is hiding. Narrowing those to the visible set would start offering a venue
+  // that's already scheduled that day on someone else's route.
+  const technicianFilter = (sp.tech ?? "").trim();
+  const dayFilterRaw = (sp.day ?? "").trim();
+  const dayFilter = /^[1-7]$/.test(dayFilterRaw) ? Number(dayFilterRaw) : null;
+  const view = sp.view === "week" ? "week" : "list";
+
+  const visibleRoutes = routes.filter((route) => {
+    if (dayFilter != null && (route.dayOfWeek ?? 0) !== dayFilter) return false;
+    if (technicianFilter === "unassigned") return route.technicianId == null;
+    if (technicianFilter !== "") return route.technicianId === technicianFilter;
+    return true;
+  });
+
+  // Include any technician who owns a route but isn't in the active-user list, so their
+  // routes stay reachable from the filter instead of only via "All technicians".
+  const technicianOptions = [
+    ...users.map((u) => ({ id: u.id, label: u.name ?? u.email })),
+    ...routes
+      .filter((r) => r.technician && !users.some((u) => u.id === r.technician!.id))
+      .map((r) => ({ id: r.technician!.id, label: `${r.technician!.name ?? r.technician!.email} (inactive)` })),
+  ].filter((option, i, all) => all.findIndex((o) => o.id === option.id) === i);
+
+  const dayOptions = DAY_NAMES.slice(1).map((label, i) => ({ value: String(i + 1), label }));
+
+  const viewHref = (nextView: "week" | "list") => {
+    const params = new URLSearchParams();
+    if (nextView === "week") params.set("view", "week");
+    if (technicianFilter) params.set("tech", technicianFilter);
+    if (dayFilter != null) params.set("day", String(dayFilter));
+    const qs = params.toString();
+    return qs ? `/dashboard/routes?${qs}` : "/dashboard/routes";
+  };
 
   return (
     <main className="app-page-wide">
@@ -144,20 +218,35 @@ export default async function RoutesPage() {
         </section>
       ) : null}
 
+      <div data-tour="routes-view-toggle" className="app-tabs mt-6">
+        <Link href={viewHref("list")} className={view === "list" ? "app-tab-active" : "app-tab"}>
+          List
+        </Link>
+        <Link href={viewHref("week")} className={view === "week" ? "app-tab-active" : "app-tab"}>
+          Week
+        </Link>
+      </div>
+
+      <RouteFilters
+        technicians={technicianOptions}
+        dayOptions={dayOptions}
+        selectedTechnicianId={technicianFilter}
+        selectedDay={dayFilter != null ? String(dayFilter) : ""}
+        matchCount={visibleRoutes.length}
+        totalCount={routes.length}
+      />
+
       <form action={createRoute} data-tour="routes-add-form" className="app-card mt-6">
         <p className="text-sm font-semibold text-brand-ink">Add route</p>
-        <div className="mt-3 grid gap-2 md:grid-cols-3">
+        {/* No frequency control: BIWEEKLY/CUSTOM were inert -- visit generation ignores
+            RecurringRoute.frequency and runs every matching weekday -- so the dropdown
+            promised a cadence the app never delivered. createRoute still defaults the
+            column to WEEKLY, and routes already holding another value keep it. */}
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
           <select name="dayOfWeek" required defaultValue="1" className="app-field">
             {DAY_NAMES.slice(1).map((d, i) => (
               <option key={d} value={i + 1}>
                 {d}
-              </option>
-            ))}
-          </select>
-          <select name="frequency" defaultValue="WEEKLY" className="app-field">
-            {Object.values(ScheduleFrequency).map((f) => (
-              <option key={f} value={f}>
-                {f}
               </option>
             ))}
           </select>
@@ -170,144 +259,255 @@ export default async function RoutesPage() {
             ))}
           </select>
         </div>
+        <div className="mt-2 grid gap-2 md:grid-cols-2">
+          <div>
+            <label htmlFor="new-route-starts-on" className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+              Starting on
+            </label>
+            <input id="new-route-starts-on" name="startsOn" type="date" className="app-field mt-1" />
+          </div>
+          <div>
+            <label htmlFor="new-route-ends-on" className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+              Ending on
+            </label>
+            <input id="new-route-ends-on" name="endsOn" type="date" className="app-field mt-1" />
+            <p className="mt-1 text-xs text-brand-muted">Leave blank to never end.</p>
+          </div>
+        </div>
         <button className="app-btn-primary-sm mt-3" type="submit">
           Add route
         </button>
       </form>
 
-      <section className="mt-6 space-y-5">
-        {routes.map((route) => (
-          <div
-            key={route.id}
-            data-tour={route.id === routes[0]?.id ? "routes-stop-list" : undefined}
-            className="app-card-muted app-card-hover border-l-4 border-l-brand-primary"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-brand-border/70 pb-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-lg font-semibold text-brand-ink">{DAY_NAMES[route.dayOfWeek ?? 0]}</h2>
-                <span className="app-badge">{route.frequency}</span>
-                <form action={updateRouteTechnician}>
-                  <input type="hidden" name="routeId" value={route.id} />
-                  <InlineAssignSelect
-                    name="technicianId"
-                    defaultValue={route.technician?.id ?? ""}
-                    emptyLabel="Unassigned"
-                    options={
-                      route.technician && !users.some((u) => u.id === route.technician!.id)
-                        ? [{ value: route.technician.id, label: `${route.technician.name ?? route.technician.email} (inactive)` }, ...users.map((u) => ({ value: u.id, label: u.name ?? u.email }))]
-                        : users.map((u) => ({ value: u.id, label: u.name ?? u.email }))
+      {view === "week" ? (
+        <RouteWeekView
+          routes={visibleRoutes.map((route) => ({
+            id: route.id,
+            dayOfWeek: route.dayOfWeek,
+            frequency: route.frequency,
+            technicianLabel: route.technician ? (route.technician.name ?? route.technician.email) : null,
+            stopCount: route.stops.length,
+            maxCapacity: route.maxCapacity,
+            windowLabel: describeWindow(route.startsOn, route.endsOn),
+            outsideWindow:
+              (route.startsOn != null && route.startsOn > todayUtcMidnight) ||
+              (route.endsOn != null && route.endsOn < todayUtcMidnight),
+          }))}
+          dayNames={DAY_NAMES}
+          technicianParam={technicianFilter}
+        />
+      ) : null}
+
+      {view === "list" ? (
+        <section className="mt-6 space-y-5">
+          {visibleRoutes.map((route) => {
+            const notYetStarted = route.startsOn != null && route.startsOn > todayUtcMidnight;
+            const alreadyEnded = route.endsOn != null && route.endsOn < todayUtcMidnight;
+            const windowLabel = describeWindow(route.startsOn, route.endsOn);
+
+            return (
+            <div
+              key={route.id}
+              data-tour={route.id === visibleRoutes[0]?.id ? "routes-stop-list" : undefined}
+              className="app-card-muted app-card-hover border-l-4 border-l-brand-primary"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-brand-border/70 pb-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-display text-lg font-semibold text-brand-ink">{DAY_NAMES[route.dayOfWeek ?? 0]}</h2>
+                  <span
+                    className="app-badge"
+                    title={
+                      route.frequency === "WEEKLY"
+                        ? undefined
+                        : `Stored as ${route.frequency}, but this route still runs every ${DAY_NAMES[route.dayOfWeek ?? 0]} — visit generation doesn't read frequency.`
                     }
+                  >
+                    {route.frequency === "WEEKLY" ? route.frequency : `${route.frequency} (runs weekly)`}
+                  </span>
+                  {notYetStarted ? (
+                    <span className="app-badge" title={windowLabel ?? undefined}>
+                      Not started yet
+                    </span>
+                  ) : alreadyEnded ? (
+                    <span className="app-badge" title={windowLabel ?? undefined}>
+                      Ended
+                    </span>
+                  ) : null}
+                  <form action={updateRouteTechnician}>
+                    <input type="hidden" name="routeId" value={route.id} />
+                    <InlineAssignSelect
+                      name="technicianId"
+                      defaultValue={route.technician?.id ?? ""}
+                      emptyLabel="Unassigned"
+                      options={
+                        route.technician && !users.some((u) => u.id === route.technician!.id)
+                          ? [{ value: route.technician.id, label: `${route.technician.name ?? route.technician.email} (inactive)` }, ...users.map((u) => ({ value: u.id, label: u.name ?? u.email }))]
+                          : users.map((u) => ({ value: u.id, label: u.name ?? u.email }))
+                      }
+                    />
+                  </form>
+                  <span className="app-badge" title="Stop count used for Smart Route Placement suggestions">
+                    {route.stops.length}
+                    {route.maxCapacity != null ? `/${route.maxCapacity}` : ""} stops
+                  </span>
+                  <form
+                    action={updateRouteCapacity}
+                    data-tour={route.id === visibleRoutes[0]?.id ? "routes-capacity" : undefined}
+                    className="flex items-center gap-1"
+                  >
+                    <input type="hidden" name="routeId" value={route.id} />
+                    <input
+                      name="maxCapacity"
+                      type="number"
+                      min={0}
+                      step={1}
+                      defaultValue={route.maxCapacity ?? ""}
+                      placeholder="No limit"
+                      className="app-field w-24 py-1 text-xs"
+                    />
+                    <button type="submit" className="app-btn-secondary-sm">
+                      Save
+                    </button>
+                  </form>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <form action={duplicateRoute} className="flex items-center gap-1.5">
+                    <input type="hidden" name="routeId" value={route.id} />
+                    <select name="targetDayOfWeek" required defaultValue="" className="app-field w-auto py-1 text-xs">
+                      <option value="" disabled>
+                        Duplicate to…
+                      </option>
+                      {DAY_NAMES.slice(1).map((d, i) => (
+                        <option key={d} value={i + 1}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit" className="app-btn-secondary-sm">
+                      Duplicate
+                    </button>
+                  </form>
+                  <form action={deleteRoute} data-tour={route.id === visibleRoutes[0]?.id ? "routes-delete" : undefined}>
+                    <input type="hidden" name="routeId" value={route.id} />
+                    <ConfirmSubmitButton
+                      label="Delete route"
+                      confirmMessage="Delete this route and all its stops?"
+                      className="app-btn-danger-sm"
+                    />
+                  </form>
+                </div>
+              </div>
+
+              <form action={updateRouteWindow} className="mt-3 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="routeId" value={route.id} />
+                <div>
+                  <label
+                    htmlFor={`starts-on-${route.id}`}
+                    className="text-xs font-semibold uppercase tracking-wide text-brand-muted"
+                  >
+                    Starting on
+                  </label>
+                  <input
+                    id={`starts-on-${route.id}`}
+                    name="startsOn"
+                    type="date"
+                    defaultValue={ymdFromDateColumn(route.startsOn)}
+                    className="app-field mt-1 w-auto"
                   />
-                </form>
-                <span className="app-badge" title="Stop count used for Smart Route Placement suggestions">
-                  {route.stops.length}
-                  {route.maxCapacity != null ? `/${route.maxCapacity}` : ""} stops
+                </div>
+                <div>
+                  <label
+                    htmlFor={`ends-on-${route.id}`}
+                    className="text-xs font-semibold uppercase tracking-wide text-brand-muted"
+                  >
+                    Ending on
+                  </label>
+                  <input
+                    id={`ends-on-${route.id}`}
+                    name="endsOn"
+                    type="date"
+                    defaultValue={ymdFromDateColumn(route.endsOn)}
+                    placeholder="Never"
+                    className="app-field mt-1 w-auto"
+                  />
+                </div>
+                <button type="submit" className="app-btn-secondary-sm">
+                  Save dates
+                </button>
+                <span className="text-xs text-brand-muted">
+                  {windowLabel ?? "Runs every week, no end date"}
                 </span>
-                <form
-                  action={updateRouteCapacity}
-                  data-tour={route.id === routes[0]?.id ? "routes-capacity" : undefined}
-                  className="flex items-center gap-1"
-                >
-                  <input type="hidden" name="routeId" value={route.id} />
-                  <input
-                    name="maxCapacity"
-                    type="number"
-                    min={0}
-                    step={1}
-                    defaultValue={route.maxCapacity ?? ""}
-                    placeholder="No limit"
-                    className="app-field w-24 py-1 text-xs"
+              </form>
+
+              {route.maxCapacity != null ? (
+                <div className="mt-3">
+                  <WaveProgress
+                    percent={(route.stops.length / route.maxCapacity) * 100}
+                    label="Route capacity"
+                    sublabel={`${route.stops.length}/${route.maxCapacity} stops`}
+                    tone={route.stops.length > route.maxCapacity ? "coral" : "teal"}
                   />
-                  <button type="submit" className="app-btn-secondary-sm">
-                    Save
-                  </button>
-                </form>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <form action={duplicateRoute} className="flex items-center gap-1.5">
-                  <input type="hidden" name="routeId" value={route.id} />
-                  <select name="targetDayOfWeek" required defaultValue="" className="app-field w-auto py-1 text-xs">
-                    <option value="" disabled>
-                      Duplicate to…
-                    </option>
-                    {DAY_NAMES.slice(1).map((d, i) => (
-                      <option key={d} value={i + 1}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="submit" className="app-btn-secondary-sm">
-                    Duplicate
-                  </button>
-                </form>
-                <form action={deleteRoute} data-tour={route.id === routes[0]?.id ? "routes-delete" : undefined}>
-                  <input type="hidden" name="routeId" value={route.id} />
-                  <ConfirmSubmitButton
-                    label="Delete route"
-                    confirmMessage="Delete this route and all its stops?"
-                    className="app-btn-danger-sm"
-                  />
-                </form>
-              </div>
+                </div>
+              ) : null}
+
+              <form action={addRouteStop} className="app-card-inset mt-3 flex flex-wrap items-center gap-2">
+                <input type="hidden" name="routeId" value={route.id} />
+                {(availableBodiesByRoute.get(route.id) ?? []).length === 0 ? (
+                  <p className="text-sm text-brand-muted">
+                    Every aquatic venue is already on a {DAY_NAMES[route.dayOfWeek ?? 0]} route. Use &ldquo;Extra stops&rdquo; on the
+                    technician&rsquo;s dashboard for one-off same-day repairs.
+                  </p>
+                ) : (
+                  <>
+                    <select name="bodyOfWaterId" required className="app-field w-auto">
+                      <option value="">Select aquatic venue…</option>
+                      {(availableBodiesByRoute.get(route.id) ?? []).map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.property.name} — {b.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      name="etaOffsetMinutes"
+                      type="number"
+                      step="1"
+                      placeholder="ETA offset (min)"
+                      className="app-field w-40"
+                    />
+                    <button type="submit" className="app-btn-primary-sm">
+                      Add stop
+                    </button>
+                  </>
+                )}
+              </form>
+
+              <RouteStopsList
+                routeId={route.id}
+                stops={route.stops.map((stop) => ({
+                  id: stop.id,
+                  propertyName: stop.property.name,
+                  bodyName: stop.bodyOfWater?.name ?? null,
+                  etaOffsetMinutes: stop.etaOffsetMinutes,
+                  latitude: stop.property.latitude != null ? Number(stop.property.latitude) : null,
+                  longitude: stop.property.longitude != null ? Number(stop.property.longitude) : null,
+                }))}
+              />
             </div>
-
-            {route.maxCapacity != null ? (
-              <div className="mt-3">
-                <WaveProgress
-                  percent={(route.stops.length / route.maxCapacity) * 100}
-                  label="Route capacity"
-                  sublabel={`${route.stops.length}/${route.maxCapacity} stops`}
-                  tone={route.stops.length > route.maxCapacity ? "coral" : "teal"}
-                />
-              </div>
-            ) : null}
-
-            <form action={addRouteStop} className="app-card-inset mt-3 flex flex-wrap items-center gap-2">
-              <input type="hidden" name="routeId" value={route.id} />
-              {(availableBodiesByRoute.get(route.id) ?? []).length === 0 ? (
-                <p className="text-sm text-brand-muted">
-                  Every aquatic venue is already on a {DAY_NAMES[route.dayOfWeek ?? 0]} route. Use &ldquo;Extra stops&rdquo; on the
-                  technician&rsquo;s dashboard for one-off same-day repairs.
-                </p>
-              ) : (
-                <>
-                  <select name="bodyOfWaterId" required className="app-field w-auto">
-                    <option value="">Select aquatic venue…</option>
-                    {(availableBodiesByRoute.get(route.id) ?? []).map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.property.name} — {b.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    name="etaOffsetMinutes"
-                    type="number"
-                    step="1"
-                    placeholder="ETA offset (min)"
-                    className="app-field w-40"
-                  />
-                  <button type="submit" className="app-btn-primary-sm">
-                    Add stop
-                  </button>
-                </>
-              )}
-            </form>
-
-            <RouteStopsList
-              routeId={route.id}
-              stops={route.stops.map((stop) => ({
-                id: stop.id,
-                propertyName: stop.property.name,
-                bodyName: stop.bodyOfWater?.name ?? null,
-                etaOffsetMinutes: stop.etaOffsetMinutes,
-                latitude: stop.property.latitude != null ? Number(stop.property.latitude) : null,
-                longitude: stop.property.longitude != null ? Number(stop.property.longitude) : null,
-              }))}
-            />
-          </div>
-        ))}
-        {routes.length === 0 ? <p className="text-sm text-brand-muted">No routes yet.</p> : null}
-      </section>
+            );
+          })}
+          {routes.length === 0 ? (
+            <p className="text-sm text-brand-muted">No routes yet — add your first one above.</p>
+          ) : visibleRoutes.length === 0 ? (
+            <p className="text-sm text-brand-muted">
+              No routes match this filter.{" "}
+              <Link href="/dashboard/routes" className="app-link">
+                Clear it
+              </Link>{" "}
+              to see all {routes.length}.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
     </main>
   );
 }
