@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isComplianceTier, userLimitFor, PLAN_TIER_USER_LIMITS } from "@/lib/plan-tiers-core";
+import {
+  hasWhiteLabelBranding,
+  isComplianceTier,
+  userLimitFor,
+  PLAN_TIER_USER_LIMITS,
+} from "@/lib/plan-tiers-core";
 
 describe("isComplianceTier", () => {
   it("is true only for the COMPLIANCE tier", () => {
@@ -32,5 +37,26 @@ describe("userLimitFor", () => {
 
   it("falls back to the Service limit for an untiered org", () => {
     expect(userLimitFor({ planStatus: "ACTIVE", planTier: null })).toBe(PLAN_TIER_USER_LIMITS.SERVICE);
+  });
+});
+
+describe("hasWhiteLabelBranding", () => {
+  it("is true for the tiers whose pricing card includes branding", () => {
+    expect(hasWhiteLabelBranding({ planStatus: "ACTIVE", planTier: "WHITE_LABEL" })).toBe(true);
+    expect(hasWhiteLabelBranding({ planStatus: "ACTIVE", planTier: "ENTERPRISE" })).toBe(true);
+  });
+
+  it("is false for Service -- branding is the whole reason to upgrade", () => {
+    expect(hasWhiteLabelBranding({ planStatus: "ACTIVE", planTier: "SERVICE" })).toBe(false);
+  });
+
+  it("is false for Compliance and for an untiered legacy org", () => {
+    expect(hasWhiteLabelBranding({ planStatus: "ACTIVE", planTier: "COMPLIANCE" })).toBe(false);
+    expect(hasWhiteLabelBranding({ planStatus: "ACTIVE", planTier: null })).toBe(false);
+  });
+
+  it("is true for any COMPED org, matching how userLimitFor treats them", () => {
+    expect(hasWhiteLabelBranding({ planStatus: "COMPED", planTier: null })).toBe(true);
+    expect(hasWhiteLabelBranding({ planStatus: "COMPED", planTier: "SERVICE" })).toBe(true);
   });
 });

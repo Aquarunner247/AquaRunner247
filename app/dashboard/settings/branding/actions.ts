@@ -11,6 +11,7 @@ import {
   BrandingValidationError,
 } from "@/lib/mail/validate-branding";
 import { uploadBrandingLogo, removeBrandingLogo, LogoUploadError } from "@/lib/mail/branding-logo";
+import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -19,10 +20,25 @@ async function requireAdmin() {
   return appUser;
 }
 
+/** The logo and color actions below are White Label only. The welcome-email and service
+ * summary settings on the same page are not -- those are ordinary operational settings
+ * every tier needs, so they only go through requireAdmin. Checked server-side because the
+ * form hiding these sections is just a UI affordance. */
+async function requireBrandingAccess() {
+  const appUser = await requireAdmin();
+  const org = await prisma.organization.findUnique({
+    where: { id: appUser.organizationId },
+    select: { planStatus: true, planTier: true },
+  });
+  if (!org || !hasWhiteLabelBranding(org)) redirect(`${PAGE_PATH}?error=${encodeURIComponent(UPGRADE_MESSAGE)}`);
+  return appUser;
+}
+
 const PAGE_PATH = "/dashboard/settings/branding";
+const UPGRADE_MESSAGE = "Custom branding is part of the White Label plan.";
 
 export async function updateBranding(formData: FormData) {
-  const appUser = await requireAdmin();
+  const appUser = await requireBrandingAccess();
 
   const primaryColor = String(formData.get("primaryColor") ?? "").trim() || null;
   const headerColor = String(formData.get("headerColor") ?? "").trim() || null;
@@ -52,7 +68,7 @@ export async function updateBranding(formData: FormData) {
 }
 
 export async function uploadLogo(formData: FormData) {
-  const appUser = await requireAdmin();
+  const appUser = await requireBrandingAccess();
   const file = formData.get("logoFile");
   if (!(file instanceof File)) {
     redirect(`${PAGE_PATH}?error=${encodeURIComponent("Choose a file to upload.")}`);
@@ -78,7 +94,7 @@ export async function uploadLogo(formData: FormData) {
 }
 
 export async function removeLogo() {
-  const appUser = await requireAdmin();
+  const appUser = await requireBrandingAccess();
 
   await removeBrandingLogo(appUser.organizationId);
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { updateBranding, uploadLogo, removeLogo, updateWelcomeEmailSettings, updateServiceSummaryCcEmail } from "./actions";
 import { BrandingForm } from "./branding-form";
+import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
 
 type PageProps = {
   searchParams?: Promise<{ error?: string; saved?: string }>;
@@ -29,10 +30,15 @@ export default async function BrandingSettingsPage({ searchParams }: PageProps) 
       welcomeEmailSupportPhone: true,
       welcomeEmailIntroText: true,
       serviceSummaryCcEmail: true,
+      planStatus: true,
+      planTier: true,
     },
   });
 
   const orgName = organization?.businessName ?? organization?.name ?? "Your Company";
+  // Logo and colors are White Label only; the welcome-email and service summary settings
+  // on this same page are not, so the page stays reachable for every tier.
+  const canBrand = organization ? hasWhiteLabelBranding(organization) : false;
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
@@ -48,14 +54,16 @@ export default async function BrandingSettingsPage({ searchParams }: PageProps) 
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
         <h1 className="text-2xl font-semibold text-brand-ink">Branding</h1>
         <p className="mt-1 text-sm text-brand-muted">
-          Your logo and colors show up in the customer portal (visible to your own customers when they log in) and
-          the welcome email sent when you create a portal login for them.
+          {canBrand
+            ? "Your logo and colors show up in the customer portal (visible to your own customers when they log in) and the welcome email sent when you create a portal login for them."
+            : "Set up the welcome email your customers get when you create their portal login. Your own logo and colors are part of the White Label plan."}
         </p>
       </header>
 
       <BrandingForm
         actions={{ updateBranding, uploadLogo, removeLogo, updateWelcomeEmailSettings, updateServiceSummaryCcEmail }}
         orgName={orgName}
+        canBrand={canBrand}
         initial={{
           logoUrl: organization?.brandingLogoUrl ?? "",
           primaryColor: organization?.brandingPrimaryColor ?? "",

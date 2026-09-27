@@ -1,8 +1,14 @@
 import type { PlanTier } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { PLAN_TIER_USER_LIMITS, isComplianceTier, userLimitFor, type OrgPlanFields } from "@/lib/plan-tiers-core";
+import {
+  PLAN_TIER_USER_LIMITS,
+  hasWhiteLabelBranding,
+  isComplianceTier,
+  userLimitFor,
+  type OrgPlanFields,
+} from "@/lib/plan-tiers-core";
 
-export { PLAN_TIER_USER_LIMITS, isComplianceTier, userLimitFor, type OrgPlanFields };
+export { PLAN_TIER_USER_LIMITS, hasWhiteLabelBranding, isComplianceTier, userLimitFor, type OrgPlanFields };
 
 export type OrgPlanAccess = {
   planTier: PlanTier | null;

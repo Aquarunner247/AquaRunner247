@@ -38,6 +38,22 @@ export function isComplianceTier(org: OrgPlanFields): boolean {
   return org.planTier === "COMPLIANCE";
 }
 
+/**
+ * White-label branding -- the logo and brand colors a customer sees on the portal and in
+ * the welcome email that creates their login -- is the one thing the $149 White Label tier
+ * actually sells, so Service must not have it. ENTERPRISE is included because its pricing
+ * card is "everything in White Label, plus".
+ *
+ * COMPED orgs get it too, for the same reason userLimitFor waives the seat cap for them:
+ * comping is a platform admin deliberately handing out a full account, not a paid tier.
+ * An untiered org (planTier null) does NOT get it -- those fall back to Service
+ * everywhere else, and a platform admin who wants one branded can set its tier.
+ */
+export function hasWhiteLabelBranding(org: OrgPlanFields): boolean {
+  if (org.planStatus === "COMPED") return true;
+  return org.planTier === "WHITE_LABEL" || org.planTier === "ENTERPRISE";
+}
+
 /** Untiered orgs (pre-tier accounts, or a dev-path signup with no Stripe price configured)
  * fall back to the Service limit -- the safest default until a tier is actually chosen,
  * since every pre-COMPLIANCE-era org was a pool-service org, never a Compliance one. */

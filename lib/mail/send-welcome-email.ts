@@ -50,6 +50,7 @@ import { Resend } from "resend";
 import { renderWelcomeEmail } from "@/lib/mail/welcome-email";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
 
 export interface SendWelcomeEmailParams {
   organizationId: string;
@@ -84,6 +85,8 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
       brandingLogoUrl: true,
       brandingPrimaryColor: true,
       brandingHeaderColor: true,
+      planStatus: true,
+      planTier: true,
       welcomeEmailSupportEmail: true,
       welcomeEmailSupportPhone: true,
       welcomeEmailIntroText: true,
@@ -92,6 +95,10 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
 
   if (!org) return { ok: false, reason: "Organization not found." };
   if (org.welcomeEmailEnabled === false) return { ok: false, reason: "Welcome email disabled for this org." };
+
+  // Same gate as the portal layout: stored branding must stop being applied the moment
+  // an org is no longer on a tier that includes it, not just stop being editable.
+  const branded = hasWhiteLabelBranding(org);
 
   if (!(await checkWelcomeEmailRateLimit(params.customerEmail))) {
     // No audit row on a rate-limit refusal -- nothing was attempted against Supabase or
@@ -123,9 +130,9 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
     orgName: org.name,
     customerFirstName: params.customerFirstName,
     activationUrl: data.properties.action_link,
-    logoUrl: org.brandingLogoUrl,
-    primaryColor: org.brandingPrimaryColor,
-    headerColor: org.brandingHeaderColor,
+    logoUrl: branded ? org.brandingLogoUrl : null,
+    primaryColor: branded ? org.brandingPrimaryColor : null,
+    headerColor: branded ? org.brandingHeaderColor : null,
     supportEmail: org.welcomeEmailSupportEmail,
     supportPhone: org.welcomeEmailSupportPhone,
     introText: org.welcomeEmailIntroText,

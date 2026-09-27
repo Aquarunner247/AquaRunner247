@@ -28,12 +28,16 @@ const DEFAULT_HEADER_COLOR = "#ffffff";
 export function BrandingForm({
   actions,
   orgName,
+  canBrand,
   initial,
   error,
   saved,
 }: {
   actions: Actions;
   orgName: string;
+  /** White Label (or Enterprise/comped). Gates the Logo and Colors sections only -- the
+   * welcome-email and service summary settings below them are available to every tier. */
+  canBrand: boolean;
   initial: BrandingFormValue;
   error: string | null;
   saved: boolean;
@@ -54,9 +58,9 @@ export function BrandingForm({
       orgName,
       customerFirstName: "Jordan",
       activationUrl: "https://example.com/preview-only",
-      logoUrl: previewLogoUrl,
-      primaryColor: value.primaryColor || null,
-      headerColor: value.headerColor || null,
+      logoUrl: canBrand ? previewLogoUrl : null,
+      primaryColor: canBrand ? value.primaryColor || null : null,
+      headerColor: canBrand ? value.headerColor || null : null,
       supportEmail: value.supportEmail || null,
       supportPhone: value.supportPhone || null,
       introText: value.introText || null,
@@ -68,10 +72,12 @@ export function BrandingForm({
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-2">
       <div className="space-y-6">
-        <section className="app-card">
-          {error ? <p className="mb-3 text-sm text-brand-danger">{error}</p> : null}
-          {saved ? <p className="mb-3 text-sm text-brand-ok">Saved.</p> : null}
+        {error ? <p className="text-sm text-brand-danger">{error}</p> : null}
+        {saved ? <p className="text-sm text-brand-ok">Saved.</p> : null}
 
+        {canBrand ? (
+        <>
+        <section className="app-card">
           <h2 className="text-sm font-semibold text-brand-ink">Logo</h2>
           <p className="mt-1 text-xs text-brand-muted">PNG, JPEG, or WEBP, up to 2MB.</p>
 
@@ -135,6 +141,19 @@ export function BrandingForm({
             </button>
           </form>
         </section>
+        </>
+        ) : (
+          <section className="app-card">
+            <h2 className="text-sm font-semibold text-brand-ink">Your logo and colors</h2>
+            <p className="mt-1 text-sm text-brand-muted">
+              On the White Label plan, the customer portal and the welcome email carry your logo and your brand
+              colors instead of AquaRunner&rsquo;s. Everything else on this page is included in your plan.
+            </p>
+            <a className="app-link mt-3 inline-block text-sm" href="/dashboard/billing">
+              See plans
+            </a>
+          </section>
+        )}
 
         <section className="app-card">
           <h2 className="text-sm font-semibold text-brand-ink">Welcome email</h2>
