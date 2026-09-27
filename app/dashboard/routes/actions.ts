@@ -265,8 +265,17 @@ export async function removeRouteStop(formData: FormData) {
   });
   if (!stop) return;
 
+  // Same reason deleteRoute does this: recurringStopId is only SetNull'd on delete, so
+  // visits already generated from this stop survive unlinked and keep showing up on the
+  // technician's dashboard with no way to reach them from the route. Only SCHEDULED ones
+  // go — anything started or completed is the service record and stays under the customer.
+  await prisma.serviceVisit.deleteMany({
+    where: { recurringStopId: stop.id, status: "SCHEDULED" },
+  });
+
   await prisma.recurringStop.delete({ where: { id: stop.id } });
   revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard");
 }
 
 /**

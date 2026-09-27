@@ -6,6 +6,12 @@ export type { TourStep };
  * Each role's tours are keyed by pathname (usePathname()'s exact value) except the
  * dynamic /dashboard/visits/[id] route, which the launcher special-cases separately
  * since a real visit id can't be a map key -- see VISIT_DETAIL_TOUR_STEPS below.
+ *
+ * A step whose target isn't on the page is dropped and the rest renumbered. Mark a step
+ * `optional` when that absence is normal and permanent for some accounts (a warning
+ * banner for a problem they don't have, a section residential-only orgs never see);
+ * leave it off when the target is missing only because the org hasn't built anything
+ * yet, which keeps the page unseen so the full tour runs again once it has content.
  */
 export const ADMIN_TOURS: Record<string, TourStep[]> = {
   "/dashboard": [
@@ -35,21 +41,39 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
       body: "A running log of completed visits and new customers — click to expand it any time.",
     },
   ],
+  // Ordered top-to-bottom down the page rather than by importance, so the spotlight never
+  // jumps back up past something it already covered.
   "/dashboard/routes": [
+    {
+      target: "routes-geocode",
+      title: "Start by geocoding your properties",
+      body: "Routing and the stop maps both need coordinates for every property. Run this once after you've added your customers — it's safe to re-run any time, since it skips properties that already have a location.",
+    },
     {
       target: "routes-missing-coords",
       title: "Properties missing a map location",
-      body: "Any property without coordinates shows up here, with a link to drop its pin on a satellite map.",
-    },
-    {
-      target: "routes-stop-list",
-      title: "Build a route's stops",
-      body: "Drag stops to reorder them, and watch the map on the right update live as you go.",
+      body: "Any property the address lookup couldn't place shows up here, with a link to drop its pin on a satellite map. Worth clearing — a property with no coordinates can't be mapped or auto-suggested to a route.",
+      optional: true,
     },
     {
       target: "routes-add-form",
-      title: "Add a new route",
-      body: "Create another weekday route and assign a technician to it.",
+      title: "Add a route",
+      body: "A route is one technician's day: pick the weekday, how often it repeats, and who runs it. One route per tech per weekday. Once it exists you'll set its stops and its stop limit on the route itself, just below.",
+    },
+    {
+      target: "routes-stop-list",
+      title: "Build the route's stops",
+      body: "Add an aquatic venue, then drag stops into the order the tech will drive them — the map on the right updates as you go. The ETA offset is how many minutes after the day's start this stop is expected.",
+    },
+    {
+      target: "routes-capacity",
+      title: "Set a stop limit for the day",
+      body: "The most stops you want on this tech's day — say 12. When you add a new customer, AquaRunner suggests the route with pools nearest their address, and skips any route already at its limit so one tech doesn't get overloaded. Leave it blank for no limit. It won't stop you adding stops by hand; the counter just turns orange when you go over.",
+    },
+    {
+      target: "routes-delete",
+      title: "Deleting a route",
+      body: "Removes the route, its stops, and any of its visits that aren't started yet. Completed visits stay on the customer's record with their readings, doses and photos — deleting a route never erases service history. To move a day's work instead, use “Duplicate to…” and then delete the original.",
     },
   ],
   "/dashboard/customers": [
@@ -139,6 +163,7 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
       target: "phone-agent-setup",
       title: "Finish phone agent setup",
       body: "A Twilio number and your primary business number are both needed before the AI phone agent can take calls.",
+      optional: true,
     },
     {
       target: "phone-agent-calls",
@@ -156,6 +181,7 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
       target: "admin-schedule-stats",
       title: "Tap a tile to filter",
       body: "Total, Completed, In Progress, and Pending — tap any of these to filter the stop list down to just that group.",
+      optional: true,
     },
   ],
 };
@@ -171,11 +197,13 @@ export const TECHNICIAN_TOURS: Record<string, TourStep[]> = {
       target: "schedule-stat-tiles",
       title: "Tap a tile to filter",
       body: "Total, Completed, In Progress, and Pending — tap any of these to filter your stop list down to just that group.",
+      optional: true,
     },
     {
       target: "schedule-optimize-route",
-      title: "Optimize your route",
-      body: "Reorders today's stops by straight-line distance so you're not backtracking across town.",
+      title: "Optimize stop order",
+      body: "Reorders today's stops by real driving time so you're not backtracking across town. Falls back to straight-line distance if the routing service can't be reached. Your manual order is replaced, so reorder by hand afterwards if you need a specific stop first.",
+      optional: true,
     },
     {
       target: "schedule-first-stop",
@@ -187,6 +215,7 @@ export const TECHNICIAN_TOURS: Record<string, TourStep[]> = {
       target: "schedule-extra-stops",
       title: "Extra stops",
       body: "Same-day one-offs — a repair, a drop-off — that aren't part of your regular route go here.",
+      optional: true,
     },
   ],
   "/dashboard": [
@@ -242,6 +271,7 @@ export const PORTAL_TOURS: Record<string, TourStep[]> = {
       title: "Full record for inspectors",
       body: "This link opens the complete, downloadable reading history for this pool — the same page an inspector sees when they scan the QR code on site.",
       placement: "top",
+      optional: true,
     },
     {
       target: "portal-upcoming",
@@ -287,13 +317,14 @@ export const PORTAL_TOURS: Record<string, TourStep[]> = {
 /** Special-cased by the launcher since /dashboard/visits/[id] is a dynamic route --
  * usePathname() returns the real visit id, not a matchable map key. The same step
  * content applies regardless of which visit is open. Residential visits have no
- * checklist section, so "visit-checklist" simply doesn't exist there -- the engine
- * skips that step automatically rather than erroring. */
+ * checklist section, so "visit-checklist" simply doesn't exist there -- it's marked
+ * `optional` so the engine drops it without holding the page open for a re-run. */
 export const VISIT_DETAIL_TOUR_STEPS: TourStep[] = [
   {
     target: "visit-checklist",
     title: "Service checklist",
     body: "Tap each item as you complete it. Skipped items are visible in your visit history.",
+    optional: true,
   },
   {
     target: "visit-chemistry",

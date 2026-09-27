@@ -108,7 +108,7 @@ export default async function RoutesPage() {
         <p className="app-kicker">Admin</p>
         <h1 className="app-h1">Weekly routes</h1>
         <p className="app-subhead">Assign technicians to weekly routes and add stops.</p>
-        <form action={geocodeAllProperties} className="mt-3">
+        <form action={geocodeAllProperties} data-tour="routes-geocode" className="mt-3">
           <button type="submit" className="app-btn-secondary-sm">
             Geocode property addresses (for map view)
           </button>
@@ -203,7 +203,11 @@ export default async function RoutesPage() {
                   {route.stops.length}
                   {route.maxCapacity != null ? `/${route.maxCapacity}` : ""} stops
                 </span>
-                <form action={updateRouteCapacity} className="flex items-center gap-1">
+                <form
+                  action={updateRouteCapacity}
+                  data-tour={route.id === routes[0]?.id ? "routes-capacity" : undefined}
+                  className="flex items-center gap-1"
+                >
                   <input type="hidden" name="routeId" value={route.id} />
                   <input
                     name="maxCapacity"
@@ -236,7 +240,7 @@ export default async function RoutesPage() {
                     Duplicate
                   </button>
                 </form>
-                <form action={deleteRoute}>
+                <form action={deleteRoute} data-tour={route.id === routes[0]?.id ? "routes-delete" : undefined}>
                   <input type="hidden" name="routeId" value={route.id} />
                   <ConfirmSubmitButton
                     label="Delete route"

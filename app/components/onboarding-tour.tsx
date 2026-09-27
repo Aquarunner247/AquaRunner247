@@ -10,6 +10,16 @@ export type TourStep = {
   title: string;
   body: string;
   placement?: "top" | "bottom" | "left" | "right";
+  /**
+   * True when this step's target is *legitimately* absent some of the time and the page
+   * is still fully explained without it -- a warning banner that only shows when
+   * something's wrong (routes-missing-coords, phone-agent-setup), or a section that
+   * doesn't apply to every account (visit-checklist on residential, portal-qr-link for a
+   * residential customer). Steps left non-optional are ones whose target is missing only
+   * because the org hasn't got that far yet (no routes built, no visits logged), which is
+   * what suppresses "seen" -- see markSeen below.
+   */
+  optional?: boolean;
 };
 
 type Props = {
@@ -65,10 +75,23 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
 
   useEffect(() => setMounted(true), []);
 
-  const finish = useCallback(() => {
-    void markSeenAction();
-    onFinish();
-  }, [markSeenAction, onFinish]);
+  /** Cleared when a required step's target was missing -- see the resolve effect below. */
+  const [markSeenOnFinish, setMarkSeenOnFinish] = useState(true);
+
+  /**
+   * `dismissed` = the user actively opted out (Skip, or Escape) rather than reading to the
+   * end. That always sticks, even for a tour that came up thin: otherwise a shop that
+   * never builds routes would get the Routes tour on every single visit forever, with no
+   * way to turn it off. Reaching the end of a thin tour doesn't stick, so the full version
+   * still runs once the page has real content on it.
+   */
+  const finish = useCallback(
+    ({ dismissed = false }: { dismissed?: boolean } = {}) => {
+      if (dismissed || markSeenOnFinish) void markSeenAction();
+      onFinish();
+    },
+    [markSeenOnFinish, markSeenAction, onFinish],
+  );
 
   // Resolve which of this page's steps actually have a present target before showing
   // anything, so the visible tour is numbered "1 of N" against only the steps that will
@@ -85,8 +108,19 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
         if (found) present.push(step);
       }
       if (cancelled) return;
+
+      // A required step whose target never appeared means the page had nothing to point at
+      // yet -- a brand-new org on Routes with no routes built, a new customer's portal with
+      // no visits logged. Showing the two steps that *do* resolve and then marking the page
+      // seen forever is how new signups ended up with a tour that skipped the parts they
+      // most needed. Leave it unseen instead, so the full tour runs once the page has real
+      // content on it. Steps flagged `optional` don't count -- their absence is normal and
+      // would otherwise re-trigger the tour on every visit.
+      const missingRequired = steps.some((step) => !step.optional && !present.includes(step));
+      if (missingRequired) setMarkSeenOnFinish(false);
+
       if (present.length === 0) {
-        finish();
+        onFinish();
         return;
       }
       setResolvedSteps(present);
@@ -133,7 +167,7 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") finish();
+      if (e.key === "Escape") finish({ dismissed: true });
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -186,7 +220,7 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
         <h2 className="mt-1 font-display text-lg font-semibold text-brand-ink">{step.title}</h2>
         <p className="mt-1.5 text-sm text-brand-muted">{step.body}</p>
         <div className="mt-4 flex items-center justify-between gap-2">
-          <button type="button" onClick={finish} className="app-btn-ghost-sm">
+          <button type="button" onClick={() => finish({ dismissed: true })} className="app-btn-ghost-sm">
             Skip
           </button>
           <div className="flex items-center gap-2">
