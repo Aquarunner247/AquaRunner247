@@ -185,8 +185,13 @@
     @apply app-pill bg-brand-foam text-brand-muted;
   }
 
+  /* The opacity must stay in bracket form. As `bg-brand-primary/12` this rule compiles
+     only while nothing uses the class -- Tailwind purges the unused rule without ever
+     resolving its @apply. The moment a component references .app-pill-active, resolution
+     runs inside the nested `@apply app-pill` and fails with "bg-brand-primary/12 does not
+     exist", breaking the build. Same 12%, arbitrary-value syntax, resolves either way. */
   .app-pill-active {
-    @apply app-pill bg-brand-primary/12 text-brand-ink;
+    @apply app-pill bg-brand-primary/[0.12] text-brand-ink;
   }
 
   /* Segmented pill-style tab control — Day/Week/Map/List and similar toggles. */
