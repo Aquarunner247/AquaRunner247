@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
 import { RouteDayView } from "@/app/components/route-day-view";
+import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { addAdHocStop } from "@/app/dashboard/actions";
 import { AdminSchedule } from "./admin-schedule";
@@ -331,8 +332,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                 <p className="mt-1 text-xs text-brand-muted">
                   Errands that aren&rsquo;t a service visit, e.g. a pool store run — added here, they show up in the list above, in position, and can be dragged like any other stop.
                 </p>
-                <form id="add-stop-form" action={addAdHocStop} className="mt-3 flex flex-wrap items-center gap-2 rounded border border-brand-border bg-brand-foam p-2">
-                  <input type="hidden" name="scheduledDate" value={selectedYmd} />
+                <form id="add-stop-form" action={addAdHocStop} className="mt-3 flex flex-wrap items-end gap-2 rounded border border-brand-border bg-brand-foam p-2">
+                  <AdHocStopDateField defaultYmd={selectedYmd} />
                   <input
                     name="description"
                     required

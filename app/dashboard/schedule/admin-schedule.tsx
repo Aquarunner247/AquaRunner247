@@ -20,6 +20,7 @@ import {
 } from "@/lib/timezone";
 import { projectedStopsForYmd, type ProjectableRoute } from "@/lib/route-projection";
 import { ScheduleMonthView, type MonthDay } from "./schedule-month-view";
+import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
 
 type Props = {
   appUser: { id: string; organizationId: string };
@@ -591,8 +592,8 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
                     ))}
                   </ul>
                 )}
-                <form id="add-stop-form" action={addAdHocStop} className="app-card-inset mt-3 flex flex-wrap items-center gap-2">
-                  <input type="hidden" name="scheduledDate" value={selectedYmd} />
+                <form id="add-stop-form" action={addAdHocStop} className="app-card-inset mt-3 flex flex-wrap items-end gap-2">
+                  <AdHocStopDateField defaultYmd={selectedYmd} />
                   <input
                     name="description"
                     required
