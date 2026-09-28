@@ -73,3 +73,21 @@ export function haversineMiles(a: { latitude: number; longitude: number }, b: { 
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
+
+/**
+ * Resolves a visit's coordinates: a body of water's own pin when it has one, otherwise the
+ * parent property's single shared coordinate.
+ *
+ * Takes Prisma Decimal (or anything with toString) rather than numbers, since that's what both
+ * schedule call sites hold. Exists so the "prefer the specific pin" rule is written once --
+ * three mapping sites used to inline the property-only version.
+ */
+export function coalesceCoord(
+  preferred: { toString(): string } | null | undefined,
+  fallback: { toString(): string } | null | undefined,
+): number | null {
+  const chosen = preferred ?? fallback;
+  if (chosen == null) return null;
+  const value = Number(chosen);
+  return Number.isFinite(value) ? value : null;
+}

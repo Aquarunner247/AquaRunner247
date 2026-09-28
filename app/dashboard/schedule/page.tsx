@@ -9,6 +9,7 @@ import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { addAdHocStop } from "@/app/dashboard/actions";
 import { AdminSchedule } from "./admin-schedule";
 import { timeZoneForState, ymdInTimeZone, localDayBounds, addDaysToYmd, startOfWeekYmd } from "@/lib/timezone";
+import { coalesceCoord } from "@/lib/geocode";
 
 type PageProps = {
   searchParams?: Promise<{ tab?: string; date?: string; tech?: string; status?: string }>;
@@ -143,7 +144,11 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             property: {
               select: { id: true, name: true, addressLine1: true, city: true, region: true, latitude: true, longitude: true, geofenceMeters: true },
             },
-            bodyOfWater: { select: { name: true } },
+            // Prefer the body of water's OWN pin over the property's single shared coordinate.
+            // A property with a front pool and a back pool is two places to drive to, and one
+            // property coordinate can't say that. Falls back to the property when a body isn't
+            // pinned, so this is a no-op for anything unpinned.
+            bodyOfWater: { select: { name: true, latitude: true, longitude: true } },
           },
         });
 
@@ -156,8 +161,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     address: [v.property.addressLine1, v.property.city, v.property.region].filter(Boolean).join(", "),
     scheduledStart: v.scheduledStart.toISOString(),
     startedAt: v.startedAt ? v.startedAt.toISOString() : null,
-    latitude: v.property.latitude != null ? Number(v.property.latitude) : null,
-    longitude: v.property.longitude != null ? Number(v.property.longitude) : null,
+    latitude: coalesceCoord(v.bodyOfWater.latitude, v.property.latitude),
+    longitude: coalesceCoord(v.bodyOfWater.longitude, v.property.longitude),
     geofenceMeters: v.property.geofenceMeters,
   }));
 
@@ -219,8 +224,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           address: [c.visit.property.addressLine1, c.visit.property.city, c.visit.property.region].filter(Boolean).join(", "),
           scheduledStart: c.visit.scheduledStart.toISOString(),
           startedAt: c.visit.startedAt ? c.visit.startedAt.toISOString() : null,
-          latitude: c.visit.property.latitude != null ? Number(c.visit.property.latitude) : null,
-          longitude: c.visit.property.longitude != null ? Number(c.visit.property.longitude) : null,
+          latitude: coalesceCoord(c.visit.bodyOfWater.latitude, c.visit.property.latitude),
+          longitude: coalesceCoord(c.visit.bodyOfWater.longitude, c.visit.property.longitude),
           geofenceMeters: c.visit.property.geofenceMeters,
         }
       : {

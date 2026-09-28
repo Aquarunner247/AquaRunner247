@@ -18,6 +18,7 @@ import {
   addMonthsToYmd,
   monthGridWeeks,
 } from "@/lib/timezone";
+import { coalesceCoord } from "@/lib/geocode";
 import { projectedStopsForYmd, type ProjectableRoute } from "@/lib/route-projection";
 import { ScheduleMonthView, type MonthDay } from "./schedule-month-view";
 import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
@@ -296,7 +297,11 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             property: {
               select: { id: true, name: true, addressLine1: true, city: true, region: true, latitude: true, longitude: true },
             },
-            bodyOfWater: { select: { name: true } },
+            // Prefer the body of water's OWN pin over the property's single shared coordinate.
+            // A property with a front pool and a back pool is two places to drive to, and one
+            // property coordinate can't say that. Falls back to the property when a body isn't
+            // pinned, so this is a no-op for anything unpinned.
+            bodyOfWater: { select: { name: true, latitude: true, longitude: true } },
             technician: { select: { id: true, name: true, email: true } },
           },
         });
@@ -310,8 +315,8 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     address: [v.property.addressLine1, v.property.city, v.property.region].filter(Boolean).join(", "),
     scheduledStart: v.scheduledStart.toISOString(),
     startedAt: v.startedAt ? v.startedAt.toISOString() : null,
-    latitude: v.property.latitude != null ? Number(v.property.latitude) : null,
-    longitude: v.property.longitude != null ? Number(v.property.longitude) : null,
+    latitude: coalesceCoord(v.bodyOfWater.latitude, v.property.latitude),
+    longitude: coalesceCoord(v.bodyOfWater.longitude, v.property.longitude),
     technicianId: v.technician?.id ?? null,
     technicianLabel: v.technician ? (v.technician.name ?? v.technician.email) : null,
   }));

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { projectedStopsForYmd, routeRunsOnYmd, type ProjectableRoute } from "@/lib/route-projection";
+import { coalesceCoord } from "@/lib/geocode";
 
 /** 2026-09-28 is a Monday; 2026-09-29 a Tuesday. */
 const MONDAY = "2026-09-28";
@@ -71,5 +72,37 @@ describe("projectedStopsForYmd", () => {
   it("excludes out-of-window routes from the sum", () => {
     const routes = [route({ stopCount: 4 }), route({ stopCount: 5, endsOn: utc("2026-09-01") })];
     expect(projectedStopsForYmd(routes, MONDAY)).toBe(4);
+  });
+});
+
+describe("coalesceCoord", () => {
+  it("prefers the body of water's own pin", () => {
+    expect(coalesceCoord(36.15, 36.99)).toBe(36.15);
+  });
+
+  it("falls back to the property when the body isn't pinned", () => {
+    expect(coalesceCoord(null, 36.99)).toBe(36.99);
+    expect(coalesceCoord(undefined, 36.99)).toBe(36.99);
+  });
+
+  it("is null when neither has coordinates", () => {
+    expect(coalesceCoord(null, null)).toBeNull();
+    expect(coalesceCoord(undefined, undefined)).toBeNull();
+  });
+
+  it("accepts Prisma Decimal-like values", () => {
+    // What both schedule call sites actually hold -- an object whose Number() goes via toString.
+    const decimal = (v: string) => ({ toString: () => v });
+    expect(coalesceCoord(decimal("36.1699"), null)).toBeCloseTo(36.1699, 6);
+    expect(coalesceCoord(null, decimal("-115.1398"))).toBeCloseTo(-115.1398, 6);
+  });
+
+  it("treats an unparseable value as missing rather than NaN", () => {
+    expect(coalesceCoord({ toString: () => "not a number" }, null)).toBeNull();
+  });
+
+  it("keeps a legitimate zero", () => {
+    // 0,0 is in the Atlantic, but it must not be mistaken for absent.
+    expect(coalesceCoord(0, 36.99)).toBe(0);
   });
 });

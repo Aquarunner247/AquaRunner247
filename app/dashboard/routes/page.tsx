@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
 import { timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { coalesceCoord } from "@/lib/geocode";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
 import { WaveProgress } from "@/app/components/wave-progress";
@@ -112,7 +113,9 @@ export default async function RoutesPage({ searchParams }: PageProps) {
         orderBy: { sortOrder: "asc" },
         include: {
           property: { select: { name: true, latitude: true, longitude: true } },
-          bodyOfWater: { select: { name: true } },
+          // Same "prefer the venue's own pin" rule the schedule pages use, so the route
+          // builder's map puts a stop on the actual pool rather than the property centre.
+          bodyOfWater: { select: { name: true, latitude: true, longitude: true } },
         },
       },
     },
@@ -560,8 +563,8 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                   propertyName: stop.property.name,
                   bodyName: stop.bodyOfWater?.name ?? null,
                   etaOffsetMinutes: stop.etaOffsetMinutes,
-                  latitude: stop.property.latitude != null ? Number(stop.property.latitude) : null,
-                  longitude: stop.property.longitude != null ? Number(stop.property.longitude) : null,
+                  latitude: coalesceCoord(stop.bodyOfWater?.latitude, stop.property.latitude),
+                  longitude: coalesceCoord(stop.bodyOfWater?.longitude, stop.property.longitude),
                 }))}
               />
             </div>
