@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { NextStopRibbon, type NextStopInfo } from "@/app/components/next-stop-ribbon";
+import { pickNextStop } from "@/lib/next-stop";
+import { coalesceCoord } from "@/lib/geocode";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
@@ -9,7 +12,7 @@ import { ResidentialVisitForm } from "./residential-visit-form";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
 import { getSavedDosingRecommendation } from "@/lib/dosing-calculator";
 import type { VisitWaterReading } from "@/generated/prisma/client";
-import { timeZoneForState, formatLocalDate } from "@/lib/timezone";
+import { formatLocalDate, localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -168,8 +171,100 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
     select: { id: true, label: true, body: true },
   });
 
+  // Where to head next, shown as a ribbon once this visit is finished. Only for the technician
+  // whose day it is: an admin reviewing a completed visit from the office isn't about to drive
+  // anywhere, and a "Directions" button in that context is noise.
+  const showsNextStop = visit.status === "COMPLETED" && visit.technicianId === appUser.id;
+  let nextStop: NextStopInfo | null = null;
+  if (showsNextStop) {
+    const { start: dayStart, end: dayEnd } = localDayBounds(
+      ymdInTimeZone(visit.scheduledStart, timeZoneForState(visit.organization.state)),
+      timeZoneForState(visit.organization.state),
+    );
+
+    const [dayVisits, dayErrands] = await Promise.all([
+      prisma.serviceVisit.findMany({
+        where: {
+          organizationId: visit.organizationId,
+          technicianId: appUser.id,
+          scheduledStart: { gte: dayStart, lt: dayEnd },
+        },
+        select: {
+          id: true,
+          status: true,
+          routeSequence: true,
+          createdAt: true,
+          property: { select: { name: true, addressLine1: true, city: true, region: true, latitude: true, longitude: true } },
+          bodyOfWater: { select: { name: true, latitude: true, longitude: true } },
+        },
+      }),
+      prisma.adHocStop.findMany({
+        where: {
+          organizationId: visit.organizationId,
+          technicianId: appUser.id,
+          scheduledDate: { gte: dayStart, lt: dayEnd },
+        },
+        select: {
+          id: true,
+          description: true,
+          completed: true,
+          routeSequence: true,
+          createdAt: true,
+          property: { select: { name: true, addressLine1: true, city: true, region: true, latitude: true, longitude: true } },
+        },
+      }),
+    ]);
+
+    const chosen = pickNextStop(
+      [
+        ...dayVisits.map((v) => ({
+          id: v.id,
+          kind: "visit" as const,
+          routeSequence: v.routeSequence,
+          done: v.status === "COMPLETED" || v.status === "CANCELLED",
+          createdAtMs: v.createdAt.getTime(),
+          visit: v,
+          errand: null,
+        })),
+        ...dayErrands.map((e) => ({
+          id: e.id,
+          kind: "adhoc" as const,
+          routeSequence: e.routeSequence,
+          done: e.completed,
+          createdAtMs: e.createdAt.getTime(),
+          visit: null,
+          errand: e,
+        })),
+      ],
+      visit.id,
+    );
+
+    if (chosen?.visit) {
+      const v = chosen.visit;
+      nextStop = {
+        visitId: v.id,
+        title: v.property.name,
+        subtitle: v.bodyOfWater.name,
+        address: [v.property.addressLine1, v.property.city, v.property.region].filter(Boolean).join(", ") || null,
+        // Same "prefer the venue's own pin" rule the schedule and map use.
+        latitude: coalesceCoord(v.bodyOfWater.latitude, v.property.latitude),
+        longitude: coalesceCoord(v.bodyOfWater.longitude, v.property.longitude),
+      };
+    } else if (chosen?.errand) {
+      const e = chosen.errand;
+      nextStop = {
+        visitId: null,
+        title: e.description,
+        subtitle: e.property?.name ?? null,
+        address: e.property ? [e.property.addressLine1, e.property.city, e.property.region].filter(Boolean).join(", ") || null : null,
+        latitude: coalesceCoord(null, e.property?.latitude),
+        longitude: coalesceCoord(null, e.property?.longitude),
+      };
+    }
+  }
+
   return (
-    <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
+    <main className={`mx-auto min-h-screen max-w-4xl px-6 py-10 ${showsNextStop ? "pb-32" : ""}`}>
       <div className="mb-6">
         <Link href={backHref} className="text-sm text-brand-primary underline">
           {backLabel}
@@ -245,6 +340,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           serviceMessages={serviceMessages}
         />
       )}
+      {showsNextStop ? <NextStopRibbon next={nextStop} /> : null}
     </main>
   );
 }
