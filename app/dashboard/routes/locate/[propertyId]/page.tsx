@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
-import { PropertyLocationPicker } from "@/app/components/property-location-picker";
+import { LocationPicker } from "@/app/components/location-picker";
+import { setPropertyLocation } from "@/app/dashboard/routes/actions";
 
 type PageProps = {
   params: Promise<{ propertyId: string }>;
@@ -95,8 +96,9 @@ export default async function LocatePropertyPage({ params }: PageProps) {
       </header>
 
       <section className="mt-6">
-        <PropertyLocationPicker
-          propertyId={property.id}
+        <LocationPicker
+          action={setPropertyLocation}
+          hiddenFields={{ propertyId: property.id }}
           initialLatitude={center.latitude}
           initialLongitude={center.longitude}
           initialZoom={zoom}

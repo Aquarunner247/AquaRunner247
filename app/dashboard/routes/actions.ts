@@ -410,3 +410,43 @@ export async function setPropertyLocation(formData: FormData) {
   if (property.customerId) revalidatePath(`/dashboard/customers/${property.customerId}`);
   redirect("/dashboard/routes");
 }
+
+/**
+ * Saves a body of water's own pin. Separate from setPropertyLocation because a property has one
+ * coordinate that every body on it shares, which can't express a front pool and a back pool
+ * being two different places to drive to.
+ *
+ * Lives here rather than in the customer actions file so it sits beside setPropertyLocation and
+ * geocodeAllProperties -- all three exist to get coordinates onto things for routing.
+ *
+ * `returnTo` lets the caller decide where to land afterwards (the body's own page, or the
+ * Routes page when working through the missing-pins list) instead of hardcoding one.
+ */
+export async function setBodyOfWaterLocation(formData: FormData) {
+  const appUser = await requireAdmin();
+  const bodyOfWaterId = String(formData.get("bodyOfWaterId") ?? "").trim();
+  const latitude = Number(formData.get("latitude"));
+  const longitude = Number(formData.get("longitude"));
+  if (!bodyOfWaterId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+  const body = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyOfWaterId, property: { organizationId: appUser.organizationId } },
+    select: { id: true, property: { select: { id: true, customerId: true } } },
+  });
+  if (!body) return;
+
+  await prisma.bodyOfWater.update({
+    where: { id: body.id },
+    data: { latitude, longitude },
+  });
+
+  revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard/schedule");
+  if (body.property.customerId) revalidatePath(`/dashboard/customers/${body.property.customerId}`);
+
+  // Only ever an in-app path: anything else (a scheme, a host, a protocol-relative "//host")
+  // would turn a saved pin into an open redirect.
+  const returnToRaw = String(formData.get("returnTo") ?? "").trim();
+  const returnTo = /^\/[^/\\]/.test(returnToRaw) ? returnToRaw : "/dashboard/routes";
+  redirect(returnTo);
+}

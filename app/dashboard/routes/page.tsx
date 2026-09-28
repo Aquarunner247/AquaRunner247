@@ -73,6 +73,26 @@ export default async function RoutesPage({ searchParams }: PageProps) {
     },
   });
 
+  // Bodies of water that are ON a route but have no pin of their own. Scoped to routed venues
+  // deliberately: an unrouted body isn't being driven to, so nagging about it is noise. Mirrors
+  // propertiesMissingCoordinates above -- same problem one level down.
+  const bodiesMissingPin = await prisma.bodyOfWater.findMany({
+    where: {
+      property: { organizationId: appUser.organizationId },
+      OR: [{ latitude: null }, { longitude: null }],
+      recurringStops: { some: {} },
+    },
+    orderBy: [{ property: { name: "asc" } }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      property: { select: { id: true, name: true, customerId: true, latitude: true } },
+      // The locate page is nested under a customer (/dashboard/customers/[id]/bodies/[bodyId]),
+      // and Property.customerId is nullable (onDelete: SetNull), so a customer-less property has
+      // no reachable URL. Those are excluded below rather than linked to /customers/null/...
+    },
+  });
+
   const routes = await prisma.recurringRoute.findMany({
     where: { organizationId: appUser.organizationId },
     orderBy: [{ dayOfWeek: "asc" }, { createdAt: "desc" }],
@@ -165,6 +185,10 @@ export default async function RoutesPage({ searchParams }: PageProps) {
       .map((r) => ({ id: r.technician!.id, label: `${r.technician!.name ?? r.technician!.email} (inactive)` })),
   ].filter((option, i, all) => all.findIndex((o) => o.id === option.id) === i);
 
+  const linkableBodiesMissingPin = bodiesMissingPin.filter(
+    (b): b is (typeof bodiesMissingPin)[number] & { property: { customerId: string } } => b.property.customerId != null,
+  );
+
   const dayOptions = DAY_NAMES.slice(1).map((label, i) => ({ value: String(i + 1), label }));
 
   const viewHref = (nextView: "week" | "list") => {
@@ -210,6 +234,38 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                   <span className="text-brand-muted"> · {[p.addressLine1, p.city, p.region].filter(Boolean).join(", ") || "No address on file"}</span>
                 </span>
                 <Link href={`/dashboard/routes/locate/${p.id}`} className="app-btn-secondary-sm shrink-0">
+                  Set on map →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {linkableBodiesMissingPin.length > 0 ? (
+        <section data-tour="routes-missing-pins" className="app-card mt-6 border-l-4 border-l-brand-primary">
+          <p className="text-sm font-semibold text-brand-ink">
+            {linkableBodiesMissingPin.length} aquatic venue{linkableBodiesMissingPin.length === 1 ? "" : "s"} without its own map pin
+          </p>
+          <p className="mt-1 text-xs text-brand-muted">
+            These fall back to their property&rsquo;s single location, which every venue there shares — so a front pool and
+            a back pool look like the same place. Pin each one on satellite imagery to fix that. Optional, and routing
+            works without it.
+          </p>
+          <ul className="mt-3 divide-y divide-brand-border">
+            {linkableBodiesMissingPin.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="min-w-0 truncate text-brand-ink">
+                  <span className="font-medium">{b.name}</span>
+                  <span className="text-brand-muted"> — {b.property.name}</span>
+                  {b.property.latitude == null ? (
+                    <span className="text-brand-warn"> · property has no location either</span>
+                  ) : null}
+                </span>
+                <Link
+                  href={`/dashboard/customers/${b.property.customerId}/bodies/${b.id}/locate?returnTo=routes`}
+                  className="app-btn-secondary-sm shrink-0"
+                >
                   Set on map →
                 </Link>
               </li>

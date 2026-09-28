@@ -587,6 +587,19 @@ model User {
   /// finished or skipped -- one entry per page, not a single tour-wide flag.
   seenTourPages String[] @default([])
 
+  /// Where this technician's day starts AND ends — typically their home, so a route can be
+  /// optimized as a round trip rather than a path that happens to finish wherever the last
+  /// stop is. One point serves both ends deliberately; a separate finish would be another
+  /// column pair, and nobody has asked for one.
+  ///
+  /// Null means today's behavior: the route simply begins at whichever stop is first, and
+  /// "Optimize stop order" pins that stop instead of a home address.
+  startLatitude  Decimal? @db.Decimal(10, 7)
+  startLongitude Decimal? @db.Decimal(10, 7)
+  /// Free text, only ever shown back to the person — the coordinates above are what routing
+  /// uses. Kept so a saved pin is recognizable as "home" rather than two decimals.
+  startAddress   String?
+
   assignedVisits                 ServiceVisit[]          @relation("VisitTechnician")
   assignedRoutes                 RecurringRoute[]        @relation("RouteTechnician")
   sentAlerts                     CustomerAlert[]
@@ -813,6 +826,18 @@ model BodyOfWater {
 
   name             String
   type             BodyOfWaterType @default(POOL)
+
+  /// This body of water's own pin, dropped on satellite imagery — distinct from the parent
+  /// Property's single coordinate, which every body on the property shares. A property with a
+  /// front pool and a back pool is two places a technician drives to, and the property-level
+  /// coordinate can't express that: see the positional gate in route-day-view.tsx's
+  /// computeAutoArrivalEligibleIds, which exists purely because it couldn't.
+  ///
+  /// Null means "not pinned yet" and every consumer falls back to the property's coordinate,
+  /// so this is additive — nothing changes until a pin is dropped.
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
   volumeGallons    Decimal?        @db.Decimal(12, 2)
   /// SNHD-posted maximum bather load for this body of water
   maximumOccupancy Int?

@@ -134,6 +134,34 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         )}
       </section>
 
+      {/* Map location. Its own block rather than a field inside Details: it's set by dropping a
+          pin on satellite imagery, not by typing, and it belongs to routing rather than to the
+          venue's own record. */}
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold text-brand-ink">Map location</h2>
+            <p className="mt-1 text-sm text-brand-muted">
+              {body.latitude != null && body.longitude != null ? (
+                <>
+                  Pinned at <span className="app-metric">{Number(body.latitude).toFixed(6)}, {Number(body.longitude).toFixed(6)}</span>
+                </>
+              ) : (
+                <>
+                  Not pinned yet — routing falls back to {body.property.name}&rsquo;s own location, which every body of
+                  water there shares.
+                </>
+              )}
+            </p>
+          </div>
+          {!isEnded ? (
+            <Link href={`/dashboard/customers/${customerId}/bodies/${body.id}/locate`} className="app-btn-secondary-sm shrink-0">
+              {body.latitude != null ? "Move pin" : "Set on map"}
+            </Link>
+          ) : null}
+        </div>
+      </section>
+
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         <h2 className="text-base font-semibold text-brand-ink">Details</h2>
         {isEnded ? (

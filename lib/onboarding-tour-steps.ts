@@ -56,6 +56,12 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
       optional: true,
     },
     {
+      target: "routes-missing-pins",
+      title: "Venues without their own map pin",
+      body: "A property has one location that every pool and spa on it shares, so a front pool and a back pool look like the same place. Pin each venue on satellite imagery here and routing knows where they actually are. Entirely optional — everything works without it.",
+      optional: true,
+    },
+    {
       target: "routes-view-toggle",
       title: "List or Week",
       body: "List is where you build and edit a route's stops. Week lays all seven days out side by side so you can see how the work is spread across your techs — click any day there to come back here and edit it. The filters below apply to both.",

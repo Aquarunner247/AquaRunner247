@@ -3,13 +3,17 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import type { Map as LeafletMap, Marker } from "leaflet";
-import { setPropertyLocation } from "@/app/dashboard/routes/actions";
 import { BRAND_CTA } from "@/app/lib/chart-colors";
 
 type Suggestion = { label: string; latitude: number; longitude: number };
 
 type Props = {
-  propertyId: string;
+  /** Server action the Save form posts to. Passed in rather than imported so one picker can
+   * serve a property pin, a body-of-water pin and a technician's start location. */
+  action: (formData: FormData) => Promise<void>;
+  /** Identity the action needs, rendered as hidden inputs — e.g. { propertyId } or
+   * { bodyOfWaterId }. Latitude/longitude are added by this component. */
+  hiddenFields: Record<string, string>;
   initialLatitude: number;
   initialLongitude: number;
   initialZoom: number;
@@ -17,6 +21,9 @@ type Props = {
    * existing saved pin -- false when it's just a fallback guess (org centroid or the
    * continental US), so the map doesn't show a marker that looks like a confirmed location. */
   hasConfidentStart: boolean;
+  /** What the pin means here, e.g. "right on the pool" vs "at your driveway". */
+  instruction?: string;
+  saveLabel?: string;
 };
 
 /** Satellite imagery via Esri World Imagery -- free, no API key, same "no paid mapping
@@ -25,7 +32,16 @@ type Props = {
 const SATELLITE_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SATELLITE_ATTRIBUTION = "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
 
-export function PropertyLocationPicker({ propertyId, initialLatitude, initialLongitude, initialZoom, hasConfidentStart }: Props) {
+export function LocationPicker({
+  action,
+  hiddenFields,
+  initialLatitude,
+  initialLongitude,
+  initialZoom,
+  hasConfidentStart,
+  instruction = "Click the satellite image right on the pool (or drag the pin once placed) to mark its exact location.",
+  saveLabel = "Save location",
+}: Props) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
@@ -132,20 +148,20 @@ export function PropertyLocationPicker({ propertyId, initialLatitude, initialLon
         </ul>
       ) : null}
 
-      <p className="mt-2 text-sm text-brand-muted">
-        Click the satellite image right on the pool (or drag the pin once placed) to mark its exact location.
-      </p>
+      <p className="mt-2 text-sm text-brand-muted">{instruction}</p>
       <div ref={mapDivRef} className="mt-2 h-[420px] w-full rounded-lg border border-brand-border" />
 
-      <form action={setPropertyLocation} className="mt-3 flex flex-wrap items-center gap-3">
-        <input type="hidden" name="propertyId" value={propertyId} />
+      <form action={action} className="mt-3 flex flex-wrap items-center gap-3">
+        {Object.entries(hiddenFields).map(([name, value]) => (
+          <input key={name} type="hidden" name={name} value={value} />
+        ))}
         <input type="hidden" name="latitude" value={picked?.lat ?? ""} />
         <input type="hidden" name="longitude" value={picked?.lng ?? ""} />
         <p className="text-xs text-brand-muted">
           {picked ? `Pin at ${picked.lat.toFixed(6)}, ${picked.lng.toFixed(6)}` : "Click the map to drop a pin first."}
         </p>
         <button type="submit" disabled={!picked} className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">
-          Save location
+          {saveLabel}
         </button>
       </form>
     </div>
