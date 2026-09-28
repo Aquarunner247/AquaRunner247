@@ -1,6 +1,7 @@
 import type { CustomerAlertSendOutcome } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { sendCustomerAlertEmail } from "@/lib/email";
+import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
 import { applyAlertPlaceholders } from "@/lib/alert-placeholders";
 
 export type CustomerAlertOutcome = "sent" | "partial" | "failed" | "no-recipients" | "not-found";
@@ -52,7 +53,19 @@ export async function sendAlertToCustomer(params: {
         properties: { select: { managerEmail: true, managerName: true, name: true }, take: 1 },
       },
     }),
-    prisma.organization.findUnique({ where: { id: organizationId }, select: { welcomeEmailSupportEmail: true } }),
+    prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: {
+        welcomeEmailSupportEmail: true,
+        // Branding: an alert is customer-facing, so it should come from the pool company.
+        name: true,
+        planStatus: true,
+        planTier: true,
+        brandingLogoUrl: true,
+        brandingPrimaryColor: true,
+        brandingHeaderColor: true,
+      },
+    }),
   ]);
   if (!customer) return "not-found";
 
@@ -79,8 +92,20 @@ export async function sendAlertToCustomer(params: {
     outcome = "no-recipients";
   } else {
     const replyTo = organization?.welcomeEmailSupportEmail ?? null;
+    // Same gate as the portal and welcome email: branding stops applying when the tier lapses.
+    const branding =
+      organization && hasWhiteLabelBranding(organization)
+        ? {
+            orgName: organization.name,
+            logoUrl: organization.brandingLogoUrl,
+            primaryColor: organization.brandingPrimaryColor,
+            headerColor: organization.brandingHeaderColor,
+          }
+        : null;
     const results = await Promise.all(
-      recipients.map((recipient) => sendCustomerAlertEmail({ to: recipient.email, customerName: recipient.name, subject, message, replyTo })),
+      recipients.map((recipient) =>
+        sendCustomerAlertEmail({ to: recipient.email, customerName: recipient.name, subject, message, replyTo, branding }),
+      ),
     );
     failedRecipientCount = results.filter((r) => !r.ok).length;
     outcome = failedRecipientCount === 0 ? "sent" : failedRecipientCount === results.length ? "failed" : "partial";

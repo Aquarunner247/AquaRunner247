@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { sendServiceSummaryEmail } from "@/lib/email";
+import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
 import { timeZoneForState } from "@/lib/timezone";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -23,7 +24,21 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     include: {
       reading: true,
       photos: { select: { id: true, storagePath: true } },
-      organization: { select: { state: true, serviceSummaryCcEmail: true, welcomeEmailSupportEmail: true } },
+      organization: {
+        select: {
+          state: true,
+          serviceSummaryCcEmail: true,
+          welcomeEmailSupportEmail: true,
+          // Branding for the summary email. This is a CUSTOMER-facing email, so it should
+          // carry the pool company's identity, not the platform's.
+          name: true,
+          planStatus: true,
+          planTier: true,
+          brandingLogoUrl: true,
+          brandingPrimaryColor: true,
+          brandingHeaderColor: true,
+        },
+      },
       property: { select: { name: true, managerEmail: true, propertyType: true, addressLine1: true, city: true, region: true } },
       bodyOfWater: {
         select: {
@@ -129,6 +144,17 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       );
       await sendServiceSummaryEmail({
         to: visit.property.managerEmail,
+        // Same gate the portal layout and welcome email use: stored branding stops being
+        // applied the moment an org is no longer on a tier that includes it, rather than
+        // merely becoming uneditable. Null here yields the platform's own look.
+        branding: hasWhiteLabelBranding(visit.organization)
+          ? {
+              orgName: visit.organization.name,
+              logoUrl: visit.organization.brandingLogoUrl,
+              primaryColor: visit.organization.brandingPrimaryColor,
+              headerColor: visit.organization.brandingHeaderColor,
+            }
+          : null,
         propertyName: visit.property.name,
         bodyOfWaterName: visit.bodyOfWater.name,
         address: [visit.property.addressLine1, visit.property.city, visit.property.region].filter(Boolean).join(", ") || null,

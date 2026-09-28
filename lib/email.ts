@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { resolveEmailBranding, type EmailBrandingInput } from "@/lib/mail/email-branding";
 
 /**
  * Notifies the site owner of a new waitlist signup. Best-effort — the WaitlistSignup
@@ -45,6 +46,10 @@ type DoseSummary = { productName: string; quantity: number; unit: string };
 
 type ServiceSummaryEmailInput = {
   to: string;
+  /** The org's branding when it's on a tier that includes white-labelling, else null. Resolved
+   * by the caller (see the completion route) so the tier gate lives with the other org lookups
+   * rather than being re-derived here. Null yields the platform's own look. */
+  branding?: EmailBrandingInput | null;
   propertyName: string;
   bodyOfWaterName: string;
   address: string | null;
@@ -134,6 +139,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
 
   const resend = new Resend(apiKey);
+  const brand = resolveEmailBranding(input.branding ?? null);
 
   const dateStr = input.completedAt.toLocaleDateString(undefined, { timeZone: input.timeZone, weekday: "long", year: "numeric", month: "long", day: "numeric" });
   // Only a genuinely distinct arrival timestamp gets its own blocks -- see startedAt's
@@ -170,7 +176,8 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
-      <div style="background:#06333B; padding: 20px 24px 0; border-radius: 8px 8px 0 0;">
+      <div style="background:${brand.headerColor}; padding: 20px 24px 0; border-radius: 8px 8px 0 0;">
+        ${brand.logoBlock}
         <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Service Summary</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 2px;">${input.propertyName} — ${input.bodyOfWaterName}</h1>
         ${input.address ? `<p style="color:#9CC3C6; font-size:13px; margin:0 0 2px;">${input.address}</p>` : ""}
@@ -223,7 +230,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
         }
 
         <p style="font-size:12px; color:#55696C; margin:16px 0 0; border-top:1px solid #C4D9DA; padding:12px 0 20px;">
-          This is an automated summary from AquaRunner 24/7 Pro.
+          ${brand.footerAttribution}
         </p>
       </div>
     </div>
@@ -413,6 +420,9 @@ type CustomerAlertEmailInput = {
   to: string;
   customerName: string;
   subject: string;
+  /** The sending org's branding when its tier includes white-labelling, else null. A customer
+   * getting "Update from AquaRunner 24/7 Pro" about their own pool is the bug this fixes. */
+  branding?: EmailBrandingInput | null;
   message: string;
   /** Organization.welcomeEmailSupportEmail, if the org has set one -- without this, a
    * reply lands on the `from` address (no-reply@mail.aquarunner247.com), which has no
@@ -430,11 +440,13 @@ export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Pr
   const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
 
   const resend = new Resend(apiKey);
+  const brand = resolveEmailBranding(input.branding ?? null);
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
-      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Update from AquaRunner 24/7 Pro</p>
+      <div style="background:${brand.headerColor}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        ${brand.logoBlock}
+        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Update from ${brand.orgName}</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.subject}</h1>
       </div>
       <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
