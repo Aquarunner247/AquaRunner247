@@ -131,6 +131,9 @@ export default async function UsersPage({ searchParams }: PageProps) {
                       <span className="ml-2 text-brand-ink/60">
                         {u.email}
                         {u.phone ? ` · ${u.phone}` : ""}
+                        {/* Start/end point for route optimization -- shown here so an admin can see
+                            at a glance which technicians still need one. */}
+                        {u.startLatitude != null ? ` · starts at ${u.startAddress || "a set point"}` : ""}
                       </span>
                     </span>
                     <div className="flex items-center gap-2">
@@ -148,6 +151,9 @@ export default async function UsersPage({ searchParams }: PageProps) {
                         </button>
                       </form>
                       <RowActionsMenu label={`Actions for ${u.name ?? u.email}`}>
+                        <a href={`/dashboard/users/${u.id}/start-location`} className="app-menu-item">
+                          {u.startLatitude != null ? "Change start location" : "Set start location"}
+                        </a>
                         <a
                           href={params.edit === u.id ? "/dashboard/users?tab=staff" : `/dashboard/users?tab=staff&edit=${u.id}`}
                           className="app-menu-item"

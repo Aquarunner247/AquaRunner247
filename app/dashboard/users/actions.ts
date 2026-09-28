@@ -424,3 +424,58 @@ export async function deleteCustomerUser(formData: FormData) {
   revalidatePath("/dashboard/users");
   revalidatePath(`/dashboard/customers/${customerUser.customerId}`);
 }
+
+/**
+ * Sets a technician's start/end location on their behalf.
+ *
+ * Distinct from setMyStartLocation (app/dashboard/actions.ts), which is the person editing their
+ * own and is deliberately not admin-gated. This one IS admin-gated and writes someone else's row,
+ * so it validates that the target is in the caller's organization -- collecting addresses and
+ * entering them centrally is often easier than getting every technician to do it themselves.
+ */
+export async function setUserStartLocation(formData: FormData) {
+  const appUser = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const latitude = Number(formData.get("latitude"));
+  const longitude = Number(formData.get("longitude"));
+  if (!userId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+  const target = await prisma.user.findFirst({
+    where: { id: userId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!target) return;
+
+  const label = String(formData.get("startAddress") ?? "").trim();
+
+  await prisma.user.update({
+    where: { id: target.id },
+    data: { startLatitude: latitude, startLongitude: longitude, startAddress: label || null },
+  });
+
+  revalidatePath("/dashboard/users");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/users?tab=staff&saved=1");
+}
+
+/** Clears it, putting that technician back to starting at whichever stop is first. */
+export async function clearUserStartLocation(formData: FormData) {
+  const appUser = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!userId) return;
+
+  const target = await prisma.user.findFirst({
+    where: { id: userId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!target) return;
+
+  await prisma.user.update({
+    where: { id: target.id },
+    data: { startLatitude: null, startLongitude: null, startAddress: null },
+  });
+
+  revalidatePath("/dashboard/users");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/users?tab=staff&saved=1");
+}

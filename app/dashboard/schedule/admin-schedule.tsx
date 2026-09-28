@@ -369,11 +369,21 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
   // silently disappears.
   const routeStopById = new Map(routeStops.map((r) => [r.id, r]));
   let scheduleItems: DayItem[];
-  let otherAdHocStops = adHocStops;
+
+  // A COMPLETED extra stop belongs to the technician who did it, and shows on their own day. This
+  // shared box exists so unfinished work assigned elsewhere (or to nobody) can't be lost -- finished
+  // work can't be lost, so listing it here is just noise obscuring what still needs doing.
+  //
+  // An UNASSIGNED completed stop stays visible: there is no technician's day for it to appear on,
+  // so hiding it would make it reachable from nowhere.
+  const visibleElsewhere = (stop: (typeof adHocStops)[number]) => stop.completed && stop.technicianId != null;
+  let otherAdHocStops = adHocStops.filter((s) => !visibleElsewhere(s));
 
   if (selectedTechnicianId) {
+    // The selected technician's own list still shows their completed stops -- this only trims the
+    // shared box below.
     const assignedToSelectedTech = adHocStops.filter((s) => s.technicianId === selectedTechnicianId);
-    otherAdHocStops = adHocStops.filter((s) => s.technicianId !== selectedTechnicianId);
+    otherAdHocStops = adHocStops.filter((s) => s.technicianId !== selectedTechnicianId && !visibleElsewhere(s));
 
     type Combined =
       | { kind: "visit"; sequence: number; tiebreak: number; id: string }
@@ -594,12 +604,17 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
                 </p>
                 {selectedTechnicianId ? (
                   <p className="mt-1 text-xs text-brand-ink/60">
-                    Assigned to a different technician, or unassigned — an extra stop assigned to{" "}
-                    {roster.find((t) => t.id === selectedTechnicianId)?.name ?? "this technician"} shows in their list above instead.
+                    Still to do, assigned to a different technician or to nobody. An extra stop assigned to{" "}
+                    {roster.find((t) => t.id === selectedTechnicianId)?.name ?? "this technician"} shows in their list
+                    above instead, and a completed one shows only on the day of whoever did it.
                   </p>
                 ) : null}
                 {otherAdHocStops.length === 0 ? (
-                  <p className="mt-2 text-sm text-brand-ink/60">No extra stops for this day — add one below.</p>
+                  <p className="mt-2 text-sm text-brand-ink/60">
+                    {selectedTechnicianId
+                      ? "No outstanding extra stops elsewhere for this day — add one below."
+                      : "No extra stops for this day — add one below."}
+                  </p>
                 ) : (
                   <ul className="mt-2 space-y-1.5">
                     {otherAdHocStops.map((s) => (
