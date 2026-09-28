@@ -16,7 +16,20 @@
  *
  * Returns the visiting order as indices into the original costMatrix/points array.
  */
-export function orderByNearestNeighborWithTwoOpt(costMatrix: number[][]): number[] {
+export type OrderOptions = {
+  /**
+   * Treat the sequence as a round trip that finishes back at index 0, so the cost of the final
+   * leg home counts in the optimization. Used when index 0 is a technician's start/end point
+   * rather than a stop: without it the last stop can be the one furthest from home, because the
+   * drive back was free as far as the cost function was concerned.
+   *
+   * Index 0 still never moves. Only the cost function changes — the 2-opt loop already considers
+   * reversals that end on the last element, which is exactly what re-optimizes the closing leg.
+   */
+  returnToStart?: boolean;
+};
+
+export function orderByNearestNeighborWithTwoOpt(costMatrix: number[][], options?: OrderOptions): number[] {
   const n = costMatrix.length;
   if (n < 2) return costMatrix.map((_, i) => i);
 
@@ -38,9 +51,11 @@ export function orderByNearestNeighborWithTwoOpt(costMatrix: number[][]): number
     visited[best] = true;
   }
 
+  const returnToStart = options?.returnToStart ?? false;
   const totalCost = (seq: number[]) => {
     let sum = 0;
     for (let i = 0; i < seq.length - 1; i++) sum += costMatrix[seq[i]][seq[i + 1]];
+    if (returnToStart && seq.length > 1) sum += costMatrix[seq[seq.length - 1]][seq[0]];
     return sum;
   };
 

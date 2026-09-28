@@ -195,3 +195,47 @@ export async function deleteAdHocStop(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/schedule");
 }
+
+/**
+ * Sets the signed-in user's own start/end location — where their day begins and ends, usually
+ * home. Deliberately NOT admin-gated: this is the person's own address, and the whole point is
+ * that a technician can set it themselves. It only ever writes the caller's own row.
+ *
+ * One point serves as both ends: "Optimize stop order" treats the day as a round trip from and
+ * back to here (see computeOptimizedStopOrder's `start` option), so the last stop is chosen for
+ * being near home rather than being whatever was left over.
+ */
+export async function setMyStartLocation(formData: FormData) {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) redirect("/login");
+
+  const latitude = Number(formData.get("latitude"));
+  const longitude = Number(formData.get("longitude"));
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+  const label = String(formData.get("startAddress") ?? "").trim();
+
+  await prisma.user.update({
+    where: { id: appUser.id },
+    data: { startLatitude: latitude, startLongitude: longitude, startAddress: label || null },
+  });
+
+  revalidatePath("/dashboard/more");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/more/start-location?saved=1");
+}
+
+/** Clears it, restoring the default: the route simply starts at whichever stop is first. */
+export async function clearMyStartLocation() {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) redirect("/login");
+
+  await prisma.user.update({
+    where: { id: appUser.id },
+    data: { startLatitude: null, startLongitude: null, startAddress: null },
+  });
+
+  revalidatePath("/dashboard/more");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/more/start-location?cleared=1");
+}

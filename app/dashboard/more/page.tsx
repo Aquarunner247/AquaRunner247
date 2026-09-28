@@ -24,6 +24,16 @@ export default async function MorePage() {
       </section>
 
       <Link
+        href="/dashboard/more/start-location"
+        className="mt-4 block rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm"
+      >
+        Where your day starts
+        <span className="mt-0.5 block text-xs font-normal text-brand-muted">
+          {appUser.startAddress ?? (appUser.startLatitude != null ? "Start point set" : "Not set — routes start at your first stop")}
+        </span>
+      </Link>
+
+      <Link
         href="/dashboard/safety-data-sheets"
         className="mt-4 block rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm"
       >

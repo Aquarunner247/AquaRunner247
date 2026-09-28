@@ -395,6 +395,18 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     scheduleItems = routeStops.map((v) => ({ kind: "visit" as const, ...v }));
   }
 
+  // Only looked up when ONE technician is selected: the combined view draws a single polyline
+  // and several technicians would each have their own start point, so there'd be nothing coherent
+  // to anchor it to. Fetched here rather than widening the two roster queries above, which feed
+  // the filter dropdown and don't otherwise need these fields.
+  const selectedTechnicianStart =
+    selectedTechnicianId && !isOverview
+      ? await prisma.user.findFirst({
+          where: { id: selectedTechnicianId, organizationId: appUser.organizationId },
+          select: { startLatitude: true, startLongitude: true, startAddress: true },
+        })
+      : null;
+
   const technicianOptions = roster.map((t) => ({ id: t.id, label: t.name ?? t.email }));
 
   const dayPercent = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
@@ -559,6 +571,15 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
               technicianColors={selectedTechnicianId ? undefined : technicianColorsRecord}
               technicianLegend={selectedTechnicianId ? undefined : technicianLegend}
               allowGpsAutoArrival={false}
+              startPoint={
+                selectedTechnicianStart?.startLatitude != null && selectedTechnicianStart.startLongitude != null
+                  ? {
+                      latitude: Number(selectedTechnicianStart.startLatitude),
+                      longitude: Number(selectedTechnicianStart.startLongitude),
+                      label: selectedTechnicianStart.startAddress,
+                    }
+                  : null
+              }
             />
 
             {tab !== "map" ? (

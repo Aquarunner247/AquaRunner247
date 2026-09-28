@@ -82,13 +82,36 @@ export async function fetchDrivingDurationMatrix(points: RoutePoint[]): Promise<
  * (haversine) distance otherwise so the button still does *something* useful if the demo
  * server is down or rate-limited, exactly like fetchDrivingRoute's own fallback contract.
  *
- * The first element of `points` is always kept first in the returned order (same contract
- * the previous per-component implementations had) -- only the rest get reordered.
+ * Without `options.start`, the first element of `points` is always kept first in the returned
+ * order (same contract the previous per-component implementations had) -- only the rest get
+ * reordered.
+ *
+ * With `options.start` -- a technician's start/end point, typically home -- the whole day is
+ * optimized as a round trip from and back to that point. The start is prepended for the cost
+ * matrix only and stripped from the result, so callers still get exactly their own stops back,
+ * reordered. Every stop is then free to move, including the first: nothing is pinned except the
+ * start point itself, which isn't one of the caller's stops.
+ *
+ * Note the start counts toward fetchDrivingDurationMatrix's point ceiling, the same way ad-hoc
+ * "extra stops" do.
  */
-export async function computeOptimizedStopOrder<T extends RoutePoint>(points: T[]): Promise<T[]> {
+export async function computeOptimizedStopOrder<T extends RoutePoint>(
+  points: T[],
+  options?: { start?: RoutePoint | null },
+): Promise<T[]> {
   if (points.length < 2) return points;
 
-  const matrix = (await fetchDrivingDurationMatrix(points)) ?? points.map((a) => points.map((b) => haversineMiles(a, b)));
-  const order = orderByNearestNeighborWithTwoOpt(matrix);
-  return order.map((i) => points[i]);
+  const start = options?.start ?? null;
+  if (!start) {
+    const matrix = (await fetchDrivingDurationMatrix(points)) ?? points.map((a) => points.map((b) => haversineMiles(a, b)));
+    const order = orderByNearestNeighborWithTwoOpt(matrix);
+    return order.map((i) => points[i]);
+  }
+
+  // Index 0 is the start point; indices 1..n map to points[0..n-1].
+  const anchored: RoutePoint[] = [{ latitude: start.latitude, longitude: start.longitude }, ...points];
+  const matrix =
+    (await fetchDrivingDurationMatrix(anchored)) ?? anchored.map((a) => anchored.map((b) => haversineMiles(a, b)));
+  const order = orderByNearestNeighborWithTwoOpt(matrix, { returnToStart: true });
+  return order.filter((i) => i !== 0).map((i) => points[i - 1]);
 }

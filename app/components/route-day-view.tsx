@@ -8,7 +8,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { BackgroundGeolocationPlugin } from "@capacitor-community/background-geolocation";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
-import { BRAND_PRIMARY } from "@/app/lib/chart-colors";
+import { BRAND_ANCHOR, BRAND_PRIMARY } from "@/app/lib/chart-colors";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { fetchDrivingRoute, computeOptimizedStopOrder } from "@/lib/routing";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
@@ -95,6 +95,11 @@ type Props = {
   /// full day's real underlying sequence isn't coherent (same reasoning as the existing
   /// multi-tech read-only gate).
   statusFilter?: "all" | "completed" | "in_progress" | "pending";
+  /// Where this technician's day starts and ends (User.startLatitude/startLongitude) -- drawn at
+  /// both ends of the driving line, and used to optimize the day as a round trip. Omitted in
+  /// multi-technician mode, where each person would have a different one and a single line can't
+  /// express that.
+  startPoint?: { latitude: number; longitude: number; label?: string | null } | null;
 };
 
 type PlacedDayItem = DayItem & { latitude: number; longitude: number };
@@ -248,6 +253,7 @@ export function RouteDayView({
   technicianLegend,
   allowGpsAutoArrival = true,
   statusFilter = "all",
+  startPoint = null,
 }: Props) {
   const isMultiTech = Boolean(technicianColors);
   // Multi-technician mode is always read-only, regardless of the readOnly prop: reordering
@@ -522,6 +528,24 @@ export function RouteDayView({
       `font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);` +
       `${o.dimmed ? "opacity:.55;" : ""}">${o.glyph}</div>`;
 
+    // The technician's start/end point, when they've set one. Drawn once but pushed into `points`
+    // at BOTH ends, so the line leaves home and comes back -- which is what makes the last stop
+    // meaningfully "nearest home" after an optimize. Never in multi-tech mode: each technician
+    // would have their own, and one polyline can't leave from several places.
+    const anchor = !isMultiTech && startPoint ? startPoint : null;
+    if (anchor) {
+      const icon = L.divIcon({
+        className: "",
+        html: markerHtml({ color: BRAND_ANCHOR, glyph: "⌂", square: false, dimmed: false }),
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+      L.marker([anchor.latitude, anchor.longitude], { icon })
+        .addTo(layerRef.current!)
+        .bindPopup(`<strong>Start and end</strong><br/>${escapeHtml(anchor.label || "Your start point")}`);
+      points.push([anchor.latitude, anchor.longitude]);
+    }
+
     // ONE pass over displayedItems, in its own order -- which is already the shared
     // routeSequence order across both visits and extra stops (see the `combined.sort` in each
     // caller). That ordering is what makes the polyline below the real driving order: extra
@@ -576,6 +600,12 @@ export function RouteDayView({
         currentSegment.points.push([latitude, longitude]);
       }
     }
+    // Close the loop back to the start. Only when there is something in between -- a line from
+    // home to home is just a dot.
+    if (anchor && points.length > 1) {
+      points.push([anchor.latitude, anchor.longitude]);
+    }
+
     flushSegment();
 
     if (!isMultiTech && points.length > 1) {
@@ -666,7 +696,7 @@ export function RouteDayView({
 
     setOptimizing(true);
     try {
-      const ordered = await computeOptimizedStopOrder(placed);
+      const ordered = await computeOptimizedStopOrder(placed, { start: startPoint });
       await persistOrder([...ordered, ...unplacedVisits, ...unplacedErrands]);
     } finally {
       setOptimizing(false);

@@ -334,6 +334,15 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               isToday={isToday}
               dateYmd={selectedYmd}
               layout={tab === "map" ? "mapOnly" : tab === "list" ? "listOnly" : "both"}
+              startPoint={
+                appUser.startLatitude != null && appUser.startLongitude != null
+                  ? {
+                      latitude: Number(appUser.startLatitude),
+                      longitude: Number(appUser.startLongitude),
+                      label: appUser.startAddress,
+                    }
+                  : null
+              }
             />
 
             {tab !== "map" ? (

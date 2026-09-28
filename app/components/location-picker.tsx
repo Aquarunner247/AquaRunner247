@@ -24,6 +24,9 @@ type Props = {
   /** What the pin means here, e.g. "right on the pool" vs "at your driveway". */
   instruction?: string;
   saveLabel?: string;
+  /** An optional free-text field posted alongside the pin, inside the same save form, so a
+   * location that needs a human-readable label doesn't take a second save. */
+  noteField?: { name: string; label: string; placeholder?: string; defaultValue?: string };
 };
 
 /** Satellite imagery via Esri World Imagery -- free, no API key, same "no paid mapping
@@ -41,6 +44,7 @@ export function LocationPicker({
   hasConfidentStart,
   instruction = "Click the satellite image right on the pool (or drag the pin once placed) to mark its exact location.",
   saveLabel = "Save location",
+  noteField,
 }: Props) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -151,10 +155,21 @@ export function LocationPicker({
       <p className="mt-2 text-sm text-brand-muted">{instruction}</p>
       <div ref={mapDivRef} className="mt-2 h-[420px] w-full rounded-lg border border-brand-border" />
 
-      <form action={action} className="mt-3 flex flex-wrap items-center gap-3">
+      <form action={action} className="mt-3 flex flex-wrap items-end gap-3">
         {Object.entries(hiddenFields).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}
+        {noteField ? (
+          <label className="flex flex-col gap-1 text-xs text-brand-ink">
+            {noteField.label}
+            <input
+              name={noteField.name}
+              defaultValue={noteField.defaultValue}
+              placeholder={noteField.placeholder}
+              className="rounded border border-brand-control px-2 py-1.5 text-sm"
+            />
+          </label>
+        ) : null}
         <input type="hidden" name="latitude" value={picked?.lat ?? ""} />
         <input type="hidden" name="longitude" value={picked?.lng ?? ""} />
         <p className="text-xs text-brand-muted">
