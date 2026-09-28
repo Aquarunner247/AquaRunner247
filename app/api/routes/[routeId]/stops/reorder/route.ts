@@ -20,7 +20,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ route
   });
   if (stops.length !== stopIds.length) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
-  await prisma.$transaction(stopIds.map((id, index) => prisma.recurringStop.update({ where: { id }, data: { sortOrder: index } })));
+  // Sorted by id before execution, not left in payload order: a $transaction takes its row
+  // locks in array order, so two overlapping reorders of the same route would lock the same
+  // rows in opposite orders and deadlock, losing one of the drags. Same fix as
+  // api/visits/reorder. `index` is captured from the payload position first, so the saved
+  // sortOrder is unchanged.
+  const updates = stopIds
+    .map((id, index) => ({ id, index }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  await prisma.$transaction(updates.map(({ id, index }) => prisma.recurringStop.update({ where: { id }, data: { sortOrder: index } })));
 
   return NextResponse.json({ ok: true });
 }

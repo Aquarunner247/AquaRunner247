@@ -36,8 +36,21 @@ export async function PATCH(request: Request) {
   // Index into the combined payload is the new routeSequence for whichever table each item
   // belongs to -- a single shared sequence space per technician/day (not two independent
   // counters), which is what makes an ad-hoc stop's position among real visits unambiguous.
+  //
+  // The updates are then SORTED by (kind, id) before execution, which is not cosmetic: a
+  // $transaction acquires its row locks in array order, so two overlapping reorders of the
+  // same day -- easy to trigger by dragging twice in quick succession, since each drop fires
+  // its own PATCH -- would grab the same rows in opposite orders and deadlock. Postgres kills
+  // one of them and the drag silently fails ("deadlock detected" on this route in production).
+  // A deterministic order means any two concurrent transactions queue instead of cycling.
+  // Sorting does not affect what's written: `index` is captured from the payload position
+  // first, so each row still gets the sequence the user dropped it at.
+  const updates = items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => a.item.kind.localeCompare(b.item.kind) || a.item.id.localeCompare(b.item.id));
+
   await prisma.$transaction(
-    items.map((item, index) =>
+    updates.map(({ item, index }) =>
       item.kind === "visit"
         ? prisma.serviceVisit.update({ where: { id: item.id }, data: { routeSequence: index } })
         : prisma.adHocStop.update({ where: { id: item.id }, data: { routeSequence: index } }),
