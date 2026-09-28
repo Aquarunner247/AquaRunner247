@@ -167,7 +167,15 @@ export default async function SchedulePage({ searchParams }: PageProps) {
       : prisma.adHocStop.findMany({
           where: { organizationId: appUser.organizationId, technicianId: appUser.id, scheduledDate: { gte: startOfDay, lt: dayEnd } },
           orderBy: [{ completed: "asc" }, { createdAt: "asc" }],
-          select: { id: true, description: true, completed: true, routeSequence: true, createdAt: true, property: { select: { name: true } } },
+          // latitude/longitude so an extra stop can be drawn on the map, not just listed.
+          select: {
+            id: true,
+            description: true,
+            completed: true,
+            routeSequence: true,
+            createdAt: true,
+            property: { select: { name: true, latitude: true, longitude: true } },
+          },
         }),
     tab === "week"
       ? Promise.resolve([])
@@ -221,6 +229,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           description: c.stop.description,
           completed: c.stop.completed,
           propertyName: c.stop.property?.name ?? null,
+          latitude: c.stop.property?.latitude != null ? Number(c.stop.property.latitude) : null,
+          longitude: c.stop.property?.longitude != null ? Number(c.stop.property.longitude) : null,
         },
   );
 

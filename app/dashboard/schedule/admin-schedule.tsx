@@ -337,7 +337,8 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             routeSequence: true,
             createdAt: true,
             technicianId: true,
-            property: { select: { name: true } },
+            // latitude/longitude so an extra stop can be drawn on the map, not just listed.
+            property: { select: { name: true, latitude: true, longitude: true } },
             technician: { select: { name: true, email: true } },
           },
         }),
@@ -380,7 +381,15 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     scheduleItems = combined.map((c) =>
       c.kind === "visit"
         ? { kind: "visit" as const, ...routeStopById.get(c.id)! }
-        : { kind: "adhoc" as const, id: c.stop.id, description: c.stop.description, completed: c.stop.completed, propertyName: c.stop.property?.name ?? null },
+        : {
+            kind: "adhoc" as const,
+            id: c.stop.id,
+            description: c.stop.description,
+            completed: c.stop.completed,
+            propertyName: c.stop.property?.name ?? null,
+            latitude: c.stop.property?.latitude != null ? Number(c.stop.property.latitude) : null,
+            longitude: c.stop.property?.longitude != null ? Number(c.stop.property.longitude) : null,
+          },
     );
   } else {
     scheduleItems = routeStops.map((v) => ({ kind: "visit" as const, ...v }));

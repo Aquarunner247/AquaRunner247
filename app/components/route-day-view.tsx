@@ -44,6 +44,11 @@ export type AdHocItem = {
   description: string;
   completed: boolean;
   propertyName: string | null;
+  /// From the attached property, when there is one. An ad-hoc stop's property is optional
+  /// (a "pool store run" has none) and a property may not be geocoded yet, so either can be
+  /// null -- those stay list-only, since there's nowhere on the map to put them.
+  latitude: number | null;
+  longitude: number | null;
   technicianId?: string | null;
   technicianLabel?: string | null;
 };
@@ -105,6 +110,19 @@ function matchesStatusFilter(item: DayItem, filter: NonNullable<Props["statusFil
 // No JS entrypoint ships from @capacitor-community/background-geolocation (it's types-only
 // -- see its package.json) -- this is the documented way to obtain the plugin.
 const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
+
+/// Leaflet popups take an HTML string, so anything user-entered has to be escaped before it
+/// goes in one. Property names, body-of-water names and extra-stop descriptions are all typed
+/// by a person -- a description like `<img src=x onerror=...>` would otherwise execute when
+/// the popup opens.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 const ARRIVAL_RADIUS_METERS = 150;
 
@@ -485,7 +503,6 @@ export function RouteDayView({
       currentSegment = null;
     };
 
-    // Ad-hoc items never get a map marker -- see this module's AdHocItem doc comment.
     const displayedVisitItems = displayedItems.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
     displayedVisitItems.forEach((v) => {
       if (v.latitude == null || v.longitude == null) return;
@@ -498,8 +515,8 @@ export function RouteDayView({
         iconSize: [26, 26],
         iconAnchor: [13, 13],
       });
-      const popupLines = [`<strong>${v.propertyName}</strong>`, v.bodyName];
-      if (isMultiTech) popupLines.push(v.technicianLabel ?? "Unassigned");
+      const popupLines = [`<strong>${escapeHtml(v.propertyName)}</strong>`, escapeHtml(v.bodyName)];
+      if (isMultiTech) popupLines.push(escapeHtml(v.technicianLabel ?? "Unassigned"));
       L.marker([v.latitude, v.longitude], { icon })
         .addTo(layerRef.current!)
         .bindPopup(popupLines.join("<br/>"));
@@ -519,14 +536,44 @@ export function RouteDayView({
       segments.push({ techId: undefined, points, color: BRAND_PRIMARY, opacity: 0.6 });
     }
 
+    // Extra stops. Square marker with a "+" rather than a numbered circle: an errand is not a
+    // service visit, and the numbers belong to the visit sequence -- reusing them here would
+    // imply an ordering the map doesn't actually draw.
+    //
+    // Deliberately NOT added to the route polyline or its segments. The line is built from the
+    // visit sequence, and "Optimize stop order" only ever reorders visits (see optimizeRoute),
+    // so threading errands into the line would draw an order nothing else in the app agrees
+    // with. Their coordinates DO feed fitBounds below, so an errand across town still pulls
+    // the viewport out to include it rather than sitting off-screen.
+    const displayedAdHocItems = displayedItems.filter((i): i is DayItem & { kind: "adhoc" } => i.kind === "adhoc");
+    const adHocPoints: [number, number][] = [];
+    displayedAdHocItems.forEach((a) => {
+      if (a.latitude == null || a.longitude == null) return;
+      const color = isMultiTech ? technicianColors?.[a.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR : BRAND_PRIMARY;
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="background:${color};color:white;border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);${a.completed ? "opacity:.5;" : ""}">${a.completed ? "✓" : "+"}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      const popupLines = ["<strong>Extra stop</strong>", escapeHtml(a.description)];
+      if (a.propertyName) popupLines.push(escapeHtml(a.propertyName));
+      if (isMultiTech) popupLines.push(escapeHtml(a.technicianLabel ?? "Unassigned"));
+      L.marker([a.latitude, a.longitude], { icon }).addTo(layerRef.current!).bindPopup(popupLines.join("<br/>"));
+      adHocPoints.push([a.latitude, a.longitude]);
+    });
+
     // Draw a straight line immediately for instant feedback, then try to replace each
     // segment with a real road-following route -- the free routing server this hits can
     // be slow or occasionally rate-limited, so this degrades gracefully back to the
     // straight line on any failure rather than leaving the map blank.
     const straightLayers = segments.map((seg) => L.polyline(seg.points, { color: seg.color, weight: 3, opacity: seg.opacity }).addTo(layerRef.current!));
 
-    if (points.length) {
-      mapRef.current.fitBounds(points, { padding: [30, 30] });
+    // Extra stops are included here even though they're not in the polyline, so an errand
+    // across town widens the viewport instead of sitting off the edge of the map.
+    const boundsPoints = [...points, ...adHocPoints];
+    if (boundsPoints.length) {
+      mapRef.current.fitBounds(boundsPoints, { padding: [30, 30] });
     }
 
     await Promise.all(
@@ -604,7 +651,14 @@ export function RouteDayView({
 
   // Ad-hoc items never carry coordinates -- excluded here so their absence never triggers
   // the "some stops don't have map coordinates yet" warning below.
-  const missingCoords = items.some((i) => i.kind === "visit" && (i.latitude == null || i.longitude == null));
+  // An extra stop with NO property (a pool-store run) is deliberately not counted: it has no
+  // address to geocode, so it can never appear on the map and the banner would be telling the
+  // user to fix something unfixable. One WITH a property but no coordinates is the same
+  // fixable situation as a visit, so it counts.
+  const missingCoords = items.some(
+    (i) =>
+      (i.latitude == null || i.longitude == null) && (i.kind === "visit" || (i.kind === "adhoc" && i.propertyName != null)),
+  );
 
   // The subset actually rendered in the list/map -- everything else (GPS eligibility,
   // drag-reorder, grouping below) stays keyed off the full `items` array. trueIndexById
