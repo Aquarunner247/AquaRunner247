@@ -86,7 +86,17 @@ export default async function RoutesPage({ searchParams }: PageProps) {
     select: {
       id: true,
       name: true,
-      property: { select: { id: true, name: true, customerId: true, latitude: true } },
+      property: {
+        select: {
+          id: true,
+          name: true,
+          customerId: true,
+          latitude: true,
+          addressLine1: true,
+          city: true,
+          region: true,
+        },
+      },
       // The locate page is nested under a customer (/dashboard/customers/[id]/bodies/[bodyId]),
       // and Property.customerId is nullable (onDelete: SetNull), so a customer-less property has
       // no reachable URL. Those are excluded below rather than linked to /customers/null/...
@@ -255,12 +265,18 @@ export default async function RoutesPage({ searchParams }: PageProps) {
           <ul className="mt-3 divide-y divide-brand-border">
             {linkableBodiesMissingPin.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                <span className="min-w-0 truncate text-brand-ink">
-                  <span className="font-medium">{b.name}</span>
-                  <span className="text-brand-muted"> — {b.property.name}</span>
-                  {b.property.latitude == null ? (
-                    <span className="text-brand-warn"> · property has no location either</span>
-                  ) : null}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-brand-ink">
+                    <span className="font-medium">{b.name}</span>
+                    <span className="text-brand-muted"> — {b.property.name}</span>
+                  </span>
+                  <span className="block truncate text-xs text-brand-muted">
+                    {[b.property.addressLine1, b.property.city, b.property.region].filter(Boolean).join(", ") ||
+                      "No address on file"}
+                    {b.property.latitude == null ? (
+                      <span className="text-brand-warn"> · property has no location either</span>
+                    ) : null}
+                  </span>
                 </span>
                 <Link
                   href={`/dashboard/customers/${b.property.customerId}/bodies/${b.id}/locate?returnTo=routes`}

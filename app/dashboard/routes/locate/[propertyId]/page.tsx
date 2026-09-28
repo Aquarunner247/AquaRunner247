@@ -103,6 +103,7 @@ export default async function LocatePropertyPage({ params }: PageProps) {
           initialLongitude={center.longitude}
           initialZoom={zoom}
           hasConfidentStart={hasConfidentStart}
+          initialQuery={buildFullAddress(property) ?? ""}
         />
       </section>
     </main>

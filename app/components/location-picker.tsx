@@ -27,6 +27,10 @@ type Props = {
   /** An optional free-text field posted alongside the pin, inside the same save form, so a
    * location that needs a human-readable label doesn't take a second save. */
   noteField?: { name: string; label: string; placeholder?: string; defaultValue?: string };
+  /** Pre-fills the address search box. The map is usually already centred correctly, so this is
+   * there for the case where it isn't -- the address is already known, so nobody should have to
+   * retype it from memory. */
+  initialQuery?: string;
 };
 
 /** Satellite imagery via Esri World Imagery -- free, no API key, same "no paid mapping
@@ -45,6 +49,7 @@ export function LocationPicker({
   instruction = "Click the satellite image right on the pool (or drag the pin once placed) to mark its exact location.",
   saveLabel = "Save location",
   noteField,
+  initialQuery = "",
 }: Props) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -52,7 +57,7 @@ export function LocationPicker({
   const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(
     hasConfidentStart ? { lat: initialLatitude, lng: initialLongitude } : null,
   );
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [searching, setSearching] = useState(false);
 

@@ -76,6 +76,11 @@ export default async function LocateBodyOfWaterPage({ params, searchParams }: Pa
     hasConfidentStart = false;
   }
 
+  const addressLine =
+    [body.property.addressLine1, body.property.addressLine2, body.property.city, body.property.region, body.property.postalCode]
+      .filter(Boolean)
+      .join(", ");
+
   const bodyPath = `/dashboard/customers/${customerId}/bodies/${bodyId}`;
   const returnTo = sp.returnTo === "routes" ? "/dashboard/routes" : bodyPath;
 
@@ -90,6 +95,9 @@ export default async function LocateBodyOfWaterPage({ params, searchParams }: Pa
       <header className="mt-2 border-b border-brand-border pb-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">{body.property.name}</p>
         <h1 className="text-2xl font-semibold text-brand-ink">Mark {body.name}&rsquo;s exact location</h1>
+        {/* The address, so it's possible to confirm the map opened at the right place without
+            already knowing the address by heart. */}
+        <p className="mt-1 text-sm text-brand-ink">{addressLine || "No address on file"}</p>
         <p className="mt-1 text-sm text-brand-muted">
           {body.latitude != null
             ? "This body of water already has a pin — drag it or click elsewhere to move it."
@@ -109,6 +117,7 @@ export default async function LocateBodyOfWaterPage({ params, searchParams }: Pa
           hasConfidentStart={hasConfidentStart}
           instruction={`Click the satellite image right on ${body.name} (or drag the pin once placed) to mark exactly where it sits.`}
           saveLabel="Save this pin"
+          initialQuery={addressLine}
         />
       </section>
     </main>
