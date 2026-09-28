@@ -207,6 +207,23 @@
     @apply app-tab bg-brand-anchor text-white shadow-sm hover:text-white;
   }
 
+  /* Row overflow menu — the "⋯" button on a list row (see RowActionsMenu). Solid white
+     panel rather than translucent, and 44px item height, because these get tapped on a
+     phone outdoors. The danger variant repeats its properties instead of doing
+     `@apply app-menu-item ...`: nesting a custom class inside @apply is what made
+     .app-pill-active a build tripwire (see the note above it). */
+  .app-menu {
+    @apply absolute right-0 z-20 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-brand-border bg-white py-1 shadow-lg;
+  }
+
+  .app-menu-item {
+    @apply flex min-h-[44px] w-full items-center px-3 text-left text-sm font-medium text-brand-ink transition hover:bg-brand-foam;
+  }
+
+  .app-menu-item-danger {
+    @apply flex min-h-[44px] w-full items-center px-3 text-left text-sm font-medium text-brand-danger transition hover:bg-brand-dangerFill;
+  }
+
   /* Numeric/utility face — gauge readings, timestamps, metadata read differently from prose. */
   .app-metric {
     @apply font-[family-name:var(--font-mono)] tabular-nums;

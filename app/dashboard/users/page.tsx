@@ -6,11 +6,14 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { AddUserFormFields } from "@/app/components/add-user-form-fields";
 import { NameInput } from "@/app/components/name-input";
+import { RowActionsMenu } from "@/app/components/row-actions-menu";
 import {
   createUser,
   deleteStaffUser,
   deleteCustomerUser,
   updateUserRole,
+  updateStaffUserDetails,
+  updateCustomerUserDetails,
   resetStaffUserPassword,
   resetCustomerUserPassword,
 } from "./actions";
@@ -23,6 +26,8 @@ type PageProps = {
     resetPassword?: string;
     passwordSaved?: string;
     passwordError?: string;
+    edit?: string;
+    editError?: string;
   }>;
 };
 
@@ -142,25 +147,85 @@ export default async function UsersPage({ searchParams }: PageProps) {
                           Save
                         </button>
                       </form>
-                      {params.resetPassword === u.id ? (
+                      <RowActionsMenu label={`Actions for ${u.name ?? u.email}`}>
+                        <a
+                          href={params.edit === u.id ? "/dashboard/users?tab=staff" : `/dashboard/users?tab=staff&edit=${u.id}`}
+                          className="app-menu-item"
+                        >
+                          {params.edit === u.id ? "Cancel edit" : "Edit"}
+                        </a>
+                        <a
+                          href={
+                            params.resetPassword === u.id
+                              ? "/dashboard/users?tab=staff"
+                              : `/dashboard/users?tab=staff&resetPassword=${u.id}`
+                          }
+                          className="app-menu-item"
+                        >
+                          {params.resetPassword === u.id ? "Cancel reset" : "Reset password"}
+                        </a>
+                        <form action={deleteStaffUser}>
+                          <input type="hidden" name="userId" value={u.id} />
+                          <ConfirmSubmitButton
+                            label="Delete"
+                            confirmMessage={`Permanently delete ${u.name ?? u.email}? This also removes their login — they will no longer be able to sign in.`}
+                            className="app-menu-item-danger"
+                          />
+                        </form>
+                      </RowActionsMenu>
+                    </div>
+                  </div>
+
+                  {params.edit === u.id ? (
+                    <form
+                      action={updateStaffUserDetails}
+                      className="mt-2 border-t border-brand-border pt-2"
+                    >
+                      <input type="hidden" name="userId" value={u.id} />
+                      {params.editError ? (
+                        <p className="mb-2 text-sm font-medium text-brand-danger">{params.editError}</p>
+                      ) : null}
+                      <div className="grid gap-2 md:grid-cols-3">
+                        <div>
+                          <label htmlFor={`name-${u.id}`} className="text-xs font-semibold uppercase tracking-wide text-brand-ink">
+                            Name
+                          </label>
+                          <NameInput id={`name-${u.id}`} name="name" required defaultValue={u.name ?? ""} className="app-field mt-1" />
+                        </div>
+                        <div>
+                          <label htmlFor={`email-${u.id}`} className="text-xs font-semibold uppercase tracking-wide text-brand-ink">
+                            Email
+                          </label>
+                          <input
+                            id={`email-${u.id}`}
+                            name="email"
+                            type="email"
+                            required
+                            defaultValue={u.email}
+                            className="app-field mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={`phone-${u.id}`} className="text-xs font-semibold uppercase tracking-wide text-brand-ink">
+                            Phone
+                          </label>
+                          <input id={`phone-${u.id}`} name="phone" type="tel" defaultValue={u.phone ?? ""} className="app-field mt-1" />
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <button className="app-btn-primary-sm" type="submit">
+                          Save changes
+                        </button>
                         <a href="/dashboard/users?tab=staff" className="app-btn-secondary-sm">
                           Cancel
                         </a>
-                      ) : (
-                        <a href={`/dashboard/users?tab=staff&resetPassword=${u.id}`} className="app-btn-secondary-sm">
-                          Reset password
-                        </a>
-                      )}
-                      <form action={deleteStaffUser}>
-                        <input type="hidden" name="userId" value={u.id} />
-                        <ConfirmSubmitButton
-                          label="Delete"
-                          confirmMessage={`Permanently delete ${u.name ?? u.email}? This also removes their login — they will no longer be able to sign in.`}
-                          className="app-btn-danger-sm"
-                        />
-                      </form>
-                    </div>
-                  </div>
+                        <span className="text-xs text-brand-ink">
+                          Changing the email changes the address they sign in with.
+                          {u.id === appUser.id ? " That's your own account — use the new address next time you log in." : ""}
+                        </span>
+                      </div>
+                    </form>
+                  ) : null}
                   {params.resetPassword === u.id ? (
                     <form action={resetStaffUserPassword} className="mt-2 flex flex-wrap items-center gap-2 border-t border-brand-border pt-2">
                       <input type="hidden" name="userId" value={u.id} />
@@ -244,26 +309,76 @@ export default async function UsersPage({ searchParams }: PageProps) {
                     </span>
                     {!cu.active ? <span className="app-pill-inactive ml-2">Inactive</span> : null}
                   </span>
-                  <div className="flex items-center gap-2">
-                    {params.resetPassword === cu.id ? (
-                      <a href="/dashboard/users?tab=customers" className="app-btn-secondary-sm">
-                        Cancel
-                      </a>
-                    ) : (
-                      <a href={`/dashboard/users?tab=customers&resetPassword=${cu.id}`} className="app-btn-secondary-sm">
-                        Reset password
-                      </a>
-                    )}
+                  <RowActionsMenu label={`Actions for ${cu.name ?? cu.email}`}>
+                    <a
+                      href={
+                        params.edit === cu.id ? "/dashboard/users?tab=customers" : `/dashboard/users?tab=customers&edit=${cu.id}`
+                      }
+                      className="app-menu-item"
+                    >
+                      {params.edit === cu.id ? "Cancel edit" : "Edit"}
+                    </a>
+                    <a
+                      href={
+                        params.resetPassword === cu.id
+                          ? "/dashboard/users?tab=customers"
+                          : `/dashboard/users?tab=customers&resetPassword=${cu.id}`
+                      }
+                      className="app-menu-item"
+                    >
+                      {params.resetPassword === cu.id ? "Cancel reset" : "Reset password"}
+                    </a>
                     <form action={deleteCustomerUser}>
                       <input type="hidden" name="customerUserId" value={cu.id} />
                       <ConfirmSubmitButton
                         label="Delete"
                         confirmMessage={`Remove portal access for ${cu.name ?? cu.email}? They will no longer be able to sign in.`}
-                        className="app-btn-danger-sm"
+                        className="app-menu-item-danger"
                       />
                     </form>
-                  </div>
+                  </RowActionsMenu>
                 </div>
+
+                {params.edit === cu.id ? (
+                  <form action={updateCustomerUserDetails} className="mt-2 border-t border-brand-border pt-2">
+                    <input type="hidden" name="customerUserId" value={cu.id} />
+                    {params.editError ? (
+                      <p className="mb-2 text-sm font-medium text-brand-danger">{params.editError}</p>
+                    ) : null}
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div>
+                        <label htmlFor={`cu-name-${cu.id}`} className="text-xs font-semibold uppercase tracking-wide text-brand-ink">
+                          Contact name
+                        </label>
+                        <NameInput id={`cu-name-${cu.id}`} name="name" required defaultValue={cu.name ?? ""} className="app-field mt-1" />
+                      </div>
+                      <div>
+                        <label htmlFor={`cu-email-${cu.id}`} className="text-xs font-semibold uppercase tracking-wide text-brand-ink">
+                          Email
+                        </label>
+                        <input
+                          id={`cu-email-${cu.id}`}
+                          name="email"
+                          type="email"
+                          required
+                          defaultValue={cu.email}
+                          className="app-field mt-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button className="app-btn-primary-sm" type="submit">
+                        Save changes
+                      </button>
+                      <a href="/dashboard/users?tab=customers" className="app-btn-secondary-sm">
+                        Cancel
+                      </a>
+                      <span className="text-xs text-brand-ink">
+                        Changing the email changes the address they sign in to the portal with.
+                      </span>
+                    </div>
+                  </form>
+                ) : null}
                 {params.resetPassword === cu.id ? (
                   <form action={resetCustomerUserPassword} className="mt-2 flex flex-wrap items-center gap-2 border-t border-brand-border pt-2">
                     <input type="hidden" name="customerUserId" value={cu.id} />

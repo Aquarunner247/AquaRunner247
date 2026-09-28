@@ -177,6 +177,141 @@ export async function updateUserRole(formData: FormData) {
   redirect("/dashboard/users?tab=staff&saved=1");
 }
 
+/** Same shape as the "Add user" email checks: a staff login and a customer-portal login are
+ * separate tables but share one Supabase Auth email pool, so both have to be checked or we
+ * silently collide with someone else's account. `selfId`/`selfCustomerUserId` exempt the row
+ * being edited, so re-saving a form without changing the email isn't a conflict with itself. */
+async function emailTakenByAnotherAccount(
+  email: string,
+  self: { staffUserId?: string; customerUserId?: string },
+): Promise<boolean> {
+  const [staff, customer] = await Promise.all([
+    prisma.user.findUnique({ where: { email }, select: { id: true } }),
+    prisma.customerUser.findUnique({ where: { email }, select: { id: true } }),
+  ]);
+  if (staff && staff.id !== self.staffUserId) return true;
+  if (customer && customer.id !== self.customerUserId) return true;
+  return false;
+}
+
+/** Deliberately loose -- the real validation is Supabase Auth's own, which rejects the
+ * address on updateUserById before anything is written to Prisma. This only catches empty
+ * or obviously-not-an-address input before spending a network round trip. */
+function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+/**
+ * Edits a staff login's name, email and phone.
+ *
+ * The email is the one field here that isn't just a profile attribute: it's the identity the
+ * person signs in with. Supabase Auth owns it and User.email is a mirror, so both have to
+ * move together. Auth is updated FIRST and Prisma only after it succeeds, because the two
+ * failure modes are not equally bad -- getAppUserForAuthUser resolves by authUserId before
+ * falling back to email, so a stale Prisma row still lets them sign in, whereas updating
+ * Prisma first and failing on Auth would show the new address while only the old one works.
+ *
+ * `email_confirm: true` matches createOrFindAuthUser: an admin changing someone's address on
+ * their behalf shouldn't leave that person unable to sign in until they click a link in an
+ * inbox they may no longer control.
+ *
+ * Changing your own email keeps you signed in -- the session is bound to the auth user id,
+ * not the address -- but the new address is what you'll need next time you log in.
+ */
+export async function updateStaffUserDetails(formData: FormData) {
+  const appUser = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const phone = String(formData.get("phone") ?? "").trim();
+  if (!userId || !name || !email) return;
+
+  const fail = (message: string) =>
+    redirect(`/dashboard/users?tab=staff&editError=${encodeURIComponent(message)}&edit=${userId}`);
+
+  if (!looksLikeEmail(email)) fail("That doesn't look like a valid email address.");
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId, organizationId: appUser.organizationId },
+    select: { id: true, email: true, authUserId: true },
+  });
+  if (!user) return;
+
+  const emailChanged = email !== user.email;
+
+  if (emailChanged) {
+    if (await emailTakenByAnotherAccount(email, { staffUserId: user.id })) {
+      fail("That email already belongs to another account.");
+    }
+    if (!user.authUserId) {
+      fail("This user has no login to move — delete and re-add them with the new email.");
+    }
+
+    const supabaseAdmin = createSupabaseAdminClient();
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(user.authUserId!, {
+      email,
+      email_confirm: true,
+    });
+    if (error) fail(error.message);
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { name, email, phone: phone || null },
+  });
+
+  revalidatePath("/dashboard/users");
+  redirect("/dashboard/users?tab=staff&saved=1");
+}
+
+/** Same as updateStaffUserDetails, for a customer-portal login. Scoped by organization
+ * through the Customer join, since CustomerUser has no organizationId of its own. */
+export async function updateCustomerUserDetails(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerUserId = String(formData.get("customerUserId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!customerUserId || !name || !email) return;
+
+  const fail = (message: string) =>
+    redirect(`/dashboard/users?tab=customers&editError=${encodeURIComponent(message)}&edit=${customerUserId}`);
+
+  if (!looksLikeEmail(email)) fail("That doesn't look like a valid email address.");
+
+  const customerUser = await prisma.customerUser.findFirst({
+    where: { id: customerUserId, customer: { organizationId: appUser.organizationId } },
+    select: { id: true, email: true, authUserId: true, customerId: true },
+  });
+  if (!customerUser) return;
+
+  const emailChanged = email !== customerUser.email;
+
+  if (emailChanged) {
+    if (await emailTakenByAnotherAccount(email, { customerUserId: customerUser.id })) {
+      fail("That email already belongs to another account.");
+    }
+    if (!customerUser.authUserId) {
+      fail("This login has no auth account to move — delete and re-add it with the new email.");
+    }
+
+    const supabaseAdmin = createSupabaseAdminClient();
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(customerUser.authUserId!, {
+      email,
+      email_confirm: true,
+    });
+    if (error) fail(error.message);
+  }
+
+  await prisma.customerUser.update({
+    where: { id: customerUser.id },
+    data: { name, email },
+  });
+
+  revalidatePath("/dashboard/users");
+  revalidatePath(`/dashboard/customers/${customerUser.customerId}`);
+  redirect("/dashboard/users?tab=customers&saved=1");
+}
+
 /**
  * Directly sets a new password for a staff login via the Supabase Admin API -- no old
  * password needed, no email/reset-link round trip, since this is an admin acting on

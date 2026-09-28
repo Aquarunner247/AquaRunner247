@@ -10,17 +10,21 @@ function capitalizeWords(value: string): string {
 
 type Props = {
   name: string;
+  /** Needed wherever a <label htmlFor> points at this input -- the edit forms on
+   * /dashboard/users label their fields rather than relying on a placeholder. */
+  id?: string;
   defaultValue?: string | null;
   placeholder?: string;
   className?: string;
   required?: boolean;
 };
 
-export function NameInput({ name, defaultValue, placeholder, className, required }: Props) {
+export function NameInput({ name, id, defaultValue, placeholder, className, required }: Props) {
   const [value, setValue] = useState(() => capitalizeWords(defaultValue ?? ""));
 
   return (
     <input
+      id={id}
       name={name}
       value={value}
       onChange={(e) => setValue(capitalizeWords(e.target.value))}
