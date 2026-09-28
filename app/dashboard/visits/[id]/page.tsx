@@ -159,6 +159,15 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
     }),
   );
 
+  // Active service messages for the picker. Ordered as the admin arranged them; an empty result
+  // means this org has none configured, and the form then requires no selection (see the
+  // completion API's matching fallback -- a config gap must never strand a technician).
+  const serviceMessages = await prisma.serviceMessageTemplate.findMany({
+    where: { organizationId: appUser.organizationId, active: true },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, label: true, body: true },
+  });
+
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
       <div className="mb-6">
@@ -206,6 +215,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           }))}
           initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
           initialDosing={dosing}
+          serviceMessages={serviceMessages}
         />
       ) : (
         <VisitForm
@@ -232,6 +242,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           }))}
           initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
           initialDosing={dosing}
+          serviceMessages={serviceMessages}
         />
       )}
     </main>

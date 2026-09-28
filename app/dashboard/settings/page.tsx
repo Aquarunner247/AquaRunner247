@@ -138,11 +138,22 @@ export default async function SettingsPage() {
       <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-brand-ink">Branding</h2>
         <p className="mt-1 text-sm text-brand-muted">
-          Your logo and colors, shown in the customer portal and the welcome email sent when you create a portal
-          login for a customer.
+          Your logo and colors, shown in the customer portal and on every email a customer receives — the welcome
+          email, service summaries, and alerts you send them.
         </p>
         <a href="/dashboard/settings/branding" className="app-link mt-2 inline-block text-sm">
           Manage branding →
+        </a>
+      </section>
+
+      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-brand-ink">Service messages</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          The preset messages a technician picks from when completing a visit. The one they choose is sent to the
+          customer in their service summary email.
+        </p>
+        <a href="/dashboard/settings/service-messages" className="app-link mt-2 inline-block text-sm">
+          Manage service messages →
         </a>
       </section>
 

@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { stripe, mapSubscriptionStatus, tierForPriceId, isSelfServePlanTier, type SelfServePlanTier } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
+import { DEFAULT_SERVICE_MESSAGES } from "@/lib/default-service-messages";
 import { runCancellationSafetyExport } from "@/lib/compliance-archive";
 import { sendCancellationScrubWarningEmail, sendCustomerAccessEndedEmail } from "@/lib/email";
 import { timeZoneForState } from "@/lib/timezone";
@@ -114,6 +115,16 @@ export async function POST(req: Request) {
                       active: true,
                     })),
                   });
+                  // Same seeding as the checklist above -- an org with no service messages would
+                  // otherwise have nothing for a technician to pick at completion.
+                  await tx.serviceMessageTemplate.createMany({
+                    data: DEFAULT_SERVICE_MESSAGES.map((msg, index) => ({
+                      organizationId: org.id,
+                      label: msg.label,
+                      body: msg.body,
+                      sortOrder: index,
+                    })),
+                  });
                   const properties = await tx.property.findMany({ where: { customerId: customer.id }, select: { id: true } });
                   await tx.property.updateMany({ where: { customerId: customer.id }, data: { organizationId: org.id, customerId: null } });
                   await tx.serviceVisit.updateMany({
@@ -168,6 +179,16 @@ export async function POST(req: Request) {
               label,
               sortOrder: index + 1,
               active: true,
+            })),
+          });
+          // Same seeding as the checklist above -- an org with no service messages would
+          // otherwise have nothing for a technician to pick at completion.
+          await prisma.serviceMessageTemplate.createMany({
+            data: DEFAULT_SERVICE_MESSAGES.map((msg, index) => ({
+              organizationId: org.id,
+              label: msg.label,
+              body: msg.body,
+              sortOrder: index,
             })),
           });
         } catch (err) {

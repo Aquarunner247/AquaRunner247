@@ -125,6 +125,8 @@ model Organization {
   /// fields are kept elsewhere).
   brandingUpdatedBy    String?
 
+  serviceMessageTemplates ServiceMessageTemplate[]
+
   /// Welcome-email-only settings (not shared with the portal) -- see brandingLogoUrl above
   /// for the fields that ARE shared.
   welcomeEmailEnabled      Boolean @default(true)
@@ -1295,6 +1297,12 @@ model ServiceVisit {
   serviceComplete Boolean     @default(false)
   techNotes       String?
 
+  /// The service message sent to the customer, stored as TEXT rather than a template relation.
+  /// A snapshot: editing or deleting a template later must not rewrite what a customer was
+  /// already told. Placeholders are already interpolated here. Null for visits completed before
+  /// this existed, and for an org that has no messages configured.
+  serviceMessage  String?
+
   startedAt             DateTime?
   /// GPS location captured at the moment arrival was logged (geofence auto-detect or the
   /// manual "I've arrived" button, best-effort — null if the device denied/lacked location).
@@ -1441,6 +1449,30 @@ model ChemistryRecommendation {
 
   payload   Json
   createdAt DateTime @default(now())
+}
+
+/// A preset message a technician picks from when completing a visit; the chosen text goes into
+/// the customer's service-summary email. Mirrors ChecklistItemDefinition deliberately -- same
+/// per-org, sortable, deactivatable shape, seeded from lib/default-service-messages.ts at the
+/// same org-creation sites.
+model ServiceMessageTemplate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// What the technician sees in the picker, e.g. "High wind — limited skimming". Never sent.
+  label String
+  /// What the customer receives. May contain {{orgName}}, interpolated at send time.
+  body  String
+
+  sortOrder Int     @default(0)
+  /// Deactivated rather than deleted, so a message that has been sent stays explicable.
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, active])
 }
 
 model ChecklistItemDefinition {

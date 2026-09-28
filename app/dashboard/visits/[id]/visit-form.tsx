@@ -87,6 +87,8 @@ type ChecklistItemOption = { id: string; label: string; completed: boolean };
 type IssueOption = { id: string; description: string | null; severity: string; createdAt: string };
 type PhotoOption = { id: string; url: string | null; takenAt: string | null };
 
+export type ServiceMessageOption = { id: string; label: string; body: string };
+
 type Props = {
   visitId: string;
   visitStatus: string;
@@ -101,6 +103,10 @@ type Props = {
   initialDoses: Dose[];
   initialStartedAt: string | null;
   initialDosing: DosingResult | null;
+  /** Active service messages for this org, in admin-set order. Empty means none are configured,
+   * in which case no selection is required -- matching the completion API, which must never leave
+   * a technician unable to close out a stop because of a config gap. */
+  serviceMessages: ServiceMessageOption[];
 };
 
 function toInput(v: unknown): string {
@@ -128,7 +134,7 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt, initialDosing }: Props) {
+export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt, initialDosing, serviceMessages }: Props) {
   const [hasVolume, setHasVolume] = useState(initialHasVolume);
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
   const [arrivalSaving, setArrivalSaving] = useState(false);
@@ -166,6 +172,11 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
   const [pendingDoseHint, setPendingDoseHint] = useState<{ rawAmount: number; dosingUnit: DosingUnit } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [completingVisit, setCompletingVisit] = useState(false);
+  // Preselected only when there's exactly one option -- with several, an unchosen default would
+  // get sent to a customer without the technician having actually read it.
+  const [selectedServiceMessageId, setSelectedServiceMessageId] = useState(
+    serviceMessages.length === 1 ? serviceMessages[0].id : "",
+  );
   const timerRef = useRef<number | null>(null);
   const dosingRetryRef = useRef<number | null>(null);
   const isFirstRender = useRef(true);
@@ -452,7 +463,11 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
   async function completeVisit() {
     setCompletingVisit(true);
     try {
-      const response = await fetch(`/api/visits/${visitId}/complete`, { method: "POST" });
+      const response = await fetch(`/api/visits/${visitId}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceMessageTemplateId: selectedServiceMessageId || null }),
+      });
       if (response.ok) {
         window.location.reload();
         return;
@@ -461,6 +476,11 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       if (data.error === "MISSING_REQUIRED_PHOTO") {
         setSaveState("error");
         setSaveMsg("Need at least 1 photo before completion");
+        return;
+      }
+      if (data.error === "MISSING_SERVICE_MESSAGE") {
+        setSaveState("error");
+        setSaveMsg("Pick a message to the customer before completing");
         return;
       }
       if (data.error === "MISSING_REQUIRED_READINGS") {
@@ -909,11 +929,53 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         {uploadingPhoto ? <p className="mt-2 text-sm text-brand-muted">Uploading photo...</p> : null}
       </div>
 
+      {!isCompleted && serviceMessages.length > 0 ? (
+        <div data-tour="visit-service-message" className="app-card mt-4">
+          <p className="text-sm font-semibold text-brand-ink">Message to the customer</p>
+          <p className="mt-1 text-xs text-brand-ink">
+            This goes out in their service summary email. Pick the one that matches what actually
+            happened today.
+          </p>
+          <div className="mt-3 space-y-2">
+            {serviceMessages.map((msg) => (
+              <label
+                key={msg.id}
+                className={`flex min-h-[44px] cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+                  selectedServiceMessageId === msg.id ? "border-brand-primary bg-brand-foam" : "border-brand-border bg-white"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="serviceMessage"
+                  value={msg.id}
+                  checked={selectedServiceMessageId === msg.id}
+                  onChange={() => setSelectedServiceMessageId(msg.id)}
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-brand-primary"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-brand-ink">{msg.label}</span>
+                  {/* The exact text the customer receives -- shown in full, since sending it is the
+                      technician's decision and a label alone doesn't let them make it. */}
+                  <span className="mt-0.5 block text-xs text-brand-ink">{msg.body}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div data-tour="visit-complete" className="app-card">
         <button
           type="button"
           onClick={() => void completeVisit()}
-          disabled={isCompleted || requiredMissing || hasInvalidReading || photoCount < 1 || completingVisit}
+          disabled={
+            isCompleted ||
+            requiredMissing ||
+            hasInvalidReading ||
+            photoCount < 1 ||
+            completingVisit ||
+            (serviceMessages.length > 0 && !selectedServiceMessageId)
+          }
           className="rounded bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primaryHover disabled:cursor-not-allowed disabled:bg-brand-control"
         >
           {isCompleted ? "Visit completed" : completingVisit ? "Completing..." : "Complete service visit"}
@@ -922,6 +984,8 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
           <p className="mt-2 text-sm text-brand-danger">Fix the reading(s) marked in red above before completing.</p>
         ) : !isCompleted && (requiredMissing || photoCount < 1) ? (
           <p className="mt-2 text-sm text-brand-warn">Completion requires all required (*) readings and at least one photo.</p>
+        ) : !isCompleted && serviceMessages.length > 0 && !selectedServiceMessageId ? (
+          <p className="mt-2 text-sm text-brand-warn">Pick a message to the customer above before completing.</p>
         ) : null}
       </div>
     </section>

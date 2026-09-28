@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { stripe, mapSubscriptionStatus, priceIdForTier } from "@/lib/stripe";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
+import { DEFAULT_SERVICE_MESSAGES } from "@/lib/default-service-messages";
 import { getCustomerUserForAuthUser } from "@/lib/auth/customer-user";
 
 /**
@@ -165,6 +166,16 @@ export async function completeCompliancePlan(sessionId: string) {
           label,
           sortOrder: index + 1,
           active: true,
+        })),
+      });
+      // Same seeding as the checklist above -- an org with no service messages would
+      // otherwise have nothing for a technician to pick at completion.
+      await tx.serviceMessageTemplate.createMany({
+        data: DEFAULT_SERVICE_MESSAGES.map((msg, index) => ({
+          organizationId: org.id,
+          label: msg.label,
+          body: msg.body,
+          sortOrder: index,
         })),
       });
 

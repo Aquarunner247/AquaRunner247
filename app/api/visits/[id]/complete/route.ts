@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { sendServiceSummaryEmail } from "@/lib/email";
 import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
+import { applyServiceMessagePlaceholders } from "@/lib/default-service-messages";
+import { propertyContactEmail } from "@/lib/property-contact";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
 import { timeZoneForState } from "@/lib/timezone";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -14,9 +16,20 @@ import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
 // of needing to survive unopened in an inbox.
 const PHOTO_EMAIL_LINK_TTL_SECONDS = 60 * 60 * 24 * 30;
 
-export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
   if (!appUser) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+
+  // The form now posts which service message the technician picked. Tolerates an absent or
+  // unparseable body so an older client (a tab open across a deploy) still gets a clear
+  // MISSING_SERVICE_MESSAGE rather than a 500.
+  let serviceMessageTemplateId: string | null = null;
+  try {
+    const body = (await request.json()) as { serviceMessageTemplateId?: unknown };
+    if (typeof body?.serviceMessageTemplateId === "string") serviceMessageTemplateId = body.serviceMessageTemplateId.trim() || null;
+  } catch {
+    serviceMessageTemplateId = null;
+  }
 
   const { id } = await context.params;
   const visit = await prisma.serviceVisit.findUnique({
@@ -39,7 +52,20 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
           brandingHeaderColor: true,
         },
       },
-      property: { select: { name: true, managerEmail: true, propertyType: true, addressLine1: true, city: true, region: true } },
+      property: {
+        select: {
+          name: true,
+          // Both contact sets: a residential property uses ownerEmail, a commercial one
+          // managerEmail (see propertyContactEmail). Reading only managerEmail meant residential
+          // customers silently received no summary at all.
+          managerEmail: true,
+          ownerEmail: true,
+          propertyType: true,
+          addressLine1: true,
+          city: true,
+          region: true,
+        },
+      },
       bodyOfWater: {
         select: {
           id: true,
@@ -114,10 +140,31 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "MISSING_REQUIRED_PHOTO" }, { status: 400 });
   }
 
+  // A service message is required ONLY when the org actually has some configured. A seeding gap
+  // or a deactivated-everything state must never leave a technician unable to close out a stop
+  // on a jobsite -- that failure lands on the person least able to fix it.
+  const availableMessages = await prisma.serviceMessageTemplate.findMany({
+    where: { organizationId: visit.organizationId, active: true },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, body: true },
+  });
+
+  let serviceMessage: string | null = null;
+  if (availableMessages.length > 0) {
+    const chosen = serviceMessageTemplateId ? availableMessages.find((m) => m.id === serviceMessageTemplateId) : null;
+    if (!chosen) {
+      return NextResponse.json({ error: "MISSING_SERVICE_MESSAGE" }, { status: 400 });
+    }
+    // Snapshot the interpolated text, not the template id: editing or deactivating the template
+    // later must not rewrite what this customer was told.
+    serviceMessage = applyServiceMessagePlaceholders(chosen.body, { orgName: visit.organization.name });
+  }
+
   const completedAt = new Date();
   const completed = await prisma.serviceVisit.update({
     where: { id: visit.id },
     data: {
+      serviceMessage,
       status: "COMPLETED",
       serviceComplete: true,
       completedAt,
@@ -133,7 +180,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
   // Best-effort: send a service summary email to the property's contact on file.
   // Never blocks or fails visit completion if email sending has an issue.
-  if (visit.property.managerEmail) {
+  const contactEmail = propertyContactEmail(visit.property);
+  if (contactEmail) {
     try {
       const supabaseAdmin = createSupabaseAdminClient();
       const signedPhotoUrls = await Promise.all(
@@ -143,7 +191,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         }),
       );
       await sendServiceSummaryEmail({
-        to: visit.property.managerEmail,
+        to: contactEmail,
+        serviceMessage,
         // Same gate the portal layout and welcome email use: stored branding stops being
         // applied the moment an org is no longer on a tier that includes it, rather than
         // merely becoming uneditable. Null here yields the platform's own look.

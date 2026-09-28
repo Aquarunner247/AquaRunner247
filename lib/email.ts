@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { resolveEmailBranding, type EmailBrandingInput } from "@/lib/mail/email-branding";
+import { escapeEmailHtml, resolveEmailBranding, type EmailBrandingInput } from "@/lib/mail/email-branding";
 
 /**
  * Notifies the site owner of a new waitlist signup. Best-effort — the WaitlistSignup
@@ -50,6 +50,10 @@ type ServiceSummaryEmailInput = {
    * by the caller (see the completion route) so the tier gate lives with the other org lookups
    * rather than being re-derived here. Null yields the platform's own look. */
   branding?: EmailBrandingInput | null;
+  /** The message the technician picked at completion, already interpolated. Rendered first in the
+   * body, before the readings -- it's the part written for a person to read, and the customer
+   * shouldn't have to scroll past chemistry to find out whether anything was skipped today. */
+  serviceMessage?: string | null;
   propertyName: string;
   bodyOfWaterName: string;
   address: string | null;
@@ -185,6 +189,11 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
         <table style="width:100%; border-collapse:collapse; table-layout:fixed;"><tr>${infoBlocks}</tr></table>
       </div>
       <div style="border:1px solid #C4D9DA; border-top:none; padding: 0 24px; border-radius: 0 0 8px 8px;">
+        ${
+          input.serviceMessage
+            ? `<p style="margin:16px 0 0; font-size:15px; line-height:1.5; color:#06333B;">${escapeEmailHtml(input.serviceMessage)}</p>`
+            : ""
+        }
         ${section(
           "Water chemistry readings",
           `<table style="width:100%; border-collapse:collapse;">${readingRows}</table>`,
