@@ -9,6 +9,7 @@ import type { BackgroundGeolocationPlugin } from "@capacitor-community/backgroun
 import { PushNotifications } from "@capacitor/push-notifications";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_ANCHOR, BRAND_PRIMARY } from "@/app/lib/chart-colors";
+import { formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { fetchDrivingRoute, computeOptimizedStopOrder } from "@/lib/routing";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
@@ -721,31 +722,48 @@ export function RouteDayView({
   const displayedItems = statusFilter === "all" ? items : items.filter((i) => matchesStatusFilter(i, statusFilter));
   const trueIndexById = new Map(items.map((i, idx) => [i.id, idx]));
 
-  const activeVisits = items.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit" && i.status !== "CANCELLED");
-  // Group visits into contiguous same-property runs, in actual route-sequence order.
-  // A property with a split layout (front pool/spa now, back pool/spa later, with other
-  // stops in between) produces two separate groups here, not one combined stop — each
-  // occasion only bundles the bodies of water actually visited together. Also breaks on a
-  // technician boundary (multi-tech mode only — technicianId is unset elsewhere, so this
-  // never fires for the existing single-technician views), so two different technicians'
-  // adjacent stops at the same property never get bundled into one capture-photos prompt.
+  // Bundle stops that are one walk-up: same property, adjacent in route order, and within
+  // BUNDLE_RADIUS_METERS of each other's pins. See lib/stop-grouping.ts for why this measures
+  // distance rather than matching names, and how the radius was chosen from real pins.
+  //
+  // Built from the FULL `items` array, not displayedItems, so a status filter never changes what
+  // belongs to a bundle -- only which members are visible.
+  const stopGroups = groupNearbyStops(
+    items.map((i) =>
+      i.kind === "adhoc"
+        ? // An errand can't be a member and ends any open run -- the bodies either side of it
+          // were not serviced on one walk-up.
+          { id: i.id, propertyId: null, latitude: i.latitude, longitude: i.longitude }
+        : {
+            id: i.id,
+            propertyId: i.propertyId,
+            latitude: i.latitude,
+            longitude: i.longitude,
+            technicianId: i.technicianId,
+            // A skipped visit neither joins a bundle nor breaks one.
+            ignored: i.status === "CANCELLED",
+          },
+    ),
+  );
+
   const groupIdByVisitId = new Map<string, string>();
   const visitIdsByGroupId = new Map<string, string[]>();
-  let groupCounter = 0;
-  let prevPropertyId: string | null = null;
-  let prevTechnicianIdForGrouping: string | null | undefined = undefined;
-  let currentGroupId = "";
-  for (const v of activeVisits) {
-    if (v.propertyId !== prevPropertyId || v.technicianId !== prevTechnicianIdForGrouping) {
-      currentGroupId = `g${groupCounter++}`;
-      prevPropertyId = v.propertyId;
-      prevTechnicianIdForGrouping = v.technicianId;
-    }
-    groupIdByVisitId.set(v.id, currentGroupId);
-    const arr = visitIdsByGroupId.get(currentGroupId) ?? [];
-    arr.push(v.id);
-    visitIdsByGroupId.set(currentGroupId, arr);
+  const groupById = new Map<string, (typeof stopGroups)[number]>();
+  for (const group of stopGroups) {
+    groupById.set(group.groupId, group);
+    visitIdsByGroupId.set(group.groupId, group.memberIds);
+    for (const id of group.memberIds) groupIdByVisitId.set(id, group.groupId);
   }
+
+  // Which members a bundle can actually show right now. A filter can hide some of them, and a
+  // card that would contain one visible row is rendered as today's plain row instead -- a card
+  // wrapping a single stop is chrome with no information in it.
+  const visibleIds = new Set(displayedItems.map((i) => i.id));
+  const visibleMemberIdsByGroupId = new Map(
+    stopGroups.map((g) => [g.groupId, g.memberIds.filter((id) => visibleIds.has(id))] as const),
+  );
+  const itemById = new Map(items.map((i) => [i.id, i]));
+
   const capturePromptShown = new Set<string>();
 
   // Technician sub-headers for the list, multi-tech mode only — keyed by the id of the
@@ -866,6 +884,130 @@ export function RouteDayView({
 
               const v = item;
               const isSkipped = v.status === "CANCELLED";
+
+              // A bundle: one card for stops that are a single walk-up. Rendered at the position
+              // of its first VISIBLE member; the rest return null below so they aren't drawn
+              // twice. Only when more than one member is visible -- a card wrapping one stop is
+              // chrome with no information in it, so that falls through to the plain row.
+              const bundleId = groupIdByVisitId.get(v.id);
+              const visibleBundleIds = bundleId ? (visibleMemberIdsByGroupId.get(bundleId) ?? []) : [];
+              if (bundleId && visibleBundleIds.length > 1) {
+                if (visibleBundleIds[0] !== v.id) return null;
+
+                const members = visibleBundleIds
+                  .map((id) => itemById.get(id))
+                  .filter((m): m is DayItem & { kind: "visit" } => m?.kind === "visit");
+                const positions = members.map((m) => (trueIndexById.get(m.id) ?? 0) + 1);
+                // Earliest arrival among the members: one walk-up, one arrival.
+                const arrivedAt = members
+                  .map((m) => m.startedAt)
+                  .filter((t): t is string => Boolean(t))
+                  .sort()[0];
+                const fullMemberIds = groupById.get(bundleId)?.memberIds ?? visibleBundleIds;
+                const captureParams = new URLSearchParams();
+                if (dateYmd) captureParams.set("date", dateYmd);
+                // The FULL bundle, not the visible subset: the capture screen wants the whole
+                // occasion regardless of what the list is currently filtered to.
+                captureParams.set("visits", fullMemberIds.join(","));
+
+                return (
+                  <Fragment key={bundleId}>
+                    {techGroup ? (
+                      <li className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wide text-brand-muted first:pt-0">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: techGroup.color }} />
+                        {techGroup.label} ({techGroup.count} stop{techGroup.count === 1 ? "" : "s"})
+                      </li>
+                    ) : null}
+                    {/* data-tour goes on the card, never also on an inner row: querySelector takes
+                        the first match and two candidates would make the tour spotlight ambiguous. */}
+                    <li
+                      data-tour={positions.includes(1) ? "schedule-first-stop" : undefined}
+                      className="rounded border border-brand-border bg-white p-2"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`flex h-7 shrink-0 items-center justify-center rounded-full px-2 text-xs font-bold text-white ${
+                            isMultiTech ? "" : "bg-brand-primary"
+                          }`}
+                          style={
+                            isMultiTech
+                              ? { backgroundColor: technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR }
+                              : undefined
+                          }
+                        >
+                          {formatSequenceRange(positions)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-brand-ink">{v.propertyName}</p>
+                          <p className="truncate text-xs text-brand-muted">{v.address || "No address on file"}</p>
+                          {arrivedAt ? (
+                            <p className="text-xs font-medium text-brand-ok">
+                              Arrived {new Date(arrivedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 text-xs text-brand-muted">{members.length} venues</span>
+                      </div>
+
+                      {/* Each venue keeps its OWN row element with its own drag index. Registering
+                          two indices against one element would make the second unreachable as a
+                          drop target (useDragReorder hit-tests by bounding rect and breaks on the
+                          first match), so a stop could never be dropped between a bundled pair. */}
+                      <ul className="mt-2 divide-y divide-brand-border border-t border-brand-border">
+                        {members.map((m) => {
+                          const mIdx = trueIndexById.get(m.id) ?? 0;
+                          const mHandle = dragHandleProps(mIdx);
+                          return (
+                            <li
+                              key={m.id}
+                              ref={setItemRef(mIdx)}
+                              className={`flex items-center gap-2 py-1 ${draggingIndex === mIdx ? "opacity-60" : ""}`}
+                            >
+                              {!effectiveReadOnly ? (
+                                <span
+                                  {...mHandle}
+                                  aria-label="Drag to reorder"
+                                  title="Drag to reorder"
+                                  // Full 44x44 even inside a card -- DESIGN-SYSTEM's touch minimum
+                                  // applies to a grip a technician drags on a phone outdoors, and
+                                  // narrowing it to buy horizontal space is exactly the trade that
+                                  // rule exists to prevent. The venue name truncates instead.
+                                  className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-brand-muted cursor-grab select-none active:cursor-grabbing"
+                                >
+                                  ⠿
+                                </span>
+                              ) : null}
+                              <span className="w-5 shrink-0 text-center text-xs font-semibold text-brand-ink">{mIdx + 1}</span>
+                              <Link
+                                href={`/dashboard/visits/${m.id}?from=schedule`}
+                                className="min-w-0 flex-1 truncate text-sm text-brand-ink underline"
+                              >
+                                {m.bodyName}
+                              </Link>
+                              <span className="flex shrink-0 items-center gap-2">
+                                <StatusBadge status={m.status} />
+                                {!effectiveReadOnly ? (
+                                  <button type="button" onClick={() => void toggleSkip(m)} className="app-btn-ghost-sm">
+                                    Skip
+                                  </button>
+                                ) : null}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      <Link
+                        href={`/dashboard/stops/${v.propertyId}?${captureParams.toString()}`}
+                        className="mt-2 inline-block text-xs font-medium text-brand-cta underline"
+                      >
+                        Capture photos for all {fullMemberIds.length} stops here
+                      </Link>
+                    </li>
+                  </Fragment>
+                );
+              }
+
               return (
                 <Fragment key={v.id}>
                   {techGroup ? (
