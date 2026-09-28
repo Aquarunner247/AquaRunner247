@@ -51,7 +51,9 @@ export async function fetchDrivingRoute(points: RoutePoint[]): Promise<[number, 
 export async function fetchDrivingDurationMatrix(points: RoutePoint[]): Promise<number[][] | null> {
   if (points.length < 2) return null;
   // The demo server's table-size limit isn't published -- stay well under any plausible
-  // cap rather than finding out live against a real day's route.
+  // cap rather than finding out live against a real day's route. Note the caller counts
+  // ad-hoc "extra stops" as points too, so a dense day reaches this ceiling sooner than its
+  // visit count alone suggests; crossing it degrades to straight-line distance, not an error.
   if (points.length > 50) return null;
 
   const coords = points.map((p) => `${p.longitude},${p.latitude}`).join(";");

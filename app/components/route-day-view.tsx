@@ -36,9 +36,11 @@ export type RouteStop = {
 };
 
 /// An "extra stop" (AdHocStop) — an errand, not a real chemistry-reading service visit.
-/// Deliberately NOT part of GPS auto-arrival, the map, or "Optimize stop order"'s
-/// driving-distance sort (see those functions below) -- it only ever participates in the
-/// list itself and its shared position/sequence.
+/// It shares the day's sequence with visits, and now appears on the map, in the driving line,
+/// and in "Optimize stop order"'s distance calculation (when it has coordinates).
+///
+/// GPS auto-arrival is the one thing it is still deliberately excluded from: arrival stamping
+/// writes to a ServiceVisit, and an errand has no reading to arrive for.
 export type AdHocItem = {
   id: string;
   description: string;
@@ -46,7 +48,8 @@ export type AdHocItem = {
   propertyName: string | null;
   /// From the attached property, when there is one. An ad-hoc stop's property is optional
   /// (a "pool store run" has none) and a property may not be geocoded yet, so either can be
-  /// null -- those stay list-only, since there's nowhere on the map to put them.
+  /// null -- those get no marker and no vertex in the line, and are appended last by
+  /// "Optimize stop order", but still appear in the list at their real position.
   latitude: number | null;
   longitude: number | null;
   technicianId?: string | null;
@@ -93,6 +96,14 @@ type Props = {
   /// multi-tech read-only gate).
   statusFilter?: "all" | "completed" | "in_progress" | "pending";
 };
+
+type PlacedDayItem = DayItem & { latitude: number; longitude: number };
+
+/// Narrows either union member to one that can go on a map or into a cost matrix. Both kinds
+/// carry nullable coordinates, so this is the single place that distinction is made.
+function hasCoords(item: DayItem): item is PlacedDayItem {
+  return item.latitude != null && item.longitude != null;
+}
 
 /// An ad-hoc item has no "in progress" state -- it never matches that filter. "completed"/
 /// "pending" map onto its own completed flag.
@@ -503,65 +514,73 @@ export function RouteDayView({
       currentSegment = null;
     };
 
-    const displayedVisitItems = displayedItems.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
-    displayedVisitItems.forEach((v) => {
-      if (v.latitude == null || v.longitude == null) return;
-      const isSkipped = v.status === "CANCELLED";
-      const color = isMultiTech ? technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR : BRAND_PRIMARY;
-      const glyph = isSkipped ? "×" : isMultiTech ? getTechnicianInitial(v.technicianLabel) : String((trueIndexById.get(v.id) ?? 0) + 1);
+    // Circle = service visit, rounded square = extra stop. Otherwise identical, so the two
+    // read as the same kind of thing at different jobs rather than two unrelated systems.
+    const markerHtml = (o: { color: string; glyph: string; square: boolean; dimmed: boolean }) =>
+      `<div style="background:${o.color};color:white;border-radius:${o.square ? "6px" : "9999px"};` +
+      `width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;` +
+      `font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);` +
+      `${o.dimmed ? "opacity:.55;" : ""}">${o.glyph}</div>`;
+
+    // ONE pass over displayedItems, in its own order -- which is already the shared
+    // routeSequence order across both visits and extra stops (see the `combined.sort` in each
+    // caller). That ordering is what makes the polyline below the real driving order: extra
+    // stops used to be drawn in a second pass and left out of the line entirely, so an errand
+    // showed as a marker the route never appeared to visit.
+    for (const item of displayedItems) {
+      const { latitude, longitude } = item;
+      // No coordinates: no marker, and no vertex. An extra stop with no property (a supply-house
+      // run) never has any; a property that isn't geocoded yet has none either. The run simply
+      // continues, so the line joins this stop's neighbours directly -- same as an ungeocoded
+      // visit already did, though previously an extra stop could never be mid-line.
+      if (latitude == null || longitude == null) continue;
+
+      const isErrand = item.kind === "adhoc";
+      const isSkipped = item.kind === "visit" && item.status === "CANCELLED";
+      const color = isMultiTech ? technicianColors?.[item.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR : BRAND_PRIMARY;
+      const glyph = isSkipped
+        ? "×"
+        : isMultiTech
+          ? getTechnicianInitial(item.technicianLabel)
+          : String((trueIndexById.get(item.id) ?? 0) + 1);
+
       const icon = L.divIcon({
         className: "",
-        html: `<div style="background:${color};color:white;border-radius:9999px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);">${glyph}</div>`,
+        html: markerHtml({
+          color,
+          glyph,
+          square: isErrand,
+          // Only extra stops dim, replacing the old "✓" now that the glyph carries the stop's
+          // number. Completed VISITS deliberately look unchanged -- restyling those is a
+          // separate decision from putting errands in the line.
+          dimmed: isErrand && item.completed,
+        }),
         iconSize: [26, 26],
         iconAnchor: [13, 13],
       });
-      const popupLines = [`<strong>${escapeHtml(v.propertyName)}</strong>`, escapeHtml(v.bodyName)];
-      if (isMultiTech) popupLines.push(escapeHtml(v.technicianLabel ?? "Unassigned"));
-      L.marker([v.latitude, v.longitude], { icon })
-        .addTo(layerRef.current!)
-        .bindPopup(popupLines.join("<br/>"));
-      points.push([v.latitude, v.longitude]);
+
+      const popupLines =
+        item.kind === "adhoc"
+          ? ["<strong>Extra stop</strong>", escapeHtml(item.description), ...(item.propertyName ? [escapeHtml(item.propertyName)] : [])]
+          : [`<strong>${escapeHtml(item.propertyName)}</strong>`, escapeHtml(item.bodyName)];
+      if (isMultiTech) popupLines.push(escapeHtml(item.technicianLabel ?? "Unassigned"));
+
+      L.marker([latitude, longitude], { icon }).addTo(layerRef.current!).bindPopup(popupLines.join("<br/>"));
+      points.push([latitude, longitude]);
 
       if (isMultiTech) {
-        if (!currentSegment || v.technicianId !== currentSegment.techId) {
+        if (!currentSegment || item.technicianId !== currentSegment.techId) {
           flushSegment();
-          currentSegment = { techId: v.technicianId, points: [], color, opacity: 0.45 };
+          currentSegment = { techId: item.technicianId, points: [], color, opacity: 0.45 };
         }
-        currentSegment.points.push([v.latitude, v.longitude]);
+        currentSegment.points.push([latitude, longitude]);
       }
-    });
+    }
     flushSegment();
 
     if (!isMultiTech && points.length > 1) {
       segments.push({ techId: undefined, points, color: BRAND_PRIMARY, opacity: 0.6 });
     }
-
-    // Extra stops. Square marker with a "+" rather than a numbered circle: an errand is not a
-    // service visit, and the numbers belong to the visit sequence -- reusing them here would
-    // imply an ordering the map doesn't actually draw.
-    //
-    // Deliberately NOT added to the route polyline or its segments. The line is built from the
-    // visit sequence, and "Optimize stop order" only ever reorders visits (see optimizeRoute),
-    // so threading errands into the line would draw an order nothing else in the app agrees
-    // with. Their coordinates DO feed fitBounds below, so an errand across town still pulls
-    // the viewport out to include it rather than sitting off-screen.
-    const displayedAdHocItems = displayedItems.filter((i): i is DayItem & { kind: "adhoc" } => i.kind === "adhoc");
-    const adHocPoints: [number, number][] = [];
-    displayedAdHocItems.forEach((a) => {
-      if (a.latitude == null || a.longitude == null) return;
-      const color = isMultiTech ? technicianColors?.[a.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR : BRAND_PRIMARY;
-      const icon = L.divIcon({
-        className: "",
-        html: `<div style="background:${color};color:white;border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);${a.completed ? "opacity:.5;" : ""}">${a.completed ? "✓" : "+"}</div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      });
-      const popupLines = ["<strong>Extra stop</strong>", escapeHtml(a.description)];
-      if (a.propertyName) popupLines.push(escapeHtml(a.propertyName));
-      if (isMultiTech) popupLines.push(escapeHtml(a.technicianLabel ?? "Unassigned"));
-      L.marker([a.latitude, a.longitude], { icon }).addTo(layerRef.current!).bindPopup(popupLines.join("<br/>"));
-      adHocPoints.push([a.latitude, a.longitude]);
-    });
 
     // Draw a straight line immediately for instant feedback, then try to replace each
     // segment with a real road-following route -- the free routing server this hits can
@@ -569,11 +588,8 @@ export function RouteDayView({
     // straight line on any failure rather than leaving the map blank.
     const straightLayers = segments.map((seg) => L.polyline(seg.points, { color: seg.color, weight: 3, opacity: seg.opacity }).addTo(layerRef.current!));
 
-    // Extra stops are included here even though they're not in the polyline, so an errand
-    // across town widens the viewport instead of sitting off the edge of the map.
-    const boundsPoints = [...points, ...adHocPoints];
-    if (boundsPoints.length) {
-      mapRef.current.fitBounds(boundsPoints, { padding: [30, 30] });
+    if (points.length) {
+      mapRef.current.fitBounds(points, { padding: [30, 30] });
     }
 
     await Promise.all(
@@ -624,26 +640,34 @@ export function RouteDayView({
     });
   }
 
-  // Ad-hoc items were never part of driving-distance optimization -- they get appended
-  // after the optimized visits, same treatment visits-without-coordinates already get
-  // below. Still fully draggable afterward, just not part of the distance calculation.
-  // Real driving duration via lib/routing.ts's computeOptimizedStopOrder, falling back to
-  // straight-line distance if OSRM's table service is unreachable.
+  /**
+   * Real driving duration via lib/routing.ts's computeOptimizedStopOrder, falling back to
+   * straight-line distance if OSRM's table service is unreachable.
+   *
+   * Extra stops with coordinates are now part of the distance calculation, not appended after
+   * it: an errand is a real place the technician drives to, so leaving it out produced an
+   * "optimized" order that ignored a stop on the route. Ones WITHOUT coordinates still go on
+   * the end, the same treatment coordinate-less visits get -- there's nothing to optimize
+   * against.
+   *
+   * Two consequences worth knowing. computeOptimizedStopOrder pins index 0, so if the day's
+   * first stop is an errand it stays first (defensible -- a supply-house run often is the first
+   * stop -- but it is a change). And errands now count toward fetchDrivingDurationMatrix's
+   * 50-point ceiling, so a very dense day falls back to straight-line slightly sooner.
+   */
   async function optimizeRoute() {
-    const visitItems = items.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
-    const adhocItems = items.filter((i) => i.kind === "adhoc");
-    const withCoords = visitItems.filter((v) => v.latitude != null && v.longitude != null) as (DayItem & {
-      kind: "visit";
-      latitude: number;
-      longitude: number;
-    })[];
-    const withoutCoords = visitItems.filter((v) => v.latitude == null || v.longitude == null);
-    if (withCoords.length < 2) return;
+    const placed = items.filter(hasCoords);
+    const unplacedVisits = items.filter((i) => i.kind === "visit" && !hasCoords(i));
+    const unplacedErrands = items.filter((i) => i.kind === "adhoc" && !hasCoords(i));
+    // Still 2, just over both kinds now. computeOptimizedStopOrder already no-ops below 2, so
+    // this only avoids a pointless spinner and network round trip -- what actually changed is
+    // that a day of one visit plus several geocoded errands now optimizes instead of bailing.
+    if (placed.length < 2) return;
 
     setOptimizing(true);
     try {
-      const ordered = await computeOptimizedStopOrder(withCoords);
-      await persistOrder([...ordered, ...withoutCoords, ...adhocItems]);
+      const ordered = await computeOptimizedStopOrder(placed);
+      await persistOrder([...ordered, ...unplacedVisits, ...unplacedErrands]);
     } finally {
       setOptimizing(false);
     }
