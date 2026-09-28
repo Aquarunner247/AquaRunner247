@@ -64,10 +64,26 @@ export function RowActionsMenu({ label, children }: Props) {
       </button>
 
       {open ? (
-        // onClick closes after an item is activated. A <Link> navigates and a <form> submits
-        // first, so this only affects the menu that's about to be replaced anyway -- but it
-        // stops a stale open menu lingering over the re-rendered row.
-        <div id={menuId} role="menu" className="app-menu" onClick={() => setOpen(false)}>
+        <div
+          id={menuId}
+          role="menu"
+          className="app-menu"
+          onClick={(event) => {
+            // Close ONLY for a link. A link navigates, so the menu would otherwise linger
+            // open over the re-rendered row.
+            //
+            // Everything else is deliberately left open. Closing on any click here is what
+            // broke Delete: ConfirmSubmitButton's first click merely opens a portaled
+            // confirmation dialog, so setting open=false unmounted this panel -- and with it
+            // the <form> and the ConfirmSubmitButton holding the dialog's state -- before
+            // anything could be submitted. The button appeared to do nothing at all.
+            //
+            // An allowlist rather than a denylist on purpose: if it misjudges an element, a
+            // menu stays open (cosmetic) instead of an action silently failing (functional).
+            const target = event.target as Element | null;
+            if (target?.closest("a[href]")) setOpen(false);
+          }}
+        >
           {children}
         </div>
       ) : null}
