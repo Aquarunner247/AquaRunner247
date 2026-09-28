@@ -2,6 +2,7 @@ import type { CustomerAlertSendOutcome } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { sendCustomerAlertEmail } from "@/lib/email";
 import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
+import { propertyContactEmail } from "@/lib/property-contact";
 import { applyAlertPlaceholders } from "@/lib/alert-placeholders";
 
 export type CustomerAlertOutcome = "sent" | "partial" | "failed" | "no-recipients" | "not-found";
@@ -50,7 +51,13 @@ export async function sendAlertToCustomer(params: {
       where: { id: customerId, organizationId, relationshipEndedAt: null },
       include: {
         customerUsers: { where: { active: true }, select: { email: true, name: true } },
-        properties: { select: { managerEmail: true, managerName: true, name: true }, take: 1 },
+        // ownerEmail/ownerName alongside the manager fields: a residential property uses those
+        // (see propertyContactEmail), and reading only managerEmail meant a residential customer
+        // with no portal login received no alerts at all.
+        properties: {
+          select: { managerEmail: true, managerName: true, ownerEmail: true, ownerName: true, propertyType: true, name: true },
+          take: 1,
+        },
       },
     }),
     prisma.organization.findUnique({
@@ -72,16 +79,22 @@ export async function sendAlertToCustomer(params: {
   // Falls back to the customer's own account name when a property has no manager name (or
   // no property at all yet) on file, rather than rendering a blank "Hi ," greeting.
   const property = customer.properties[0];
-  const placeholderValues = { propertyName: property?.name || customer.name, managerName: property?.managerName || customer.name };
+  const placeholderValues = {
+    propertyName: property?.name || customer.name,
+    // Residential properties put the contact's name in ownerName, so a {{managerName}} placeholder
+    // would otherwise fall through to the account name for every residential customer.
+    managerName: property?.managerName || property?.ownerName || customer.name,
+  };
   const subject = applyAlertPlaceholders(params.subject, placeholderValues);
   const message = applyAlertPlaceholders(params.message, placeholderValues);
 
   const recipients =
     customer.customerUsers.length > 0
       ? customer.customerUsers.map((cu) => ({ email: cu.email, name: cu.name ?? customer.name }))
-      : customer.properties[0]?.managerEmail
-        ? [{ email: customer.properties[0].managerEmail, name: customer.name }]
-        : [];
+      : (() => {
+          const fallback = property ? propertyContactEmail(property) : null;
+          return fallback ? [{ email: fallback, name: customer.name }] : [];
+        })();
 
   // Resolve the actual send outcome BEFORE writing the row, so it's created once with its
   // final state baked in rather than created pending and updated after -- one insert, no

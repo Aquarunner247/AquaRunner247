@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { propertyContactEmail } from "@/lib/property-contact";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { buildCsv, csvResponseHeaders } from "@/lib/csv-export";
@@ -22,6 +23,8 @@ export async function GET() {
       name: true,
       managerName: true,
       managerEmail: true,
+      ownerEmail: true,
+      propertyType: true,
       managerPhone: true,
       managerBusinessPhone: true,
       managerMobilePhone: true,
@@ -40,7 +43,9 @@ export async function GET() {
       p.customer?.name ?? p.name,
       p.name,
       p.managerName,
-      p.managerEmail,
+      // Residential properties carry the contact in ownerEmail, so exporting managerEmail
+      // alone left their email column blank in QuickBooks.
+      propertyContactEmail(p),
       p.managerPhone ?? p.managerBusinessPhone ?? p.managerMobilePhone,
       p.addressLine1,
       p.addressLine2,
