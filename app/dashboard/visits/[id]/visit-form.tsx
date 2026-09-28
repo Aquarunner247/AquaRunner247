@@ -87,7 +87,14 @@ type ChecklistItemOption = { id: string; label: string; completed: boolean };
 type IssueOption = { id: string; description: string | null; severity: string; createdAt: string };
 type PhotoOption = { id: string; url: string | null; takenAt: string | null };
 
-export type ServiceMessageOption = { id: string; label: string; body: string };
+export type ServiceMessageOption = {
+  id: string;
+  label: string;
+  /** Already interpolated by the page -- {{orgName}} and friends are resolved before this reaches
+   * the client, so render it as-is. Don't re-apply placeholders here: the technician must see the
+   * exact text the customer will get, and the id is what's posted on completion anyway. */
+  body: string;
+};
 
 type Props = {
   visitId: string;

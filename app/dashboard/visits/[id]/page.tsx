@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { applyServiceMessagePlaceholders } from "@/lib/default-service-messages";
 import { NextStopRibbon, type NextStopInfo } from "@/app/components/next-stop-ribbon";
 import { pickNextStop } from "@/lib/next-stop";
 import { coalesceCoord } from "@/lib/geocode";
@@ -65,7 +66,8 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   const visit = await prisma.serviceVisit.findUnique({
     where: { id },
     include: {
-      organization: { select: { state: true } },
+      // `name` for interpolating {{orgName}} into the service messages the technician picks from.
+      organization: { select: { state: true, name: true } },
       property: { select: { name: true, propertyType: true, customerId: true } },
       bodyOfWater: {
         select: {
@@ -165,11 +167,20 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   // Active service messages for the picker. Ordered as the admin arranged them; an empty result
   // means this org has none configured, and the form then requires no selection (see the
   // completion API's matching fallback -- a config gap must never strand a technician).
-  const serviceMessages = await prisma.serviceMessageTemplate.findMany({
+  const serviceMessageTemplates = await prisma.serviceMessageTemplate.findMany({
     where: { organizationId: appUser.organizationId, active: true },
     orderBy: { sortOrder: "asc" },
     select: { id: true, label: true, body: true },
   });
+  // Interpolated HERE, not in the form: a technician choosing between messages has to read what
+  // the customer will actually receive, and a literal "{{orgName}}" in the picker is both
+  // confusing and indistinguishable from a message that would send broken. The form still posts
+  // the template id, and the completion API re-interpolates from the database, so this is purely
+  // for display and can't be tampered with client-side.
+  const serviceMessages = serviceMessageTemplates.map((msg) => ({
+    ...msg,
+    body: applyServiceMessagePlaceholders(msg.body, { orgName: visit.organization.name }),
+  }));
 
   // Where to head next, shown as a ribbon once this visit is finished. Only for the technician
   // whose day it is: an admin reviewing a completed visit from the office isn't about to drive
