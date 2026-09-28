@@ -42,21 +42,30 @@ function buildPoolConfig(): PoolConfig {
   const config: PoolConfig = {
     connectionString: raw,
     /**
-     * Supabase's Session pooler caps total clients project-wide (see Pool Size under
-     * Project Settings > Database > Connection pooling) -- raised from 15 to 40 on
-     * 2026-09-19 alongside a Nano -> Micro compute upgrade (60 raw max_connections now),
-     * after a real EMAXCONNSESSION incident. Fluid Compute can run several function
-     * instances concurrently, each holding its own Pool (cached per-instance, not shared)
-     * -- this must stay well below the pooler's Pool Size so several instances can coexist
-     * without exhausting it, and leave real headroom for Supabase's own internal use
-     * (Studio, Realtime, direct/admin connections) rather than claiming the whole pool.
-     * 4 was picked to match the admin dashboard's own heaviest single-request batch
-     * (app/dashboard/page.tsx's 4-query Promise.all) -- high enough that its busiest page
-     * never queues internally on its own pool, while 40/4 = 10 concurrent instances can
-     * still run at once before hitting the pooler's ceiling (vs. 5 at the old 15/3).
+     * Sized against the Supabase Session pooler's Pool Size (Project Settings > Database >
+     * Connection pooling), raised from 15 to 40 on 2026-09-19 alongside a Nano -> Micro compute
+     * upgrade (60 raw max_connections) after a real EMAXCONNSESSION incident. Fluid Compute can
+     * run several function instances concurrently, each holding its own Pool (cached per-instance,
+     * not shared), so `max` must stay well below that ceiling.
+     *
+     * `max: 2` with a 60s idle timeout, rather than the earlier `max: 4` with 10s. Those two
+     * numbers have to move together: the old pairing meant a warm instance re-authenticated
+     * through the pooler on almost every request, because Fluid Compute keeps instances alive far
+     * longer than 10 seconds between requests. Measured over 83 days that was 35,644
+     * pgbouncer.get_auth calls against 136,138 application queries -- one connection setup per
+     * 3.8 queries, occasionally costing 1.1s.
+     *
+     * Halving `max` is what makes the longer idle safe: 40/2 = 20 concurrent instances before the
+     * pooler's ceiling, up from 40/4 = 10, so this has MORE headroom than the config it replaces
+     * while holding each connection long enough to reuse.
+     *
+     * The cost is intra-request parallelism: the admin dashboard's 4-query Promise.all now runs
+     * two at a time instead of four. That's one extra ~2ms round trip against a 50-1147ms
+     * reconnect avoided, and the per-page query count already dropped when getCurrentAppUser was
+     * memoized and visit generation stopped being an N+1.
      */
-    max: 4,
-    idleTimeoutMillis: 10_000,
+    max: 2,
+    idleTimeoutMillis: 60_000,
   };
 
   if (relaxed) {
