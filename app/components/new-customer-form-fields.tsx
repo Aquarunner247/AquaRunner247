@@ -7,7 +7,7 @@ import { PropertyContactFields } from "./property-contact-fields";
 import { AddressFields } from "./address-fields";
 import { NameInput } from "./name-input";
 
-const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
+const inputClass = "app-field-sm";
 
 type ManagementCompany = { id: string; name: string };
 

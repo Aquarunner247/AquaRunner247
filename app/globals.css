@@ -110,6 +110,14 @@
     @apply w-full rounded-xl border border-brand-control bg-white px-3 py-2 text-sm text-brand-ink transition placeholder:text-brand-muted/70 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/35 disabled:bg-brand-foam disabled:text-brand-muted;
   }
 
+  /* Compact sibling of .app-field for dense admin tables and inline rows. Same tokens and the
+     same focus ring, but it sets NO width and keeps the tighter px-2 py-1.5 those rows were
+     already using -- so converting an inline input to it changes rounding, colour and focus
+     behaviour without moving anything. .app-field's w-full px-3 py-2 would reflow a table row. */
+  .app-field-sm {
+    @apply rounded-lg border border-brand-control bg-white px-2 py-1.5 text-sm text-brand-ink transition placeholder:text-brand-muted/70 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/35 disabled:bg-brand-foam disabled:text-brand-muted;
+  }
+
   .app-field-search {
     @apply w-full rounded-xl border border-brand-control bg-gradient-to-r from-brand-foam/70 to-white px-3 py-2 text-sm text-brand-ink placeholder:text-brand-muted focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/35;
   }

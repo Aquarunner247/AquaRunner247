@@ -5,7 +5,7 @@ import { EquipmentKind } from "@/generated/prisma/enums";
 import { applyInspectionReportExtraction } from "../../actions";
 import type { ExtractedInspectionData } from "@/lib/inspection-report-extraction";
 
-const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
+const inputClass = "app-field-sm";
 
 type ReportOption = { id: string; label: string };
 type ExistingEquipmentItem = { id: string; kind: string; make: string | null; model: string | null; serialNumber: string | null };

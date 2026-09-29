@@ -91,7 +91,7 @@ export default async function ChecklistPage() {
             name="label"
             required
             placeholder="New checklist item"
-            className="flex-1 rounded border border-brand-control px-2 py-1.5 text-sm"
+            className="app-field-sm flex-1"
           />
           <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
             Add item

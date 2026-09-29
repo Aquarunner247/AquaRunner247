@@ -5,7 +5,7 @@ import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
 import { saveVolumeCalculation } from "@/app/dashboard/customers/[id]/actions";
 import type { DosingResult } from "@/lib/dosing-calculator";
 
-const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
+const inputClass = "app-field-sm";
 
 const SHAPE_LABELS: Record<VolumeShapeKey, string> = {
   RECTANGLE: "Rectangle",

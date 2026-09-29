@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FilterMedia } from "@/generated/prisma/enums";
 
-const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
+const inputClass = "app-field-sm";
 
 export type FilterTypeDefaults = {
   filterType?: string | null;

@@ -779,7 +779,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
                 value={backwashTime}
                 disabled={isCompleted}
                 onChange={(e) => setBackwashTime(e.target.value)}
-                className="rounded border border-brand-control px-2 py-1 font-[family-name:var(--font-mono)] text-sm"
+                className="app-field-sm py-1 font-[family-name:var(--font-mono)]"
               />
             </label>
           ) : null}
@@ -810,7 +810,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
                   setDoseForm((d) => ({ ...d, chemicalProductId: id }));
                 }
               }}
-              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
+              className="app-field-sm"
             >
               <option value="">Select chemical…</option>
               {/* Chemicals already dosed on this visit drop out of the picker -- adding
@@ -838,7 +838,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
                 const value = raw !== "" ? String(roundToStep(Number(raw), step)) : raw;
                 setDoseForm((d) => ({ ...d, quantity: value }));
               }}
-              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
+              className="app-field-sm"
             />
             <button
               type="submit"
@@ -894,7 +894,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
               value={issueForm.severity}
               disabled={isCompleted || reportingIssue}
               onChange={(e) => setIssueForm((f) => ({ ...f, severity: e.target.value }))}
-              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-foam"
+              className="app-field-sm"
             >
               <option value="LOW">Low</option>
               <option value="MEDIUM">Medium</option>

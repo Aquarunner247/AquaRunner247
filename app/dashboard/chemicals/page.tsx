@@ -287,7 +287,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
                             type="number"
                             step="0.0001"
                             defaultValue={setting?.price?.toString() ?? ""}
-                            className="w-20 rounded border border-brand-control px-1.5 py-0.5 text-sm"
+                            className="app-field-sm w-20"
                           />
                         </label>
                         <label className="flex items-center gap-1 text-xs text-brand-muted">
@@ -299,7 +299,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
                           <select
                             name={`billing_${p.id}`}
                             defaultValue={setting?.linkedBillingProductId ?? ""}
-                            className="rounded border border-brand-control px-1.5 py-0.5 text-xs"
+                            className="app-field-sm"
                           >
                             <option value="">— not linked —</option>
                             {products
@@ -340,7 +340,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
                           step="1"
                           placeholder="Target ppm"
                           defaultValue={target?.orgTargetValue?.toString() ?? ""}
-                          className="w-24 rounded border border-brand-control px-1.5 py-0.5 text-sm"
+                          className="app-field-sm w-24"
                         />
                       ) : (
                         <>
@@ -350,7 +350,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
                             step="0.1"
                             placeholder="Min"
                             defaultValue={target?.orgTargetMin?.toString() ?? ""}
-                            className="w-20 rounded border border-brand-control px-1.5 py-0.5 text-sm"
+                            className="app-field-sm w-20"
                           />
                           <input
                             name="targetMax"
@@ -358,7 +358,7 @@ export default async function ChemicalsPage({ searchParams }: PageProps) {
                             step="0.1"
                             placeholder="Max"
                             defaultValue={target?.orgTargetMax?.toString() ?? ""}
-                            className="w-20 rounded border border-brand-control px-1.5 py-0.5 text-sm"
+                            className="app-field-sm w-20"
                           />
                         </>
                       )}

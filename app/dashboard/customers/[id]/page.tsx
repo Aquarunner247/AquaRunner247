@@ -397,13 +397,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     required
                     defaultValue={customer.name}
                     placeholder="Customer name"
-                    className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
+                    className="app-field"
                   />
                   <textarea
                     name="notes"
                     defaultValue={customer.notes ?? ""}
                     placeholder="Notes"
-                    className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
+                    className="app-field"
                     rows={3}
                   />
 
@@ -424,7 +424,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                           <select
                             name="managementCompanyId"
                             defaultValue={primaryProperty.managementCompany?.id ?? ""}
-                            className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                            className="app-field-sm"
                           >
                             <option value="">No management company</option>
                             {managementCompanies.map((mc) => (
@@ -436,7 +436,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                           <input
                             name="newManagementCompanyName"
                             placeholder="Or type a new company name"
-                            className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                            className="app-field-sm"
                           />
                         </div>
                         <div className="mt-2">
@@ -460,7 +460,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                             step={10}
                             defaultValue={primaryProperty.geofenceMeters ?? ""}
                             placeholder="Default 150m"
-                            className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-48"
+                            className="app-field mt-1 md:w-48"
                           />
                           <p className="mt-1 text-xs text-brand-muted">
                             How close a tech&apos;s phone must be for a stop here to auto-log arrival. Raise this for a property where
@@ -478,7 +478,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     </button>
                     <Link
                       href={`/dashboard/customers/${customer.id}?tab=overview`}
-                      className="rounded border border-brand-control px-3 py-1.5 text-sm font-medium text-brand-ink"
+                      className="app-field-sm font-medium"
                     >
                       Cancel
                     </Link>
@@ -576,7 +576,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                           <span className="text-xs text-brand-warn">
                             Looks like an inspection report, but this customer has more than one aquatic venue —
                           </span>
-                          <select name="bodyOfWaterId" required className="rounded border border-brand-control px-2 py-1 text-xs">
+                          <select name="bodyOfWaterId" required className="app-field-sm">
                             <option value="">Attach to…</option>
                             {allBodiesFlat.map((body) => (
                               <option key={body.id} value={body.id}>
@@ -606,7 +606,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 <input
                   name="label"
                   placeholder="Label (e.g. 2026 Inspection Report)"
-                  className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                  className="app-field-sm"
                 />
                 <input type="file" name="file" required className="text-sm" />
                 <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
@@ -759,15 +759,15 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   <p className="mb-2 text-sm text-brand-danger">That email already belongs to a different account.</p>
                 ) : null}
                 <div className="grid gap-2 md:grid-cols-2">
-                  <NameInput name="name" required placeholder="Contact name" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
-                  <input name="email" type="email" required placeholder="Email" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+                  <NameInput name="name" required placeholder="Contact name" className="app-field-sm" />
+                  <input name="email" type="email" required placeholder="Email" className="app-field-sm" />
                   <input
                     name="password"
                     type="text"
                     required
                     minLength={8}
                     placeholder="Temporary password (min 8 characters)"
-                    className="rounded border border-brand-control px-2 py-1.5 text-sm md:col-span-2"
+                    className="app-field-sm md:col-span-2"
                   />
                 </div>
                 <p className="mt-1 text-xs text-brand-muted">
@@ -804,13 +804,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   </p>
                 ) : null}
                 <div className="grid gap-2">
-                  <input name="subject" required placeholder="Subject" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+                  <input name="subject" required placeholder="Subject" className="app-field-sm" />
                   <textarea
                     name="message"
                     required
                     rows={3}
                     placeholder="Message"
-                    className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                    className="app-field-sm"
                   />
                 </div>
                 <p className="mt-1 text-xs text-brand-muted">
@@ -922,14 +922,14 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       required
                       defaultValue={property.name}
                       placeholder="Property name"
-                      className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
+                      className="app-field"
                     />
                     <PropertyContactFields initialPropertyType={property.propertyType} defaults={property} />
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       <select
                         name="managementCompanyId"
                         defaultValue={property.managementCompany?.id ?? ""}
-                        className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                        className="app-field-sm"
                       >
                         <option value="">No management company</option>
                         {managementCompanies.map((mc) => (
@@ -941,7 +941,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       <input
                         name="newManagementCompanyName"
                         placeholder="Or type a new company name"
-                        className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                        className="app-field-sm"
                       />
                     </div>
                     <AddressFields
@@ -963,7 +963,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                         step={10}
                         defaultValue={property.geofenceMeters ?? ""}
                         placeholder="Default 150m"
-                        className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-48"
+                        className="app-field mt-1 md:w-48"
                       />
                       <p className="mt-1 text-xs text-brand-muted">
                         How close a tech&apos;s phone must be for a stop here to auto-log arrival. Raise this for a property where GPS
@@ -977,7 +977,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       </button>
                       <Link
                         href={`/dashboard/customers/${customer.id}?tab=overview`}
-                        className="rounded border border-brand-control px-3 py-1.5 text-sm font-medium text-brand-ink"
+                        className="app-field-sm font-medium"
                       >
                         Cancel
                       </Link>
@@ -1039,9 +1039,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       name="name"
                       required
                       placeholder="Venue name"
-                      className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                      className="app-field-sm"
                     />
-                    <select name="type" className="rounded border border-brand-control px-2 py-1.5 text-sm">
+                    <select name="type" className="app-field-sm">
                       {Object.values(BodyOfWaterType).map((type) => (
                         <option key={type} value={type}>
                           {type}
@@ -1053,14 +1053,14 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       type="number"
                       step="1"
                       placeholder="Total gallons"
-                      className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                      className="app-field-sm"
                     />
                     <input
                       name="maximumOccupancy"
                       type="number"
                       step="1"
                       placeholder="Max occupancy"
-                      className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                      className="app-field-sm"
                     />
                   </div>
                   {property.propertyType === "RESIDENTIAL" ? <FilterTypeFields /> : null}

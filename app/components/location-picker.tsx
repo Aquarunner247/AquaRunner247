@@ -137,7 +137,7 @@ export function LocationPicker({
               }
             }}
             placeholder="123 Main St, Las Vegas, NV"
-            className="rounded border border-brand-control px-2 py-1.5 text-sm"
+            className="app-field-sm"
           />
         </label>
         <button type="button" onClick={onSearch} disabled={searching} className="rounded border border-brand-control px-3 py-1.5 text-sm font-medium text-brand-ink disabled:opacity-60">
@@ -171,7 +171,7 @@ export function LocationPicker({
               name={noteField.name}
               defaultValue={noteField.defaultValue}
               placeholder={noteField.placeholder}
-              className="rounded border border-brand-control px-2 py-1.5 text-sm"
+              className="app-field-sm"
             />
           </label>
         ) : null}

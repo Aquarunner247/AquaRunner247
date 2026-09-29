@@ -176,13 +176,13 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               defaultValue={body.name}
               required
               disabled={isEnded}
-              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-surface disabled:text-brand-muted"
+              className="app-field-sm"
             />
             <select
               name="type"
               defaultValue={body.type}
               disabled={isEnded}
-              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-surface disabled:text-brand-muted"
+              className="app-field-sm"
             >
               {Object.values(BodyOfWaterType).map((type) => (
                 <option key={type} value={type}>
@@ -197,7 +197,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               defaultValue={body.volumeGallons?.toString() ?? ""}
               placeholder="Total gallons"
               disabled={isEnded}
-              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-surface disabled:text-brand-muted"
+              className="app-field-sm"
             />
             <input
               name="maximumOccupancy"
@@ -206,7 +206,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               defaultValue={body.maximumOccupancy?.toString() ?? ""}
               placeholder="Max occupancy"
               disabled={isEnded}
-              className="rounded border border-brand-control px-2 py-1.5 text-sm disabled:bg-brand-surface disabled:text-brand-muted"
+              className="app-field-sm"
             />
           </div>
           {body.property.propertyType === "RESIDENTIAL" ? (
@@ -228,7 +228,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
                 name="disinfectionMethod"
                 defaultValue={body.disinfectionMethod}
                 disabled={isEnded}
-                className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-56 disabled:bg-brand-surface disabled:text-brand-muted"
+                className="app-field mt-1 md:w-56"
               >
                 <option value="CHLORINE">Chlorine</option>
                 <option value="BROMINE">Bromine</option>
@@ -269,7 +269,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               name="chlorineFeedMechanism"
               defaultValue={body.chlorineFeedMechanism}
               disabled={isEnded}
-              className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm md:w-56 disabled:bg-brand-surface disabled:text-brand-muted"
+              className="app-field mt-1 md:w-56"
             >
               <option value={ChlorineFeedMechanism.MANUAL}>Manually dosed</option>
               <option value={ChlorineFeedMechanism.TABLET_FEEDER}>Tablet feeder</option>
@@ -367,7 +367,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
             <input type="hidden" name="customerId" value={customerId} />
             <p className="text-sm font-medium text-brand-ink">Add a rate</p>
             <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-              <select name="technicianId" required defaultValue={routedStop?.route.technicianId ?? ""} className="rounded border border-brand-control px-2 py-1.5 text-sm">
+              <select name="technicianId" required defaultValue={routedStop?.route.technicianId ?? ""} className="app-field-sm">
                 <option value="">Technician…</option>
                 {technicians.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -375,7 +375,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
                   </option>
                 ))}
               </select>
-              <input name="rateAmount" type="number" step="0.01" required placeholder="Rate ($)" className="rounded border border-brand-control px-2 py-1.5 text-sm" />
+              <input name="rateAmount" type="number" step="0.01" required placeholder="Rate ($)" className="app-field-sm" />
               <label className="flex items-center gap-1 text-xs text-brand-ink">
                 <input type="checkbox" name="isBundled" />
                 Bundled ($0, folded into another body)
@@ -433,20 +433,20 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
                 name="inspectorName"
                 defaultValue={body.inspectorName ?? ""}
                 placeholder="Inspector name"
-                className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                className="app-field-sm"
               />
               <input
                 name="inspectorPhone"
                 defaultValue={body.inspectorPhone ?? ""}
                 placeholder="Inspector phone"
-                className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                className="app-field-sm"
               />
               <input
                 name="inspectorEmail"
                 type="email"
                 defaultValue={body.inspectorEmail ?? ""}
                 placeholder="Inspector email"
-                className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                className="app-field-sm"
               />
               <label className="flex flex-col gap-1 text-xs text-brand-muted">
                 Last inspection date
@@ -454,7 +454,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
                   name="lastInspectionDate"
                   type="date"
                   defaultValue={body.lastInspectionDate ? body.lastInspectionDate.toISOString().slice(0, 10) : ""}
-                  className="rounded border border-brand-control px-2 py-1.5 text-sm text-brand-ink"
+                  className="app-field-sm"
                 />
               </label>
             </div>
@@ -524,7 +524,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
                 <input
                   name="label"
                   placeholder="Label (e.g. 2026 Annual Inspection)"
-                  className="rounded border border-brand-control px-2 py-1.5 text-sm"
+                  className="app-field-sm"
                 />
                 <input type="file" name="file" required className="text-sm" />
                 <SubmitButton pendingLabel="Uploading…" className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">
@@ -579,7 +579,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
             <input type="hidden" name="customerId" value={customerId} />
             <label className="flex flex-col gap-1 text-xs text-brand-muted">
               Month
-              <select name="month" defaultValue={now.getMonth() + 1} className="rounded border border-brand-control px-2 py-1.5 text-sm">
+              <select name="month" defaultValue={now.getMonth() + 1} className="app-field-sm">
                 {MONTH_NAMES.map((m, i) => (
                   <option key={m} value={i + 1}>
                     {m}
@@ -589,7 +589,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
             </label>
             <label className="flex flex-col gap-1 text-xs text-brand-muted">
               Year
-              <select name="year" defaultValue={now.getFullYear()} className="rounded border border-brand-control px-2 py-1.5 text-sm">
+              <select name="year" defaultValue={now.getFullYear()} className="app-field-sm">
                 {Array.from({ length: 10 }, (_, i) => now.getFullYear() - 8 + i).map((y) => (
                   <option key={y} value={y}>
                     {y}

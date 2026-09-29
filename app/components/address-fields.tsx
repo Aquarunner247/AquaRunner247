@@ -110,7 +110,7 @@ export function AddressFields({
           onFocus={() => setOpen(suggestions.length > 0)}
           placeholder="Start typing an address…"
           autoComplete="off"
-          className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
+          className="app-field"
         />
         {loading ? (
           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-brand-control">Searching…</span>
@@ -143,7 +143,7 @@ export function AddressFields({
         name="addressLine2"
         defaultValue={initialAddressLine2 ?? ""}
         placeholder="Address line 2 (apt, suite, etc.)"
-        className="w-full rounded border border-brand-control px-2 py-1.5 text-sm"
+        className="app-field"
       />
       <div className="grid grid-cols-3 gap-2">
         <input
@@ -151,21 +151,21 @@ export function AddressFields({
           name="city"
           defaultValue={initialCity ?? ""}
           placeholder="City"
-          className="rounded border border-brand-control px-2 py-1.5 text-sm"
+          className="app-field-sm"
         />
         <input
           ref={regionRef}
           name="region"
           defaultValue={initialRegion ?? ""}
           placeholder="State"
-          className="rounded border border-brand-control px-2 py-1.5 text-sm"
+          className="app-field-sm"
         />
         <input
           ref={postalRef}
           name="postalCode"
           defaultValue={initialPostalCode ?? ""}
           placeholder="ZIP"
-          className="rounded border border-brand-control px-2 py-1.5 text-sm"
+          className="app-field-sm"
         />
       </div>
     </div>

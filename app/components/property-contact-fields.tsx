@@ -5,7 +5,7 @@ import { PropertyType } from "@/generated/prisma/enums";
 import { PhoneInput } from "./phone-input";
 import { NameInput } from "./name-input";
 
-const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
+const inputClass = "app-field-sm";
 
 export type PropertyContactDefaults = {
   managerName?: string | null;

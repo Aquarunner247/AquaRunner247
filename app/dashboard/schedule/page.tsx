@@ -362,9 +362,9 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                     name="description"
                     required
                     placeholder="e.g. Pool store, drop off filter…"
-                    className="min-w-[180px] flex-1 rounded border border-brand-control bg-white px-2 py-1.5 text-sm"
+                    className="app-field-sm min-w-[180px] flex-1"
                   />
-                  <select name="propertyId" defaultValue="" className="rounded border border-brand-control bg-white px-2 py-1.5 text-sm">
+                  <select name="propertyId" defaultValue="" className="app-field-sm">
                     <option value="">No property</option>
                     {adHocProperties.map((p) => (
                       <option key={p.id} value={p.id}>

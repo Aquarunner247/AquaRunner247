@@ -258,7 +258,7 @@ function PhDemandPrompt({
             step="1"
             value={drops}
             onChange={(e) => setDrops(e.target.value)}
-            className="h-11 w-20 rounded border border-brand-control px-2 text-base"
+            className="app-field-sm h-11 w-20 text-base"
           />
         </label>
         <button type="button" onClick={calculate} disabled={loading || !drops} className="app-btn-primary-sm min-h-[44px]">

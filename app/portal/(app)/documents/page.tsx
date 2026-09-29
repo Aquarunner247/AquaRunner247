@@ -75,7 +75,7 @@ export default async function PortalDocumentsPage() {
           <input
             name="label"
             placeholder="Label (e.g. Pool Contract)"
-            className="rounded border border-brand-control px-2 py-1.5 text-sm"
+            className="app-field-sm"
           />
           <input type="file" name="file" required className="text-sm" />
           <button className="rounded bg-[var(--portal-primary,#0A6E7C)] px-3 py-1.5 text-sm font-medium text-white" type="submit">

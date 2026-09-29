@@ -10,7 +10,7 @@ type Props = {
   isSpa: boolean;
 };
 
-export const inputClass = "rounded border border-brand-control px-2 py-1.5 text-sm";
+export const inputClass = "app-field-sm";
 
 export type EquipmentDefaults = {
   serialNumber?: string;

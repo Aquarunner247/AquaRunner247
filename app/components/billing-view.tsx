@@ -100,11 +100,11 @@ export async function BillingView({ organizationId, error }: { organizationId: s
         <form method="GET" action="/api/organizations/export" className="mt-4 flex flex-wrap items-end gap-3">
           <label className="text-sm text-brand-muted">
             From
-            <input type="date" name="from" className="mt-1 block rounded-md border border-brand-control bg-white px-3 py-1.5 text-sm text-brand-ink" />
+            <input type="date" name="from" className="app-field-sm mt-1 block px-3" />
           </label>
           <label className="text-sm text-brand-muted">
             To
-            <input type="date" name="to" className="mt-1 block rounded-md border border-brand-control bg-white px-3 py-1.5 text-sm text-brand-ink" />
+            <input type="date" name="to" className="app-field-sm mt-1 block px-3" />
           </label>
           <button type="submit" className="app-btn-primary-sm">
             Export
