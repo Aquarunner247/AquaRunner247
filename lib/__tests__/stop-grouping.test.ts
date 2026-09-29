@@ -14,8 +14,22 @@ function north(meters: number) {
   return { latitude: BASE.latitude + meters / 111_320, longitude: BASE.longitude };
 }
 
+/** Defaults to a POOL, so existing cases keep their meaning; pass bodyType to vary the kind. A
+ *  bundle holds at most one body of each kind, so a pair that should group needs two kinds. */
 function stop(id: string, overrides: Partial<GroupableStop> = {}): GroupableStop {
-  return { id, propertyId: "p1", latitude: BASE.latitude, longitude: BASE.longitude, ...overrides };
+  return {
+    id,
+    propertyId: "p1",
+    latitude: BASE.latitude,
+    longitude: BASE.longitude,
+    bodyType: "POOL",
+    ...overrides,
+  };
+}
+
+/** A spa at the same spot -- the ordinary bundling partner for a pool. */
+function spa(id: string, overrides: Partial<GroupableStop> = {}): GroupableStop {
+  return stop(id, { bodyType: "SPA", ...overrides });
 }
 
 describe("metersBetween", () => {
@@ -30,20 +44,22 @@ describe("metersBetween", () => {
 
 describe("groupNearbyStops — the customer's real shapes", () => {
   it("bundles a pool and spa on one deck (6.4m, Fifty101)", () => {
-    const groups = groupNearbyStops([stop("pool"), stop("spa", { ...north(6.4) })]);
+    const groups = groupNearbyStops([stop("pool"), spa("spa", { ...north(6.4) })]);
     expect(groups).toHaveLength(1);
     expect(groups[0].memberIds).toEqual(["pool", "spa"]);
   });
 
   it("bundles the widest real together-pair (19.2m, Ritiro)", () => {
-    const groups = groupNearbyStops([stop("pool"), stop("spa", { ...north(19.2) })]);
+    const groups = groupNearbyStops([stop("pool"), spa("spa", { ...north(19.2) })]);
     expect(groups).toHaveLength(1);
   });
 
-  it("bundles two pools on one deck (16m, OYO) — which no name rule would", () => {
-    // "Pool 1 (North)" and "Pool 2 (South)": different names, same place.
+  it("keeps two pools on one deck separate (16m, OYO), close as they are", () => {
+    // "Pool 1 (North)" and "Pool 2 (South)" are 16m apart on one deck, so distance alone bundled
+    // them -- and that is where photos kept being misfiled, because two similar pools are hard to
+    // tell apart in a photo. Proximity is not enough; the kinds have to differ too.
     const groups = groupNearbyStops([stop("pool1"), stop("pool2", { ...north(16) })]);
-    expect(groups).toHaveLength(1);
+    expect(groups.map((g) => g.memberIds)).toEqual([["pool1"], ["pool2"]]);
   });
 
   it("splits the closest real apart-pair (87.6m, Borgata clubhouse vs gym)", () => {
@@ -58,9 +74,9 @@ describe("groupNearbyStops — the customer's real shapes", () => {
 
   it("makes two pairs out of Borgata's four venues", () => {
     const groups = groupNearbyStops([
-      stop("gymSpa"),
+      spa("gymSpa"),
       stop("gymPool", { ...north(10.1) }),
-      stop("clubSpa", { ...north(87.6) }),
+      spa("clubSpa", { ...north(87.6) }),
       stop("clubPool", { ...north(87.6 + 12.1) }),
     ]);
     expect(groups.map((g) => g.memberIds)).toEqual([
@@ -81,7 +97,7 @@ describe("groupNearbyStops — the customer's real shapes", () => {
 
 describe("groupNearbyStops — rules", () => {
   it("measures from the group's first member, so 30m hops can't chain across a property", () => {
-    const groups = groupNearbyStops([stop("a"), stop("b", { ...north(30) }), stop("c", { ...north(60) })]);
+    const groups = groupNearbyStops([stop("a"), spa("b", { ...north(30) }), stop("c", { ...north(60) })]);
     // b joins a (30m). c is 60m from the ANCHOR a, so it starts a new group even though it is
     // only 30m from b.
     expect(groups.map((g) => g.memberIds)).toEqual([["a", "b"], ["c"]]);
@@ -101,7 +117,7 @@ describe("groupNearbyStops — rules", () => {
     const groups = groupNearbyStops([
       stop("pool"),
       stop("errand", { propertyId: null }),
-      stop("spa", { ...north(6) }),
+      spa("spa", { ...north(6) }),
     ]);
     expect(groups.map((g) => g.memberIds)).toEqual([["pool"], ["spa"]]);
   });
@@ -110,7 +126,7 @@ describe("groupNearbyStops — rules", () => {
     const groups = groupNearbyStops([
       stop("pool"),
       stop("skipped", { ignored: true }),
-      stop("spa", { ...north(6) }),
+      spa("spa", { ...north(6) }),
     ]);
     expect(groups).toHaveLength(1);
     expect(groups[0].memberIds).toEqual(["pool", "spa"]);
@@ -144,13 +160,41 @@ describe("groupNearbyStops — rules", () => {
   });
 
   it("honours a custom radius", () => {
-    const pair = [stop("a"), stop("b", { ...north(50) })];
+    const pair = [stop("a"), spa("b", { ...north(50) })];
     expect(groupNearbyStops(pair, 60)).toHaveLength(1);
     expect(groupNearbyStops(pair, 10)).toHaveLength(2);
   });
 
   it("uses a 40m default", () => {
     expect(BUNDLE_RADIUS_METERS).toBe(40);
+  });
+
+  it("allows at most one body of each kind in a bundle", () => {
+    // A pool with two spas beside it: the first spa joins, the second starts its own group rather
+    // than sharing a card with a body a technician could confuse it for.
+    const groups = groupNearbyStops([stop("pool"), spa("spa1", { ...north(5) }), spa("spa2", { ...north(8) })]);
+    expect(groups.map((g) => g.memberIds)).toEqual([["pool", "spa1"], ["spa2"]]);
+  });
+
+  it("still bundles a third body when its kind is new", () => {
+    const groups = groupNearbyStops([
+      stop("pool"),
+      spa("spa", { ...north(5) }),
+      stop("wading", { bodyType: "OTHER", ...north(8) }),
+    ]);
+    expect(groups.map((g) => g.memberIds)).toEqual([["pool", "spa", "wading"]]);
+  });
+
+  it("bundles Playa Vista's pool with its wading pool, which are different kinds", () => {
+    // POOL + OTHER, 17.4m apart -- a real pair that must keep bundling under the kind rule.
+    const groups = groupNearbyStops([stop("pool"), stop("wading", { bodyType: "OTHER", ...north(17.4) })]);
+    expect(groups).toHaveLength(1);
+  });
+
+  it("gives a body of unknown kind its own group", () => {
+    // An unlabelled card is the ambiguity this rule exists to prevent, so null never bundles.
+    expect(groupNearbyStops([stop("pool"), stop("mystery", { bodyType: null, ...north(5) })])).toHaveLength(2);
+    expect(groupNearbyStops([stop("mystery", { bodyType: null }), spa("spa", { ...north(5) })])).toHaveLength(2);
   });
 });
 

@@ -21,6 +21,9 @@ export type RouteStop = {
   propertyId: string;
   propertyName: string;
   bodyName: string;
+  /// BodyOfWater.type. Used only for bundling: a card holds at most one body of each kind, so two
+  /// similar pools on one deck stay separate rows. See lib/stop-grouping.ts.
+  bodyType: string | null;
   address: string;
   scheduledStart: string;
   startedAt: string | null;
@@ -740,9 +743,10 @@ export function RouteDayView({
   const displayedItems = statusFilter === "all" ? items : items.filter((i) => matchesStatusFilter(i, statusFilter));
   const trueIndexById = new Map(items.map((i, idx) => [i.id, idx]));
 
-  // Bundle stops that are one walk-up: same property, adjacent in route order, and within
-  // BUNDLE_RADIUS_METERS of each other's pins. See lib/stop-grouping.ts for why this measures
-  // distance rather than matching names, and how the radius was chosen from real pins.
+  // Bundle stops that are one walk-up: same property, adjacent in route order, within
+  // BUNDLE_RADIUS_METERS of each other's pins, AND a different kind of water from the rest of the
+  // bundle. See lib/stop-grouping.ts for why this measures distance rather than matching names, how
+  // the radius was chosen from real pins, and why two pools on one deck no longer share a card.
   //
   // Built from the FULL `items` array, not displayedItems, so a status filter never changes what
   // belongs to a bundle -- only which members are visible.
@@ -751,12 +755,13 @@ export function RouteDayView({
       i.kind === "adhoc"
         ? // An errand can't be a member and ends any open run -- the bodies either side of it
           // were not serviced on one walk-up.
-          { id: i.id, propertyId: null, latitude: i.latitude, longitude: i.longitude }
+          { id: i.id, propertyId: null, latitude: i.latitude, longitude: i.longitude, bodyType: null }
         : {
             id: i.id,
             propertyId: i.propertyId,
             latitude: i.latitude,
             longitude: i.longitude,
+            bodyType: i.bodyType,
             technicianId: i.technicianId,
             // A skipped visit neither joins a bundle nor breaks one.
             ignored: i.status === "CANCELLED",

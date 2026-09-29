@@ -5,10 +5,20 @@
  * Pure and Prisma-free so the rules are testable, same as lib/route-ordering.ts and
  * lib/route-projection.ts. The component keeps only the DOM-shaped work.
  *
- * Grouping is by measured distance, not by name. Names were the obvious first idea and they get
- * real cases wrong: this customer's "Pool 1 (North)" and "Pool 2 (South)" at OYO are 16m apart --
- * the same deck -- while "Clubhouse Pool" and "Gym (NE) Pool" at Borgata are 88m apart in
- * different buildings. No name rule distinguishes those; coordinates do.
+ * Two conditions, and a stop needs both: close enough to have been serviced on one walk-up, AND a
+ * different KIND of water from everything already in the bundle.
+ *
+ * Distance is measured, never inferred from names. Names were the obvious first idea and they get
+ * real cases wrong: "Clubhouse Pool" and "Gym (NE) Pool" at Borgata are 88m apart in different
+ * buildings, while a pool and its spa are typically under 20m. No name rule distinguishes those;
+ * coordinates do.
+ *
+ * The type condition came from the field, not from design. OYO's "Pool 1 (North)" and
+ * "Pool 2 (South)" are 16m apart on one deck, so distance alone bundled them -- and they turned out
+ * to be where photos got misfiled over and over, because two similar pools 16m apart are genuinely
+ * hard to tell apart in a photo, in a list, and from a GPS fix. A pool and a spa never have that
+ * problem. So a bundle now holds at most one body of each type, which keeps every member of a card
+ * distinguishable by the thing a technician can actually see.
  */
 import { haversineMiles } from "@/lib/geocode";
 
@@ -31,6 +41,13 @@ export type GroupableStop = {
   propertyId: string | null;
   latitude: number | null;
   longitude: number | null;
+  /**
+   * BodyOfWater.type ("POOL", "SPA", "OTHER", ...). Required rather than optional so a caller
+   * cannot omit it and silently get the old any-two-bodies-bundle behaviour back. Null means the
+   * kind is unknown, which neither joins a bundle nor accepts one -- an unlabelled card is the
+   * exact ambiguity this prevents.
+   */
+  bodyType: string | null;
   /** Multi-technician mode only; a change here always starts a new group. */
   technicianId?: string | null;
   /** True for a stop that neither joins a bundle nor breaks one -- a skipped visit. Preserves
@@ -71,6 +88,12 @@ export function groupNearbyStops(stops: GroupableStop[], radiusMeters = BUNDLE_R
   let current: StopGroup | null = null;
   let anchor: { latitude: number; longitude: number } | null = null;
   let anchorTechnicianId: string | null | undefined;
+  /** Types already in the open run. A bundle holds at most one body of each kind. */
+  let typesInRun = new Set<string>();
+  /** True once the run contains a body whose kind is unknown. Such a run accepts nothing further:
+   *  an unknown kind cannot be shown to differ from anything, so pairing it would produce exactly
+   *  the card whose members can't be told apart. */
+  let runKindUnknown = false;
 
   for (const stop of stops) {
     if (stop.ignored) continue;
@@ -79,6 +102,8 @@ export function groupNearbyStops(stops: GroupableStop[], radiusMeters = BUNDLE_R
       // An errand: not a member, and it ends whatever run was open.
       current = null;
       anchor = null;
+      typesInRun = new Set();
+      runKindUnknown = false;
       continue;
     }
 
@@ -91,10 +116,15 @@ export function groupNearbyStops(stops: GroupableStop[], radiusMeters = BUNDLE_R
       anchorTechnicianId === stop.technicianId &&
       anchor !== null &&
       coords !== null &&
-      metersBetween(anchor, coords) <= radiusMeters;
+      metersBetween(anchor, coords) <= radiusMeters &&
+      // One body of each kind per bundle, and an unknown kind on either side never pairs.
+      !runKindUnknown &&
+      stop.bodyType != null &&
+      !typesInRun.has(stop.bodyType);
 
     if (joins && current !== null) {
       current.memberIds.push(stop.id);
+      if (stop.bodyType != null) typesInRun.add(stop.bodyType);
       continue;
     }
 
@@ -102,6 +132,8 @@ export function groupNearbyStops(stops: GroupableStop[], radiusMeters = BUNDLE_R
     groups.push(current);
     anchor = coords;
     anchorTechnicianId = stop.technicianId;
+    typesInRun = new Set(stop.bodyType != null ? [stop.bodyType] : []);
+    runKindUnknown = stop.bodyType == null;
   }
 
   return groups;

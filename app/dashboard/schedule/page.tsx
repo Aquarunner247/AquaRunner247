@@ -171,7 +171,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             // A property with a front pool and a back pool is two places to drive to, and one
             // property coordinate can't say that. Falls back to the property when a body isn't
             // pinned, so this is a no-op for anything unpinned.
-            bodyOfWater: { select: { name: true, latitude: true, longitude: true } },
+            bodyOfWater: { select: { name: true, type: true, latitude: true, longitude: true } },
           },
         });
 
@@ -181,6 +181,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     propertyId: v.property.id,
     propertyName: v.property.name,
     bodyName: v.bodyOfWater.name,
+    bodyType: v.bodyOfWater.type,
     address: [v.property.addressLine1, v.property.city, v.property.region].filter(Boolean).join(", "),
     scheduledStart: v.scheduledStart.toISOString(),
     startedAt: v.startedAt ? v.startedAt.toISOString() : null,
@@ -244,6 +245,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           propertyId: c.visit.property.id,
           propertyName: c.visit.property.name,
           bodyName: c.visit.bodyOfWater.name,
+          bodyType: c.visit.bodyOfWater.type,
           address: [c.visit.property.addressLine1, c.visit.property.city, c.visit.property.region].filter(Boolean).join(", "),
           scheduledStart: c.visit.scheduledStart.toISOString(),
           startedAt: c.visit.startedAt ? c.visit.startedAt.toISOString() : null,
