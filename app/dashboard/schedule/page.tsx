@@ -8,7 +8,8 @@ import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
 import { addAdHocStop } from "@/app/dashboard/actions";
 import { AdminSchedule } from "./admin-schedule";
-import { timeZoneForState, ymdInTimeZone, localDayBounds, addDaysToYmd, startOfWeekYmd } from "@/lib/timezone";
+import { timeZoneForState, ymdInTimeZone, localDayBounds, addDaysToYmd, startOfWeekYmd, isoWeekdayOfYmd } from "@/lib/timezone";
+import { resolveRouteEndpoints } from "@/lib/route-endpoints";
 import { coalesceCoord } from "@/lib/geocode";
 
 type PageProps = {
@@ -125,6 +126,28 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   } else {
     await ensureVisitsGeneratedForDate(appUser.organizationId, selectedYmd, tz);
   }
+
+  // Where this technician's day begins and finishes, for the map and "Optimize stop order".
+  // Resolved against the ROUTE that runs on the selected weekday, so a Thursday override applies
+  // on Thursdays only; with no route or no override it falls back to their own defaults, and with
+  // neither it's null and the day simply starts at its first stop. See lib/route-endpoints.ts.
+  const dayRoute = await prisma.recurringRoute.findFirst({
+    where: {
+      organizationId: appUser.organizationId,
+      technicianId: appUser.id,
+      active: true,
+      dayOfWeek: isoWeekdayOfYmd(selectedYmd),
+    },
+    select: {
+      startLatitude: true,
+      startLongitude: true,
+      startAddress: true,
+      endLatitude: true,
+      endLongitude: true,
+      endAddress: true,
+    },
+  });
+  const dayEndpoints = resolveRouteEndpoints({ route: dayRoute, technician: appUser });
 
   // Unlike the admin dashboard's route list (which hides COMPLETED to keep "what's left
   // today" focused), this schedule view intentionally shows the full day — completed,
@@ -339,15 +362,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               isToday={isToday}
               dateYmd={selectedYmd}
               layout={tab === "map" ? "mapOnly" : tab === "list" ? "listOnly" : "both"}
-              startPoint={
-                appUser.startLatitude != null && appUser.startLongitude != null
-                  ? {
-                      latitude: Number(appUser.startLatitude),
-                      longitude: Number(appUser.startLongitude),
-                      label: appUser.startAddress,
-                    }
-                  : null
-              }
+              startPoint={dayEndpoints.start}
+              endPoint={dayEndpoints.end}
             />
 
             {tab !== "map" ? (

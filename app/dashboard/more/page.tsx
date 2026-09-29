@@ -34,6 +34,17 @@ export default async function MorePage() {
       </Link>
 
       <Link
+        href="/dashboard/more/end-location"
+        className="mt-4 block rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm"
+      >
+        Where your day ends
+        <span className="mt-0.5 block text-xs font-normal text-brand-muted">
+          {appUser.endAddress ??
+            (appUser.endLatitude != null ? "End point set" : "Not set — your day finishes back where it started")}
+        </span>
+      </Link>
+
+      <Link
         href="/dashboard/safety-data-sheets"
         className="mt-4 block rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm"
       >

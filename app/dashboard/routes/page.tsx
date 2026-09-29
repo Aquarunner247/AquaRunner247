@@ -9,6 +9,7 @@ import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
 import { WaveProgress } from "@/app/components/wave-progress";
 import { RouteStopsList } from "./route-stops-list";
+import { resolveRouteEndpoints } from "@/lib/route-endpoints";
 import { RouteFilters } from "./route-filters";
 import { RouteWeekView } from "./route-week-view";
 import {
@@ -108,7 +109,21 @@ export default async function RoutesPage({ searchParams }: PageProps) {
     where: { organizationId: appUser.organizationId },
     orderBy: [{ dayOfWeek: "asc" }, { createdAt: "desc" }],
     include: {
-      technician: { select: { id: true, name: true, email: true } },
+      // The technician's own start/end defaults come along so resolveRouteEndpoints can fall
+      // back to them without a second query per route.
+      technician: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          startLatitude: true,
+          startLongitude: true,
+          startAddress: true,
+          endLatitude: true,
+          endLongitude: true,
+          endAddress: true,
+        },
+      },
       stops: {
         orderBy: { sortOrder: "asc" },
         include: {
@@ -120,6 +135,13 @@ export default async function RoutesPage({ searchParams }: PageProps) {
       },
     },
   });
+
+  // Resolved once per route: the override -> technician default -> none chain lives in
+  // lib/route-endpoints.ts, and both "Optimize stop order" buttons and the per-route summary
+  // below read it from here rather than re-deriving it.
+  const routeEndpoints = new Map(
+    routes.map((route) => [route.id, resolveRouteEndpoints({ route, technician: route.technician })]),
+  );
 
   const allBodiesOfWater = await prisma.bodyOfWater.findMany({
     where: { property: { organizationId: appUser.organizationId } },
@@ -525,6 +547,36 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                 </div>
               ) : null}
 
+              {/* Where this day begins and ends, and whether that comes from the route or the
+                  technician. Stated rather than left implicit, because "Optimize stop order"
+                  below silently depends on it. */}
+              <div className="app-card-inset mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                {(["start", "end"] as const).map((which) => {
+                  const resolved = routeEndpoints.get(route.id);
+                  const point = which === "start" ? resolved?.start : resolved?.end;
+                  const overridden =
+                    which === "start" ? route.startLatitude != null : route.endLatitude != null;
+                  return (
+                    <span key={which} className="flex items-center gap-1.5">
+                      <span className="font-semibold uppercase tracking-wide text-brand-icon">
+                        {which === "start" ? "Starts" : "Ends"}
+                      </span>
+                      <span className="text-brand-ink">
+                        {point
+                          ? point.label || "a set point"
+                          : which === "start"
+                            ? "first stop"
+                            : "back at the start"}
+                      </span>
+                      {overridden ? <span className="app-pill-attention">this day only</span> : null}
+                      <Link href={`/dashboard/routes/${route.id}/location/${which}`} className="app-link">
+                        {overridden ? "change" : "set for this day"}
+                      </Link>
+                    </span>
+                  );
+                })}
+              </div>
+
               <form action={addRouteStop} className="app-card-inset mt-3 flex flex-wrap items-center gap-2">
                 <input type="hidden" name="routeId" value={route.id} />
                 {(availableBodiesByRoute.get(route.id) ?? []).length === 0 ? (
@@ -566,6 +618,8 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                   latitude: coalesceCoord(stop.bodyOfWater?.latitude, stop.property.latitude),
                   longitude: coalesceCoord(stop.bodyOfWater?.longitude, stop.property.longitude),
                 }))}
+                startPoint={routeEndpoints.get(route.id)?.start ?? null}
+                endPoint={routeEndpoints.get(route.id)?.end ?? null}
               />
             </div>
             );

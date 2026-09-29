@@ -17,8 +17,10 @@ import {
   startOfMonthYmd,
   addMonthsToYmd,
   monthGridWeeks,
+  isoWeekdayOfYmd,
 } from "@/lib/timezone";
 import { coalesceCoord } from "@/lib/geocode";
+import { resolveRouteEndpoints } from "@/lib/route-endpoints";
 import { projectedStopsForYmd, type ProjectableRoute } from "@/lib/route-projection";
 import { ScheduleMonthView, type MonthDay } from "./schedule-month-view";
 import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
@@ -418,9 +420,43 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     selectedTechnicianId && !isOverview
       ? await prisma.user.findFirst({
           where: { id: selectedTechnicianId, organizationId: appUser.organizationId },
-          select: { startLatitude: true, startLongitude: true, startAddress: true },
+          select: {
+            startLatitude: true,
+            startLongitude: true,
+            startAddress: true,
+            endLatitude: true,
+            endLongitude: true,
+            endAddress: true,
+          },
         })
       : null;
+
+  // That technician's route for the selected weekday, so a per-day override applies here exactly
+  // as it does on their own schedule. Null route -> their own defaults; see lib/route-endpoints.ts.
+  const selectedTechnicianDayRoute =
+    selectedTechnicianId && !isOverview
+      ? await prisma.recurringRoute.findFirst({
+          where: {
+            organizationId: appUser.organizationId,
+            technicianId: selectedTechnicianId,
+            active: true,
+            dayOfWeek: isoWeekdayOfYmd(selectedYmd),
+          },
+          select: {
+            startLatitude: true,
+            startLongitude: true,
+            startAddress: true,
+            endLatitude: true,
+            endLongitude: true,
+            endAddress: true,
+          },
+        })
+      : null;
+
+  const selectedDayEndpoints = resolveRouteEndpoints({
+    route: selectedTechnicianDayRoute,
+    technician: selectedTechnicianStart,
+  });
 
   const technicianOptions = roster.map((t) => ({ id: t.id, label: t.name ?? t.email }));
 
@@ -586,15 +622,8 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
               technicianColors={selectedTechnicianId ? undefined : technicianColorsRecord}
               technicianLegend={selectedTechnicianId ? undefined : technicianLegend}
               allowGpsAutoArrival={false}
-              startPoint={
-                selectedTechnicianStart?.startLatitude != null && selectedTechnicianStart.startLongitude != null
-                  ? {
-                      latitude: Number(selectedTechnicianStart.startLatitude),
-                      longitude: Number(selectedTechnicianStart.startLongitude),
-                      label: selectedTechnicianStart.startAddress,
-                    }
-                  : null
-              }
+              startPoint={selectedDayEndpoints.start}
+              endPoint={selectedDayEndpoints.end}
             />
 
             {tab !== "map" ? (

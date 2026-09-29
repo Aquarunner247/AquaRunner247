@@ -118,3 +118,131 @@ describe("orderByNearestNeighborWithTwoOpt with returnToStart", () => {
     expect(orderByNearestNeighborWithTwoOpt(lineMatrix([0, 5]), { returnToStart: true })).toEqual([0, 1]);
   });
 });
+
+describe("orderByNearestNeighborWithTwoOpt with fixedLast", () => {
+  /** Cost of a sequence as an open path -- no closing edge, which is what fixedLast means. */
+  function pathCost(matrix: number[][], seq: number[]): number {
+    let sum = 0;
+    for (let i = 0; i < seq.length - 1; i++) sum += matrix[seq[i]][seq[i + 1]];
+    return sum;
+  }
+
+  /** Every permutation of the interior, with both ends held in place. */
+  function bestFixedEndsPath(matrix: number[][]): number[] {
+    const n = matrix.length;
+    const interior = Array.from({ length: n - 2 }, (_, i) => i + 1);
+    let best: number[] = [];
+    let bestCost = Infinity;
+    const permute = (rest: number[], acc: number[]) => {
+      if (rest.length === 0) {
+        const seq = [0, ...acc, n - 1];
+        const cost = pathCost(matrix, seq);
+        if (cost < bestCost) {
+          bestCost = cost;
+          best = seq;
+        }
+        return;
+      }
+      for (let i = 0; i < rest.length; i++) {
+        permute([...rest.slice(0, i), ...rest.slice(i + 1)], [...acc, rest[i]]);
+      }
+    };
+    permute(interior, []);
+    return best;
+  }
+
+  it("pins both ends and visits every index exactly once", () => {
+    const matrix = [
+      [0, 9, 2, 7],
+      [9, 0, 3, 1],
+      [2, 3, 0, 8],
+      [7, 1, 8, 0],
+    ];
+    const order = orderByNearestNeighborWithTwoOpt(matrix, { fixedLast: true });
+    expect(order[0]).toBe(0);
+    expect(order[order.length - 1]).toBe(3);
+    expect(new Set(order)).toEqual(new Set([0, 1, 2, 3]));
+  });
+
+  /**
+   * The regression this option exists to prevent. Without fixedLast the 2-opt loop can reverse
+   * a segment that includes the final element, which would move the technician's destination
+   * into the middle of the day. Here the end node is deliberately cheap to reach early, so a
+   * free-end optimizer is tempted to visit it second.
+   */
+  it("never moves the destination out of last place, even when visiting it early is cheaper", () => {
+    // Index 3 is the pinned finish. It sits one unit from the start and one from stop 1, so the
+    // genuinely cheapest OPEN path is 0 -> 3 -> 1 -> 2 (cost 3) -- with the destination second.
+    // Holding it last forces 0 -> 2 -> 1 -> 3 (cost 32) instead.
+    const matrix = [
+      [0, 30, 30, 1],
+      [30, 0, 1, 1],
+      [30, 1, 0, 30],
+      [1, 1, 30, 0],
+    ];
+
+    const order = orderByNearestNeighborWithTwoOpt(matrix, { fixedLast: true });
+    expect(order[order.length - 1]).toBe(3);
+    expect(order).toEqual([0, 2, 1, 3]);
+
+    // Same matrix without the option: the optimizer really does pull 3 forward, which is the
+    // behavior that would strand a technician's destination mid-day.
+    const free = orderByNearestNeighborWithTwoOpt(matrix);
+    expect(free).toEqual([0, 3, 1, 2]);
+    expect(free.indexOf(3)).toBeLessThan(free.length - 1);
+  });
+
+  it("matches the brute-force optimal path with both ends fixed", () => {
+    const matrix = [
+      [0, 4, 9, 6, 3],
+      [4, 0, 2, 8, 7],
+      [9, 2, 0, 5, 1],
+      [6, 8, 5, 0, 4],
+      [3, 7, 1, 4, 0],
+    ];
+    const order = orderByNearestNeighborWithTwoOpt(matrix, { fixedLast: true });
+    expect(pathCost(matrix, order)).toBe(pathCost(matrix, bestFixedEndsPath(matrix)));
+  });
+
+  it("does not charge a return leg, so fixedLast wins over returnToStart", () => {
+    const matrix = [
+      [0, 1, 40],
+      [1, 0, 1],
+      [40, 1, 0],
+    ];
+    // If the closing edge back to 0 were also counted (cost 40), a different interior order
+    // could win. Passing both options must behave as fixedLast alone.
+    const both = orderByNearestNeighborWithTwoOpt(matrix, { fixedLast: true, returnToStart: true });
+    const onlyFixed = orderByNearestNeighborWithTwoOpt(matrix, { fixedLast: true });
+    expect(both).toEqual(onlyFixed);
+    expect(both[both.length - 1]).toBe(2);
+  });
+
+  it("handles the degenerate sizes", () => {
+    expect(orderByNearestNeighborWithTwoOpt([], { fixedLast: true })).toEqual([]);
+    expect(orderByNearestNeighborWithTwoOpt([[0]], { fixedLast: true })).toEqual([0]);
+    // Start and finish only, no stops in between.
+    expect(
+      orderByNearestNeighborWithTwoOpt(
+        [
+          [0, 5],
+          [5, 0],
+        ],
+        { fixedLast: true },
+      ),
+    ).toEqual([0, 1]);
+  });
+
+  it("leaves every existing caller's behavior untouched when the option is absent", () => {
+    const matrix = [
+      [0, 4, 9, 6, 3],
+      [4, 0, 2, 8, 7],
+      [9, 2, 0, 5, 1],
+      [6, 8, 5, 0, 4],
+      [3, 7, 1, 4, 0],
+    ];
+    expect(orderByNearestNeighborWithTwoOpt(matrix, { fixedLast: false })).toEqual(
+      orderByNearestNeighborWithTwoOpt(matrix),
+    );
+  });
+});

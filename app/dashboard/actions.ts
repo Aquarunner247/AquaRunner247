@@ -239,3 +239,42 @@ export async function clearMyStartLocation() {
   revalidatePath("/dashboard/schedule");
   redirect("/dashboard/more/start-location?cleared=1");
 }
+
+/**
+ * Where the day finishes, when that isn't where it started. Separate from the start rather than
+ * a flag on it, because a technician who ends at the shop still leaves from home.
+ */
+export async function setMyEndLocation(formData: FormData) {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) redirect("/login");
+
+  const latitude = Number(formData.get("latitude"));
+  const longitude = Number(formData.get("longitude"));
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+  const label = String(formData.get("endAddress") ?? "").trim();
+
+  await prisma.user.update({
+    where: { id: appUser.id },
+    data: { endLatitude: latitude, endLongitude: longitude, endAddress: label || null },
+  });
+
+  revalidatePath("/dashboard/more");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/more/end-location?saved=1");
+}
+
+/** Clears it, restoring the round trip: the day finishes back where it started. */
+export async function clearMyEndLocation() {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) redirect("/login");
+
+  await prisma.user.update({
+    where: { id: appUser.id },
+    data: { endLatitude: null, endLongitude: null, endAddress: null },
+  });
+
+  revalidatePath("/dashboard/more");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/more/end-location?cleared=1");
+}

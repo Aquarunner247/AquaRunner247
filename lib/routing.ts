@@ -13,6 +13,7 @@
  */
 
 import { haversineMiles } from "@/lib/geocode";
+import { sameEndpoint } from "@/lib/route-endpoints";
 import { orderByNearestNeighborWithTwoOpt } from "@/lib/route-ordering";
 
 export type RoutePoint = { latitude: number; longitude: number };
@@ -86,32 +87,65 @@ export async function fetchDrivingDurationMatrix(points: RoutePoint[]): Promise<
  * order (same contract the previous per-component implementations had) -- only the rest get
  * reordered.
  *
- * With `options.start` -- a technician's start/end point, typically home -- the whole day is
- * optimized as a round trip from and back to that point. The start is prepended for the cost
- * matrix only and stripped from the result, so callers still get exactly their own stops back,
- * reordered. Every stop is then free to move, including the first: nothing is pinned except the
- * start point itself, which isn't one of the caller's stops.
+ * With `options.start` -- typically the technician's home -- the whole day is optimized from
+ * that point. The start is prepended for the cost matrix only and stripped from the result, so
+ * callers still get exactly their own stops back, reordered. Every stop is then free to move,
+ * including the first: nothing is pinned except the start point itself, which isn't one of the
+ * caller's stops.
  *
- * Note the start counts toward fetchDrivingDurationMatrix's point ceiling, the same way ad-hoc
- * "extra stops" do.
+ * `options.end` says where the day finishes when that isn't where it began. Three shapes:
+ *
+ *   - no end, or an end at the same place as the start -> a round trip, closing leg costed
+ *   - a different end -> an open path with both ends pinned (appended, then stripped)
+ *   - an end but no start -> the finish is pinned and points[0] stays first, as it does
+ *     whenever there's no start point to optimize away from
+ *
+ * Note each anchor counts toward fetchDrivingDurationMatrix's point ceiling, the same way ad-hoc
+ * "extra stops" do -- so a day with both a start and a distinct end spends two of them.
  */
 export async function computeOptimizedStopOrder<T extends RoutePoint>(
   points: T[],
-  options?: { start?: RoutePoint | null },
+  options?: { start?: RoutePoint | null; end?: RoutePoint | null },
 ): Promise<T[]> {
   if (points.length < 2) return points;
 
   const start = options?.start ?? null;
-  if (!start) {
-    const matrix = (await fetchDrivingDurationMatrix(points)) ?? points.map((a) => points.map((b) => haversineMiles(a, b)));
-    const order = orderByNearestNeighborWithTwoOpt(matrix);
+  const rawEnd = options?.end ?? null;
+  // An end equal to the start is the round trip, not an open path: a duplicate zero-cost node
+  // would be slower and would give 2-opt a meaningless pair to shuffle.
+  const end = rawEnd && sameEndpoint(start, rawEnd) ? null : rawEnd;
+
+  const costs = async (pts: RoutePoint[]) =>
+    (await fetchDrivingDurationMatrix(pts)) ?? pts.map((a) => pts.map((b) => haversineMiles(a, b)));
+
+  if (!start && !end) {
+    const order = orderByNearestNeighborWithTwoOpt(await costs(points));
     return order.map((i) => points[i]);
   }
 
-  // Index 0 is the start point; indices 1..n map to points[0..n-1].
-  const anchored: RoutePoint[] = [{ latitude: start.latitude, longitude: start.longitude }, ...points];
-  const matrix =
-    (await fetchDrivingDurationMatrix(anchored)) ?? anchored.map((a) => anchored.map((b) => haversineMiles(a, b)));
-  const order = orderByNearestNeighborWithTwoOpt(matrix, { returnToStart: true });
-  return order.filter((i) => i !== 0).map((i) => points[i - 1]);
+  if (start && !end) {
+    // Index 0 is the start point; indices 1..n map to points[0..n-1].
+    const anchored: RoutePoint[] = [bare(start), ...points];
+    const order = orderByNearestNeighborWithTwoOpt(await costs(anchored), { returnToStart: true });
+    return order.filter((i) => i !== 0).map((i) => points[i - 1]);
+  }
+
+  if (!start && end) {
+    // points[0] stays first (no origin to optimize away from) and the finish is pinned last.
+    const anchored: RoutePoint[] = [...points, bare(end)];
+    const endIndex = anchored.length - 1;
+    const order = orderByNearestNeighborWithTwoOpt(await costs(anchored), { fixedLast: true });
+    return order.filter((i) => i !== endIndex).map((i) => points[i]);
+  }
+
+  // Both pinned: index 0 is the start, indices 1..n the stops, index n+1 the finish.
+  const anchored: RoutePoint[] = [bare(start!), ...points, bare(end!)];
+  const endIndex = anchored.length - 1;
+  const order = orderByNearestNeighborWithTwoOpt(await costs(anchored), { fixedLast: true });
+  return order.filter((i) => i !== 0 && i !== endIndex).map((i) => points[i - 1]);
 }
+
+function bare(p: RoutePoint): RoutePoint {
+  return { latitude: p.latitude, longitude: p.longitude };
+}
+

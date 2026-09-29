@@ -485,3 +485,68 @@ export async function setBodyOfWaterLocation(formData: FormData) {
   const returnTo = /^\/[^/\\]/.test(returnToRaw) ? returnToRaw : "/dashboard/routes";
   redirect(returnTo);
 }
+
+/**
+ * Per-day override for where a route begins or finishes. A technician's Thursday can start
+ * somewhere their Monday doesn't, which the technician-level default can't express.
+ *
+ * `which` picks the end being set, so one action and one page serve both rather than four
+ * near-identical copies. Clearing falls back to the technician's own default — see
+ * lib/route-endpoints.ts, which owns that chain.
+ */
+export async function setRouteLocation(formData: FormData) {
+  const appUser = await requireAdmin();
+  const routeId = String(formData.get("routeId") ?? "").trim();
+  const which = String(formData.get("which") ?? "").trim();
+  if (!routeId || (which !== "start" && which !== "end")) return;
+
+  const route = await prisma.recurringRoute.findFirst({
+    where: { id: routeId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!route) return;
+
+  const latitude = Number(formData.get("latitude"));
+  const longitude = Number(formData.get("longitude"));
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+  const label = String(formData.get("label") ?? "").trim() || null;
+
+  await prisma.recurringRoute.update({
+    where: { id: route.id },
+    data:
+      which === "start"
+        ? { startLatitude: latitude, startLongitude: longitude, startAddress: label }
+        : { endLatitude: latitude, endLongitude: longitude, endAddress: label },
+  });
+
+  revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/routes?saved=1");
+}
+
+/** Drops the override, so this route uses the technician's own default again. */
+export async function clearRouteLocation(formData: FormData) {
+  const appUser = await requireAdmin();
+  const routeId = String(formData.get("routeId") ?? "").trim();
+  const which = String(formData.get("which") ?? "").trim();
+  if (!routeId || (which !== "start" && which !== "end")) return;
+
+  const route = await prisma.recurringRoute.findFirst({
+    where: { id: routeId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!route) return;
+
+  await prisma.recurringRoute.update({
+    where: { id: route.id },
+    data:
+      which === "start"
+        ? { startLatitude: null, startLongitude: null, startAddress: null }
+        : { endLatitude: null, endLongitude: null, endAddress: null },
+  });
+
+  revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/routes?saved=1");
+}

@@ -134,6 +134,9 @@ export default async function UsersPage({ searchParams }: PageProps) {
                         {/* Start/end point for route optimization -- shown here so an admin can see
                             at a glance which technicians still need one. */}
                         {u.startLatitude != null ? ` · starts at ${u.startAddress || "a set point"}` : ""}
+                        {/* Only shown when it differs from the start -- an unset end means
+                            "finishes back at the start", which the line above already says. */}
+                        {u.endLatitude != null ? ` · ends at ${u.endAddress || "a set point"}` : ""}
                       </span>
                     </span>
                     <div className="flex items-center gap-2">
@@ -153,6 +156,9 @@ export default async function UsersPage({ searchParams }: PageProps) {
                       <RowActionsMenu label={`Actions for ${u.name ?? u.email}`}>
                         <a href={`/dashboard/users/${u.id}/start-location`} className="app-menu-item">
                           {u.startLatitude != null ? "Change start location" : "Set start location"}
+                        </a>
+                        <a href={`/dashboard/users/${u.id}/end-location`} className="app-menu-item">
+                          {u.endLatitude != null ? "Change end location" : "Set end location"}
                         </a>
                         <a
                           href={params.edit === u.id ? "/dashboard/users?tab=staff" : `/dashboard/users?tab=staff&edit=${u.id}`}

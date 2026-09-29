@@ -479,3 +479,56 @@ export async function clearUserStartLocation(formData: FormData) {
   revalidatePath("/dashboard/schedule");
   redirect("/dashboard/users?tab=staff&saved=1");
 }
+
+/**
+ * Where a technician's day finishes, when that isn't where it began. Admin-side twin of
+ * setMyEndLocation — either can set it, and they write the same columns, so whoever saves last
+ * wins. Kept separate from the start rather than folded into one form: a technician who ends at
+ * the shop still leaves from home, and one field shouldn't imply the other.
+ */
+export async function setUserEndLocation(formData: FormData) {
+  const appUser = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const latitude = Number(formData.get("latitude"));
+  const longitude = Number(formData.get("longitude"));
+  if (!userId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+  const target = await prisma.user.findFirst({
+    where: { id: userId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!target) return;
+
+  const label = String(formData.get("endAddress") ?? "").trim();
+
+  await prisma.user.update({
+    where: { id: target.id },
+    data: { endLatitude: latitude, endLongitude: longitude, endAddress: label || null },
+  });
+
+  revalidatePath("/dashboard/users");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/users?tab=staff&saved=1");
+}
+
+/** Clears it, putting that technician back to finishing where their day started. */
+export async function clearUserEndLocation(formData: FormData) {
+  const appUser = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!userId) return;
+
+  const target = await prisma.user.findFirst({
+    where: { id: userId, organizationId: appUser.organizationId },
+    select: { id: true },
+  });
+  if (!target) return;
+
+  await prisma.user.update({
+    where: { id: target.id },
+    data: { endLatitude: null, endLongitude: null, endAddress: null },
+  });
+
+  revalidatePath("/dashboard/users");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/users?tab=staff&saved=1");
+}

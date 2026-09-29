@@ -19,9 +19,14 @@ export type RouteStopItem = {
 type Props = {
   routeId: string;
   stops: RouteStopItem[];
+  /** Where this route's day begins and finishes, already resolved through the route override ->
+   *  technician default -> none chain by lib/route-endpoints.ts. Both null reproduces the
+   *  original behavior, where the first stop was simply pinned in place. */
+  startPoint?: { latitude: number; longitude: number } | null;
+  endPoint?: { latitude: number; longitude: number } | null;
 };
 
-export function RouteStopsList({ routeId, stops: initialStops }: Props) {
+export function RouteStopsList({ routeId, stops: initialStops, startPoint = null, endPoint = null }: Props) {
   const [stops, setStops] = useState(initialStops);
   const [saving, setSaving] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
@@ -53,7 +58,12 @@ export function RouteStopsList({ routeId, stops: initialStops }: Props) {
   /** Reorders the route's default stop sequence (not a single day's actual visits) by real
    * driving duration -- see lib/routing.ts's computeOptimizedStopOrder, which falls back to
    * straight-line distance if OSRM's table service is unreachable. Stops with no property
-   * coordinates yet (not geocoded) are left in place at the end, same as before. */
+   * coordinates yet (not geocoded) are left in place at the end, same as before.
+   *
+   * This used to optimize with no start or end at all, which pinned whichever stop happened to
+   * be first and ignored the technician's home entirely -- so the same route ordered differently
+   * here than on the day-of schedule, which did pass a start. Both now go through the same
+   * resolved endpoints. */
   async function optimizeStops() {
     const withCoords = stops.filter((s) => s.latitude != null && s.longitude != null) as (RouteStopItem & {
       latitude: number;
@@ -64,7 +74,7 @@ export function RouteStopsList({ routeId, stops: initialStops }: Props) {
 
     setOptimizing(true);
     try {
-      const ordered = await computeOptimizedStopOrder(withCoords);
+      const ordered = await computeOptimizedStopOrder(withCoords, { start: startPoint, end: endPoint });
       await persistOrder([...ordered, ...withoutCoords]);
     } finally {
       setOptimizing(false);

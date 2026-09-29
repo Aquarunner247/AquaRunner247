@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 type Props = {
   /** Every technician who can own a route, plus any inactive one who still owns one --
    * otherwise their routes would be reachable only by clearing the filter. */
@@ -79,9 +81,9 @@ export function RouteFilters({ technicians, dayOptions, selectedTechnicianId, se
           <span className="text-sm text-brand-muted">
             Showing {matchCount} of {totalCount} routes
           </span>
-          <a href="/dashboard/routes" className="app-link text-sm">
+          <Link href="/dashboard/routes" className="app-link text-sm">
             Clear
-          </a>
+          </Link>
         </div>
       ) : null}
     </form>

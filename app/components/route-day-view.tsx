@@ -12,6 +12,7 @@ import { BRAND_ANCHOR, BRAND_PRIMARY } from "@/app/lib/chart-colors";
 import { formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { fetchDrivingRoute, computeOptimizedStopOrder } from "@/lib/routing";
+import { sameEndpoint } from "@/lib/route-endpoints";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 
 export type RouteStop = {
@@ -96,11 +97,15 @@ type Props = {
   /// full day's real underlying sequence isn't coherent (same reasoning as the existing
   /// multi-tech read-only gate).
   statusFilter?: "all" | "completed" | "in_progress" | "pending";
-  /// Where this technician's day starts and ends (User.startLatitude/startLongitude) -- drawn at
-  /// both ends of the driving line, and used to optimize the day as a round trip. Omitted in
-  /// multi-technician mode, where each person would have a different one and a single line can't
-  /// express that.
+  /// Where this technician's day starts -- drawn on the map and used to optimize from a real
+  /// origin. Omitted in multi-technician mode, where each person would have a different one and
+  /// a single line can't express that.
   startPoint?: { latitude: number; longitude: number; label?: string | null } | null;
+  /// Where the day finishes, when that isn't where it started. Null means finish back at
+  /// startPoint, which is the round trip this view drew before per-day endpoints existed --
+  /// so leaving it null is unchanged behavior. Resolved by lib/route-endpoints.ts, which walks
+  /// the route-override -> technician-default chain; this component never derives it.
+  endPoint?: { latitude: number; longitude: number; label?: string | null } | null;
 };
 
 type PlacedDayItem = DayItem & { latitude: number; longitude: number };
@@ -255,6 +260,7 @@ export function RouteDayView({
   allowGpsAutoArrival = true,
   statusFilter = "all",
   startPoint = null,
+  endPoint = null,
 }: Props) {
   const isMultiTech = Boolean(technicianColors);
   // Multi-technician mode is always read-only, regardless of the readOnly prop: reordering
@@ -529,21 +535,27 @@ export function RouteDayView({
       `font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);` +
       `${o.dimmed ? "opacity:.55;" : ""}">${o.glyph}</div>`;
 
-    // The technician's start/end point, when they've set one. Drawn once but pushed into `points`
-    // at BOTH ends, so the line leaves home and comes back -- which is what makes the last stop
-    // meaningfully "nearest home" after an optimize. Never in multi-tech mode: each technician
-    // would have their own, and one polyline can't leave from several places.
+    // The technician's start point, when they've set one. Never in multi-tech mode: each
+    // technician would have their own, and one polyline can't leave from several places.
     const anchor = !isMultiTech && startPoint ? startPoint : null;
-    if (anchor) {
-      const icon = L.divIcon({
+    // A separate finish, only when it's actually somewhere else -- otherwise the day is the
+    // round trip it always was and one marker serves both ends.
+    const finish = !isMultiTech && endPoint && !sameEndpoint(startPoint, endPoint) ? endPoint : null;
+
+    const anchorIcon = (glyph: string) =>
+      L.divIcon({
         className: "",
-        html: markerHtml({ color: BRAND_ANCHOR, glyph: "⌂", square: false, dimmed: false }),
+        html: markerHtml({ color: BRAND_ANCHOR, glyph, square: false, dimmed: false }),
         iconSize: [26, 26],
         iconAnchor: [13, 13],
       });
-      L.marker([anchor.latitude, anchor.longitude], { icon })
+
+    if (anchor) {
+      L.marker([anchor.latitude, anchor.longitude], { icon: anchorIcon(finish ? "A" : "\u2302") })
         .addTo(layerRef.current!)
-        .bindPopup(`<strong>Start and end</strong><br/>${escapeHtml(anchor.label || "Your start point")}`);
+        .bindPopup(
+          `<strong>${finish ? "Start" : "Start and end"}</strong><br/>${escapeHtml(anchor.label || "Your start point")}`,
+        );
       points.push([anchor.latitude, anchor.longitude]);
     }
 
@@ -601,9 +613,15 @@ export function RouteDayView({
         currentSegment.points.push([latitude, longitude]);
       }
     }
-    // Close the loop back to the start. Only when there is something in between -- a line from
-    // home to home is just a dot.
-    if (anchor && points.length > 1) {
+    // Finish the line: at the separate end point if there is one, otherwise back at the start,
+    // closing the loop. Either way only when there is something in between -- a line from one
+    // place to itself is just a dot.
+    if (finish && points.length > 0) {
+      L.marker([finish.latitude, finish.longitude], { icon: anchorIcon("B") })
+        .addTo(layerRef.current!)
+        .bindPopup(`<strong>End</strong><br/>${escapeHtml(finish.label || "Your end point")}`);
+      points.push([finish.latitude, finish.longitude]);
+    } else if (anchor && points.length > 1) {
       points.push([anchor.latitude, anchor.longitude]);
     }
 
@@ -697,7 +715,7 @@ export function RouteDayView({
 
     setOptimizing(true);
     try {
-      const ordered = await computeOptimizedStopOrder(placed, { start: startPoint });
+      const ordered = await computeOptimizedStopOrder(placed, { start: startPoint, end: endPoint });
       await persistOrder([...ordered, ...unplacedVisits, ...unplacedErrands]);
     } finally {
       setOptimizing(false);
