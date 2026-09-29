@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { readJsonBody } from "@/lib/api/request-body";
 
 type StatusPayload = { status?: "SCHEDULED" | "CANCELLED" };
 
@@ -24,7 +25,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "VISIT_ALREADY_COMPLETED" }, { status: 400 });
   }
 
-  const body = (await request.json()) as StatusPayload;
+  const parsed = await readJsonBody<StatusPayload>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.value;
   if (body.status !== "SCHEDULED" && body.status !== "CANCELLED") {
     return NextResponse.json({ error: "INVALID_STATUS" }, { status: 400 });
   }

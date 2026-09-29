@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { VISIT_PHOTOS_BUCKET, ensureVisitPhotosBucket } from "@/lib/visit-photos";
+import { readFormDataBody } from "@/lib/api/request-body";
 
 function decimalOrNull(raw: string | null): number | null {
   if (!raw) return null;
@@ -31,7 +32,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "VISIT_ALREADY_COMPLETED" }, { status: 400 });
   }
 
-  const formData = await request.formData();
+  // A 10MB photo over weak cellular is by far the likeliest body in this app to arrive
+  // truncated, which is why this endpoint was the one showing up as 500s.
+  const parsed = await readFormDataBody(request);
+  if (!parsed.ok) return parsed.response;
+  const formData = parsed.value;
+
   const file = formData.get("photo");
   if (!(file instanceof File) || !file.name) {
     return NextResponse.json({ error: "PHOTO_REQUIRED" }, { status: 400 });

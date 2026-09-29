@@ -312,6 +312,12 @@ export function ResidentialVisitForm({
       const result = await uploadVisitPhoto(visitId, file);
       if (!result.ok) throw new Error(result.error);
       setPhotoCount((n) => n + 1);
+      // Same notice the commercial form gives: without it a queued photo looks uploaded, and
+      // the tech has no idea it still has to sync.
+      if ("queued" in result && result.queued) {
+        setSaveState("saved");
+        setSaveMsg("Photo saved on this device — it'll upload automatically");
+      }
     } catch (err) {
       setSaveState("error");
       setSaveMsg(err instanceof Error ? err.message : "Photo upload failed");

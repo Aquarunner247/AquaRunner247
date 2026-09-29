@@ -413,7 +413,10 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       setPhotoCount((n) => n + 1);
       if ("queued" in result && result.queued) {
         setSaveState("saved");
-        setSaveMsg("Photo saved offline — will upload when back online");
+        // Covers both reasons a photo queues: no signal at all, and a signal too weak to
+        // carry the whole file (INCOMPLETE_BODY). "when back online" was wrong for the second
+        // -- the tech is online, the upload just didn't finish.
+        setSaveMsg("Photo saved on this device — it'll upload automatically");
       }
     } catch (err) {
       setSaveState("error");

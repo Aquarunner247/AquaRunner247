@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { readJsonBody } from "@/lib/api/request-body";
 
 type ChecklistPayload = {
   checklistItemId?: string;
@@ -27,7 +28,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "VISIT_ALREADY_COMPLETED" }, { status: 400 });
   }
 
-  const body = (await request.json()) as ChecklistPayload;
+  const parsed = await readJsonBody<ChecklistPayload>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.value;
   const checklistItemId = body.checklistItemId?.trim() ?? "";
   const completed = Boolean(body.completed);
   if (!checklistItemId) return NextResponse.json({ error: "INVALID_ITEM" }, { status: 400 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { readJsonBody } from "@/lib/api/request-body";
 
 type DosePayload = {
   chemicalProductId?: string;
@@ -27,7 +28,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "VISIT_ALREADY_COMPLETED" }, { status: 400 });
   }
 
-  const body = (await request.json()) as DosePayload;
+  const parsed = await readJsonBody<DosePayload>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.value;
   const chemicalProductId = body.chemicalProductId?.trim() ?? "";
   const quantity = Number(body.quantity);
   if (!chemicalProductId || !Number.isFinite(quantity) || quantity <= 0) {

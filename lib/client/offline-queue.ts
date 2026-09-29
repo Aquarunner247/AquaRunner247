@@ -8,8 +8,12 @@
  *
  * HTTP-level failures (validation errors, 403s, etc.) are never queued: retrying those
  * forever wouldn't help and would hide a real error behind a false "will sync" message.
- * Only genuine network failures (fetch throwing, or the browser already reporting
- * offline) get queued.
+ * Only genuine network failures get queued — fetch throwing, the browser already reporting
+ * offline, or a server response that reports the request body never fully arrived
+ * (`retryableServerErrors`). That last case is still a network failure; it just comes back
+ * wearing an HTTP status, because enough of the request landed for the server to answer.
+ * Without it a photo cut off mid-upload fell through to "never retry" and the technician was
+ * told to try again by hand.
  */
 
 const DB_NAME = "aquarunner-offline";
@@ -107,6 +111,19 @@ async function trySend(url: string, init: RequestInit): Promise<Response> {
   return fetch(url, init);
 }
 
+/** Reads the `error` code out of a failed response WITHOUT consuming it — the caller may still
+ *  hand the same response to its own error mapping, so this MUST clone. Exported for the test
+ *  that locks that in: switching to a plain `response.json()` here would leave every non-
+ *  retryable failure showing a generic message instead of its real one. */
+export async function readErrorCode(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.clone().json()) as { error?: unknown };
+    return typeof body?.error === "string" ? body.error : null;
+  } catch {
+    return null; // a 500 returns Next's HTML error page, not JSON
+  }
+}
+
 /** Submit a JSON mutation, queuing it locally if — and only if — the network itself is the problem. */
 export async function queuedSubmitJson(opts: {
   url: string;
@@ -159,6 +176,9 @@ export async function queuedSubmitFormData(opts: {
   label: string;
   visitId: string;
   formData: FormData;
+  /** Server error codes that mean "this never fully arrived, send it again" rather than
+   *  "this was rejected" — queued for replay instead of surfaced as a failure. */
+  retryableServerErrors?: string[];
 }): Promise<SubmitResult> {
   const toQueuedItem = (): QueuedRequest => {
     const formFields: { name: string; value: string }[] = [];
@@ -190,7 +210,19 @@ export async function queuedSubmitFormData(opts: {
   }
   try {
     const response = await trySend(opts.url, { method: opts.method, body: opts.formData });
-    return { status: response.ok ? "sent" : "failed", response };
+    if (response.ok) return { status: "sent", response };
+
+    // The connection was good enough to get an answer back, but not good enough to deliver the
+    // whole body. Queue it like a thrown fetch: the file is already held in IndexedDB, so the
+    // replay resends it in full, and MAX_ATTEMPTS still bounds it if the file itself is bad.
+    if (opts.retryableServerErrors?.length) {
+      const code = await readErrorCode(response);
+      if (code && opts.retryableServerErrors.includes(code)) {
+        await addPending(toQueuedItem());
+        return { status: "queued" };
+      }
+    }
+    return { status: "failed", response };
   } catch {
     await addPending(toQueuedItem());
     return { status: "queued" };

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { readJsonBody } from "@/lib/api/request-body";
 
 type IssuePayload = {
   description?: string;
@@ -23,7 +24,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     (appUser.role === "ADMIN" || appUser.role === "OFFICE" || visit.technicianId === appUser.id);
   if (!canEdit) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
-  const body = (await request.json()) as IssuePayload;
+  const parsed = await readJsonBody<IssuePayload>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.value;
   const description = (body.description ?? "").trim();
   const severity = (["LOW", "MEDIUM", "HIGH"] as const).includes(body.severity as "LOW" | "MEDIUM" | "HIGH")
     ? (body.severity as "LOW" | "MEDIUM" | "HIGH")

@@ -7,9 +7,13 @@ const PHOTO_ERROR_MESSAGES: Record<string, string> = {
   VISIT_ALREADY_COMPLETED: "That visit is already completed.",
   FORBIDDEN: "You don't have access to that visit.",
   NOT_FOUND: "Visit not found.",
+  // Reached only if the queue declined to retry (it normally handles this one); the message
+  // still shouldn't blame the photo, because nothing is wrong with it.
+  [INCOMPLETE_BODY]: "The photo didn't finish uploading — it'll retry when signal improves.",
 };
 
 import { queuedSubmitFormData } from "./offline-queue";
+import { INCOMPLETE_BODY } from "@/lib/api/error-codes";
 import { getBestEffortLocation } from "./get-geolocation";
 
 export type UploadVisitPhotoResult =
@@ -41,6 +45,10 @@ export async function uploadVisitPhoto(visitId: string, file: File): Promise<Upl
     label: "Visit photo",
     visitId,
     formData,
+    // A photo is the largest body a technician sends, so it's the one weak signal cuts off
+    // mid-flight. The server answers INCOMPLETE_BODY for that; queue it rather than making
+    // them retake the photo by hand.
+    retryableServerErrors: [INCOMPLETE_BODY],
   });
 
   if (result.status === "queued") {
