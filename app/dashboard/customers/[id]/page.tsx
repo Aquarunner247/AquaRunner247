@@ -235,11 +235,11 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         : null;
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
+    <main className="app-page-wide">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border pb-5">
         <div>
           <p className="text-sm font-medium text-brand-ink">Admin / Customer</p>
-          <h1 className="text-2xl font-semibold text-brand-ink">{customer.name}</h1>
+          <h1 className="app-h1">{customer.name}</h1>
           <p className="mt-1 text-sm text-brand-muted">Edit customer and property details. Add aquatic venues here.</p>
         </div>
         <Link href="/dashboard/customers" className="text-sm text-brand-primary underline">
@@ -288,7 +288,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
       {tab === "overview" ? (
         <>
-          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <section className="app-card mt-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-brand-ink">Customer info</h2>
               {!isEditingCustomer && !isEnded ? (
@@ -512,7 +512,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             )}
           </section>
 
-          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <section className="app-card mt-6">
             <h2 className="text-base font-semibold text-brand-ink">Documents</h2>
             <p className="mt-1 text-sm text-brand-muted">
               Contracts and other files for this customer. A file that looks like an inspection report is detected
@@ -616,7 +616,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             ) : null}
           </section>
 
-          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <section className="app-card mt-6">
             <h2 className="text-base font-semibold text-brand-ink">Inspections</h2>
             <p className="mt-1 text-sm text-brand-muted">
               Optional — not part of intake. Add the current inspector and last inspection date per aquatic venue
@@ -656,7 +656,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             )}
           </section>
 
-          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <section className="app-card mt-6">
             <h2 className="text-base font-semibold text-brand-ink">Service checklist</h2>
             <p className="mt-1 text-sm text-brand-muted">
               Every item applies by default — uncheck anything this customer doesn&rsquo;t require. Only affects
@@ -709,7 +709,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             )}
           </section>
 
-          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <section className="app-card mt-6">
             <h2 className="text-base font-semibold text-brand-ink">Portal access</h2>
             <p className="mt-1 text-sm text-brand-muted">
               Let this customer sign in at their own portal to see scheduled visits, reports, and documents.
@@ -781,7 +781,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             )}
           </section>
 
-          <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+          <section className="app-card mt-6">
             <h2 className="text-base font-semibold text-brand-ink">Send alert</h2>
             <p className="mt-1 text-sm text-brand-muted">
               Sends an update to this customer&rsquo;s portal and, if they have portal logins, by email.
@@ -845,7 +845,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           {extraProperties.length > 0 ? (
             <section className="mt-6 space-y-3">
               {extraProperties.map((property) => (
-                <div key={property.id} className="rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+                <div key={property.id} className="app-card">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-semibold text-brand-ink">Additional property</h3>
                     {!isEditingProperty(property.id) && !isEnded ? (
@@ -994,7 +994,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       {tab === "bodies" ? (
         <section className="mt-6 space-y-4">
           {customer.properties.map((property) => (
-            <div key={property.id} className="rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+            <div key={property.id} className="app-card">
               <h3 className="text-base font-semibold text-brand-ink">{property.name}</h3>
 
               {property.bodiesOfWater.map((body) => (
@@ -1075,7 +1075,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       ) : null}
 
       {tab === "history" ? (
-        <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <section className="app-card mt-6">
           <h2 className="text-base font-semibold text-brand-ink">Recent completed visits</h2>
           {completedVisits.length ? (
             <div className="mt-3 space-y-3">
@@ -1167,7 +1167,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       ) : null}
 
       {tab === "log" ? (
-        <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <section className="app-card mt-6">
           <h2 className="text-base font-semibold text-brand-ink">Visit log</h2>
           <p className="mt-1 text-xs text-brand-muted">
             When each completed stop was logged and finished, and how long the technician was on site.

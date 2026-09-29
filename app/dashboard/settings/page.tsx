@@ -7,32 +7,20 @@ import { US_STATES } from "@/lib/us-states";
 import { organizationHasCommercialPools } from "@/lib/compliance";
 import { ReplayTourButton } from "@/app/components/replay-tour-button";
 
+type SettingsLink = { href: string; title: string; description: string };
+
 /**
- * Everything past the two editable forms is navigation, so it's a grid of destinations rather than
- * six more full-width cards. Stacked identically they read as six things to work through; as a grid
- * they read as a menu, which is what they are.
+ * Two groups, because Settings was doing two unrelated jobs: shaping what customers and
+ * technicians see, versus administering the company. Navigation laid out as a grid rather than
+ * more full-width cards -- stacked identically they read as things to work through, and these are
+ * destinations.
  */
-const SETTINGS_LINKS: { href: string; title: string; description: string }[] = [
-  {
-    href: "/dashboard/settings/pay-rates",
-    title: "Pay rates",
-    description:
-      "What each technician is paid per body of water, and the pay-period cycle behind their estimated-earnings total.",
-  },
+const CUSTOMIZATION_LINKS: SettingsLink[] = [
   {
     href: "/dashboard/settings/branding",
     title: "Branding",
     description:
-      "Your logo and colors, shown in the customer portal and on every email a customer receives — welcome, service summaries and alerts.",
-  },
-  {
-    // Still served from /dashboard/checklist rather than moved under /dashboard/settings/: the
-    // route is linked from customer pages and keyed in the onboarding tour, and a rename would
-    // break saved links for no visible gain. It's reached from here now, which was the point.
-    href: "/dashboard/checklist",
-    title: "Service checklist",
-    description:
-      "The tasks technicians tick off at every visit. The list a customer sees in their service summary email comes from these.",
+      "Your logo and colors, on the customer portal and every email a customer receives — welcome, service summaries and alerts.",
   },
   {
     href: "/dashboard/settings/service-messages",
@@ -41,17 +29,51 @@ const SETTINGS_LINKS: { href: string; title: string; description: string }[] = [
       "The preset messages a technician picks from at completion. The one they choose is sent in the customer's service summary email.",
   },
   {
+    // Still served from /dashboard/checklist rather than under /dashboard/settings/: the route is
+    // linked from customer pages and keyed by pathname in the onboarding tour, and renaming it
+    // would break saved links for no visible gain.
+    href: "/dashboard/checklist",
+    title: "Service checklist",
+    description:
+      "The tasks technicians tick off at every visit. Completed items are listed in the customer's service summary email.",
+  },
+];
+
+const COMPANY_LINKS: SettingsLink[] = [
+  {
+    href: "/dashboard/settings/pay-rates",
+    title: "Pay rates",
+    description:
+      "What each technician is paid per body of water, and the pay-period cycle behind their estimated-earnings total.",
+  },
+  {
+    href: "/dashboard/billing",
+    title: "Billing",
+    description: "Your plan status, trial and renewal dates, and the Stripe portal for cards, invoices and plan changes.",
+  },
+  {
+    href: "/dashboard/settings/phone-agent",
+    title: "AI phone agent setup",
+    description:
+      "The Twilio number and business number the agent needs. Calls it has already taken are under Phone Agent in the menu.",
+  },
+  {
     href: "/dashboard/settings/quickbooks-export",
     title: "QuickBooks export",
     description:
       "CSVs for your customer list, chemical costs and technician pay — shaped for QuickBooks' own import tools, no connected account needed.",
   },
-  {
-    href: "/dashboard/settings/phone-agent",
-    title: "AI phone agent",
-    description: "Answers a missed call — after-hours or just busy — with an interactive voicemail that becomes a ticket.",
-  },
 ];
+
+function SettingsCard({ link }: { link: SettingsLink }) {
+  return (
+    <Link href={link.href} className="app-card app-card-hover flex flex-col">
+      <span className="font-display text-base font-semibold text-brand-ink">{link.title}</span>
+      <span className="mt-1 text-sm text-brand-muted">{link.description}</span>
+      <span className="mt-3 text-sm font-medium text-brand-primary">Open →</span>
+    </Link>
+  );
+}
 
 export default async function SettingsPage() {
   const appUser = await getCurrentAppUser();
@@ -170,14 +192,19 @@ export default async function SettingsPage() {
         </form>
       </section>
 
-      <h2 className="app-kicker mt-8">More settings</h2>
+      <h2 className="app-kicker mt-8">Customization</h2>
+      <p className="mt-1 text-sm text-brand-muted">What your customers and technicians see.</p>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
-        {SETTINGS_LINKS.map((link) => (
-          <Link key={link.href} href={link.href} className="app-card app-card-hover flex flex-col">
-            <span className="font-display text-base font-semibold text-brand-ink">{link.title}</span>
-            <span className="mt-1 text-sm text-brand-muted">{link.description}</span>
-            <span className="mt-3 text-sm font-medium text-brand-primary">Open →</span>
-          </Link>
+        {CUSTOMIZATION_LINKS.map((link) => (
+          <SettingsCard key={link.href} link={link} />
+        ))}
+      </div>
+
+      <h2 className="app-kicker mt-8">Company</h2>
+      <p className="mt-1 text-sm text-brand-muted">Your account, pay and exports.</p>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {COMPANY_LINKS.map((link) => (
+          <SettingsCard key={link.href} link={link} />
         ))}
       </div>
 

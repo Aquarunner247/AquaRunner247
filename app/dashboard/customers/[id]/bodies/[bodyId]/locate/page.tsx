@@ -85,16 +85,16 @@ export default async function LocateBodyOfWaterPage({ params, searchParams }: Pa
   const returnTo = sp.returnTo === "routes" ? "/dashboard/routes" : bodyPath;
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
+    <main className="app-page-lg">
       <div className="text-sm text-brand-muted">
         <Link href={bodyPath} className="underline">
           Back to {body.name}
         </Link>
       </div>
 
-      <header className="mt-2 border-b border-brand-border pb-5">
+      <header className="app-page-head mt-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">{body.property.name}</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Mark {body.name}&rsquo;s exact location</h1>
+        <h1 className="app-h1">Mark {body.name}&rsquo;s exact location</h1>
         {/* The address, so it's possible to confirm the map opened at the right place without
             already knowing the address by heart. */}
         <p className="mt-1 text-sm text-brand-ink">{addressLine || "No address on file"}</p>

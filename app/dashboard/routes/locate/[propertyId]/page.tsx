@@ -76,18 +76,18 @@ export default async function LocatePropertyPage({ params }: PageProps) {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
+    <main className="app-page-lg">
       <div className="text-sm text-brand-muted">
         <Link href="/dashboard/routes" className="underline">
           Routes
         </Link>
       </div>
 
-      <header className="mt-2 border-b border-brand-border pb-5">
+      <header className="app-page-head mt-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">
           {property.customer?.name ?? "No customer"}
         </p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Mark {property.name}&rsquo;s location</h1>
+        <h1 className="app-h1">Mark {property.name}&rsquo;s location</h1>
         <p className="mt-1 text-sm text-brand-muted">
           {[property.addressLine1, property.addressLine2, property.city, property.region, property.postalCode]
             .filter(Boolean)

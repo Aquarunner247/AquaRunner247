@@ -106,7 +106,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
   const dataUrl = publicUrl ? await generateQrDataUrl(publicUrl) : null;
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
+    <main className="app-page-lg">
       <div className="text-sm text-brand-muted">
         <Link href="/dashboard/customers" className="underline">
           Customers
@@ -119,12 +119,12 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         <span>{body.name}</span>
       </div>
 
-      <header className="mt-2 border-b border-brand-border pb-5">
+      <header className="app-page-head mt-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">{body.property.name}</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">{body.name}</h1>
+        <h1 className="app-h1">{body.name}</h1>
       </header>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-6">
         {isResidential || !dataUrl || !publicUrl ? (
           <p className="text-sm text-brand-muted">
             No public QR log for residential venues — the inspector log is a commercial-only feature.
@@ -137,7 +137,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
       {/* Map location. Its own block rather than a field inside Details: it's set by dropping a
           pin on satellite imagery, not by typing, and it belongs to routing rather than to the
           venue's own record. */}
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-semibold text-brand-ink">Map location</h2>
@@ -162,7 +162,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         </div>
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Details</h2>
         {isEnded ? (
           <p className="mt-1 text-sm text-brand-muted">This relationship has ended — details are read-only.</p>
@@ -330,7 +330,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         </div>
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Pay rate</h2>
         <p className="mt-1 text-sm text-brand-muted">
           {routedStop?.route.technician ? (
@@ -388,7 +388,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         ) : null}
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Equipment</h2>
         {body.equipment.length ? (
           <ul className="mt-2 space-y-1 text-sm text-brand-ink">
@@ -554,7 +554,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
       </section>
 
       {!isEnded ? (
-        <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <section className="app-card mt-6">
           <h2 className="text-base font-semibold text-brand-ink">Import historical readings</h2>
           <p className="mt-1 text-sm text-brand-muted">
             Upload a spreadsheet shaped like the downloadable QR-log CSV (one row per day, same columns) to backfill

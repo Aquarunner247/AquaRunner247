@@ -45,7 +45,7 @@ export default async function SafetyDataSheetsPage() {
         Hazard documents for the chemicals your company uses — useful on-site for accounts not connected to the customer portal.
       </p>
 
-      <section className="mt-4 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-4">
         {settings.length === 0 ? (
           <p className="text-sm text-brand-muted">No chemical products configured yet.</p>
         ) : (

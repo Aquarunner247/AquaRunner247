@@ -49,16 +49,16 @@ export default async function SetUserStartLocationPage({ params }: PageProps) {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
+    <main className="app-page-lg">
       <div className="text-sm text-brand-muted">
         <Link href="/dashboard/users?tab=staff" className="underline">
           Users
         </Link>
       </div>
 
-      <header className="mt-2 border-b border-brand-border pb-5">
+      <header className="app-page-head mt-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">{who}</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Where {who}&rsquo;s day starts</h1>
+        <h1 className="app-h1">Where {who}&rsquo;s day starts</h1>
         <p className="mt-2 text-sm text-brand-ink">
           Their routes get optimized as a round trip from and back to this point, so the last stop is the one nearest
           here. Leave it unset and their route simply starts at whichever stop is first.
@@ -69,7 +69,7 @@ export default async function SetUserStartLocationPage({ params }: PageProps) {
       </header>
 
       {hasPin ? (
-        <section className="mt-4 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+        <section className="app-card mt-4">
           <p className="text-sm font-semibold text-brand-ink">{target.startAddress || "Start point set"}</p>
           <p className="mt-1 text-xs text-brand-muted">
             <span className="app-metric">

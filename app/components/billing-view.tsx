@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { openBillingPortal } from "@/app/billing/actions";
 
@@ -33,13 +34,22 @@ export async function BillingView({ organizationId, error }: { organizationId: s
   });
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
-      <header className="border-b border-brand-border pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Billing</h1>
+    <main className="app-page">
+      {/* Reached from Settings rather than the side nav now, so it needs a way back. */}
+      <div className="text-sm text-brand-muted">
+        <Link href="/dashboard/settings" className="app-link">
+          Settings
+        </Link>
+        {" / "}
+        <span>Billing</span>
+      </div>
+
+      <header className="app-page-head mt-2">
+        <p className="app-kicker">Admin</p>
+        <h1 className="app-h1">Billing</h1>
       </header>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-6">
         {errorMessage ? <p className="mb-3 text-sm text-brand-danger">{errorMessage}</p> : null}
         <dl data-tour="billing-status" className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
@@ -80,7 +90,7 @@ export async function BillingView({ organizationId, error }: { organizationId: s
         )}
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-6">
         <h2 className="font-display text-base font-semibold text-brand-ink">Export your data</h2>
         <p className="mt-1 text-sm text-brand-muted">
           Download every compliance record your organization owns -- service visits, chemistry readings, chemical

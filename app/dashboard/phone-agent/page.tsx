@@ -56,10 +56,10 @@ export default async function PhoneAgentTicketsPage() {
   });
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
-      <header className="border-b border-brand-border pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Phone Agent tickets</h1>
+    <main className="app-page">
+      <header className="app-page-head">
+        <p className="app-kicker">Admin</p>
+        <h1 className="app-h1">Phone Agent tickets</h1>
         <p className="mt-1 text-sm text-brand-muted">
           Calls that fell through to the interactive voicemail agent — after-hours or a busy primary line.{" "}
           {appUser.role === "ADMIN" ? (
