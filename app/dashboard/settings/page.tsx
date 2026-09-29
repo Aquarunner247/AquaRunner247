@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
@@ -5,6 +6,43 @@ import { updateBusinessIdentity, updateComplianceProfile } from "./actions";
 import { US_STATES } from "@/lib/us-states";
 import { organizationHasCommercialPools } from "@/lib/compliance";
 import { ReplayTourButton } from "@/app/components/replay-tour-button";
+
+/**
+ * Everything past the two editable forms is navigation, so it's a grid of destinations rather than
+ * six more full-width cards. Stacked identically they read as six things to work through; as a grid
+ * they read as a menu, which is what they are.
+ */
+const SETTINGS_LINKS: { href: string; title: string; description: string }[] = [
+  {
+    href: "/dashboard/settings/pay-rates",
+    title: "Pay rates",
+    description:
+      "What each technician is paid per body of water, and the pay-period cycle behind their estimated-earnings total.",
+  },
+  {
+    href: "/dashboard/settings/branding",
+    title: "Branding",
+    description:
+      "Your logo and colors, shown in the customer portal and on every email a customer receives — welcome, service summaries and alerts.",
+  },
+  {
+    href: "/dashboard/settings/service-messages",
+    title: "Service messages",
+    description:
+      "The preset messages a technician picks from at completion. The one they choose is sent in the customer's service summary email.",
+  },
+  {
+    href: "/dashboard/settings/quickbooks-export",
+    title: "QuickBooks export",
+    description:
+      "CSVs for your customer list, chemical costs and technician pay — shaped for QuickBooks' own import tools, no connected account needed.",
+  },
+  {
+    href: "/dashboard/settings/phone-agent",
+    title: "AI phone agent",
+    description: "Answers a missed call — after-hours or just busy — with an interactive voicemail that becomes a ticket.",
+  },
+];
 
 export default async function SettingsPage() {
   const appUser = await getCurrentAppUser();
@@ -21,66 +59,59 @@ export default async function SettingsPage() {
   );
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
-      <header className="border-b border-brand-border pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Company settings</h1>
-        <p className="mt-1 text-sm text-brand-muted">
-          This business name and phone show on your public QR/inspector-log pages and CSV exports — the
-          information your own customers and inspectors see.
+    <main className="app-page">
+      <header className="app-page-head">
+        <p className="app-kicker">Admin</p>
+        <h1 className="app-h1">Company settings</h1>
+        <p className="app-subhead">
+          Your business name and phone show on your public QR/inspector-log pages and CSV exports — the information
+          your own customers and inspectors see.
         </p>
       </header>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-brand-ink">Getting-started tour</h2>
-        <p className="mt-1 text-sm text-brand-muted">Revisit the dashboard walkthrough shown when you first signed in.</p>
-        <ReplayTourButton returnTo="/dashboard" className="app-btn-secondary-sm mt-2" />
-      </section>
-
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <form action={updateBusinessIdentity} className="space-y-3">
-          <label className="block text-sm">
-            <span className="text-brand-ink">Business name</span>
-            <input
-              name="businessName"
-              defaultValue={organization?.businessName ?? ""}
-              placeholder="Your Pool Service LLC"
-              className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="text-brand-ink">Business phone</span>
-            <input
-              name="businessPhone"
-              defaultValue={organization?.businessPhone ?? ""}
-              placeholder="702-555-0100"
-              className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm"
-            />
-          </label>
-          <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+      <section className="app-card mt-6">
+        <h2 className="font-display text-base font-semibold text-brand-ink">Business identity</h2>
+        <form action={updateBusinessIdentity} className="mt-3 space-y-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Business name</span>
+              <input
+                name="businessName"
+                defaultValue={organization?.businessName ?? ""}
+                placeholder="Your Pool Service LLC"
+                className="app-field mt-1"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Business phone</span>
+              <input
+                name="businessPhone"
+                defaultValue={organization?.businessPhone ?? ""}
+                placeholder="702-555-0100"
+                className="app-field mt-1"
+              />
+            </label>
+          </div>
+          <button className="app-btn-primary-sm" type="submit">
             Save
           </button>
         </form>
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-brand-ink">Compliance profile</h2>
+      <section className="app-card mt-4">
+        <h2 className="font-display text-base font-semibold text-brand-ink">Compliance profile</h2>
         <p className="mt-1 text-sm text-brand-muted">
-          Determines which state&rsquo;s health department rules apply to closure-risk banners and the public
-          inspector log. See the{" "}
-          <a href="/dashboard/compliance" className="app-link">
+          Determines which state&rsquo;s health department rules apply to closure-risk banners and the public inspector
+          log. See the{" "}
+          <Link href="/dashboard/compliance" className="app-link">
             Compliance
-          </a>{" "}
+          </Link>{" "}
           tab for details.
         </p>
         <form action={updateComplianceProfile} className="mt-3 space-y-3">
-          <label className="block text-sm">
-            <span className="text-brand-ink">State</span>
-            <select
-              name="state"
-              defaultValue={organization?.state ?? ""}
-              className="mt-1 w-full rounded border border-brand-control px-2 py-1.5 text-sm"
-            >
+          <label className="block max-w-sm text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">State</span>
+            <select name="state" defaultValue={organization?.state ?? ""} className="app-field mt-1">
               <option value="">Not set</option>
               {US_STATES.map((s) => (
                 <option key={s.code} value={s.code}>
@@ -89,24 +120,29 @@ export default async function SettingsPage() {
               ))}
             </select>
           </label>
-          <div className="text-sm">
-            <span className="text-brand-ink">Do you have commercial pools?</span>
-            <div className="mt-1 flex gap-4">
-              <label className="flex items-center gap-2">
+
+          <fieldset className="text-sm">
+            <legend className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+              Do you have commercial pools?
+            </legend>
+            <div className="mt-2 flex flex-wrap gap-4">
+              <label className="flex min-h-[44px] items-center gap-2 text-brand-ink">
                 <input
                   type="radio"
                   name="hasCommercialPools"
                   value="true"
                   defaultChecked={organization?.hasCommercialPools === true}
+                  className="h-5 w-5 accent-brand-primary"
                 />
                 Yes
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex min-h-[44px] items-center gap-2 text-brand-ink">
                 <input
                   type="radio"
                   name="hasCommercialPools"
                   value="false"
                   defaultChecked={organization?.hasCommercialPools === false}
+                  className="h-5 w-5 accent-brand-primary"
                 />
                 No, residential only
               </label>
@@ -117,65 +153,29 @@ export default async function SettingsPage() {
                 regardless of this setting.
               </p>
             ) : null}
-          </div>
-          <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
+          </fieldset>
+
+          <button className="app-btn-primary-sm" type="submit">
             Save
           </button>
         </form>
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-brand-ink">Pay rates</h2>
-        <p className="mt-1 text-sm text-brand-muted">
-          Set what each technician is paid per body of water, and the pay-period cycle used for their
-          estimated-earnings total.
-        </p>
-        <a href="/dashboard/settings/pay-rates" className="app-link mt-2 inline-block text-sm">
-          Manage pay rates →
-        </a>
-      </section>
+      <h2 className="app-kicker mt-8">More settings</h2>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {SETTINGS_LINKS.map((link) => (
+          <Link key={link.href} href={link.href} className="app-card app-card-hover flex flex-col">
+            <span className="font-display text-base font-semibold text-brand-ink">{link.title}</span>
+            <span className="mt-1 text-sm text-brand-muted">{link.description}</span>
+            <span className="mt-3 text-sm font-medium text-brand-primary">Open →</span>
+          </Link>
+        ))}
+      </div>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-brand-ink">Branding</h2>
-        <p className="mt-1 text-sm text-brand-muted">
-          Your logo and colors, shown in the customer portal and on every email a customer receives — the welcome
-          email, service summaries, and alerts you send them.
-        </p>
-        <a href="/dashboard/settings/branding" className="app-link mt-2 inline-block text-sm">
-          Manage branding →
-        </a>
-      </section>
-
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-brand-ink">Service messages</h2>
-        <p className="mt-1 text-sm text-brand-muted">
-          The preset messages a technician picks from when completing a visit. The one they choose is sent to the
-          customer in their service summary email.
-        </p>
-        <a href="/dashboard/settings/service-messages" className="app-link mt-2 inline-block text-sm">
-          Manage service messages →
-        </a>
-      </section>
-
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-brand-ink">QuickBooks export</h2>
-        <p className="mt-1 text-sm text-brand-muted">
-          Download CSVs for your customer list, chemical costs, and technician pay — shaped for QuickBooks&rsquo;
-          own import tools, no connected account required.
-        </p>
-        <a href="/dashboard/settings/quickbooks-export" className="app-link mt-2 inline-block text-sm">
-          Export to QuickBooks →
-        </a>
-      </section>
-
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-brand-ink">AI Phone Agent</h2>
-        <p className="mt-1 text-sm text-brand-muted">
-          Answers a missed call — after-hours or just busy — with an interactive voicemail that turns into a ticket.
-        </p>
-        <a href="/dashboard/settings/phone-agent" className="app-link mt-2 inline-block text-sm">
-          Manage phone agent settings →
-        </a>
+      <section className="app-card mt-4">
+        <h2 className="font-display text-base font-semibold text-brand-ink">Getting-started tour</h2>
+        <p className="mt-1 text-sm text-brand-muted">Revisit the dashboard walkthrough shown when you first signed in.</p>
+        <ReplayTourButton returnTo="/dashboard" className="app-btn-secondary-sm mt-3" />
       </section>
     </main>
   );

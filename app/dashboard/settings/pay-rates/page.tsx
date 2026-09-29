@@ -166,19 +166,19 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
+    <main className="app-page-lg">
       <div className="text-sm text-brand-muted">
-        <Link href="/dashboard/settings" className="underline">
+        <Link href="/dashboard/settings" className="app-link">
           Settings
         </Link>
         {" / "}
         <span>Pay rates</span>
       </div>
 
-      <header className="mt-2 border-b border-brand-border pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Pay rates</h1>
-        <p className="mt-1 text-sm text-brand-muted">
+      <header className="app-page-head mt-2">
+        <p className="app-kicker">Admin</p>
+        <h1 className="app-h1">Pay rates</h1>
+        <p className="app-subhead">
           What each technician is paid for completing a service visit at a given body of water. Technicians never see
           this table — only their own running estimated-earnings total. This can also be set inline from a body of
           water&rsquo;s own detail page; both places edit the same records.
@@ -186,9 +186,9 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
       </header>
 
       {unrated.length > 0 ? (
-        <section className="mt-6 rounded-lg border border-brand-warn/30 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-brand-warn">Missing pay rates ({unrated.length})</h2>
-          <p className="mt-1 text-xs text-brand-muted">
+        <section className="app-card mt-6 border-l-4 border-l-brand-warn">
+          <h2 className="font-display text-base font-semibold text-brand-ink">Missing pay rates ({unrated.length})</h2>
+          <p className="mt-1 text-sm text-brand-muted">
             These properties are on an active route with a technician assigned, but have no pay rate set for that
             technician — visits there won&rsquo;t count toward that tech&rsquo;s estimated earnings until one is
             added below. Visit completion is never blocked by this.
@@ -204,9 +204,9 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
         </section>
       ) : null}
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-brand-ink">Rate table</h2>
-        <p className="mt-1 text-xs text-brand-muted">Grouped by venue — each shows its active rate(s) first; past/voided rates are tucked away.</p>
+      <section className="app-card mt-4">
+        <h2 className="font-display text-base font-semibold text-brand-ink">Rate table</h2>
+        <p className="mt-1 text-sm text-brand-muted">Grouped by venue — each shows its active rate(s) first; past/voided rates are tucked away.</p>
         <div className="mt-3 space-y-3">
           {venueGroups.map(({ body, activeRates, pastRates }) => {
             const editingIsInPast = pastRates.some((r) => r.id === editingRate?.id);
@@ -289,7 +289,7 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
         </form>
       </section>
 
-      <details className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm" open={sp.saved === "1" || undefined}>
+      <details className="app-card mt-4" open={sp.saved === "1" || undefined}>
         <summary className="cursor-pointer text-base font-semibold text-brand-ink">Payroll period</summary>
         <p className="mt-1 text-sm text-brand-muted">
           Determines the &ldquo;This pay period&rdquo; window shown on technicians&rsquo; estimated-earnings card. Pay

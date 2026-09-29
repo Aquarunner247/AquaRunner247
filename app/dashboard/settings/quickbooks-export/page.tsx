@@ -21,18 +21,18 @@ export default async function QuickBooksExportPage() {
   const defaultTo = toDateInputValue(period.end);
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
+    <main className="app-page">
       <div className="text-sm text-brand-muted">
-        <Link href="/dashboard/settings" className="underline">
+        <Link href="/dashboard/settings" className="app-link">
           Settings
         </Link>
         {" / "}
         <span>QuickBooks export</span>
       </div>
 
-      <header className="mt-2 border-b border-brand-border pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Export to QuickBooks</h1>
+      <header className="app-page-head mt-2">
+        <p className="app-kicker">Admin</p>
+        <h1 className="app-h1">Export to QuickBooks</h1>
         <p className="mt-1 text-sm text-brand-muted">
           Downloads a CSV shaped for QuickBooks&rsquo; own import tools — no connected account, nothing sent
           anywhere automatically. This doesn&rsquo;t create invoices; it&rsquo;s for keeping QuickBooks&rsquo; customer list
@@ -40,7 +40,7 @@ export default async function QuickBooksExportPage() {
         </p>
       </header>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-4">
         <h2 className="text-sm font-semibold text-brand-ink">Customers</h2>
         <p className="mt-1 text-sm text-brand-muted">
           Every property&rsquo;s billing contact and address — import into QuickBooks under Customers.
@@ -50,7 +50,7 @@ export default async function QuickBooksExportPage() {
         </a>
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-4">
         <h2 className="text-sm font-semibold text-brand-ink">Chemical costs</h2>
         <p className="mt-1 text-sm text-brand-muted">
           Chemical usage cost per logged dose, for posting as expenses — cost is the price actually in effect when
@@ -71,7 +71,7 @@ export default async function QuickBooksExportPage() {
         </form>
       </section>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-4">
         <h2 className="text-sm font-semibold text-brand-ink">Technician pay</h2>
         <p className="mt-1 text-sm text-brand-muted">
           Every rated, completed visit&rsquo;s payout for the period — a reference for your bookkeeper to enter

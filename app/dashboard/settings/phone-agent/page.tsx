@@ -48,25 +48,25 @@ export default async function PhoneAgentSettingsPage({ searchParams }: PageProps
   ]);
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
+    <main className="app-page">
       <div className="text-sm text-brand-muted">
-        <Link href="/dashboard/settings" className="underline">
+        <Link href="/dashboard/settings" className="app-link">
           Settings
         </Link>
         {" / "}
         <span>AI Phone Agent</span>
       </div>
 
-      <header className="mt-2 border-b border-brand-border pb-5">
+      <header className="app-page-head mt-2">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
+          <p className="app-kicker">Admin</p>
           {organization?.aiPhoneAgentEnabled ? (
             <span className="app-pill-good">Enabled</span>
           ) : (
             <span className="rounded-full bg-brand-foam px-2 py-0.5 text-xs font-semibold text-brand-muted">Not enabled for this org</span>
           )}
         </div>
-        <h1 className="text-2xl font-semibold text-brand-ink">AI Phone Agent</h1>
+        <h1 className="app-h1">AI Phone Agent</h1>
         <p className="mt-1 text-sm text-brand-muted">
           Answers a missed call — genuinely after-hours, or just busy during the day — with an interactive voicemail
           that turns into a ticket here. {!organization?.aiPhoneAgentEnabled ? "This add-on isn't enabled for your account yet; contact us to turn it on." : null}
