@@ -13,11 +13,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!appUser) redirect("/login");
 
   let pastDue = false;
+  // Named in the first-login welcome, so it greets the business rather than the product. Read from
+  // the query already being made rather than adding a second one.
+  let orgName: string | null = null;
   if (!appUser.isPlatformAdmin) {
     const organization = await prisma.organization.findUnique({
       where: { id: appUser.organizationId },
-      select: { planStatus: true, planTier: true },
+      select: { planStatus: true, planTier: true, businessName: true, name: true },
     });
+    orgName = organization?.businessName?.trim() || organization?.name?.trim() || null;
     // AquaRunner Compliance is a separate product with its own route tree (app/cpo) --
     // a org on that tier has no business in the route/customer/tech dashboard, even via
     // a stale bookmark. Checked before the CANCELED redirect since it's a product
@@ -44,7 +48,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
           touching every page individually. */}
       {appUser.role === "TECHNICIAN" ? children : <div className="pb-20 md:pb-0">{children}</div>}
       {appUser.role === "TECHNICIAN" ? <TechBottomNav dateYmd={toYmd(new Date())} /> : null}
-      <OnboardingTourLauncher role={appUser.role} seenPages={appUser.seenTourPages} />
+      <OnboardingTourLauncher
+        role={appUser.role}
+        seenPages={appUser.seenTourPages}
+        welcomeSeenAt={appUser.welcomeSeenAt}
+        toursDismissedAt={appUser.toursDismissedAt}
+        orgName={orgName}
+      />
     </>
   );
 }

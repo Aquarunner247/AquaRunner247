@@ -589,6 +589,17 @@ model User {
   /// finished or skipped -- one entry per page, not a single tour-wide flag.
   seenTourPages String[] @default([])
 
+  /// When this person answered the first-login welcome, either way. Set on Start and on Cancel,
+  /// so the welcome is shown exactly once. Null means they have not seen it -- which is also true
+  /// of every account that existed before it was added, so they get it on their next visit.
+  welcomeSeenAt DateTime?
+
+  /// Set only when they declined the tour at the welcome. While set, no tour opens by itself on
+  /// any page; "Replay tour" still works, because it forces the tour with ?tour=1 rather than
+  /// relying on this. Separate from welcomeSeenAt because "has been asked" and "said no" are
+  /// different facts: starting the tour sets the first and leaves this null.
+  toursDismissedAt DateTime?
+
   /// Where this technician's day starts by default — typically their home, so a route is
   /// optimized from a real origin rather than from whichever stop happens to be first.
   /// A RecurringRoute may override it for a single day; see that model's own start columns
