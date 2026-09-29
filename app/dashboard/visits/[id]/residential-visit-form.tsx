@@ -363,7 +363,10 @@ export function ResidentialVisitForm({
       const data = (await response.json()) as { error?: string };
       if (data.error === "MISSING_REQUIRED_PHOTO") {
         setSaveState("error");
-        setSaveMsg("Need at least 1 photo before completion");
+        // Says WHY, because it reads as a lost photo otherwise: a technician who shot this body
+        // through a sibling's camera on the combined capture screen sees "photo required" on a
+        // visit he believes he already photographed.
+        setSaveMsg("This body of water needs its own photo — a photo on another one here doesn't count");
         return;
       }
       if (data.error === "MISSING_SERVICE_MESSAGE") {

@@ -1019,7 +1019,7 @@ export function RouteDayView({
                         href={`/dashboard/stops/${v.propertyId}?${captureParams.toString()}`}
                         className="mt-2 inline-block text-xs font-medium text-brand-cta underline"
                       >
-                        Capture photos for all {fullMemberIds.length} stops here
+                        Take each stop&rsquo;s photo ({fullMemberIds.length} needed)
                       </Link>
                     </li>
                   </Fragment>
@@ -1087,7 +1087,7 @@ export function RouteDayView({
                                 href={`/dashboard/stops/${v.propertyId}?${params.toString()}`}
                                 className="mt-1 inline-block text-xs font-medium text-brand-cta underline"
                               >
-                                Capture photos for all {count} stops here
+                                Take each stop&rsquo;s photo ({count} needed)
                               </Link>
                             );
                           })()

@@ -61,9 +61,17 @@ export function StopCapture({ propertyName, bodies: initialBodies }: Props) {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-[family-name:var(--font-display)] text-base font-bold text-brand-ink">{body.bodyName}</p>
-                <p className="text-xs text-brand-muted">
-                  {body.bodyType} · {body.photoCount} photo{body.photoCount === 1 ? "" : "s"} logged
-                </p>
+                <p className="text-xs text-brand-muted">{body.bodyType}</p>
+                {/* Said outright, per body. Previously this screen only showed a count in muted
+                    text, so "which one still needs a photo" had to be inferred -- which is how a
+                    technician ended up shooting both bodies through the first card's camera. */}
+                {body.photoCount > 0 ? (
+                  <p className="mt-1 text-xs font-semibold text-brand-ok">
+                    ✓ {body.photoCount} photo{body.photoCount === 1 ? "" : "s"} logged
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs font-semibold text-brand-warn">Photo still needed</p>
+                )}
               </div>
               <Link href={`/dashboard/visits/${body.visitId}`} className="shrink-0 text-xs font-medium text-brand-primary underline">
                 Open full visit
@@ -95,6 +103,7 @@ export function StopCapture({ propertyName, bodies: initialBodies }: Props) {
               <CameraCapture
                 onCapture={(file) => handleCapture(body.visitId, file)}
                 disabled={uploadingId === body.visitId}
+                subject={body.bodyName}
               />
             ) : (
               <p className="mt-3 text-xs text-brand-muted">This visit is already completed.</p>
@@ -104,8 +113,9 @@ export function StopCapture({ propertyName, bodies: initialBodies }: Props) {
       })}
 
       <p className="text-xs text-brand-muted">
-        Photos here go straight into each body of water&rsquo;s own visit — {propertyName}&rsquo;s readings, chemical doses,
-        and checklist still need to be filled in on each visit&rsquo;s own page before it can be marked complete.
+        Each button above files its photo against that one body of water — use {bodies.length === 2 ? "both" : "each"} of
+        them, not one for {bodies.length === 2 ? "both" : "all"}. {propertyName}&rsquo;s readings, chemical doses, and
+        checklist still need to be filled in on each visit&rsquo;s own page before it can be marked complete.
       </p>
     </div>
   );

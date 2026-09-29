@@ -8,6 +8,18 @@ import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 type Props = {
   onCapture: (file: File) => void | Promise<void>;
   disabled?: boolean;
+  /**
+   * What this photo will be filed against -- a body of water's name. Named on the button AND
+   * inside the camera overlay, because once the viewfinder is open the surrounding page is
+   * hidden and there is otherwise nothing on screen saying which visit the shot belongs to.
+   *
+   * This exists because of a real misfile: on the combined multi-body capture screen every card
+   * had an identical unlabelled "Take photo", so a technician shot the pool AND the spa through
+   * the pool's button. Both landed on the pool's visit, the spa's visit still demanded a photo,
+   * and the pool's compliance log ended up holding a picture of the spa. Left undefined on
+   * single-visit forms, where the page itself is already unambiguous.
+   */
+  subject?: string | null;
 };
 
 /** Below this Laplacian-variance score (computed on a downscaled grayscale copy of the
@@ -95,7 +107,7 @@ function computeBlurScore(source: HTMLCanvasElement): number | null {
 type ZoomCapability = { min: number; max: number; step: number };
 type ZoomState = ZoomCapability & { value: number };
 
-export function CameraCapture({ onCapture, disabled }: Props) {
+export function CameraCapture({ onCapture, disabled, subject }: Props) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -269,7 +281,7 @@ export function CameraCapture({ onCapture, disabled }: Props) {
   return (
     <>
       <button type="button" onClick={() => void openCamera()} disabled={disabled} className="app-btn-primary-sm mt-3">
-        Take photo
+        {subject ? `Take photo of ${subject}` : "Take photo"}
       </button>
 
       {open
@@ -284,8 +296,14 @@ export function CameraCapture({ onCapture, disabled }: Props) {
             // component is ever mounted, rather than relying on no ancestor ever using a
             // blur/filter/transform.
             <div className="fixed inset-0 z-50 flex flex-col bg-brand-ink" role="dialog" aria-modal="true" aria-label="Camera">
-              <div className="flex items-center justify-between px-4 py-3">
-                <p className="text-sm font-semibold text-white">{preview ? "Review photo" : "Take photo"}</p>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white">{preview ? "Review photo" : "Take photo"}</p>
+                  {/* The subject stays visible through both the viewfinder and the review step --
+                      the review step especially, since that's the last chance to notice the photo
+                      is about to be filed against the wrong body of water. */}
+                  {subject ? <p className="truncate text-xs text-brand-accent">{subject}</p> : null}
+                </div>
                 <button
                   type="button"
                   onClick={closeCamera}

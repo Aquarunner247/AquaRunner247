@@ -92,12 +92,16 @@ export default async function StopCapturePage({ params, searchParams }: PageProp
         </Link>
       </div>
       <header className="rounded-lg border border-brand-ink bg-brand-ink p-4 shadow-sm">
+        {/* Was "Capture all photos for this stop", which read as one action covering every body
+            of water here. It isn't -- each body needs its own photo, filed against its own
+            visit. */}
         <p className="font-[family-name:var(--font-mono)] text-xs font-semibold uppercase tracking-wide text-brand-accent">
-          Capture all photos for this stop
+          One photo per body of water
         </p>
         <h1 className="mt-1 font-[family-name:var(--font-display)] text-xl font-bold uppercase text-white">{property.name}</h1>
         <p className="mt-1 text-sm text-brand-border">
-          {bodies.length} bod{bodies.length === 1 ? "y" : "ies"} of water · {day.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+          {bodies.length} bod{bodies.length === 1 ? "y" : "ies"} of water, each needing its own photo ·{" "}
+          {day.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
         </p>
       </header>
 
