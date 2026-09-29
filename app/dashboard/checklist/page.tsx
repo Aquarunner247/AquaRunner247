@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
@@ -15,14 +16,26 @@ export default async function ChecklistPage() {
   });
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-10">
-      <header className="border-b border-brand-border pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Admin</p>
-        <h1 className="text-2xl font-semibold text-brand-ink">Service checklist</h1>
-        <p className="mt-1 text-sm text-brand-muted">Tasks technicians check off at every visit.</p>
+    <main className="app-page">
+      {/* Reached from Settings now rather than the side nav, so it needs a way back. */}
+      <div className="text-sm text-brand-muted">
+        <Link href="/dashboard/settings" className="app-link">
+          Settings
+        </Link>
+        {" / "}
+        <span>Service checklist</span>
+      </div>
+
+      <header className="app-page-head mt-2">
+        <p className="app-kicker">Admin</p>
+        <h1 className="app-h1">Service checklist</h1>
+        <p className="app-subhead">
+          Tasks technicians tick off at every visit. Completed items are listed in the customer&rsquo;s service summary
+          email, which is what the service messages point at.
+        </p>
       </header>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-white p-4 shadow-sm">
+      <section className="app-card mt-6">
         <ul data-tour="checklist-list" className="space-y-2">
           {items.map((item, index) => (
             <li

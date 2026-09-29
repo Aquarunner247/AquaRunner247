@@ -26,6 +26,15 @@ const SETTINGS_LINKS: { href: string; title: string; description: string }[] = [
       "Your logo and colors, shown in the customer portal and on every email a customer receives — welcome, service summaries and alerts.",
   },
   {
+    // Still served from /dashboard/checklist rather than moved under /dashboard/settings/: the
+    // route is linked from customer pages and keyed in the onboarding tour, and a rename would
+    // break saved links for no visible gain. It's reached from here now, which was the point.
+    href: "/dashboard/checklist",
+    title: "Service checklist",
+    description:
+      "The tasks technicians tick off at every visit. The list a customer sees in their service summary email comes from these.",
+  },
+  {
     href: "/dashboard/settings/service-messages",
     title: "Service messages",
     description:

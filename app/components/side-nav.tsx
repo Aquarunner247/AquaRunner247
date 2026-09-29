@@ -23,7 +23,6 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/dashboard/routes", label: "Routes", icon: "routes" },
   { href: "/dashboard/users", label: "Users", icon: "users" },
   { href: "/dashboard/chemicals", label: "Chemicals", icon: "chemicals" },
-  { href: "/dashboard/checklist", label: "Checklist", icon: "checklist" },
   { href: "/dashboard/compliance", label: "Compliance", icon: "compliance" },
   { href: "/dashboard/settings", label: "Settings", icon: "settings" },
   { href: "/dashboard/billing", label: "Billing", icon: "billing" },
