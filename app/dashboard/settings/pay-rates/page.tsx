@@ -73,9 +73,35 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
   const activeRateKeys = new Set(
     rates.filter((r) => r.isActive).map((r) => `${r.technicianId}:${r.bodyOfWaterId}`),
   );
-  const unrated = activeAssignments.filter(
-    (a) => a.route.technicianId && a.bodyOfWaterId && !activeRateKeys.has(`${a.route.technicianId}:${a.bodyOfWaterId}`),
-  );
+  // activeAssignments is one row per RecurringStop, so a venue serviced on Monday, Wednesday and
+  // Friday produced THREE identical "missing rate" entries -- the count was overstating the real
+  // work by however many days each venue is on. A missing rate is one fact about a
+  // (technician, venue) pair regardless of how often they visit, so dedupe on exactly that.
+  const unratedByPair = new Map<string, { technicianId: string; technicianLabel: string; venueLabel: string }>();
+  for (const a of activeAssignments) {
+    const technicianId = a.route.technicianId;
+    if (!technicianId || !a.bodyOfWaterId) continue;
+    const key = `${technicianId}:${a.bodyOfWaterId}`;
+    if (activeRateKeys.has(key) || unratedByPair.has(key)) continue;
+    unratedByPair.set(key, {
+      technicianId,
+      technicianLabel: a.route.technician?.name ?? a.route.technician?.email ?? "Unknown tech",
+      venueLabel: `${a.bodyOfWater?.property ? `${a.bodyOfWater.property.name} — ` : ""}${a.bodyOfWater?.name ?? "Unknown venue"}`,
+    });
+  }
+
+  // Grouped by technician: the list repeated one name per row, which for a single technician with
+  // 19 unrated venues meant 19 lines that differed only at the end.
+  const unratedByTech = new Map<string, { technicianLabel: string; venues: string[] }>();
+  for (const entry of unratedByPair.values()) {
+    const group = unratedByTech.get(entry.technicianId) ?? { technicianLabel: entry.technicianLabel, venues: [] };
+    group.venues.push(entry.venueLabel);
+    unratedByTech.set(entry.technicianId, group);
+  }
+  const unratedGroups = [...unratedByTech.values()]
+    .map((g) => ({ ...g, venues: g.venues.sort((a, b) => a.localeCompare(b)) }))
+    .sort((a, b) => a.technicianLabel.localeCompare(b.technicianLabel));
+  const unratedCount = unratedByPair.size;
 
   const editingRate = editingId ? rates.find((r) => r.id === editingId) : null;
 
@@ -185,29 +211,56 @@ export default async function PayRatesPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      {unrated.length > 0 ? (
-        <section className="app-card mt-6 border-l-4 border-l-brand-warn">
-          <h2 className="font-display text-base font-semibold text-brand-ink">Missing pay rates ({unrated.length})</h2>
-          <p className="mt-1 text-sm text-brand-muted">
-            These properties are on an active route with a technician assigned, but have no pay rate set for that
-            technician — visits there won&rsquo;t count toward that tech&rsquo;s estimated earnings until one is
-            added below. Visit completion is never blocked by this.
+      {unratedCount > 0 ? (
+        /* Collapsed by default. This is a "worth knowing" notice, not a task list -- it doesn't
+           block anything -- and at 19 venues an always-open list pushed the rate table itself
+           below the fold, which is what the page is actually for. */
+        <details className="app-card mt-6 border-l-4 border-l-brand-warn">
+          {/* list-none alone leaves Safari's own triangle in place, hence the webkit selector --
+              the summary already has its own "Show which" affordance. */}
+          <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <span className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-display text-base font-semibold text-brand-ink">
+                {unratedCount} venue{unratedCount === 1 ? "" : "s"} without a pay rate
+              </span>
+              <span className="text-sm font-medium text-brand-primary">Show which →</span>
+            </span>
+            <span className="mt-1 block text-sm text-brand-muted">
+              {unratedGroups.map((g) => `${g.technicianLabel} (${g.venues.length})`).join(" · ")}
+            </span>
+          </summary>
+
+          <p className="mt-3 border-t border-brand-border pt-3 text-sm text-brand-muted">
+            These are on an active route with a technician assigned but have no pay rate for that technician, so visits
+            there won&rsquo;t count toward their estimated earnings until one is added below. Completing a visit is
+            never blocked by this.
           </p>
-          <ul className="mt-3 space-y-1 text-sm text-brand-ink">
-            {unrated.map((a, i) => (
-              <li key={i}>
-                {a.route.technician?.name ?? a.route.technician?.email ?? "Unknown tech"} — {a.bodyOfWater?.name}
-                {a.bodyOfWater?.property ? ` (${a.bodyOfWater.property.name})` : ""}
-              </li>
-            ))}
-          </ul>
-        </section>
+
+          {unratedGroups.map((group) => (
+            <div key={group.technicianLabel} className="mt-3">
+              <p className="text-sm font-semibold text-brand-ink">
+                {group.technicianLabel} <span className="font-normal text-brand-muted">— {group.venues.length}</span>
+              </p>
+              {/* Two columns: the names are short and there are a lot of them. */}
+              <ul className="mt-1 grid gap-x-6 gap-y-0.5 text-sm text-brand-ink md:grid-cols-2">
+                {group.venues.map((venue) => (
+                  <li key={venue} className="truncate">
+                    {venue}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </details>
       ) : null}
 
       <section className="app-card mt-4">
         <h2 className="font-display text-base font-semibold text-brand-ink">Rate table</h2>
         <p className="mt-1 text-sm text-brand-muted">Grouped by venue — each shows its active rate(s) first; past/voided rates are tucked away.</p>
-        <div className="mt-3 space-y-3">
+        {/* Two columns from md up. Each venue card is short (usually one rate row), so a single
+            column left most of the width empty and made the page far longer than it needed to be.
+            items-start so a card with past rates expanded doesn't stretch its neighbour. */}
+        <div className="mt-3 grid items-start gap-3 md:grid-cols-2">
           {venueGroups.map(({ body, activeRates, pastRates }) => {
             const editingIsInPast = pastRates.some((r) => r.id === editingRate?.id);
             return (
