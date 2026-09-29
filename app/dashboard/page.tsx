@@ -22,8 +22,29 @@ const READING_GAUGE_RANGES: Record<string, { min: number; max: number; unit: str
 };
 
 type DashboardPageProps = {
-  searchParams?: Promise<{ month?: string; type?: string }>;
+  searchParams?: Promise<{ month?: string; type?: string; from?: string; to?: string; propertyId?: string }>;
 };
+
+type ChemRow = { quantity: number; unit: string; cost: number; charge: number };
+type PropertyChemTotals = {
+  propertyId: string;
+  propertyName: string;
+  totalCost: number;
+  totalCharge: number;
+  chemicals: Map<string, ChemRow>;
+};
+
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function toYmd(date: Date): string {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
+function fmtMoney(n: number): string {
+  return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
 
 function startOfWeek(d: Date) {
   const day = d.getDay(); // 0 = Sunday
@@ -60,6 +81,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   let overdueVisits: Array<{ id: string; property: string; body: string; tech: string; scheduledStart: Date }> = [];
   let outOfRangeReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[]; params: ReadingParam[] }> = [];
   let closureHazardReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[]; params: ReadingParam[] }> = [];
+
+  /**
+   * Chemical usage & billing, moved here from the Chemicals side-nav tab. The catalog it used to
+   * sit beside is configuration you set once; this is a billing-cycle read, so it belongs where
+   * an admin already lands rather than behind a tab of its own.
+   */
+  let chemUsage: {
+    from: Date;
+    to: Date;
+    propertyId: string;
+    properties: Array<{ id: string; name: string }>;
+    totals: PropertyChemTotals[];
+    maxCharge: number;
+    grandCost: number;
+    grandCharge: number;
+  } | null = null;
 
   let complianceComingSoon: { hasCommercialPools: boolean; stateName: string | null } | null = null;
   let closureFeeLabel: string | null = null;
@@ -308,6 +345,74 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     }
     outOfRangeReadings = outOfRangeReadings.slice(0, 8);
     closureHazardReadings = closureHazardReadings.slice(0, 8);
+
+    // --- Chemical usage & billing by property ---
+    const chemFrom = sp.from ? new Date(`${sp.from}T00:00:00`) : startOfMonth(now);
+    const chemTo = sp.to ? new Date(`${sp.to}T23:59:59`) : now;
+    const chemPropertyId = sp.propertyId ?? "";
+
+    const [chemProperties, chemDoses] = await Promise.all([
+      prisma.property.findMany({
+        where: { organizationId: orgId },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      prisma.visitChemicalDose.findMany({
+        where: {
+          visit: {
+            organizationId: orgId,
+            completedAt: { gte: chemFrom, lte: chemTo },
+            ...(chemPropertyId ? { propertyId: chemPropertyId } : {}),
+          },
+        },
+        select: {
+          productName: true,
+          quantity: true,
+          unit: true,
+          unitCost: true,
+          unitCharge: true,
+          visit: { select: { property: { select: { id: true, name: true } } } },
+        },
+      }),
+    ]);
+
+    const byProperty = new Map<string, PropertyChemTotals>();
+    let grandCost = 0;
+    let grandCharge = 0;
+    for (const d of chemDoses) {
+      const qty = Number(d.quantity);
+      const cost = (d.unitCost != null ? Number(d.unitCost) : 0) * qty;
+      const charge = (d.unitCharge != null ? Number(d.unitCharge) : 0) * qty;
+      const pId = d.visit.property.id;
+      const entry = byProperty.get(pId) ?? {
+        propertyId: pId,
+        propertyName: d.visit.property.name,
+        totalCost: 0,
+        totalCharge: 0,
+        chemicals: new Map<string, ChemRow>(),
+      };
+      entry.totalCost += cost;
+      entry.totalCharge += charge;
+      const chem = entry.chemicals.get(d.productName) ?? { quantity: 0, unit: d.unit, cost: 0, charge: 0 };
+      chem.quantity += qty;
+      chem.cost += cost;
+      chem.charge += charge;
+      entry.chemicals.set(d.productName, chem);
+      byProperty.set(pId, entry);
+      grandCost += cost;
+      grandCharge += charge;
+    }
+    const chemTotals = Array.from(byProperty.values()).sort((a, b) => b.totalCharge - a.totalCharge);
+    chemUsage = {
+      from: chemFrom,
+      to: chemTo,
+      propertyId: chemPropertyId,
+      properties: chemProperties,
+      totals: chemTotals,
+      maxCharge: Math.max(...chemTotals.map((t) => t.totalCharge), 1),
+      grandCost,
+      grandCharge,
+    };
   }
 
   const reportedIssues =
@@ -375,6 +480,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }));
 
   const weekPercent = stats && stats.weekTotal > 0 ? (stats.weekCompleted / stats.weekTotal) * 100 : 0;
+  // Narrowing a `let` does not survive into a callback, so alias it before the JSX.
+  const usage = chemUsage;
 
   return (
     <main className="app-page-wide">
@@ -502,61 +609,35 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             ) : null}
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {/* Out-of-range readings — signature chemistry gauge instead of a plain number */}
-              <div data-tour="admin-out-of-range" className="app-card">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Out-of-range readings (last 7 days)</p>
-                {outOfRangeReadings.length === 0 ? (
-                  <p className="mt-2 text-sm text-brand-ink/60">Every commercial reading this week is in range.</p>
-                ) : (
-                  <ul className="mt-3 space-y-3">
-                    {outOfRangeReadings.map((r) => (
-                      <li key={r.id} className="app-card-inset flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-brand-ink">
-                            {r.property} — {r.body}
-                          </p>
-                          {r.completedAt ? <p className="text-xs text-brand-icon">{formatLocalDate(r.completedAt, tz)}</p> : null}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          {r.params.map((p) => (
-                            <span key={p.key} className="flex items-center gap-1.5">
-                              <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
-                              <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
-                            </span>
-                          ))}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Overdue stops */}
-              <div data-tour="admin-overdue-stops" className="app-card">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Overdue stops</p>
-                {overdueVisits.length === 0 ? (
-                  <p className="mt-2 text-sm text-brand-ink/60">Nothing overdue — every stop is on schedule.</p>
-                ) : (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-sm font-medium text-brand-ink">
-                      {overdueVisits.length} stop{overdueVisits.length === 1 ? "" : "s"} overdue — click to view
-                    </summary>
-                    <ul className="mt-3 space-y-2">
-                      {overdueVisits.map((v) => (
-                        <li key={v.id} className="app-card-inset flex items-center justify-between gap-2 text-sm">
-                          <span className="min-w-0 truncate text-brand-ink">
-                            {v.property} — {v.body} <span className="text-brand-ink/60">· {v.tech}</span>
+            {/* Out-of-range readings — signature chemistry gauge instead of a plain number.
+                Kept alongside the alerts bell on purpose: the bell lists the issue names as
+                text, this shows each reading against its ideal range. */}
+            <div data-tour="admin-out-of-range" className="app-card">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Out-of-range readings (last 7 days)</p>
+              {outOfRangeReadings.length === 0 ? (
+                <p className="mt-2 text-sm text-brand-ink/60">Every commercial reading this week is in range.</p>
+              ) : (
+                <ul className="mt-3 space-y-3">
+                  {outOfRangeReadings.map((r) => (
+                    <li key={r.id} className="app-card-inset flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-brand-ink">
+                          {r.property} — {r.body}
+                        </p>
+                        {r.completedAt ? <p className="text-xs text-brand-icon">{formatLocalDate(r.completedAt, tz)}</p> : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {r.params.map((p) => (
+                          <span key={p.key} className="flex items-center gap-1.5">
+                            <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
+                            <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
                           </span>
-                          <span className="app-pill-attention shrink-0">
-                            Due {formatLocalDate(v.scheduledStart, tz)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </div>
+                        ))}
+                      </div>
+                    </li>
+                ))}
+              </ul>
+              )}
             </div>
 
             {/* Recent activity */}
@@ -584,6 +665,107 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </details>
               )}
             </div>
+
+            {/* Chemical usage & billing by property, moved off the Chemicals side-nav tab.
+                Bars and the totals stay visible; the per-chemical tables collapse, so a
+                billing-cycle report can't push the daily numbers off the screen. */}
+            {usage ? (
+              <div data-tour="chemicals-usage" className="app-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Chemical usage &amp; billing</p>
+
+                <form className="mt-3 flex flex-wrap items-center gap-2" method="GET">
+                  {/* Preserve the property-type filter, which this form would otherwise drop. */}
+                  {selectedPropertyType ? <input type="hidden" name="type" value={selectedPropertyType} /> : null}
+                  <label className="flex items-center gap-1 text-sm text-brand-muted">
+                    From
+                    <input type="date" name="from" defaultValue={toYmd(usage.from)} className="app-field-sm" />
+                  </label>
+                  <label className="flex items-center gap-1 text-sm text-brand-muted">
+                    To
+                    <input type="date" name="to" defaultValue={toYmd(usage.to)} className="app-field-sm" />
+                  </label>
+                  <select name="propertyId" defaultValue={usage.propertyId} className="app-field-sm" aria-label="Property">
+                    <option value="">All properties</option>
+                    {usage.properties.map((prop) => (
+                      <option key={prop.id} value={prop.id}>
+                        {prop.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="submit" className="app-btn-primary-sm">
+                    Update
+                  </button>
+                </form>
+
+                {usage.totals.length === 0 ? (
+                  <p className="mt-3 text-sm text-brand-ink/60">No chemical doses logged for this range.</p>
+                ) : (
+                  <>
+                    <div className="mt-4 space-y-2">
+                      {usage.totals.slice(0, 8).map((prop) => (
+                        <div key={prop.propertyId}>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium text-brand-ink">{prop.propertyName}</span>
+                            <span className="app-metric text-brand-muted">{fmtMoney(prop.totalCharge)}</span>
+                          </div>
+                          <div className="mt-1 h-2 rounded-full bg-brand-ink/[0.07]">
+                            <div
+                              className="h-2 rounded-full bg-brand-primary transition-[width] duration-500 motion-reduce:transition-none"
+                              style={{ width: `${Math.max((prop.totalCharge / usage.maxCharge) * 100, 2)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap justify-end gap-x-6 gap-y-1 border-t border-brand-border/70 pt-3 text-sm font-semibold text-brand-ink">
+                      <span className="app-metric">Total cost: {fmtMoney(usage.grandCost)}</span>
+                      <span className="app-metric">Total charge: {fmtMoney(usage.grandCharge)}</span>
+                    </div>
+
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-sm font-medium text-brand-ink">
+                        Per-chemical detail for {usage.totals.length} propert{usage.totals.length === 1 ? "y" : "ies"} — click to view
+                      </summary>
+                      <div className="mt-3 space-y-4">
+                        {usage.totals.map((prop) => (
+                          <div key={`detail-${prop.propertyId}`} className="app-card-inset">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-sm font-semibold text-brand-ink">{prop.propertyName}</p>
+                              <p className="app-metric text-sm text-brand-muted">
+                                Cost {fmtMoney(prop.totalCost)} · Charge {fmtMoney(prop.totalCharge)}
+                              </p>
+                            </div>
+                            <table className="mt-2 w-full text-sm">
+                              <thead>
+                                <tr className="text-left text-xs uppercase text-brand-icon">
+                                  <th className="py-1">Chemical</th>
+                                  <th className="py-1">Quantity</th>
+                                  <th className="py-1">Cost</th>
+                                  <th className="py-1">Charge</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {Array.from(prop.chemicals.entries()).map(([name, c]) => (
+                                  <tr key={name} className="border-t border-brand-border/70">
+                                    <td className="py-1">{name}</td>
+                                    <td className="app-metric py-1">
+                                      {c.quantity} {c.unit}
+                                    </td>
+                                    <td className="app-metric py-1">{fmtMoney(c.cost)}</td>
+                                    <td className="app-metric py-1">{fmtMoney(c.charge)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </>
+                )}
+              </div>
+            ) : null}
           </>
         ) : (
           <>

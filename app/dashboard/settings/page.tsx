@@ -29,6 +29,15 @@ const CUSTOMIZATION_LINKS: SettingsLink[] = [
       "The preset messages a technician picks from at completion. The one they choose is sent in the customer's service summary email.",
   },
   {
+    // Same reasoning as the checklist below: the route stays at /dashboard/chemicals, only the
+    // link moved. Its usage/billing report went to the dashboard, which is a recurring read
+    // rather than configuration.
+    href: "/dashboard/chemicals",
+    title: "Chemicals",
+    description:
+      "The products your org stocks, which ones the dosing calculator offers, and the SDS documents customers can see.",
+  },
+  {
     // Still served from /dashboard/checklist rather than under /dashboard/settings/: the route is
     // linked from customer pages and keyed by pathname in the onboarding tour, and renaming it
     // would break saved links for no visible gain.

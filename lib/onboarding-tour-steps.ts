@@ -31,14 +31,14 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
       body: "Any commercial reading from the last 7 days that fell outside its ideal range shows up here first.",
     },
     {
-      target: "admin-overdue-stops",
-      title: "Overdue stops",
-      body: "Stops that missed their scheduled window land here so nothing slips through unnoticed.",
-    },
-    {
       target: "admin-recent-activity",
       title: "Recent activity",
       body: "A running log of completed visits and new customers — click to expand it any time.",
+    },
+    {
+      target: "chemicals-usage",
+      title: "Chemical usage & billing",
+      body: "How much of each chemical went into each property over a date range, for cost tracking or billing. Pick a range, then open the detail for the per-chemical breakdown.",
     },
   ],
   // Ordered top-to-bottom down the page rather than by importance, so the spotlight never
@@ -131,11 +131,6 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
       target: "chemicals-sds",
       title: "Safety Data Sheets",
       body: "Manufacturer SDS documents for every enabled product — upload your own to override one if your supplier differs.",
-    },
-    {
-      target: "chemicals-usage",
-      title: "Usage & billing by property",
-      body: "See how much of each chemical was used per property over a date range, for cost tracking or billing.",
     },
   ],
   "/dashboard/checklist": [

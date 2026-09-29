@@ -4,7 +4,6 @@ export type NavIconKind =
   | "customers"
   | "users"
   | "routes"
-  | "chemicals"
   | "checklist"
   | "compliance"
   | "settings"
@@ -69,13 +68,6 @@ export function NavIcon({
           <circle cx="6" cy="6" r="2.2" />
           <circle cx="18" cy="18" r="2.2" />
           <path d="M6 8.2v3.3a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v.3" strokeLinecap="round" strokeDasharray="1 3.2" />
-        </svg>
-      );
-    case "chemicals":
-      return (
-        <svg {...common} className={className}>
-          <path d="M10 3.5h4M10 3.5v5.2l-4.7 8.1a2 2 0 0 0 1.7 3h9.9a2 2 0 0 0 1.7-3L14 8.7V3.5" strokeLinejoin="round" />
-          <path d="M7.5 15h9" strokeLinecap="round" />
         </svg>
       );
     case "checklist":
