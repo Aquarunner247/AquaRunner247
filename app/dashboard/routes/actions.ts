@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
 import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
+import { timeZoneForState } from "@/lib/timezone";
+import { serviceWindowExclusionBounds } from "@/lib/route-service-window";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -171,7 +173,7 @@ export async function updateRouteWindow(formData: FormData) {
 
   const route = await prisma.recurringRoute.findFirst({
     where: { id: routeId, organizationId: appUser.organizationId },
-    select: { id: true },
+    select: { id: true, organization: { select: { state: true } } },
   });
   if (!route) return;
 
@@ -184,6 +186,39 @@ export async function updateRouteWindow(formData: FormData) {
     where: { id: route.id },
     data: { startsOn: startsOn.value, endsOn: endsOn.value },
   });
+
+  // Visits are generated ahead of the day they run, so setting or narrowing a window leaves
+  // behind every visit already generated for a day the window now excludes. Those kept
+  // showing on the schedule and inflated the day's stop count, which is what made a route
+  // "starting Oct 2" still appear the previous Friday. The service-window filter in
+  // ensureVisitsGeneratedForDate only stops NEW ones being created -- it can't retract rows
+  // that already exist, so they have to be cleared here, where the intent is expressed.
+  //
+  // Only SCHEDULED ones, the same rule deleteRoute and removeRouteStop follow: anything
+  // started or completed is the service record and stays under the customer, even if it
+  // happened on a day the window now excludes.
+  //
+  // Bounds come from serviceWindowExclusionBounds rather than comparing scheduledStart against
+  // the @db.Date values directly -- that helper's doc explains why the two representations of
+  // "the same day" are hours apart, and it carries the unit tests for the boundary.
+  const { before, after } = serviceWindowExclusionBounds(
+    startsOn.value,
+    endsOn.value,
+    timeZoneForState(route.organization.state),
+  );
+
+  if (before || after) {
+    await prisma.serviceVisit.deleteMany({
+      where: {
+        recurringStop: { routeId: route.id },
+        status: "SCHEDULED",
+        OR: [
+          ...(before ? [{ scheduledStart: { lt: before } }] : []),
+          ...(after ? [{ scheduledStart: { gte: after } }] : []),
+        ],
+      },
+    });
+  }
 
   revalidatePath("/dashboard/routes");
   revalidatePath("/dashboard/schedule");
