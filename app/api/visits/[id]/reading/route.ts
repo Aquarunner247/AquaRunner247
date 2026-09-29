@@ -4,6 +4,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { computeAndSaveDosingRecommendation } from "@/lib/dosing-calculator";
 import { getOrgPlanAccess } from "@/lib/plan-tiers";
 import { isWithinReadingBounds } from "@/lib/reading-bounds";
+import { hasUtcOffset } from "@/lib/timezone";
 
 type ReadingPayload = {
   ph?: number | null;
@@ -58,14 +59,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
   }
 
-  // backwashAt: if the technician says no backwash happened, clear it. If yes, use provided
-  // time (or "now" if no time was given).
+  // backwashAt: no backwash clears it; yes uses the instant the client sent, falling back to now.
+  //
+  // The sent value must carry a UTC offset ("...Z" or "+HH:MM"). A date-time string without one is
+  // parsed as the SERVER's local time, which is UTC on Vercel -- so a wall clock captured on the
+  // technician's phone would land offset by their whole timezone (8:30am Pacific stored as 8:30
+  // UTC, shown back as 1:30am). The client now always sends a full instant; this rejects the
+  // ambiguous form rather than silently misreading it, which also protects readings queued
+  // offline in the old format from replaying with a shifted time.
   let backwashAt: Date | null | undefined = undefined;
   if (raw.backwashPerformed === false) {
     backwashAt = null;
   } else if (raw.backwashPerformed === true) {
-    backwashAt = raw.backwashAt ? new Date(raw.backwashAt) : new Date();
-    if (Number.isNaN(backwashAt.getTime())) backwashAt = new Date();
+    const sent = typeof raw.backwashAt === "string" && hasUtcOffset(raw.backwashAt) ? new Date(raw.backwashAt) : null;
+    backwashAt = sent && !Number.isNaN(sent.getTime()) ? sent : new Date();
   }
 
   const data = {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ymdInTimeZone, localDayBounds, addDaysToYmd, isoWeekdayOfYmd, startOfWeekYmd } from "@/lib/timezone";
+import { ymdInTimeZone, localDayBounds, addDaysToYmd, isoWeekdayOfYmd, startOfWeekYmd, hasUtcOffset } from "@/lib/timezone";
 
 const PACIFIC = "America/Los_Angeles";
 
@@ -49,5 +49,40 @@ describe("startOfWeekYmd", () => {
     expect(startOfWeekYmd("2026-09-21")).toBe("2026-09-21"); // already Monday
     expect(startOfWeekYmd("2026-09-27")).toBe("2026-09-21"); // Sunday -> prior Monday
     expect(startOfWeekYmd("2026-09-23")).toBe("2026-09-21"); // Wednesday -> that week's Monday
+  });
+});
+
+describe("hasUtcOffset", () => {
+  it("accepts a Z-terminated instant, which is what toISOString produces", () => {
+    expect(hasUtcOffset("2026-09-29T15:30:00.000Z")).toBe(true);
+    expect(hasUtcOffset("2026-09-29T15:30:00Z")).toBe(true);
+    expect(hasUtcOffset("2026-09-29T15:30:00z")).toBe(true);
+  });
+
+  it("accepts a numeric offset, with or without a colon", () => {
+    expect(hasUtcOffset("2026-09-29T08:30:00-07:00")).toBe(true);
+    expect(hasUtcOffset("2026-09-29T08:30:00-0700")).toBe(true);
+    expect(hasUtcOffset("2026-09-29T08:30:00+05:30")).toBe(true);
+  });
+
+  /**
+   * The exact string the visit form used to send, and the whole reason this exists: parsed as the
+   * server's own local time (UTC on Vercel), a Pacific wall clock landed 7 hours off.
+   */
+  it("rejects a bare wall clock with no zone", () => {
+    expect(hasUtcOffset("2026-09-29T08:30:00")).toBe(false);
+    expect(hasUtcOffset("2026-09-29T08:30")).toBe(false);
+  });
+
+  /** The date's own hyphens must not read as a negative offset. */
+  it("does not mistake the date's hyphens for an offset", () => {
+    expect(hasUtcOffset("2026-09-29T08:30:00")).toBe(false);
+    expect(hasUtcOffset("2026-09-29")).toBe(false);
+  });
+
+  it("rejects strings with no time portion at all", () => {
+    expect(hasUtcOffset("")).toBe(false);
+    expect(hasUtcOffset("2026-09-29")).toBe(false);
+    expect(hasUtcOffset("not a date")).toBe(false);
   });
 });

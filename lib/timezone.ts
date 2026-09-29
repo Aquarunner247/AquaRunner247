@@ -130,6 +130,26 @@ export function addDaysToYmd(ymd: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Whether a date-time string names an INSTANT rather than a bare wall clock -- i.e. whether it
+ * carries a UTC designator ("Z") or a numeric offset.
+ *
+ * This matters because `new Date("2026-09-29T08:30:00")` is parsed as the runtime's own local
+ * time, and on Vercel that is UTC. A wall clock captured on a technician's phone and sent without
+ * an offset therefore lands shifted by their entire timezone: a backwash logged at 8:30am Pacific
+ * was stored as 8:30 UTC and displayed back as 1:30am. Anything accepting a client-supplied
+ * timestamp should reject the ambiguous form rather than silently misread it.
+ *
+ * The offset test deliberately runs against the portion after "T", so the hyphens in the date
+ * itself can't be mistaken for a negative offset.
+ */
+export function hasUtcOffset(value: string): boolean {
+  const tIndex = value.indexOf("T");
+  if (tIndex === -1) return false;
+  const timePart = value.slice(tIndex + 1);
+  return /[zZ]$/.test(timePart) || /[+-]\d{2}:?\d{2}$/.test(timePart);
+}
+
 /** ISO weekday (Mon=1..Sun=7) for a "YYYY-MM-DD" string -- independent of any timezone,
  * since it's derived from the calendar string itself, not from an instant. */
 export function isoWeekdayOfYmd(ymd: string): number {

@@ -125,7 +125,33 @@ function toTimeInput(v: unknown): string {
   if (!v) return "";
   const d = new Date(v as string);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toTimeString().slice(0, 5); // "HH:MM"
+  return d.toTimeString().slice(0, 5); // "HH:MM", in the device's own zone
+}
+
+/** The serialized reading's fields are loosely typed (see the page's own note), so this tolerates
+ *  whatever arrives and yields an ISO instant or "" -- same contract as toTimeInput above. */
+function toIsoInstant(v: unknown): string {
+  if (!v) return "";
+  const d = new Date(v as string);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+}
+
+/**
+ * Rebuilds an instant from a typed "HH:MM", keeping the local calendar day of `isoInstant`.
+ *
+ * The typed value is wall-clock time on the technician's own phone, so the LOCAL Date
+ * constructor is the correct one -- it resolves that wall clock against the device's real zone
+ * and yields a true instant. What this replaces was a string built from `toISOString().slice(0,10)`
+ * (a UTC date) concatenated with a local "HH:MM" and no zone designator at all, which the server
+ * then parsed as UTC: a backwash logged at 8:30am Pacific was stored as 8:30 UTC and displayed
+ * back as 1:30am. The UTC date half was wrong too, dating an evening backwash to the next day.
+ */
+function withTimeOfDay(isoInstant: string, hhmm: string): string | null {
+  const [hours, minutes] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  const base = isoInstant ? new Date(isoInstant) : new Date();
+  if (Number.isNaN(base.getTime())) return null;
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes, 0, 0).toISOString();
 }
 
 /** lbs dose quantities snap to quarter-pound increments, gallons to half-gallon, everything else whole units. */
@@ -165,7 +191,9 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     filterPressurePsi: toInput(initialReading?.filterPressurePsi),
   });
   const [backwashPerformed, setBackwashPerformed] = useState<boolean>(Boolean(initialReading?.backwashAt));
-  const [backwashTime, setBackwashTime] = useState<string>(toTimeInput(initialReading?.backwashAt));
+  /** A full ISO instant, not a "HH:MM" wall clock -- see withTimeOfDay. Set to the moment the
+   *  technician picks "Yes", which is what the recorded backwash time is meant to be. */
+  const [backwashAt, setBackwashAt] = useState<string>(toIsoInstant(initialReading?.backwashAt));
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMsg, setSaveMsg] = useState("");
   const [photoCount, setPhotoCount] = useState(initialPhotoCount);
@@ -292,7 +320,9 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         flowMeterGpm: sanitizeReading("flowMeterGpm"),
         filterPressurePsi: sanitizeReading("filterPressurePsi"),
         backwashPerformed,
-        backwashAt: backwashPerformed && backwashTime ? `${new Date().toISOString().slice(0, 10)}T${backwashTime}:00` : null,
+        // Always a zone-qualified ISO instant. The server falls back to its own clock if this is
+        // null, so "Yes" can never record an absent time.
+        backwashAt: backwashPerformed ? backwashAt || new Date().toISOString() : null,
       },
     });
     if (result.status === "queued") {
@@ -337,7 +367,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reading, backwashPerformed, backwashTime, isCompleted]);
+  }, [reading, backwashPerformed, backwashAt, isCompleted]);
 
   useEffect(() => {
     return () => {
@@ -767,9 +797,9 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
               disabled={isCompleted}
               onChange={() => {
                 setBackwashPerformed(true);
-                if (!backwashTime) {
-                  setBackwashTime(new Date().toTimeString().slice(0, 5));
-                }
+                // Stamp the moment of selection. Only when there isn't one yet, so re-picking
+                // "Yes" after a correction doesn't silently overwrite the corrected time.
+                if (!backwashAt) setBackwashAt(new Date().toISOString());
               }}
             />
             Yes
@@ -779,9 +809,12 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
               Time
               <input
                 type="time"
-                value={backwashTime}
+                value={toTimeInput(backwashAt)}
                 disabled={isCompleted}
-                onChange={(e) => setBackwashTime(e.target.value)}
+                onChange={(e) => {
+                  const next = withTimeOfDay(backwashAt, e.target.value);
+                  if (next) setBackwashAt(next);
+                }}
                 className="app-field-sm py-1 font-[family-name:var(--font-mono)]"
               />
             </label>
