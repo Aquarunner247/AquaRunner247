@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
 import { prisma } from "@/lib/prisma";
 import { sendWaitlistNotificationEmail } from "@/lib/email";
+import { checkWaitlistRateLimit } from "@/lib/waitlist-rate-limit";
 
 export type WaitlistResult =
   | { status: "ok" }
   | { status: "duplicate" }
   | { status: "invalid"; message: string }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string }
+  | { status: "rate-limited"; message: string };
 
 // Deliberately strict-but-simple: one @, a dot in the domain, no whitespace. Anything
 // fancier rejects addresses that are actually deliverable.
@@ -33,6 +35,19 @@ export async function POST(request: Request) {
     return NextResponse.json<WaitlistResult>(
       { status: "error", message: "Something went wrong. Please try again." },
       { status: 403 },
+    );
+  }
+
+  // Second layer behind BotID: a human, or a bot that defeats it, could otherwise submit endlessly.
+  // Runs before the body is even parsed, so a flood costs as little as possible, and counts every
+  // attempt including invalid addresses and duplicates -- those are what a flood actually looks
+  // like. Told plainly rather than disguised as a generic error: a real person who fat-fingered
+  // several attempts deserves to know it's temporary and that their signup wasn't lost.
+  const limit = await checkWaitlistRateLimit(request);
+  if (!limit.allowed) {
+    return NextResponse.json<WaitlistResult>(
+      { status: "rate-limited", message: "Too many attempts from this connection. Try again in a few minutes." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
     );
   }
 

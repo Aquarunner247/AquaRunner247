@@ -1575,6 +1575,22 @@ model WaitlistSignup {
   createdAt DateTime @default(now())
 }
 
+/// One row per attempt on the public waitlist endpoint, for rate limiting it. Vercel BotID is the
+/// main defence and stays the first check; this is the second layer, for a human (or a bot that
+/// defeats BotID) submitting repeatedly. See lib/waitlist-rate-limit.ts.
+///
+/// `ipHash` is an HMAC of the caller's address, never the address itself — IPv4 is small enough
+/// that an unsalted hash would be reversible by enumerating it. Rows are pruned past twice the
+/// limiting window, so this holds no long-lived record of who visited.
+model WaitlistAttempt {
+  id        String   @id @default(cuid())
+  ipHash    String
+  createdAt DateTime @default(now())
+
+  @@index([ipHash, createdAt])
+  @@index([createdAt])
+}
+
 // ---------------------------------------------------------------------------
 // Dosing calculator -- built from real Taylor Technologies pool-chemistry manual tables,
 // not unsourced approximations (a prior version of this feature was removed for exactly
