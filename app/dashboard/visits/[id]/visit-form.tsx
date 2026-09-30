@@ -1,6 +1,8 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
 import { CameraCapture } from "@/app/components/camera-capture";
 import { DosingCard } from "@/app/components/dosing-card";
 import { VisitVolumeCalculator } from "@/app/components/volume-calculator";
@@ -207,6 +209,10 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
   const [pendingDoseHint, setPendingDoseHint] = useState<{ rawAmount: number; dosingUnit: DosingUnit } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [completingVisit, setCompletingVisit] = useState(false);
+  /** Bodies of water on this same walk-up still needing work. Set from the completion response and
+   *  shown as a notice the technician has to acknowledge -- the success path reloads the page, so a
+   *  message set here would otherwise be wiped before he could read it. */
+  const [waitingOn, setWaitingOn] = useState<{ visitId: string; bodyName: string }[]>([]);
   // Preselected only when there's exactly one option -- with several, an unchosen default would
   // get sent to a customer without the technician having actually read it.
   const [selectedServiceMessageId, setSelectedServiceMessageId] = useState(
@@ -509,6 +515,14 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         body: JSON.stringify({ serviceMessageTemplateId: selectedServiceMessageId || null }),
       });
       if (response.ok) {
+        const data = (await response.json().catch(() => null)) as
+          | { waitingOn?: { visitId: string; bodyName: string }[] }
+          | null;
+        // Hold the reload while he reads it; the notice's own button reloads.
+        if (data?.waitingOn?.length) {
+          setWaitingOn(data.waitingOn);
+          return;
+        }
         window.location.reload();
         return;
       }
@@ -545,6 +559,63 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     } finally {
       setCompletingVisit(false);
     }
+  }
+
+  /**
+   * Shown after this visit completes while a body of water on the same walk-up is still unfinished.
+   *
+   * It matters because the customer's summary covers the whole walk-up and waits for the last body,
+   * so an unfinished sibling means the customer gets nothing at all -- not a partial email, silence,
+   * until the nightly sweep gives up and sends what exists. Far better that the technician hears it
+   * while he is still standing there.
+   *
+   * Never blocks: this visit is already complete, and both buttons move him forward.
+   */
+  function renderWaitingOnNotice() {
+    if (waitingOn.length === 0) return null;
+    const names = waitingOn.map((w) => w.bodyName);
+    const label = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
+    return createPortal(
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-brand-ink/70 p-4"
+        style={{ zIndex: ABOVE_MAP_Z_INDEX }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="waiting-on-title"
+      >
+        <div className="w-full max-w-sm rounded-2xl border border-brand-border bg-white p-5 shadow-soft">
+          <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-warn">Still to do here</p>
+          <h2 id="waiting-on-title" className="mt-1 font-display text-lg font-bold text-brand-ink">
+            This stop isn&rsquo;t finished
+          </h2>
+          <p className="mt-2 text-sm text-brand-ink">
+            <strong>{label}</strong> {names.length === 1 ? "is" : "are"} part of this same stop and still
+            {names.length === 1 ? " needs" : " need"} finishing.
+          </p>
+          <p className="mt-2 text-sm text-brand-muted">
+            The customer gets one summary for the whole stop, so it won&rsquo;t send until
+            {names.length === 1 ? " it&rsquo;s" : " they&rsquo;re"} done or skipped.
+          </p>
+
+          <div className="mt-5 flex flex-col gap-2">
+            {waitingOn.map((w) => (
+              <a key={w.visitId} href={`/dashboard/visits/${w.visitId}`} className="app-btn-primary-sm min-h-[44px]">
+                Go to {w.bodyName}
+              </a>
+            ))}
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="app-btn-secondary-sm min-h-[44px]"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
   }
 
   function renderSlider(f: FieldConfig) {
@@ -637,6 +708,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
 
   return (
     <section className="mt-6 space-y-4">
+      {renderWaitingOnNotice()}
       {!isCompleted ? (
         <div className="app-card">
           {startedAt ? (

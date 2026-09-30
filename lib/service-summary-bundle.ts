@@ -38,8 +38,13 @@ export type BundleDecision = {
   memberIds: string[];
   /** Members that were completed -- the ones with something to report. */
   completedIds: string[];
-  /** Members that were skipped. Named in the email, without readings. */
+  /** Members the technician skipped. Named in the email, without readings. */
   skippedIds: string[];
+  /**
+   * Members still unfinished. Empty unless forced -- normally an outstanding member holds the whole
+   * email back, and only a sweep of a past day gives up waiting and reports what exists.
+   */
+  incompleteIds: string[];
   /**
    * True when every member has finished (completed or skipped) and none has been emailed yet.
    * False while any member is still outstanding, which is what makes the email wait for the spa
@@ -48,6 +53,18 @@ export type BundleDecision = {
   readyToSend: boolean;
   /** Why it isn't ready, for a log line that explains itself. */
   reason: "ready" | "members-outstanding" | "already-sent" | "nothing-completed";
+};
+
+export type ResolveOptions = {
+  /**
+   * Stop waiting for outstanding members and report what exists, listing them as incomplete.
+   *
+   * Only for the nightly sweep of a day already past. Without it a body left IN_PROGRESS holds the
+   * email forever: the send is triggered by a completion, so if that completion never comes, neither
+   * does the email. Forcing on a past day trades a partial summary for silence, which is the better
+   * of the two.
+   */
+  force?: boolean;
 };
 
 const FINISHED = new Set(["COMPLETED", "CANCELLED"]);
@@ -59,7 +76,11 @@ const FINISHED = new Set(["COMPLETED", "CANCELLED"]);
  * day, ordered by routeSequence. The caller owns that query; this function stays pure so the rule
  * is testable.
  */
-export function resolveSummaryBundle(visitId: string, candidates: BundleCandidate[]): BundleDecision {
+export function resolveSummaryBundle(
+  visitId: string,
+  candidates: BundleCandidate[],
+  options: ResolveOptions = {},
+): BundleDecision {
   const groupable: GroupableStop[] = candidates.map((c) => ({
     id: c.visitId,
     // One property, so a constant is enough -- groupNearbyStops only compares these for equality.
@@ -81,20 +102,23 @@ export function resolveSummaryBundle(visitId: string, candidates: BundleCandidat
 
   const completedIds = members.filter((m) => m.status === "COMPLETED").map((m) => m.visitId);
   const skippedIds = members.filter((m) => m.status === "CANCELLED").map((m) => m.visitId);
+  const outstandingIds = members.filter((m) => !FINISHED.has(m.status)).map((m) => m.visitId);
+  const incompleteIds = options.force ? outstandingIds : [];
+  const base = { memberIds, completedIds, skippedIds, incompleteIds };
 
   // Any member already emailed means this bundle has been reported on. Re-sending would give the
   // customer a duplicate, which is worse than a missing late addition.
   if (members.some((m) => m.summaryEmailSentAt != null)) {
-    return { memberIds, completedIds, skippedIds, readyToSend: false, reason: "already-sent" };
+    return { ...base, readyToSend: false, reason: "already-sent" };
   }
-  if (!members.every((m) => FINISHED.has(m.status))) {
-    return { memberIds, completedIds, skippedIds, readyToSend: false, reason: "members-outstanding" };
+  if (!options.force && outstandingIds.length > 0) {
+    return { ...base, readyToSend: false, reason: "members-outstanding" };
   }
-  // Every member skipped: there are no readings, no photos and nothing serviced, so there is
-  // nothing to send. The technician's message on a skipped visit is for the office, not a summary.
+  // Nothing serviced: no readings, no photos, nothing to report. A technician's message on a
+  // skipped visit is for the office, not for a customer summary.
   if (completedIds.length === 0) {
-    return { memberIds, completedIds, skippedIds, readyToSend: false, reason: "nothing-completed" };
+    return { ...base, readyToSend: false, reason: "nothing-completed" };
   }
 
-  return { memberIds, completedIds, skippedIds, readyToSend: true, reason: "ready" };
+  return { ...base, readyToSend: true, reason: "ready" };
 }

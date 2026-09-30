@@ -116,6 +116,44 @@ describe("resolveSummaryBundle", () => {
     expect(d.reason).toBe("nothing-completed");
   });
 
+  describe("force (the nightly sweep of a day already past)", () => {
+    /**
+     * The gap force exists to close: a spa left IN_PROGRESS holds the pool's summary forever,
+     * because sending is triggered by a completion that never comes.
+     */
+    it("sends what exists instead of waiting on an unfinished body", () => {
+      const candidates = [visit("pool"), spa("spa", { ...north(7), status: "IN_PROGRESS" })];
+      expect(resolveSummaryBundle("pool", candidates).readyToSend).toBe(false);
+
+      const forced = resolveSummaryBundle("pool", candidates, { force: true });
+      expect(forced.readyToSend).toBe(true);
+      expect(forced.completedIds).toEqual(["pool"]);
+      expect(forced.incompleteIds).toEqual(["spa"]);
+      // Unfinished is not the same claim as skipped, and must not be reported as one.
+      expect(forced.skippedIds).toEqual([]);
+    });
+
+    it("reports nothing when forcing a bundle where nothing was serviced", () => {
+      const candidates = [visit("pool", { status: "IN_PROGRESS" }), spa("spa", { ...north(7), status: "SCHEDULED" })];
+      const forced = resolveSummaryBundle("pool", candidates, { force: true });
+      expect(forced.readyToSend).toBe(false);
+      expect(forced.reason).toBe("nothing-completed");
+    });
+
+    it("still refuses a bundle already emailed", () => {
+      const candidates = [
+        visit("pool", { summaryEmailSentAt: new Date() }),
+        spa("spa", { ...north(7), status: "IN_PROGRESS" }),
+      ];
+      expect(resolveSummaryBundle("pool", candidates, { force: true }).reason).toBe("already-sent");
+    });
+
+    it("leaves incompleteIds empty when nothing is outstanding", () => {
+      const candidates = [visit("pool"), spa("spa", { ...north(7) })];
+      expect(resolveSummaryBundle("pool", candidates, { force: true }).incompleteIds).toEqual([]);
+    });
+  });
+
   it("handles a three-body bundle, sending only after the third finishes", () => {
     const withStatus = (s: string) => [
       visit("pool"),

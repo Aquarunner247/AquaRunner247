@@ -71,9 +71,15 @@ export type ServiceSummaryBody = {
    * everything when every body carries the same one, and inside each body's block otherwise -- a
    * pool that went fine and a spa skipped for lightning do not share a message. */
   serviceMessage: string | null;
-  /** True for a body that was skipped rather than serviced. Named in the email with no readings, so
-   * a customer expecting two reports isn't left wondering where the second went. */
-  skipped?: boolean;
+  /**
+   * What happened to this body. Named in the email either way, with no readings unless serviced, so
+   * a customer expecting two reports is never left wondering where the second went.
+   *
+   * "incomplete" is distinct from "skipped" on purpose: a skipped body was a decision the technician
+   * made and can be stated as such, while an unfinished one is just unfinished, and saying it was
+   * skipped would be a claim nobody made.
+   */
+  outcome: "serviced" | "skipped" | "incomplete";
 };
 
 type ServiceSummaryEmailInput = {
@@ -171,15 +177,17 @@ function bodyHeading(name: string): string {
 function renderBody(body: ServiceSummaryBody, timeZone: string, showHeading: boolean, showMessage: boolean): string {
   const firstSection = !showHeading && !showMessage;
 
-  if (body.skipped) {
+  if (body.outcome !== "serviced") {
+    const fallback =
+      body.outcome === "skipped"
+        ? "This one was skipped today and will be picked up on the next service call."
+        : "Service for this one wasn't completed today. It will be picked up on the next service call.";
     return `
       ${showHeading ? bodyHeading(body.bodyOfWaterName) : ""}
       ${section(
-        "Not serviced this visit",
+        body.outcome === "skipped" ? "Not serviced this visit" : "Not completed this visit",
         `<p style="font-size:14px; margin:0; color:#55696C;">${
-          body.serviceMessage
-            ? escapeEmailHtml(body.serviceMessage)
-            : "This one was skipped today and will be picked up on the next service call."
+          body.serviceMessage ? escapeEmailHtml(body.serviceMessage) : fallback
         }</p>`,
         firstSection,
       )}`;

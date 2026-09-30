@@ -173,11 +173,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   // customer's side, so this sends nothing while a sibling body is still outstanding and sends the
   // pair once the last one finishes. lib/service-summary-email.ts owns that, including the claim
   // that stops two simultaneous completions both sending.
+  // waitingOn names any body of water on this same walk-up still needing work, which is also what
+  // is holding the customer's summary back. Returned so the technician hears it while still on site.
+  let waitingOn: { visitId: string; bodyName: string }[] = [];
   try {
-    await sendBundledServiceSummary(visit.id);
+    const summary = await sendBundledServiceSummary(visit.id);
+    waitingOn = summary.waitingOn;
   } catch {
     // Non-critical -- visit is already marked complete regardless of email outcome.
   }
 
-  return NextResponse.json({ ok: true, visit: completed });
+  return NextResponse.json({ ok: true, visit: completed, waitingOn });
 }

@@ -13,7 +13,19 @@ import { resolveSummaryBundle, type BundleCandidate } from "@/lib/service-summar
 // unopened in an inbox.
 const PHOTO_EMAIL_LINK_TTL_SECONDS = 60 * 60 * 24 * 30;
 
-export type SummarySendResult = { sent: boolean; reason: string };
+export type SummarySendResult = {
+  sent: boolean;
+  reason: string;
+  /**
+   * Bodies of water at this property, on this walk-up, that still need finishing -- and are
+   * therefore holding the customer's summary back. Empty whenever nothing is outstanding.
+   *
+   * Carries each one's visit id as well as its name so the technician can be sent straight there,
+   * and is surfaced at completion so he finds out while still standing on site, rather than the
+   * customer finding out by never receiving an email.
+   */
+  waitingOn: { visitId: string; bodyName: string }[];
+};
 
 /**
  * Sends the customer's service summary for the visit just completed -- as ONE email covering every
@@ -30,8 +42,15 @@ export type SummarySendResult = { sent: boolean; reason: string };
  * customer is never left with silence.
  *
  * Best-effort by contract: a failure here never affects the visit, which is already complete.
+ *
+ * `force` is for the nightly sweep only (app/api/cron/send-pending-summaries). Without it, a body
+ * left IN_PROGRESS holds the email indefinitely, because sending is triggered by a completion that
+ * may never come; forcing reports what exists and names the unfinished body as not completed.
  */
-export async function sendBundledServiceSummary(visitId: string): Promise<SummarySendResult> {
+export async function sendBundledServiceSummary(
+  visitId: string,
+  options: { force?: boolean } = {},
+): Promise<SummarySendResult> {
   const visit = await prisma.serviceVisit.findUnique({
     where: { id: visitId },
     select: {
@@ -67,10 +86,10 @@ export async function sendBundledServiceSummary(visitId: string): Promise<Summar
       technician: { select: { name: true, email: true } },
     },
   });
-  if (!visit) return { sent: false, reason: "visit-not-found" };
+  if (!visit) return { sent: false, reason: "visit-not-found", waitingOn: [] };
 
   const contactEmail = propertyContactEmail(visit.property);
-  if (!contactEmail) return { sent: false, reason: "no-contact-email" };
+  if (!contactEmail) return { sent: false, reason: "no-contact-email", waitingOn: [] };
 
   const timeZone = timeZoneForState(visit.organization.state);
   const ymd = ymdInTimeZone(visit.scheduledStart, timeZone);
@@ -91,7 +110,7 @@ export async function sendBundledServiceSummary(visitId: string): Promise<Summar
       id: true,
       status: true,
       summaryEmailSentAt: true,
-      bodyOfWater: { select: { type: true, latitude: true, longitude: true } },
+      bodyOfWater: { select: { name: true, type: true, latitude: true, longitude: true } },
     },
   });
 
@@ -104,8 +123,14 @@ export async function sendBundledServiceSummary(visitId: string): Promise<Summar
     summaryEmailSentAt: c.summaryEmailSentAt,
   });
 
-  const decision = resolveSummaryBundle(visit.id, candidates.map(toCandidate));
-  if (!decision.readyToSend) return { sent: false, reason: decision.reason };
+  const decision = resolveSummaryBundle(visit.id, candidates.map(toCandidate), { force: options.force });
+
+  // Named, not just counted: "Front Spa still needs finishing" is actionable where "1 stop" isn't.
+  const outstandingNames = candidates
+    .filter((c) => decision.memberIds.includes(c.id) && c.status !== "COMPLETED" && c.status !== "CANCELLED")
+    .map((c) => ({ visitId: c.id, bodyName: c.bodyOfWater?.name ?? "Another body of water" }));
+
+  if (!decision.readyToSend) return { sent: false, reason: decision.reason, waitingOn: outstandingNames };
 
   /**
    * Claim the bundle before sending, in a short transaction under an advisory lock keyed on
@@ -133,13 +158,13 @@ export async function sendBundledServiceSummary(visitId: string): Promise<Summar
     });
     return true;
   });
-  if (!claimed) return { sent: false, reason: "already-sent" };
+  if (!claimed) return { sent: false, reason: "already-sent", waitingOn: [] };
 
   try {
     const bodies = await loadBodies(decision);
     if (bodies.length === 0) {
       await releaseClaim(decision.memberIds, claimedAt);
-      return { sent: false, reason: "nothing-completed" };
+      return { sent: false, reason: "nothing-completed", waitingOn: outstandingNames };
     }
 
     // The visit as a whole: earliest real arrival, latest completion. A bundle spans a few minutes,
@@ -175,9 +200,9 @@ export async function sendBundledServiceSummary(visitId: string): Promise<Summar
 
     if (!result.ok) {
       await releaseClaim(decision.memberIds, claimedAt);
-      return { sent: false, reason: result.error ?? "send-failed" };
+      return { sent: false, reason: result.error ?? "send-failed", waitingOn: [] };
     }
-    return { sent: true, reason: "sent" };
+    return { sent: true, reason: "sent", waitingOn: [] };
   } catch (error) {
     await releaseClaim(decision.memberIds, claimedAt);
     throw error;
@@ -200,14 +225,15 @@ async function releaseClaim(memberIds: string[], claimedAt: Date): Promise<void>
   }
 }
 
-/** Each completed member's own record, plus skipped members named without readings. */
+/** Each serviced member's own record, plus any skipped or unfinished ones named without readings. */
 async function loadBodies(decision: {
   completedIds: string[];
   skippedIds: string[];
+  incompleteIds: string[];
   memberIds: string[];
 }): Promise<{ body: ServiceSummaryBody; startedAt: Date | null }[]> {
   const members = await prisma.serviceVisit.findMany({
-    where: { id: { in: [...decision.completedIds, ...decision.skippedIds] } },
+    where: { id: { in: [...decision.completedIds, ...decision.skippedIds, ...decision.incompleteIds] } },
     orderBy: { routeSequence: "asc" },
     select: {
       id: true,
@@ -228,7 +254,9 @@ async function loadBodies(decision: {
 
   return Promise.all(
     members.map(async (m) => {
-      const skipped = m.status === "CANCELLED";
+      const outcome: ServiceSummaryBody["outcome"] =
+        m.status === "COMPLETED" ? "serviced" : m.status === "CANCELLED" ? "skipped" : "incomplete";
+      const skipped = outcome !== "serviced";
       const photoUrls = skipped
         ? []
         : (
@@ -266,13 +294,13 @@ async function loadBodies(decision: {
         // header uses the latest completion across the bundle anyway.
         completedAt: m.completedAt ?? new Date(),
         serviceMessage: m.serviceMessage,
-        skipped,
+        outcome,
       };
       return { body, startedAt: skipped ? null : m.startedAt };
     }),
   ).then((rows) =>
     // Nothing to report if every member turned out skipped -- the bundle rule already guards this,
     // but a status change between the two queries would otherwise send an empty summary.
-    rows.every((r) => r.body.skipped) ? [] : rows,
+    rows.every((r) => r.body.outcome !== "serviced") ? [] : rows,
   );
 }
