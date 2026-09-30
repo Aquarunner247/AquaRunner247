@@ -86,3 +86,46 @@ describe("hasUtcOffset", () => {
     expect(hasUtcOffset("not a date")).toBe(false);
   });
 });
+
+/**
+ * How the CSV importer and the visit form both store a wall-clock time read off a paper log or typed
+ * on a phone: local midnight in the business's zone, plus the minutes into that day.
+ *
+ * The bug this guards against is `new Date(y, m, d, h, min)`, which resolves against the RUNTIME's
+ * zone -- UTC on Vercel. That stored a logged 8:30am as 08:30 UTC and displayed it back as 1:30am,
+ * and it dated every timeless imported row to noon UTC, which is 5am local.
+ */
+describe("storing a logged wall-clock time", () => {
+  const PACIFIC = "America/Los_Angeles";
+
+  function storedInstant(ymd: string, hours: number, minutes: number): Date {
+    return new Date(localDayBounds(ymd, PACIFIC).start.getTime() + (hours * 60 + minutes) * 60_000);
+  }
+
+  it("round-trips 8:30am on a winter date", () => {
+    // 2026-01-28 is PST (UTC-8), so 08:30 local is 16:30 UTC.
+    const stored = storedInstant("2026-01-28", 8, 30);
+    expect(stored.toISOString()).toBe("2026-01-28T16:30:00.000Z");
+  });
+
+  it("round-trips 8:30am on a summer date, shifting with DST", () => {
+    // 2026-07-14 is PDT (UTC-7), so 08:30 local is 15:30 UTC -- an hour earlier than in January.
+    const stored = storedInstant("2026-07-14", 8, 30);
+    expect(stored.toISOString()).toBe("2026-07-14T15:30:00.000Z");
+  });
+
+  it("puts a timeless row at local noon, not noon UTC", () => {
+    // The importer's fallback for a row with a backwash but no time. Noon UTC would have been 5am
+    // local, which reads as a backwash before anyone arrived.
+    const noon = storedInstant("2026-01-28", 12, 0);
+    expect(noon.toISOString()).toBe("2026-01-28T20:00:00.000Z");
+    expect(noon.toISOString()).not.toBe("2026-01-28T12:00:00.000Z");
+  });
+
+  it("keeps a late-evening time on the same local day", () => {
+    // 23:00 local is already tomorrow in UTC; the local calendar day must not shift with it.
+    const stored = storedInstant("2026-07-14", 23, 0);
+    expect(stored.toISOString()).toBe("2026-07-15T06:00:00.000Z");
+    expect(ymdInTimeZone(stored, PACIFIC)).toBe("2026-07-14");
+  });
+});

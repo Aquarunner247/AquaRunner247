@@ -169,6 +169,33 @@ function ApplyButton({
 }
 
 /**
+ * Turns a /ph-dose failure into something a technician can act on, or at least report.
+ *
+ * The old version mapped two codes and dropped everything else into "Couldn't calculate a dose",
+ * which named no cause and no next step -- so a real failure was indistinguishable from a network
+ * blip. It also reported a misconfigured product as "no gallons set", which sent a technician to
+ * check a volume that was already correct.
+ */
+function phDoseErrorMessage(data: { error?: string; productName?: string }): string {
+  switch (data.error) {
+    case "NO_PRODUCT_CONFIGURED":
+      return "No pH product is enabled — an admin needs to enable one under Settings › Chemicals.";
+    case "NO_VOLUME_CONFIGURED":
+      return "This body of water has no gallons set — add one below, then calculate again.";
+    case "PRODUCT_MISCONFIGURED":
+      return `${data.productName ?? "The pH product"} has no dosing strength set, so a dose can't be worked out. An admin needs to fix it under Settings › Chemicals.`;
+    case "INVALID_INPUT":
+      return "That drop count didn't come through — enter a whole number of drops and try again.";
+    case "FORBIDDEN":
+    case "NOT_FOUND":
+      return "This visit isn't available on your account any more — reload the page.";
+    default:
+      // Names the code so it can be reported and chased, instead of vanishing.
+      return `Couldn't calculate a dose${data.error ? ` (${data.error})` : ""} — dose it by your own reading and tell the office.`;
+  }
+}
+
+/**
  * pH has no ppm-delta dose -- only Taylor's Base/Acid Demand titration produces one. Only
  * rendered by the parent when `dosing.phStatus` is non-null, i.e. pH is actually out of
  * range (resolved server-side, same target-resolution logic as every other chemical) --
@@ -211,13 +238,7 @@ function PhDemandPrompt({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(
-          data.error === "NO_PRODUCT_CONFIGURED"
-            ? "No enabled pH product configured — set one on the Chemicals admin page."
-            : data.error === "NO_VOLUME_CONFIGURED"
-              ? "This body of water has no gallons set — add one before calculating a dose."
-              : "Couldn't calculate a dose.",
-        );
+        setError(phDoseErrorMessage(data));
       } else {
         setResult({
           productName: data.productName,

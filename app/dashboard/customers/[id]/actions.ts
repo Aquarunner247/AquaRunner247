@@ -18,7 +18,7 @@ import { parseFormNumber as numOrNull } from "@/lib/form-utils";
 import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
 import { createPayRateRow } from "@/lib/technician-pay";
 import { routeStillRunsFilter } from "@/lib/route-projection";
-import { timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { timeZoneForState, ymdInTimeZone, localDayBounds } from "@/lib/timezone";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -730,6 +730,15 @@ export async function deleteBodyOfWater(formData: FormData) {
  */
 export async function importVenueReadings(formData: FormData) {
   const appUser = await requireAdmin();
+  // Every timestamp this importer writes is a calendar day plus a clock time from a paper log, so it
+  // has to be resolved in the BUSINESS's zone. `new Date(y, m, d, h, m)` uses the runtime's zone,
+  // which is UTC on Vercel -- that is what stored a logged 8:30am backwash as 08:30 UTC and showed
+  // it back as 1:30am, and dated every timeless row to noon UTC (5am local).
+  const importOrg = await prisma.organization.findUnique({
+    where: { id: appUser.organizationId },
+    select: { state: true },
+  });
+  const importTimeZone = timeZoneForState(importOrg?.state);
   const bodyId = String(formData.get("bodyId") ?? "").trim();
   const customerId = String(formData.get("customerId") ?? "").trim();
   const year = Number(formData.get("year"));
@@ -796,12 +805,14 @@ export async function importVenueReadings(formData: FormData) {
         row.backwashed;
       if (!hasData) continue;
 
-      const dayStart = new Date(group.year, monthIndex, row.day, 0, 0, 0, 0);
-      const dayEnd = new Date(group.year, monthIndex, row.day, 23, 59, 59, 999);
-      const noon = new Date(group.year, monthIndex, row.day, 12, 0, 0, 0);
+      // Local-day bounds in the org's zone. `end` is exclusive (start of the next local day), so
+      // the visit lookup below uses `lt`, not `lte`.
+      const ymd = `${group.year}-${String(group.month).padStart(2, "0")}-${String(row.day).padStart(2, "0")}`;
+      const { start: dayStart, end: dayEnd } = localDayBounds(ymd, importTimeZone);
+      const noon = new Date(dayStart.getTime() + 12 * 60 * 60 * 1000);
 
       let visit = await prisma.serviceVisit.findFirst({
-        where: { bodyOfWaterId: body.id, completedAt: { gte: dayStart, lte: dayEnd } },
+        where: { bodyOfWaterId: body.id, completedAt: { gte: dayStart, lt: dayEnd } },
         select: { id: true },
       });
       if (!visit) {
@@ -822,8 +833,10 @@ export async function importVenueReadings(formData: FormData) {
       let backwashAt: Date | null = null;
       if (row.backwashed) {
         const parsedTime = row.backwashTime ? parseTimeOfDay(row.backwashTime) : null;
+        // Offset from local midnight, so the logged wall-clock time round-trips as that same time in
+        // the org's zone rather than being read as UTC.
         backwashAt = parsedTime
-          ? new Date(group.year, monthIndex, row.day, parsedTime.hours, parsedTime.minutes, 0, 0)
+          ? new Date(dayStart.getTime() + (parsedTime.hours * 60 + parsedTime.minutes) * 60_000)
           : noon;
       }
 

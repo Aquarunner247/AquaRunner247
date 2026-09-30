@@ -525,8 +525,9 @@ export type PhDoseResult = {
 
 /** Computes a pH correction dose from a technician-entered Base/Acid Demand drop count --
  * the ONLY valid input for a pH dose, since acid/base demand isn't derivable from a pH
- * reading itself. Returns null if drops <= 0 or gallons is missing/invalid -- caller
- * should show nothing (not a fabricated dose) in that case. `linkedBillingProduct` mirrors
+ * reading itself. Returns null if drops <= 0, gallons is missing/invalid, or the product's
+ * dosingConstant isn't a usable positive number -- caller should show nothing (not a fabricated
+ * dose) in any of those cases. `linkedBillingProduct` mirrors
  * the ppm-based pass's billingLink construction (see buildBillingLink) so applying a pH
  * dose to the visit's dose log works the same way as any other recommendation. */
 export function computePhDose(
@@ -536,7 +537,13 @@ export function computePhDose(
   linkedBillingProduct?: LinkedBillingProduct | null,
 ): PhDoseResult | null {
   if (!drops || drops <= 0 || !gallons || gallons <= 0) return null;
-  const rawDose = Number(product.dosingConstant) * drops * (gallons / 10000);
+  // A missing or non-numeric dosingConstant used to slip straight through: Number(null) is 0, so a
+  // mis-seeded product produced a confident "0 oz", and a non-numeric one produced "NaN oz". Both
+  // are worse than refusing, because a technician has no way to tell either from a real answer.
+  const constant = Number(product.dosingConstant);
+  if (!Number.isFinite(constant) || constant <= 0) return null;
+  const rawDose = constant * drops * (gallons / 10000);
+  if (!Number.isFinite(rawDose) || rawDose <= 0) return null;
   return {
     productName: product.name,
     formattedDose: formatDose(rawDose, product.dosingUnit),

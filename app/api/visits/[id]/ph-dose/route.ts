@@ -43,9 +43,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "NO_PRODUCT_CONFIGURED" }, { status: 400 });
   }
 
+  // Volume is checked here rather than inferred from a null result, because computePhDose also
+  // refuses a product whose dosingConstant is unusable -- and reporting that as "no gallons set"
+  // sent a technician to look at a volume that was already correct.
   const gallons = visit.bodyOfWater.volumeGallons != null ? Number(visit.bodyOfWater.volumeGallons) : null;
+  if (gallons == null || !Number.isFinite(gallons) || gallons <= 0) {
+    return NextResponse.json({ error: "NO_VOLUME_CONFIGURED" }, { status: 400 });
+  }
+
   const result = computePhDose(drops, setting.catalogProduct, gallons, setting.linkedBillingProduct);
-  if (!result) return NextResponse.json({ error: "NO_VOLUME_CONFIGURED" }, { status: 400 });
+  if (!result) {
+    // Reached only when the product itself is unusable: the org's pH product has no valid dosing
+    // constant, which is an admin data problem, not anything the technician can fix on site.
+    return NextResponse.json({ error: "PRODUCT_MISCONFIGURED", productName: setting.catalogProduct.name }, { status: 400 });
+  }
 
   return NextResponse.json({ ok: true, ...result });
 }
