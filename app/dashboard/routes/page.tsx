@@ -130,7 +130,7 @@ export default async function RoutesPage({ searchParams }: PageProps) {
           property: { select: { name: true, latitude: true, longitude: true } },
           // Same "prefer the venue's own pin" rule the schedule pages use, so the route
           // builder's map puts a stop on the actual pool rather than the property centre.
-          bodyOfWater: { select: { name: true, latitude: true, longitude: true } },
+          bodyOfWater: { select: { name: true, type: true, latitude: true, longitude: true } },
         },
       },
     },
@@ -612,8 +612,10 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                 routeId={route.id}
                 stops={route.stops.map((stop) => ({
                   id: stop.id,
+                  propertyId: stop.propertyId,
                   propertyName: stop.property.name,
                   bodyName: stop.bodyOfWater?.name ?? null,
+                  bodyType: stop.bodyOfWater?.type ?? null,
                   etaOffsetMinutes: stop.etaOffsetMinutes,
                   latitude: coalesceCoord(stop.bodyOfWater?.latitude, stop.property.latitude),
                   longitude: coalesceCoord(stop.bodyOfWater?.longitude, stop.property.longitude),

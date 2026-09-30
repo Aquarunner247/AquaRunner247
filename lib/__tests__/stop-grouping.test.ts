@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { BUNDLE_RADIUS_METERS, formatSequenceRange, groupNearbyStops, metersBetween, type GroupableStop } from "@/lib/stop-grouping";
+import {
+  BUNDLE_RADIUS_METERS,
+  coalesceBundleMembers,
+  formatSequenceRange,
+  groupNearbyStops,
+  metersBetween,
+  type GroupableStop,
+} from "@/lib/stop-grouping";
 
 /**
  * Coordinates are synthetic but the DISTANCES mirror the customer's real measured pins, which is
@@ -217,5 +224,81 @@ describe("formatSequenceRange", () => {
 
   it("is empty for no positions", () => {
     expect(formatSequenceRange([])).toBe("");
+  });
+});
+
+describe("coalesceBundleMembers", () => {
+  /**
+   * The live case this exists for. Pacific Harbors and Paseo Del Prado came out of the optimizer
+   * interleaved -- spa, spa, pool, pool -- because two properties that close make the interleaved
+   * order cost the same as the grouped one, so nothing preferred grouping and neither pair could be
+   * drawn as one card.
+   */
+  it("un-interleaves two nearby properties without reordering the properties", () => {
+    const pacificSpa = spa("pacificSpa", { propertyId: "pacific" });
+    const paseoSpa = spa("paseoSpa", { propertyId: "paseo", ...north(200) });
+    const pacificPool = stop("pacificPool", { propertyId: "pacific", ...north(6.9) });
+    const paseoPool = stop("paseoPool", { propertyId: "paseo", ...north(200 + 7.9) });
+
+    const result = coalesceBundleMembers([pacificSpa, paseoSpa, pacificPool, paseoPool]);
+
+    expect(result.map((s) => s.id)).toEqual(["pacificSpa", "pacificPool", "paseoSpa", "paseoPool"]);
+    // And the result now actually bundles, which the input did not.
+    expect(groupNearbyStops(result).map((g) => g.memberIds)).toEqual([
+      ["pacificSpa", "pacificPool"],
+      ["paseoSpa", "paseoPool"],
+    ]);
+    expect(groupNearbyStops([pacificSpa, paseoSpa, pacificPool, paseoPool])).toHaveLength(4);
+  });
+
+  it("leaves an already-grouped sequence exactly as it was", () => {
+    const input = [stop("pool"), spa("spa", { ...north(7) }), stop("other", { propertyId: "p2", ...north(300) })];
+    expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["pool", "spa", "other"]);
+  });
+
+  it("does not pull in a body too far away to be one walk-up", () => {
+    // The Alcove's front and back decks, 136m apart: the optimizer's order stands.
+    const input = [
+      stop("backPool"),
+      stop("frontPool", { ...north(136) }),
+      spa("backSpa", { ...north(12.3) }),
+    ];
+    expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["backPool", "backSpa", "frontPool"]);
+  });
+
+  it("does not pull in a second body of the same kind", () => {
+    // OYO's two pools: close, but they must stay separate rows.
+    const input = [stop("pool1"), stop("elsewhere", { propertyId: "p2", ...north(300) }), stop("pool2", { ...north(16) })];
+    expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["pool1", "elsewhere", "pool2"]);
+  });
+
+  it("never moves an errand, and an errand never collects anything", () => {
+    const input = [
+      stop("errand", { propertyId: null }),
+      stop("pool"),
+      stop("other", { propertyId: "p2", ...north(300) }),
+      spa("spa", { ...north(7) }),
+    ];
+    expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["errand", "pool", "spa", "other"]);
+  });
+
+  it("leaves a skipped stop where it is", () => {
+    const input = [stop("pool"), stop("skipped", { ignored: true, ...north(5) }), spa("spa", { ...north(7) })];
+    // The skipped stop is not a bundle member, so it is not gathered; pool still collects the spa.
+    expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["pool", "spa", "skipped"]);
+  });
+
+  it("keeps different technicians apart", () => {
+    const input = [
+      stop("poolA", { technicianId: "t1" }),
+      stop("poolB", { technicianId: "t2", ...north(300), propertyId: "p2" }),
+      spa("spaA", { technicianId: "t2", ...north(7) }),
+    ];
+    // spaA is at the same property as poolA but assigned elsewhere, so it isn't gathered.
+    expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["poolA", "poolB", "spaA"]);
+  });
+
+  it("returns an empty list unchanged", () => {
+    expect(coalesceBundleMembers([])).toEqual([]);
   });
 });

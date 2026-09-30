@@ -9,7 +9,7 @@ import type { BackgroundGeolocationPlugin } from "@capacitor-community/backgroun
 import { PushNotifications } from "@capacitor/push-notifications";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_ANCHOR, BRAND_PRIMARY } from "@/app/lib/chart-colors";
-import { formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
+import { coalesceBundleMembers, formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { fetchDrivingRoute, computeOptimizedStopOrder } from "@/lib/routing";
 import { sameEndpoint } from "@/lib/route-endpoints";
@@ -706,6 +706,11 @@ export function RouteDayView({
    * first stop is an errand it stays first (defensible -- a supply-house run often is the first
    * stop -- but it is a change). And errands now count toward fetchDrivingDurationMatrix's
    * 50-point ceiling, so a very dense day falls back to straight-line slightly sooner.
+   *
+   * coalesceBundleMembers runs over the result because the cost function cannot see bundles: two
+   * bodies at one property are metres apart, so when two PROPERTIES are also close the interleaved
+   * order (pool A, pool B, spa A, spa B) costs the same as the grouped one and nothing prefers
+   * grouping. That is what left Pacific Harbors and Paseo Del Prado each split across the other.
    */
   async function optimizeRoute() {
     const placed = items.filter(hasCoords);
@@ -719,7 +724,17 @@ export function RouteDayView({
     setOptimizing(true);
     try {
       const ordered = await computeOptimizedStopOrder(placed, { start: startPoint, end: endPoint });
-      await persistOrder([...ordered, ...unplacedVisits, ...unplacedErrands]);
+      const grouped = coalesceBundleMembers(
+        ordered.map((i) => ({
+          ...i,
+          propertyId: i.kind === "adhoc" ? null : i.propertyId,
+          bodyType: i.kind === "adhoc" ? null : i.bodyType,
+        })),
+      );
+      // Map back to the original items by id -- coalesce only reorders, never rewrites.
+      const byId = new Map(ordered.map((i) => [i.id, i]));
+      const reordered = grouped.map((g) => byId.get(g.id)!).filter(Boolean);
+      await persistOrder([...reordered, ...unplacedVisits, ...unplacedErrands]);
     } finally {
       setOptimizing(false);
     }

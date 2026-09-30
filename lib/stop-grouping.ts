@@ -147,3 +147,64 @@ export function formatSequenceRange(positions: number[]): string {
   if (sorted.length === 1) return String(sorted[0]);
   return consecutive ? `${sorted[0]}–${sorted[sorted.length - 1]}` : sorted.join(", ");
 }
+
+/**
+ * Reorders an already-optimized sequence so that stops which belong to the same bundle sit next to
+ * each other, without disturbing anything else.
+ *
+ * Why this is needed: the optimizer treats every body of water as an independent point, and two
+ * bodies at one property are typically 6-19m apart. When two PROPERTIES are also close together,
+ * interleaving them (pool A, pool B, spa A, spa B) costs essentially no drive time, so nothing in
+ * the cost function prefers the grouped order -- and 2-opt has no reason to undo it. Observed live:
+ * Pacific Harbors and Paseo Del Prado came out as spa, spa, pool, pool, so neither property's pair
+ * was contiguous and neither could be shown as one card.
+ *
+ * Only ever moves a stop to just after a stop it would BUNDLE with, so the move is bounded by
+ * radiusMeters -- at most a few metres of walking, never a re-route. Stable otherwise: the relative
+ * order of the groups themselves is exactly what came in, so the optimizer's decisions stand.
+ */
+export function coalesceBundleMembers<T extends GroupableStop>(
+  stops: T[],
+  radiusMeters = BUNDLE_RADIUS_METERS,
+): T[] {
+  const out: T[] = [];
+  const taken = new Set<number>();
+
+  for (let i = 0; i < stops.length; i++) {
+    if (taken.has(i)) continue;
+    const anchor = stops[i];
+    out.push(anchor);
+    taken.add(i);
+
+    // An anchor that can't bundle at all (an errand, or no pin) takes nothing with it.
+    if (anchor.propertyId == null || anchor.latitude == null || anchor.longitude == null) continue;
+    if (anchor.ignored || anchor.bodyType == null) continue;
+
+    const anchorCoords = { latitude: anchor.latitude, longitude: anchor.longitude };
+    const typesTaken = new Set<string>([anchor.bodyType]);
+
+    for (let j = i + 1; j < stops.length; j++) {
+      if (taken.has(j)) continue;
+      const candidate = stops[j];
+      if (
+        candidate.propertyId !== anchor.propertyId ||
+        candidate.technicianId !== anchor.technicianId ||
+        candidate.ignored ||
+        candidate.bodyType == null ||
+        typesTaken.has(candidate.bodyType) ||
+        candidate.latitude == null ||
+        candidate.longitude == null
+      ) {
+        continue;
+      }
+      if (metersBetween(anchorCoords, { latitude: candidate.latitude, longitude: candidate.longitude }) > radiusMeters) {
+        continue;
+      }
+      out.push(candidate);
+      taken.add(j);
+      typesTaken.add(candidate.bodyType);
+    }
+  }
+
+  return out;
+}

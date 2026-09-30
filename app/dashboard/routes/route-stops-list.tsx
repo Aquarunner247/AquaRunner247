@@ -5,12 +5,17 @@ import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { RouteBuilderMap } from "@/app/components/route-builder-map";
 import { computeOptimizedStopOrder } from "@/lib/routing";
+import { coalesceBundleMembers } from "@/lib/stop-grouping";
 import { removeRouteStop } from "./actions";
 
 export type RouteStopItem = {
   id: string;
+  propertyId: string;
   propertyName: string;
   bodyName: string | null;
+  /** BodyOfWater.type. Only used to keep a bundle's members adjacent after optimizing -- see
+   *  coalesceBundleMembers, and lib/stop-grouping.ts for why a bundle holds one of each kind. */
+  bodyType: string | null;
   etaOffsetMinutes: number;
   latitude: number | null;
   longitude: number | null;
@@ -75,7 +80,22 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
     setOptimizing(true);
     try {
       const ordered = await computeOptimizedStopOrder(withCoords, { start: startPoint, end: endPoint });
-      await persistOrder([...ordered, ...withoutCoords]);
+      // Keeps each property's pool and spa adjacent. The cost function can't see bundles: two
+      // bodies at one property are metres apart, so interleaving two nearby properties costs it
+      // nothing and nothing prefers the grouped order. This sets the template every generated
+      // visit inherits its routeSequence from, so an interleave here repeats every week.
+      const grouped = coalesceBundleMembers(
+        ordered.map((s) => ({
+          id: s.id,
+          propertyId: s.propertyId,
+          bodyType: s.bodyType,
+          latitude: s.latitude,
+          longitude: s.longitude,
+        })),
+      );
+      const byId = new Map(ordered.map((s) => [s.id, s]));
+      const reordered = grouped.map((g) => byId.get(g.id)!).filter(Boolean);
+      await persistOrder([...reordered, ...withoutCoords]);
     } finally {
       setOptimizing(false);
     }
