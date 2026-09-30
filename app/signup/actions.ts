@@ -233,10 +233,26 @@ function resolveFromForm(formData: FormData): ResolvedSignup {
  * webhook's safety-net Organization create doesn't have a password-setting form to have
  * collected them from), so they're the fields taken fresh from the resume form itself.
  */
+/**
+ * How long after the webhook created an organization its setup can still be resumed from an
+ * `orgId` link.
+ *
+ * That link is effectively a bearer credential: whoever holds it sets the password for an
+ * organization billed to someone else's card, because the account email comes from Stripe rather
+ * than the form. It is only ever used minutes after checkout, so an indefinite window bought
+ * nothing and left a claimable organization sitting there for as long as the row existed. A day is
+ * generous for a browser crash or a closed tab, and anything later should go through support
+ * rather than a link.
+ */
+const RESUME_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 async function resolveFromExistingOrg(orgId: string, formData: FormData): Promise<ResolvedSignup> {
   const org = await prisma.organization.findUnique({ where: { id: orgId }, include: { users: { take: 1 } } });
   if (!org || !org.stripeCustomerId || org.users.length > 0) {
     throw new Error(`Organization ${orgId} is not a valid resume target`);
+  }
+  if (Date.now() - org.createdAt.getTime() > RESUME_WINDOW_MS) {
+    throw new Error(`Organization ${orgId} is past the ${RESUME_WINDOW_MS}ms resume window`);
   }
 
   const customer = await stripe.customers.retrieve(org.stripeCustomerId);

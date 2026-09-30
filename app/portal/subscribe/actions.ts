@@ -123,6 +123,27 @@ export async function completeCompliancePlan(sessionId: string) {
   const customerUser = await prisma.customerUser.findUnique({ where: { id: customerUserId } });
   if (!customerUser) redirect("/portal/subscribe?error=server-error");
 
+  /**
+   * The session has to belong to the person presenting it. Being signed in as SOMEBODY was the
+   * only check here before, so a signed-in portal user holding another customer's completed
+   * session id -- and one appears in a return URL, so it survives in browser history and in
+   * anything that URL was pasted into -- could trigger that customer's conversion.
+   *
+   * That is not a read: conversion MOVES their Property and ServiceVisit rows onto a brand new
+   * organization and permanently deactivates the CustomerUser, so it is destructive and not
+   * reversible from the UI. Matched on authUserId (unique, and what the session cookie actually
+   * proves) and falling back to email only when the CustomerUser predates having one.
+   */
+  const belongsToCaller = customerUser.authUserId
+    ? customerUser.authUserId === user.id
+    : customerUser.email.toLowerCase() === (user.email ?? "").toLowerCase();
+  if (!belongsToCaller) {
+    console.error(
+      `[portal/subscribe] session ${sessionId} is for customerUser ${customerUserId}, presented by auth user ${user.id}`,
+    );
+    redirect("/portal/subscribe?error=server-error");
+  }
+
   const stateRuleset = customer.organization.state
     ? await prisma.complianceRuleset.findUnique({ where: { state: customer.organization.state }, select: { id: true } })
     : null;
