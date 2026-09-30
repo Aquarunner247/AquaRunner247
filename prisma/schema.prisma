@@ -1333,6 +1333,13 @@ model ServiceVisit {
   /// this existed, and for an org that has no messages configured.
   serviceMessage String?
 
+  /// When this visit's details went out in a customer service-summary email, and null until they
+  /// did. Two jobs: it stops a bundled pool+spa being reported twice when both completions land at
+  /// once (see lib/service-summary-bundle.ts), and it records what was actually sent, which the
+  /// visit's own completedAt cannot -- a bundle's email is sent once for several visits, so every
+  /// member carries the same stamp.
+  summaryEmailSentAt DateTime?
+
   startedAt             DateTime?
   /// GPS location captured at the moment arrival was logged (geofence auto-detect or the
   /// manual "I've arrived" button, best-effort — null if the device denied/lacked location).

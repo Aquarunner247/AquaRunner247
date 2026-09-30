@@ -44,18 +44,47 @@ type ReadingSummary = {
 
 type DoseSummary = { productName: string; quantity: number; unit: string };
 
+/**
+ * One body of water's own record. A pool and its spa are serviced on one walk-up but stay separate
+ * compliance records, so the customer gets a single email holding both rather than two emails for
+ * one visit -- see lib/service-summary-bundle.ts for what counts as one visit.
+ */
+export type ServiceSummaryBody = {
+  bodyOfWaterName: string;
+  /** Which disinfectant this body uses (BodyOfWater.disinfectionMethod) -- decides whether the
+   * summary shows Free Chlorine or Bromine, since a reading only ever has one of the two filled
+   * in. Per body, because a pool and its spa can differ. */
+  usesBromine: boolean;
+  reading: ReadingSummary | null;
+  doses: DoseSummary[];
+  checklistLabels: string[];
+  techNotes: string | null;
+  /** Signed Supabase Storage URLs (see VISIT_PHOTOS_BUCKET) -- the bucket is private, so these
+   * must already be signed by the caller, with an expiry long enough to still resolve whenever the
+   * recipient actually opens the email, not the short-lived one used for a page that regenerates
+   * it on every load. */
+  photoUrls: string[];
+  /** When this body in particular was finished. The header strip shows the last of them, which is
+   * when the visit as a whole ended. */
+  completedAt: Date;
+  /** The message the technician picked for this body, already interpolated. Rendered once above
+   * everything when every body carries the same one, and inside each body's block otherwise -- a
+   * pool that went fine and a spa skipped for lightning do not share a message. */
+  serviceMessage: string | null;
+  /** True for a body that was skipped rather than serviced. Named in the email with no readings, so
+   * a customer expecting two reports isn't left wondering where the second went. */
+  skipped?: boolean;
+};
+
 type ServiceSummaryEmailInput = {
   to: string;
   /** The org's branding when it's on a tier that includes white-labelling, else null. Resolved
    * by the caller (see the completion route) so the tier gate lives with the other org lookups
    * rather than being re-derived here. Null yields the platform's own look. */
   branding?: EmailBrandingInput | null;
-  /** The message the technician picked at completion, already interpolated. Rendered first in the
-   * body, before the readings -- it's the part written for a person to read, and the customer
-   * shouldn't have to scroll past chemistry to find out whether anything was skipped today. */
-  serviceMessage?: string | null;
   propertyName: string;
-  bodyOfWaterName: string;
+  /** Every body of water this visit covered, in route order. One entry is the ordinary case. */
+  bodies: ServiceSummaryBody[];
   address: string | null;
   technicianName: string | null;
   /** Null for a visit that was never logged through the GPS auto-arrival flow (see
@@ -71,20 +100,6 @@ type ServiceSummaryEmailInput = {
    * the process timezone is UTC, not the business's own -- without this, the email shows
    * the visit's raw UTC clock reading instead of local time. */
   timeZone: string;
-  reading: ReadingSummary | null;
-  /** Which disinfectant this body of water uses (BodyOfWater.disinfectionMethod) --
-   * decides whether the summary shows Free Chlorine or Bromine, since a reading only
-   * ever has one of the two filled in. */
-  usesBromine: boolean;
-  doses: DoseSummary[];
-  checklistLabels: string[];
-  techNotes: string | null;
-  /** Signed Supabase Storage URLs (see VISIT_PHOTOS_BUCKET) -- the bucket is private, so
-   * these must already be signed by the caller before this runs, with an expiry long
-   * enough to still resolve whenever the recipient actually opens the email (people don't
-   * always open a service email the minute it lands), not the short-lived one used for a
-   * page that regenerates it on every load. */
-  photoUrls: string[];
   /** Organization.serviceSummaryCcEmail, if the org has set one -- BCC'd so the org keeps
    * its own copy of everything sent to a customer, without the customer ever seeing that
    * address in the message headers. Null (most orgs) sends only to `to`, unchanged. */
@@ -135,6 +150,107 @@ function section(label: string, contentHtml: string, first = false): string {
     </div>`;
 }
 
+/** Names one body of water above its own record. Only used for a bundle -- a single-body email
+ *  already names it in the header, and repeating it there would read as a mistake. */
+function bodyHeading(name: string): string {
+  return `
+    <div style="border-top:2px solid #0A6E7C; margin-top:16px; padding-top:12px;">
+      <p style="margin:0; font-size:16px; font-weight:bold; color:#0A6E7C;">${escapeEmailHtml(name)}</p>
+    </div>`;
+}
+
+/**
+ * One body of water's sections: readings, chemicals, checklist, notes, photos. Identical to what a
+ * single-body email has always rendered, so the ordinary case is unchanged and a bundle is simply
+ * this repeated under a heading per body.
+ *
+ * Every interpolated string is escaped here. Product names, checklist labels and technician notes
+ * previously went in raw -- their own staff's text reaching their own customer, so not an attack in
+ * practice, but an ampersand or angle bracket in a note could mangle the message.
+ */
+function renderBody(body: ServiceSummaryBody, timeZone: string, showHeading: boolean, showMessage: boolean): string {
+  const firstSection = !showHeading && !showMessage;
+
+  if (body.skipped) {
+    return `
+      ${showHeading ? bodyHeading(body.bodyOfWaterName) : ""}
+      ${section(
+        "Not serviced this visit",
+        `<p style="font-size:14px; margin:0; color:#55696C;">${
+          body.serviceMessage
+            ? escapeEmailHtml(body.serviceMessage)
+            : "This one was skipped today and will be picked up on the next service call."
+        }</p>`,
+        firstSection,
+      )}`;
+  }
+
+  const readingRows = [
+    [
+      body.usesBromine ? "Bromine" : "Free Chlorine",
+      `${fmt(body.usesBromine ? (body.reading?.brominePpm ?? null) : (body.reading?.freeChlorinePpm ?? null))} ppm`,
+    ],
+    ["pH", fmt(body.reading?.ph ?? null)],
+    ["Total Alkalinity", `${fmt(body.reading?.alkalinityPpm ?? null, 0)} ppm`],
+    ["Cyanuric Acid", `${fmt(body.reading?.cyanuricAcidPpm ?? null, 0)} ppm`],
+    ["Water Temperature", `${fmt(body.reading?.temperatureF ?? null, 0)}°F`],
+    ["Backwash", body.reading?.backwashAt ? `Yes (${fmtTime(body.reading.backwashAt, timeZone)})` : "No"],
+  ]
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:5px 0; font-size:14px; color:#55696C;">${label}</td><td style="padding:5px 0; font-size:14px; font-weight:bold; text-align:right;">${value}</td></tr>`,
+    )
+    .join("");
+
+  return `
+    ${showHeading ? bodyHeading(body.bodyOfWaterName) : ""}
+    ${
+      showMessage && body.serviceMessage
+        ? `<p style="margin:16px 0 0; font-size:15px; line-height:1.5; color:#06333B;">${escapeEmailHtml(body.serviceMessage)}</p>`
+        : ""
+    }
+    ${section("Water chemistry readings", `<table style="width:100%; border-collapse:collapse;">${readingRows}</table>`, firstSection)}
+    ${
+      body.doses.length
+        ? section(
+            "Chemicals added",
+            `<ul style="font-size:14px; margin:0; padding-left:18px;">
+               ${body.doses
+                 .map(
+                   (d) =>
+                     `<li style="margin-bottom:2px;">${escapeEmailHtml(d.productName)}: <strong>${d.quantity} ${escapeEmailHtml(d.unit)}</strong></li>`,
+                 )
+                 .join("")}
+             </ul>`,
+          )
+        : ""
+    }
+    ${
+      body.checklistLabels.length
+        ? section(
+            "Service checklist completed",
+            `<ul style="font-size:14px; margin:0; padding-left:0; list-style:none;">
+               ${body.checklistLabels.map((label) => `<li style="margin-bottom:3px;">&#10003; ${escapeEmailHtml(label)}</li>`).join("")}
+             </ul>`,
+          )
+        : ""
+    }
+    ${body.techNotes ? section("Notes", `<p style="font-size:14px; margin:0; white-space:pre-wrap;">${escapeEmailHtml(body.techNotes)}</p>`) : ""}
+    ${
+      body.photoUrls.length
+        ? section(
+            "Photos from this visit",
+            body.photoUrls
+              .map(
+                (url) =>
+                  `<img src="${url}" alt="Service visit photo" style="display:block; width:100%; max-width:512px; border-radius:8px; margin:0 0 8px; border:1px solid #C4D9DA;" />`,
+              )
+              .join(""),
+          )
+        : ""
+    }`;
+}
+
 export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -164,79 +280,41 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
     .map((b, i, arr) => (i === arr.length - 1 ? b.replace("border-right:1px solid #0F4750; ", "") : b))
     .join("");
 
-  const readingRows = [
-    [input.usesBromine ? "Bromine" : "Free Chlorine", `${fmt(input.usesBromine ? (input.reading?.brominePpm ?? null) : (input.reading?.freeChlorinePpm ?? null))} ppm`],
-    ["pH", fmt(input.reading?.ph ?? null)],
-    ["Total Alkalinity", `${fmt(input.reading?.alkalinityPpm ?? null, 0)} ppm`],
-    ["Cyanuric Acid", `${fmt(input.reading?.cyanuricAcidPpm ?? null, 0)} ppm`],
-    ["Water Temperature", `${fmt(input.reading?.temperatureF ?? null, 0)}°F`],
-    ["Backwash", input.reading?.backwashAt ? "Yes" : "No"],
-  ]
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:5px 0; font-size:14px; color:#55696C;">${label}</td><td style="padding:5px 0; font-size:14px; font-weight:bold; text-align:right;">${value}</td></tr>`,
-    )
-    .join("");
+  // The bodies' names as the header and subject say them: "Pool & Spa", or a comma list at three.
+  const bodyNames = input.bodies.map((b) => b.bodyOfWaterName);
+  const bodyLabel =
+    bodyNames.length <= 1
+      ? (bodyNames[0] ?? "")
+      : bodyNames.length === 2
+        ? `${bodyNames[0]} & ${bodyNames[1]}`
+        : `${bodyNames.slice(0, -1).join(", ")} & ${bodyNames[bodyNames.length - 1]}`;
+
+  // One message above everything when every body carries the same text, which is the ordinary case:
+  // a technician usually picks the same message for a pool and its spa. When they differ, each
+  // body's message goes inside its own block instead, so neither is attributed to the wrong water.
+  const messages = input.bodies.map((b) => b.serviceMessage ?? "");
+  const sharedMessage = messages.length > 0 && messages.every((m) => m === messages[0]) ? (messages[0] || null) : null;
+  const multi = input.bodies.length > 1;
+
+  const bodiesHtml = input.bodies.map((body) => renderBody(body, input.timeZone, multi, sharedMessage == null)).join("");
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
       <div style="background:${brand.headerColor}; padding: 20px 24px 0; border-radius: 8px 8px 0 0;">
         ${brand.logoBlock}
         <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Service Summary</p>
-        <h1 style="color:white; font-size:20px; margin:6px 0 2px;">${input.propertyName} — ${input.bodyOfWaterName}</h1>
-        ${input.address ? `<p style="color:#9CC3C6; font-size:13px; margin:0 0 2px;">${input.address}</p>` : ""}
+        <h1 style="color:white; font-size:20px; margin:6px 0 2px;">${escapeEmailHtml(input.propertyName)} — ${escapeEmailHtml(bodyLabel)}</h1>
+        ${input.address ? `<p style="color:#9CC3C6; font-size:13px; margin:0 0 2px;">${escapeEmailHtml(input.address)}</p>` : ""}
         <p style="color:#9CC3C6; font-size:13px; margin:0 0 16px;">${dateStr}</p>
         <table style="width:100%; border-collapse:collapse; table-layout:fixed;"><tr>${infoBlocks}</tr></table>
       </div>
       <div style="border:1px solid #C4D9DA; border-top:none; padding: 0 24px; border-radius: 0 0 8px 8px;">
         ${
-          input.serviceMessage
-            ? `<p style="margin:16px 0 0; font-size:15px; line-height:1.5; color:#06333B;">${escapeEmailHtml(input.serviceMessage)}</p>`
+          sharedMessage
+            ? `<p style="margin:16px 0 0; font-size:15px; line-height:1.5; color:#06333B;">${escapeEmailHtml(sharedMessage)}</p>`
             : ""
         }
-        ${section(
-          "Water chemistry readings",
-          `<table style="width:100%; border-collapse:collapse;">${readingRows}</table>`,
-          true,
-        )}
-
-        ${
-          input.doses.length
-            ? section(
-                "Chemicals added",
-                `<ul style="font-size:14px; margin:0; padding-left:18px;">
-                   ${input.doses.map((d) => `<li style="margin-bottom:2px;">${d.productName}: <strong>${d.quantity} ${d.unit}</strong></li>`).join("")}
-                 </ul>`,
-              )
-            : ""
-        }
-
-        ${
-          input.checklistLabels.length
-            ? section(
-                "Service checklist completed",
-                `<ul style="font-size:14px; margin:0; padding-left:0; list-style:none;">
-                   ${input.checklistLabels.map((label) => `<li style="margin-bottom:3px;">&#10003; ${label}</li>`).join("")}
-                 </ul>`,
-              )
-            : ""
-        }
-
-        ${input.techNotes ? section("Notes", `<p style="font-size:14px; margin:0; white-space:pre-wrap;">${input.techNotes}</p>`) : ""}
-
-        ${
-          input.photoUrls.length
-            ? section(
-                "Photos from this visit",
-                input.photoUrls
-                  .map(
-                    (url) =>
-                      `<img src="${url}" alt="Service visit photo" style="display:block; width:100%; max-width:512px; border-radius:8px; margin:0 0 8px; border:1px solid #C4D9DA;" />`,
-                  )
-                  .join(""),
-              )
-            : ""
-        }
+        ${bodiesHtml}
 
         <p style="font-size:12px; color:#55696C; margin:16px 0 0; border-top:1px solid #C4D9DA; padding:12px 0 20px;">
           ${brand.footerAttribution}
@@ -251,7 +329,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
       to: input.to,
       bcc: input.ccEmail ?? undefined,
       replyTo: input.replyTo ?? undefined,
-      subject: `Service Summary — ${input.propertyName} — ${input.bodyOfWaterName} — ${dateStr}`,
+      subject: `Service Summary — ${input.propertyName} — ${bodyLabel} — ${dateStr}`,
       html,
     });
     if (result.error) {

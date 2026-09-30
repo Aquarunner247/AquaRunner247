@@ -1,20 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { sendServiceSummaryEmail } from "@/lib/email";
-import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
 import { applyServiceMessagePlaceholders } from "@/lib/default-service-messages";
-import { propertyContactEmail } from "@/lib/property-contact";
+import { sendBundledServiceSummary } from "@/lib/service-summary-email";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
-import { timeZoneForState } from "@/lib/timezone";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
-
-// Long enough that the link in the email is still good whenever the recipient actually
-// opens it (people don't always open a service email the minute it lands) -- much longer
-// than the 1-hour signed URL the portal page uses, which regenerates on every load instead
-// of needing to survive unopened in an inbox.
-const PHOTO_EMAIL_LINK_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
@@ -178,65 +167,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     },
   });
 
-  // Best-effort: send a service summary email to the property's contact on file.
-  // Never blocks or fails visit completion if email sending has an issue.
-  const contactEmail = propertyContactEmail(visit.property);
-  if (contactEmail) {
-    try {
-      const supabaseAdmin = createSupabaseAdminClient();
-      const signedPhotoUrls = await Promise.all(
-        visit.photos.map(async (p) => {
-          const { data } = await supabaseAdmin.storage.from(VISIT_PHOTOS_BUCKET).createSignedUrl(p.storagePath, PHOTO_EMAIL_LINK_TTL_SECONDS);
-          return data?.signedUrl ?? null;
-        }),
-      );
-      await sendServiceSummaryEmail({
-        to: contactEmail,
-        serviceMessage,
-        // Same gate the portal layout and welcome email use: stored branding stops being
-        // applied the moment an org is no longer on a tier that includes it, rather than
-        // merely becoming uneditable. Null here yields the platform's own look.
-        branding: hasWhiteLabelBranding(visit.organization)
-          ? {
-              orgName: visit.organization.name,
-              logoUrl: visit.organization.brandingLogoUrl,
-              primaryColor: visit.organization.brandingPrimaryColor,
-              headerColor: visit.organization.brandingHeaderColor,
-            }
-          : null,
-        propertyName: visit.property.name,
-        bodyOfWaterName: visit.bodyOfWater.name,
-        address: [visit.property.addressLine1, visit.property.city, visit.property.region].filter(Boolean).join(", ") || null,
-        technicianName: visit.technician?.name ?? visit.technician?.email ?? null,
-        // Pre-update value, not `completed`'s -- the completion update above backfills a
-        // never-logged startedAt to completedAt so the DB row always has one, but the
-        // email needs to know whether a real, distinct arrival was ever logged (see
-        // startedAt's doc comment on ServiceSummaryEmailInput).
-        startedAt: visit.startedAt,
-        completedAt,
-        timeZone: timeZoneForState(visit.organization.state),
-        ccEmail: visit.organization.serviceSummaryCcEmail,
-        replyTo: visit.organization.welcomeEmailSupportEmail,
-        reading: visit.reading
-          ? {
-              ph: visit.reading.ph != null ? Number(visit.reading.ph) : null,
-              freeChlorinePpm: visit.reading.freeChlorinePpm != null ? Number(visit.reading.freeChlorinePpm) : null,
-              brominePpm: visit.reading.brominePpm != null ? Number(visit.reading.brominePpm) : null,
-              alkalinityPpm: visit.reading.alkalinityPpm != null ? Number(visit.reading.alkalinityPpm) : null,
-              cyanuricAcidPpm: visit.reading.cyanuricAcidPpm != null ? Number(visit.reading.cyanuricAcidPpm) : null,
-              temperatureF: visit.reading.temperatureF != null ? Number(visit.reading.temperatureF) : null,
-              backwashAt: visit.reading.backwashAt,
-            }
-          : null,
-        usesBromine: visit.bodyOfWater.disinfectionMethod === "BROMINE",
-        doses: visit.doses.map((d) => ({ productName: d.productName, quantity: Number(d.quantity), unit: d.unit })),
-        checklistLabels: visit.checklistCompletions.map((c) => c.label).filter(Boolean),
-        techNotes: visit.techNotes,
-        photoUrls: signedPhotoUrls.filter((url): url is string => url != null),
-      });
-    } catch {
-      // Non-critical — visit is already marked complete regardless of email outcome.
-    }
+  // Best-effort: send the customer's service summary. Never blocks or fails visit completion.
+  //
+  // One email per WALK-UP, not per body of water: a bundled pool and spa are one occasion from the
+  // customer's side, so this sends nothing while a sibling body is still outstanding and sends the
+  // pair once the last one finishes. lib/service-summary-email.ts owns that, including the claim
+  // that stops two simultaneous completions both sending.
+  try {
+    await sendBundledServiceSummary(visit.id);
+  } catch {
+    // Non-critical -- visit is already marked complete regardless of email outcome.
   }
 
   return NextResponse.json({ ok: true, visit: completed });
