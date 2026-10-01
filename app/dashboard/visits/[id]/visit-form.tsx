@@ -226,6 +226,9 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [completingVisit, setCompletingVisit] = useState(false);
   const [noPhotoPrompt, setNoPhotoPrompt] = useState(false);
+  /** In flight, so a second tap can't log the dose twice. The form only clears after the request
+   *  resolves, so without this the button stayed live and enabled while nothing visibly happened. */
+  const [addingDose, setAddingDose] = useState(false);
   /** Bodies of water on this same walk-up still needing work. Set from the completion response and
    *  shown as a notice the technician has to acknowledge -- the success path reloads the page, so a
    *  message set here would otherwise be wiped before he could read it. */
@@ -433,10 +436,16 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
 
   async function addDose(e: FormEvent) {
     e.preventDefault();
-    const ok = await submitDose(doseForm.chemicalProductId, Number(doseForm.quantity));
-    if (ok) {
-      setDoseForm({ chemicalProductId: "", quantity: "" });
-      setPendingDoseHint(null);
+    if (addingDose) return;
+    setAddingDose(true);
+    try {
+      const ok = await submitDose(doseForm.chemicalProductId, Number(doseForm.quantity));
+      if (ok) {
+        setDoseForm({ chemicalProductId: "", quantity: "" });
+        setPendingDoseHint(null);
+      }
+    } finally {
+      setAddingDose(false);
     }
   }
 
@@ -1038,10 +1047,10 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
             />
             <button
               type="submit"
-              disabled={isCompleted || !doseForm.chemicalProductId || !doseForm.quantity}
+              disabled={addingDose || isCompleted || !doseForm.chemicalProductId || !doseForm.quantity}
               className="app-btn-primary-sm"
             >
-              Add dose
+              {addingDose ? "Adding…" : "Add dose"}
             </button>
           </form>
         )}
