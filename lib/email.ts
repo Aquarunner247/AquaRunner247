@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { escapeEmailHtml, resolveEmailBranding, type EmailBrandingInput } from "@/lib/mail/email-branding";
+import { resolveFromAddress } from "@/lib/mail/from-address";
 
 /**
  * Notifies the site owner of a new waitlist signup. Best-effort — the WaitlistSignup
@@ -12,7 +13,7 @@ export async function sendWaitlistNotificationEmail(signupEmail: string): Promis
   if (!apiKey || !notifyTo) {
     return { ok: false, error: "RESEND_API_KEY or WAITLIST_NOTIFICATION_EMAIL not set — notification not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
+  const fromAddress = resolveFromAddress();
 
   const resend = new Resend(apiKey);
 
@@ -115,8 +116,10 @@ type ServiceSummaryEmailInput = {
    * address in the message headers. Null (most orgs) sends only to `to`, unchanged. */
   ccEmail?: string | null;
   /** See CustomerAlertEmailInput.replyTo (lib/email.ts) -- same Organization.
-   * welcomeEmailSupportEmail source, same reasoning: without it, a reply lands on
-   * no-reply@mail.aquarunner247.com, which bounces (no inbound mail configured there). */
+   * welcomeEmailSupportEmail source, same reasoning: without it a reply goes to the `from`
+   * address (see lib/mail/from-address.ts), which only receives if inbound forwarding has been set
+   * up on the domain -- Resend does not accept inbound mail by default. This is what actually gets
+   * a customer's reply to a human. */
   replyTo?: string | null;
 };
 
@@ -268,7 +271,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
+  const fromAddress = resolveFromAddress();
 
   const resend = new Resend(apiKey);
   const brand = resolveEmailBranding(input.branding ?? null);
@@ -402,7 +405,7 @@ export async function sendPhoneAgentTicketEmail(input: PhoneAgentTicketEmailInpu
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
+  const fromAddress = resolveFromAddress();
 
   const resend = new Resend(apiKey);
 
@@ -477,7 +480,7 @@ export async function sendCancellationScrubWarningEmail(input: CancellationScrub
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
+  const fromAddress = resolveFromAddress();
 
   const resend = new Resend(apiKey);
 
@@ -547,11 +550,11 @@ type CustomerAlertEmailInput = {
    * getting "Update from AquaRunner 24/7 Pro" about their own pool is the bug this fixes. */
   branding?: EmailBrandingInput | null;
   message: string;
-  /** Organization.welcomeEmailSupportEmail, if the org has set one -- without this, a
-   * reply lands on the `from` address (no-reply@mail.aquarunner247.com), which has no
-   * inbound mail configured at all and bounces. Null sends with no reply-to header, same
-   * as before this field existed (falls back to whatever Resend/the client does by
-   * default, i.e. replying to the from address). */
+  /** Organization.welcomeEmailSupportEmail, if the org has set one -- without this, a reply goes to
+   * the `from` address (see lib/mail/from-address.ts), which only receives if inbound forwarding has
+   * been set up on the domain; Resend accepts no inbound mail by default. Null sends with no
+   * reply-to header, same as before this field existed (falls back to whatever Resend/the client
+   * does by default, i.e. replying to the from address). */
   replyTo?: string | null;
 };
 
@@ -560,7 +563,7 @@ export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Pr
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
+  const fromAddress = resolveFromAddress();
 
   const resend = new Resend(apiKey);
   const brand = resolveEmailBranding(input.branding ?? null);
@@ -621,7 +624,7 @@ export async function sendCustomerAccessEndedEmail(input: CustomerAccessEndedEma
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
+  const fromAddress = resolveFromAddress();
 
   const resend = new Resend(apiKey);
 

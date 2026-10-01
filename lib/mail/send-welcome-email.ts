@@ -51,6 +51,7 @@ import { renderWelcomeEmail } from "@/lib/mail/welcome-email";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
+import { resolveFromAddress } from "@/lib/mail/from-address";
 
 export interface SendWelcomeEmailParams {
   organizationId: string;
@@ -143,7 +144,7 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
     await logSend(params, "failed", "RESEND_API_KEY not set");
     return { ok: false, reason: "Email failed to send." };
   }
-  const fromAddress = process.env.RESEND_FROM_EMAIL || "no-reply@mail.aquarunner247.com";
+  const fromAddress = resolveFromAddress();
   const resend = new Resend(apiKey);
 
   const result = await resend.emails.send({
