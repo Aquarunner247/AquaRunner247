@@ -20,6 +20,7 @@
     "db:verify-compliance-seed": "node --env-file=.env node_modules/.bin/tsx prisma/verify-compliance-seed.ts",
     "dev:login": "node --env-file=.env node_modules/.bin/tsx scripts/dev-login-cookie.ts",
     "db:prune-out-of-window-visits": "node --env-file=.env node_modules/.bin/tsx scripts/prune-out-of-window-visits.ts",
+    "db:prune-duplicate-doses": "node --env-file=.env node_modules/.bin/tsx scripts/prune-duplicate-doses.ts",
     "postinstall": "prisma generate",
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
