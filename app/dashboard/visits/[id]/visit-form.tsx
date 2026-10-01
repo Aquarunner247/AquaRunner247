@@ -209,6 +209,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
   const [pendingDoseHint, setPendingDoseHint] = useState<{ rawAmount: number; dosingUnit: DosingUnit } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [completingVisit, setCompletingVisit] = useState(false);
+  const [noPhotoPrompt, setNoPhotoPrompt] = useState(false);
   /** Bodies of water on this same walk-up still needing work. Set from the completion response and
    *  shown as a notice the technician has to acknowledge -- the success path reloads the page, so a
    *  message set here would otherwise be wiped before he could read it. */
@@ -506,13 +507,16 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     }
   }
 
-  async function completeVisit() {
+  async function completeVisit(opts: { acknowledgedNoPhoto?: boolean } = {}) {
     setCompletingVisit(true);
     try {
       const response = await fetch(`/api/visits/${visitId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serviceMessageTemplateId: selectedServiceMessageId || null }),
+        body: JSON.stringify({
+          serviceMessageTemplateId: selectedServiceMessageId || null,
+          acknowledgedNoPhoto: opts.acknowledgedNoPhoto === true,
+        }),
       });
       if (response.ok) {
         const data = (await response.json().catch(() => null)) as
@@ -528,11 +532,9 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       }
       const data = (await response.json()) as { error?: string };
       if (data.error === "MISSING_REQUIRED_PHOTO") {
-        setSaveState("error");
-        // Says WHY, because it reads as a lost photo otherwise: a technician who shot this body
-        // through a sibling's camera on the combined capture screen sees "photo required" on a
-        // visit he believes he already photographed.
-        setSaveMsg("This body of water needs its own photo — a photo on another one here doesn't count");
+        // A prompt, not a dead end -- see renderNoPhotoPrompt. Still says plainly that a photo on a
+        // sibling body doesn't count, which is the mistake the combined capture screen used to invite.
+        setNoPhotoPrompt(true);
         return;
       }
       if (data.error === "MISSING_SERVICE_MESSAGE") {
@@ -559,6 +561,63 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     } finally {
       setCompletingVisit(false);
     }
+  }
+
+  /**
+   * Shown when Complete is pressed with no photo for this body of water.
+   *
+   * Worded as a requirement on purpose, because the photo is what the customer actually sees of the
+   * visit -- but it does not block, since the photo is not a compliance record. Blocking used to
+   * strand the visit IN_PROGRESS, and getMonthlyReadingRows only counts COMPLETED visits, so the
+   * readings never reached the public log at all and the customer's summary for the whole walk-up
+   * waited with them.
+   *
+   * Finishing without one is one deliberate extra tap rather than the easy path, and a completed
+   * visit with no photo stays visible to an admin afterwards.
+   */
+  function renderNoPhotoPrompt() {
+    if (!noPhotoPrompt) return null;
+    return createPortal(
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-brand-ink/70 p-4"
+        style={{ zIndex: ABOVE_MAP_Z_INDEX }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="no-photo-title"
+      >
+        <div className="w-full max-w-sm rounded-2xl border border-brand-border bg-white p-5 shadow-soft">
+          <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-warn">Photo required</p>
+          <h2 id="no-photo-title" className="mt-1 font-display text-lg font-bold text-brand-ink">
+            No photo for this one yet
+          </h2>
+          <p className="mt-2 text-sm text-brand-ink">
+            The photo is what the customer sees of today&rsquo;s visit, and it has to be of this body of water
+            &mdash; one taken on another pool or spa here doesn&rsquo;t count.
+          </p>
+          <p className="mt-2 text-sm text-brand-muted">
+            If you genuinely can&rsquo;t take one, you can still finish. Your readings are recorded either way, and
+            the summary goes out without a photo for this one.
+          </p>
+
+          <div className="mt-5 flex flex-col gap-2">
+            <button type="button" onClick={() => setNoPhotoPrompt(false)} className="app-btn-primary-sm min-h-[44px]">
+              Go back and take it
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNoPhotoPrompt(false);
+                void completeVisit({ acknowledgedNoPhoto: true });
+              }}
+              className="app-btn-secondary-sm min-h-[44px]"
+            >
+              Finish without a photo
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
   }
 
   /**
@@ -709,6 +768,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
   return (
     <section className="mt-6 space-y-4">
       {renderWaitingOnNotice()}
+      {renderNoPhotoPrompt()}
       {!isCompleted ? (
         <div className="app-card">
           {startedAt ? (

@@ -13,9 +13,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   // unparseable body so an older client (a tab open across a deploy) still gets a clear
   // MISSING_SERVICE_MESSAGE rather than a 500.
   let serviceMessageTemplateId: string | null = null;
+  /** Set by the form's second attempt, after the technician was told a photo is expected and chose
+   *  to finish without one. See the photo gate below. */
+  let acknowledgedNoPhoto = false;
   try {
-    const body = (await request.json()) as { serviceMessageTemplateId?: unknown };
+    const body = (await request.json()) as { serviceMessageTemplateId?: unknown; acknowledgedNoPhoto?: unknown };
     if (typeof body?.serviceMessageTemplateId === "string") serviceMessageTemplateId = body.serviceMessageTemplateId.trim() || null;
+    acknowledgedNoPhoto = body?.acknowledgedNoPhoto === true;
   } catch {
     serviceMessageTemplateId = null;
   }
@@ -124,8 +128,25 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "MISSING_REQUIRED_READINGS" }, { status: 400 });
   }
 
-  // Rule selected: at least one photo per body of water. This visit targets one body.
-  if (visit.photos.length < 1) {
+  /**
+   * A photo per body of water is expected, and asked for firmly -- but it does NOT block, because
+   * the photo is for the customer, not for compliance.
+   *
+   * It used to block, and that had the coupling backwards: no photo meant the visit could not reach
+   * COMPLETED, and getMonthlyReadingRows only counts COMPLETED visits, so a customer-facing nicety
+   * silently kept genuinely compliance-relevant chemistry out of the public log and left a blank row
+   * for that day. It also stranded the visit IN_PROGRESS, which (since a summary covers a whole
+   * walk-up) held the customer's email for the pool as well.
+   *
+   * The readings gate above is the one that really is compliance-derived -- activeReadingFields comes
+   * from the state's ComplianceRuleset -- and that still blocks.
+   *
+   * So this answers MISSING_REQUIRED_PHOTO once, which the form turns into a prompt, and lets the
+   * second attempt through when the technician has explicitly chosen to finish without one. An older
+   * client that doesn't know to acknowledge still gets the prompt rather than silently completing.
+   * Who skipped it stays visible without a new column: COMPLETED with zero photos is exactly that.
+   */
+  if (visit.photos.length < 1 && !acknowledgedNoPhoto) {
     return NextResponse.json({ error: "MISSING_REQUIRED_PHOTO" }, { status: 400 });
   }
 
