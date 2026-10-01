@@ -271,7 +271,9 @@ async function loadBodies(decision: {
       serviceMessage: true,
       techNotes: true,
       reading: true,
-      photos: { select: { storagePath: true } },
+      // takenAt is the client capture time, immutable -- unlike a reading's updatedAt, which moves
+      // when the record is re-saved and therefore just tracks a late submit.
+      photos: { select: { storagePath: true, takenAt: true } },
       doses: { select: { productName: true, quantity: true, unit: true } },
       checklistCompletions: { where: { completed: true }, select: { label: true } },
       bodyOfWater: { select: { name: true, disinfectionMethod: true } },
@@ -320,6 +322,10 @@ async function loadBodies(decision: {
         photoUrls,
         // A skipped visit has no completedAt; its scheduled day is what the email is about, and the
         // header uses the latest completion across the bundle anyway.
+        lastWorkEvidenceAt: m.photos.reduce<Date | null>(
+          (latest, ph) => (ph.takenAt != null && (latest == null || ph.takenAt > latest) ? ph.takenAt : latest),
+          null,
+        ),
         completedAt: m.completedAt ?? new Date(),
         serviceMessage: m.serviceMessage,
         outcome,

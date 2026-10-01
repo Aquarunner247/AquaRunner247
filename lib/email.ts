@@ -64,6 +64,10 @@ export type ServiceSummaryBody = {
    * recipient actually opens the email, not the short-lived one used for a page that regenerates
    * it on every load. */
   photoUrls: string[];
+  /** The latest moment there is evidence of work at this body -- the newest photo's own capture
+   *  time. Null when no photo was taken. Used only to decide whether the visit's completion
+   *  timestamp is close enough to the work to support an "on site" duration; never shown. */
+  lastWorkEvidenceAt?: Date | null;
   /** When this body in particular was finished. The header strip shows the last of them, which is
    * when the visit as a whole ended. */
   completedAt: Date;
@@ -275,13 +279,37 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   // shown as a zero-length visit.
   const hasDistinctArrival = input.startedAt != null && input.startedAt.getTime() !== input.completedAt.getTime();
 
+  /**
+   * Whether "Xh Ym on site" is a claim this data can actually support.
+   *
+   * It is derived from arrival to completion, and completion is when someone pressed Complete -- not
+   * when the technician finished. An admin tidying up pending visits that evening sets it hours late,
+   * and the email then told the customer their pool had been serviced for eight hours. Seen live:
+   * Elkhorn Pointe arrived 06:44 with its photo at 06:47 and reported 8h 10m; The Alcove reported
+   * 14h 11m for 42 minutes of work.
+   *
+   * There is no trustworthy "work ended" timestamp to substitute -- a photo's takenAt proves work was
+   * happening at that moment, not that it stopped there -- so rather than invent a duration, the
+   * duration is simply withheld whenever completion is implausibly far from the last evidence of
+   * work. Arrival and completion times are still shown; only the inference is dropped.
+   */
+  const lastEvidence = input.bodies
+    .map((b) => b.lastWorkEvidenceAt)
+    .filter((d): d is Date => d != null)
+    .reduce<Date | null>((latest, d) => (latest == null || d > latest ? d : latest), null);
+  const COMPLETION_LAG_TOLERANCE_MS = 45 * 60 * 1000;
+  const onSiteCredible =
+    hasDistinctArrival &&
+    lastEvidence != null &&
+    input.completedAt.getTime() - lastEvidence.getTime() <= COMPLETION_LAG_TOLERANCE_MS;
+
   const infoBlocks = [
     infoBlock("Technician", input.technicianName ?? "—"),
     hasDistinctArrival ? infoBlock("Arrived", fmtTime(input.startedAt!, input.timeZone)) : null,
     infoBlock(
       "Completed",
       fmtTime(input.completedAt, input.timeZone),
-      hasDistinctArrival ? `${fmtDuration(input.startedAt!, input.completedAt)} on site` : undefined,
+      onSiteCredible ? `${fmtDuration(input.startedAt!, input.completedAt)} on site` : undefined,
     ),
   ]
     .filter((b): b is string => b != null)
