@@ -100,6 +100,9 @@ export async function logReadingNow(formData: FormData) {
         status: "COMPLETED",
         serviceComplete: true,
         completedAt: now,
+        // A reading logged with no technician dispatched -- same category as a CSV import, so the
+        // same flag keeps it out of anything that means "a service happened".
+        logOnlyRecord: true,
       },
       select: { id: true },
     });

@@ -825,6 +825,10 @@ export async function importVenueReadings(formData: FormData) {
             status: "COMPLETED",
             serviceComplete: true,
             completedAt: noon,
+            // A logbook row, not a service anyone performed. COMPLETED only because the public
+            // inspector log counts completed visits; logOnlyRecord is what keeps it out of customer
+            // emails, pay and "completed this week". See ServiceVisit.logOnlyRecord.
+            logOnlyRecord: true,
           },
           select: { id: true },
         });

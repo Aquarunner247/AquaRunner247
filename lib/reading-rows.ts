@@ -30,6 +30,11 @@ export async function getMonthlyReadingRows(bodyId: string, year: number, monthI
   const totalDays = daysInMonth(year, monthIndex);
 
   const visits = await prisma.serviceVisit.findMany({
+    // DELIBERATELY does not filter logOnlyRecord. Every other query that reasons about a completed
+    // visit excludes those rows, because they are not work anyone performed -- but this is the one
+    // place they belong. An imported logbook row and a CPO-logged reading exist precisely so the
+    // compliance log is complete, so adding `logOnlyRecord: false` here would empty months of the
+    // public inspector record. See ServiceVisit.logOnlyRecord.
     where: {
       bodyOfWaterId: bodyId,
       status: "COMPLETED",

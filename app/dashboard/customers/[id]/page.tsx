@@ -194,6 +194,10 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         property: { customerId: customer.id, organizationId: appUser.organizationId },
         status: "COMPLETED",
         serviceComplete: true,
+        // logOnlyRecord excluded: this is a service history capped at 50 rows, and a logbook import
+        // runs to hundreds -- it would bury every real visit. The imported readings are still on the
+        // body-of-water page and in the public compliance log, which is where they belong.
+        logOnlyRecord: false,
       },
       orderBy: { completedAt: "desc" },
       take: 50,

@@ -71,6 +71,7 @@ export async function sendBundledServiceSummary(
       id: true,
       propertyId: true,
       technicianId: true,
+      logOnlyRecord: true,
       scheduledStart: true,
       organizationId: true,
       organization: {
@@ -102,6 +103,10 @@ export async function sendBundledServiceSummary(
   });
   if (!visit) return { sent: false, reason: "visit-not-found", waitingOn: [] };
 
+  // Nobody performed this visit -- it carries a reading into the compliance log and nothing else.
+  // Also guarded at both call sites; repeated here so no future caller can email one by accident.
+  if (visit.logOnlyRecord) return { sent: false, reason: "log-only-record", waitingOn: [] };
+
   const contactEmail = propertyContactEmail(visit.property);
   if (!contactEmail) return { sent: false, reason: "no-contact-email", waitingOn: [] };
 
@@ -125,7 +130,9 @@ export async function sendBundledServiceSummary(
   };
 
   const candidates = await prisma.serviceVisit.findMany({
-    where: candidateWhere,
+    // Log-only rows share a property and a day with real visits but are not part of the walk-up, so
+    // they must neither join a bundle nor hold its email back.
+    where: { ...candidateWhere, logOnlyRecord: false },
     orderBy: { routeSequence: "asc" },
     select: {
       id: true,

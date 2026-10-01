@@ -1333,6 +1333,17 @@ model ServiceVisit {
   /// this existed, and for an org that has no messages configured.
   serviceMessage String?
 
+  /// True for a row that exists only to carry a reading into the compliance log -- a CSV import of a
+  /// paper logbook, or a CPO reading logged with no technician dispatched. Nobody performed a
+  /// service visit, so these must not count as one: no customer summary email, no technician pay, no
+  /// "completed this week". They DO appear in the public inspector log, which is the whole reason
+  /// they exist.
+  ///
+  /// A flag rather than a distinct status, deliberately: every query that reasons about COMPLETED had
+  /// to be looked at and decided one way or the other, and a flag makes each of those decisions
+  /// explicit and greppable instead of hiding behind a status comparison.
+  logOnlyRecord Boolean @default(false)
+
   /// When this visit's details went out in a customer service-summary email, and null until they
   /// did. Two jobs: it stops a bundled pool+spa being reported twice when both completions land at
   /// once (see lib/service-summary-bundle.ts), and it records what was actually sent, which the

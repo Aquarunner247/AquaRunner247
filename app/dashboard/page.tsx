@@ -140,7 +140,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       prisma.managementCompany.count({ where: { organizationId: orgId } }),
       prisma.bodyOfWater.count({ where: { property: { organizationId: orgId, ...bodyPropertyFilter } } }),
       prisma.serviceVisit.findMany({
-        where: { organizationId: orgId, scheduledStart: { gte: weekStart, lt: weekEnd }, ...visitPropertyFilter },
+        // logOnlyRecord excluded: a logbook import is not work anyone did this week, and counting it
+        // would show the week as further along than the technicians actually are.
+        where: {
+          organizationId: orgId,
+          logOnlyRecord: false,
+          scheduledStart: { gte: weekStart, lt: weekEnd },
+          ...visitPropertyFilter,
+        },
         select: { status: true },
       }),
     ]);
@@ -155,7 +162,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     const [recentVisits, recentCustomers] = await Promise.all([
       prisma.serviceVisit.findMany({
-        where: { organizationId: orgId, status: "COMPLETED", completedAt: { not: null }, ...visitPropertyFilter },
+        // logOnlyRecord excluded: importing a logbook would otherwise fill every slot here and
+        // bury the visits a technician actually completed.
+        where: {
+          organizationId: orgId,
+          status: "COMPLETED",
+          logOnlyRecord: false,
+          completedAt: { not: null },
+          ...visitPropertyFilter,
+        },
         orderBy: { completedAt: "desc" },
         take: 8,
         select: { id: true, completedAt: true, property: { select: { name: true } }, bodyOfWater: { select: { name: true } } },

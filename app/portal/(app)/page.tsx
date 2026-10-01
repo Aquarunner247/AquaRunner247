@@ -53,7 +53,15 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
   const complianceActive = organization?.complianceRuleset?.isSupported === true;
   const tz = timeZoneForState(organization?.state);
 
-  const visitWhere = { property: { customerId: customerUser.customerId }, status: "COMPLETED" as const, serviceComplete: true };
+  // logOnlyRecord excluded: this drives the customer's service history and the "most recent day
+  // with a visit" default, so an imported logbook row would send them to a day nobody attended.
+  // Those readings still reach them through the compliance log.
+  const visitWhere = {
+    property: { customerId: customerUser.customerId },
+    status: "COMPLETED" as const,
+    serviceComplete: true,
+    logOnlyRecord: false,
+  };
 
   // Resolve which day to show: an explicit ?date=, or the most recent day this customer
   // actually had a completed visit (never a literal "today" default -- most days have no

@@ -34,6 +34,9 @@ export async function GET(req: Request) {
   const pending = await prisma.serviceVisit.findMany({
     where: {
       status: "COMPLETED",
+      // A logbook import is not a visit to tell a customer about, and a recent one would otherwise
+      // fall inside the window and get emailed.
+      logOnlyRecord: false,
       summaryEmailSentAt: null,
       completedAt: { gte: since },
     },
