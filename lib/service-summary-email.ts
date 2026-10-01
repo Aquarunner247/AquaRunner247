@@ -13,6 +13,20 @@ import { resolveSummaryBundle, type BundleCandidate } from "@/lib/service-summar
 // unopened in an inbox.
 const PHOTO_EMAIL_LINK_TTL_SECONDS = 60 * 60 * 24 * 30;
 
+/**
+ * How stale a visit's own service day can be and still be worth telling the customer about.
+ *
+ * Measured against the day the service was FOR, never when it was closed out. Those come apart
+ * badly: a visit stranded IN_PROGRESS for weeks gets `completedAt = now` the moment anyone finishes
+ * it, so a window measured on completion would happily email a customer a summary for a July visit
+ * in October. There are 24 such visits in production, the oldest from 2026-07-14.
+ *
+ * A week covers a genuine next-day or Monday-morning tidy-up. Beyond that the customer has long
+ * since moved on and a summary arriving out of nowhere reads as a mistake -- the reading still lands
+ * in the compliance log either way, which is what actually matters for an old visit.
+ */
+const MAX_SERVICE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 export type SummarySendResult = {
   sent: boolean;
   reason: string;
@@ -94,6 +108,13 @@ export async function sendBundledServiceSummary(
   const timeZone = timeZoneForState(visit.organization.state);
   const ymd = ymdInTimeZone(visit.scheduledStart, timeZone);
   const { start: dayStart, end: dayEnd } = localDayBounds(ymd, timeZone);
+
+  // Too old to be worth sending. Checked before anything is claimed or loaded, so a backfill of old
+  // visits costs nothing and -- more importantly -- tells no customer about work they have long
+  // since forgotten.
+  if (Date.now() - dayStart.getTime() > MAX_SERVICE_AGE_MS) {
+    return { sent: false, reason: "service-too-old", waitingOn: [] };
+  }
 
   /** That property's visits for this technician on this local day, in route order -- the set the
    *  bundle rule is applied to. Ordered so groupNearbyStops sees them as one run. */
