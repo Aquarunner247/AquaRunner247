@@ -130,6 +130,12 @@ function toTimeInput(v: unknown): string {
   return d.toTimeString().slice(0, 5); // "HH:MM", in the device's own zone
 }
 
+/** "9:45 AM" from an ISO instant, in the device's own zone -- for the backwash hint. */
+function fmtClock(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "now" : d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
 /** The serialized reading's fields are loosely typed (see the page's own note), so this tolerates
  *  whatever arrives and yields an ISO instant or "" -- same contract as toTimeInput above. */
 function toIsoInstant(v: unknown): string {
@@ -193,9 +199,19 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     filterPressurePsi: toInput(initialReading?.filterPressurePsi),
   });
   const [backwashPerformed, setBackwashPerformed] = useState<boolean>(Boolean(initialReading?.backwashAt));
-  /** A full ISO instant, not a "HH:MM" wall clock -- see withTimeOfDay. Set to the moment the
-   *  technician picks "Yes", which is what the recorded backwash time is meant to be. */
+  /**
+   * A full ISO instant, not a "HH:MM" wall clock -- see withTimeOfDay. Empty until the technician
+   * enters the time he actually backwashed.
+   *
+   * Deliberately NOT pre-filled with "now" on ticking Yes. It used to be, and that recorded
+   * paperwork time rather than the work: the form is usually filled at the end of a visit, so the
+   * stamp landed within a minute of completion while the valve had been pulled an hour or two
+   * earlier. Observed live -- most backwashes sat exactly on their visit's completedAt.
+   */
   const [backwashAt, setBackwashAt] = useState<string>(toIsoInstant(initialReading?.backwashAt));
+  /** When Yes was ticked. Used only as the fallback if he never enters a time, so a backwash is
+   *  never recorded without one -- an approximate time beats a missing one on a compliance log. */
+  const [backwashTickedAt, setBackwashTickedAt] = useState<string>("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMsg, setSaveMsg] = useState("");
   const [photoCount, setPhotoCount] = useState(initialPhotoCount);
@@ -327,9 +343,10 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
         flowMeterGpm: sanitizeReading("flowMeterGpm"),
         filterPressurePsi: sanitizeReading("filterPressurePsi"),
         backwashPerformed,
-        // Always a zone-qualified ISO instant. The server falls back to its own clock if this is
-        // null, so "Yes" can never record an absent time.
-        backwashAt: backwashPerformed ? backwashAt || new Date().toISOString() : null,
+        // Always a zone-qualified ISO instant: the time he entered, else the moment he ticked Yes,
+        // else now. "Yes" can therefore never record an absent time, and the server holds the same
+        // backstop for an older client.
+        backwashAt: backwashPerformed ? backwashAt || backwashTickedAt || new Date().toISOString() : null,
       },
     });
     if (result.status === "queued") {
@@ -374,7 +391,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reading, backwashPerformed, backwashAt, isCompleted]);
+  }, [reading, backwashPerformed, backwashAt, backwashTickedAt, isCompleted]);
 
   useEffect(() => {
     return () => {
@@ -932,16 +949,17 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
               disabled={isCompleted}
               onChange={() => {
                 setBackwashPerformed(true);
-                // Stamp the moment of selection. Only when there isn't one yet, so re-picking
-                // "Yes" after a correction doesn't silently overwrite the corrected time.
-                if (!backwashAt) setBackwashAt(new Date().toISOString());
+                // Remember when this was ticked as a fallback, but leave the time field empty so he
+                // enters when the backwash actually happened. Only when there isn't one yet, so
+                // re-picking "Yes" after a correction doesn't overwrite the corrected time.
+                if (!backwashTickedAt) setBackwashTickedAt(new Date().toISOString());
               }}
             />
             Yes
           </label>
           {backwashPerformed ? (
             <label className="flex items-center gap-2 text-sm text-brand-ink">
-              Time
+              Time backwashed
               <input
                 type="time"
                 value={toTimeInput(backwashAt)}
@@ -955,6 +973,13 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
             </label>
           ) : null}
         </div>
+        {backwashPerformed && !backwashAt ? (
+          <p className="mt-2 text-sm text-brand-warn">
+            Enter the time you backwashed. Left blank, it records{" "}
+            {backwashTickedAt ? fmtClock(backwashTickedAt) : "now"} &mdash; when you ticked this box, which is
+            usually later than the work.
+          </p>
+        ) : null}
       </div>
 
       <div data-tour="visit-doses" className="app-card" ref={doseSectionRef}>
