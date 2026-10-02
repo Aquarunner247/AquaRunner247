@@ -49,7 +49,7 @@ export function PortalLoginForm() {
       <label className="flex flex-col gap-1 text-sm text-brand-ink">
         <span className="flex items-center justify-between">
           Password
-          <Link href="/forgot-password" className="text-xs font-medium text-brand-primary underline">
+          <Link href="/forgot-password?portal=1" className="text-xs font-medium text-brand-primary underline">
             Forgot password?
           </Link>
         </span>

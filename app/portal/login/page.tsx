@@ -23,6 +23,12 @@ export default async function PortalLoginPage({ searchParams }: PageProps) {
         {params.error === "no-access" ? (
           <p className="mt-3 text-sm text-brand-danger">That account doesn&rsquo;t have customer portal access.</p>
         ) : null}
+        {params.error === "link-expired" ? (
+          <p className="mt-3 text-sm text-brand-danger">
+            That link has expired or has already been used. Use <strong>Forgot password</strong> below to get a
+            new one, or ask your pool service company to send another invitation.
+          </p>
+        ) : null}
         {params.reset === "success" ? (
           <p className="mt-3 text-sm text-brand-ok">Password updated — sign in with your new password.</p>
         ) : null}

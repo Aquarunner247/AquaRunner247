@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export function ForgotPasswordForm() {
+/**
+ * `portal` carries through to where the customer lands AFTER setting the password. Without it a portal
+ * customer who resets is dropped on the staff /login, which rejects their credentials -- the same wrong
+ * destination the welcome link used to produce, reached a different way.
+ */
+export function ForgotPasswordForm({ portal = false }: { portal?: boolean }) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -15,7 +20,11 @@ export function ForgotPasswordForm() {
     setLoading(true);
     const supabase = createClient();
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      // Still /auth/callback and still a `code`: this flow starts in the browser, so the PKCE verifier
+      // exists and the exchange works. Only the admin-generated welcome link needs /auth/confirm.
+      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+        portal ? "/reset-password?portal=1" : "/reset-password",
+      )}`,
     });
     setLoading(false);
     // Show the same success state regardless of outcome -- never reveal whether an email

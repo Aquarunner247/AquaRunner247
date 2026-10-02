@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 type PageProps = {
-  searchParams?: Promise<{ error?: string }>;
+  searchParams?: Promise<{ error?: string; portal?: string }>;
 };
 
 export default async function ForgotPasswordPage({ searchParams }: PageProps) {
@@ -22,7 +22,7 @@ export default async function ForgotPasswordPage({ searchParams }: PageProps) {
           </p>
         ) : null}
       </div>
-      <ForgotPasswordForm />
+      <ForgotPasswordForm portal={params.portal === "1"} />
       <p className="mt-6 text-center text-sm text-brand-muted">
         <Link href="/login" className="font-medium text-brand-primary underline">
           Back to sign in

@@ -21,10 +21,10 @@
  *    this doubles as how the customer actually learns their password for the first time,
  *    since createCustomerLogin's admin-typed password is never otherwise communicated to
  *    them. The recovery link redirects through this app's EXISTING password-set flow
- *    (/auth/callback -> /reset-password), not a new route -- see the `?portal=1` flag
+ *    (/auth/confirm -> /reset-password), not a new route -- see the `?portal=1` flag
  *    below, which tells reset-password-form.tsx to land the customer on /portal/login
  *    afterward instead of the staff /login page.
- *    Supabase handles expiry, single-use invalidation, and signing. The raw action_link is
+ *    Supabase handles expiry, single-use invalidation, and signing. The hashed token is
  *    NEVER logged anywhere persistent (application logs, error trackers, or the
  *    WelcomeEmailSend audit row below) -- it's a bearer credential.
  *
@@ -52,6 +52,7 @@ import { prisma } from "@/lib/prisma";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
 import { resolveFromAddress } from "@/lib/mail/from-address";
+import { buildActivationUrl } from "@/lib/auth/activation-link";
 
 export interface SendWelcomeEmailParams {
   organizationId: string;
@@ -59,7 +60,7 @@ export interface SendWelcomeEmailParams {
   customerEmail: string;
   customerFirstName: string;
   /** e.g. https://app.aquarunner247.com -- the recovery link's redirectTo is built from
-   * this, through /auth/callback?next=/reset-password%3Fportal%3D1. The portal sign-in URL shown
+   * this, through /auth/confirm?token_hash=...&next=/reset-password%3Fportal%3D1. The portal sign-in URL shown
    * beside a temporary password is built from it too. */
   portalBaseUrl: string;
   /**
@@ -131,22 +132,33 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",
     email: params.customerEmail,
-    options: {
-      redirectTo: `${params.portalBaseUrl}/auth/callback?next=${encodeURIComponent("/reset-password?portal=1")}`,
-    },
   });
 
-  if (error || !data?.properties?.action_link) {
-    await logSend(params, "failed", error?.message ?? "No action_link returned");
+  if (error || !data?.properties?.hashed_token) {
+    await logSend(params, "failed", error?.message ?? "No hashed_token returned");
     // Generic reason to the caller -- never surface Supabase's own message, which can
     // otherwise leak cross-tenant account-existence details.
     return { ok: false, reason: "Could not generate an activation link." };
   }
 
+  /**
+   * Our own URL, not Supabase's action_link.
+   *
+   * action_link points at Supabase's verify endpoint, which redeems the token and then hands the session
+   * back in the URL FRAGMENT -- never sent to a server, and /auth/callback expects a `?code=` it will
+   * never get. That is the bug a customer hit on 2026-10-02: the link dropped them on the staff login
+   * with an auth error, and only "forgot my password" worked, because that flow starts in the browser
+   * and really does use a code.
+   *
+   * Redeeming the hashed token ourselves (app/auth/confirm) keeps the whole exchange server-side and
+   * cookie-based, and takes Supabase's redirect allow-list out of the path entirely.
+   */
+  const activationUrl = buildActivationUrl(params.portalBaseUrl, data.properties.hashed_token);
+
   const { subject, html, text } = renderWelcomeEmail({
     orgName: org.name,
     customerFirstName: params.customerFirstName,
-    activationUrl: data.properties.action_link,
+    activationUrl: activationUrl,
     temporaryPassword: params.temporaryPassword ?? null,
     audience: params.audience ?? "CUSTOMER",
     customerEmail: params.customerEmail,
