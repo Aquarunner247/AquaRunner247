@@ -22,11 +22,12 @@ export function createSupabaseAdminClient() {
  * email already exists — looks up and returns its existing auth user id.
  * Mirrors the same resolution logic used in prisma/seed.ts.
  *
- * `created` distinguishes the two outcomes, and callers must handle it: on the found branch the
- * password passed here was NEVER applied -- the existing account keeps whatever password it had. So
- * an email telling the customer "your temporary password is X" is only true when `created` is true
- * (see sendWelcomeEmail). It is returned as a required field rather than inferred, so a caller that
- * cares cannot quietly skip the distinction.
+ * `created` distinguishes the two outcomes, because on the found branch the password passed here was
+ * NEVER applied -- the existing account keeps whatever password it had. No caller needs it today: portal
+ * logins are created with a password nobody knows (lib/auth/initial-password.ts) and the person sets
+ * their own through the activation link, which works the same either way. It stays because the
+ * distinction is real and silent, and the next caller that emails or displays anything about the
+ * password has to know which branch it got.
  */
 export async function createOrFindAuthUser(
   email: string,

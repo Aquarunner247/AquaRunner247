@@ -6,6 +6,7 @@ import { UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { createOrFindAuthUser, createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { generateUnknowablePassword } from "@/lib/auth/initial-password";
 import { sendWelcomeEmail } from "@/lib/mail/send-welcome-email";
 import { userLimitFor } from "@/lib/plan-tiers";
 
@@ -114,9 +115,11 @@ async function createCustomerUserForOrg(appUser: { organizationId: string }, for
   const customerId = String(formData.get("customerId") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "").trim();
-  if (!customerId || !name || !email || !password) return;
-  if (password.length < 8) return;
+  if (!customerId || !name || !email) return;
+
+  // Same as createCustomerLogin on the customer page: unknowable even to us, because the customer sets
+  // their own through the activation link. See lib/auth/initial-password.ts.
+  const password = generateUnknowablePassword();
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, organizationId: appUser.organizationId },
@@ -135,7 +138,7 @@ async function createCustomerUserForOrg(appUser: { organizationId: string }, for
     redirect("/dashboard/users?error=email-in-use");
   }
 
-  const { id: authUserId, created: authUserCreated } = await createOrFindAuthUser(email, password);
+  const { id: authUserId } = await createOrFindAuthUser(email, password);
 
   if (existingCustomerUser) {
     await prisma.customerUser.update({
@@ -144,12 +147,8 @@ async function createCustomerUserForOrg(appUser: { organizationId: string }, for
     });
   } else {
     await prisma.customerUser.create({
-      // The password emailed to them is the one an admin typed and is sitting in their inbox in
-      // plain text, so the portal requires a replacement before it opens (app/portal/set-password).
-      // Only set when this request actually created the Supabase account: on the found branch the
-      // typed password was never applied, so their own existing password stands and there is nothing
-      // to force.
-      data: { customerId, authUserId, email, name, active: true, mustChangePassword: authUserCreated },
+      // No password anyone knows, so nothing to force a change of -- see createCustomerLogin.
+      data: { customerId, authUserId, email, name, active: true, mustChangePassword: false },
     });
 
     // Same send as createCustomerLogin on the customer page. This path had none at all, so a portal
@@ -164,7 +163,6 @@ async function createCustomerUserForOrg(appUser: { organizationId: string }, for
         customerEmail: email,
         customerFirstName: name.split(" ")[0] || name,
         portalBaseUrl: appUrl,
-        temporaryPassword: authUserCreated ? password : null,
       });
     } catch (err) {
       console.error(`[create-customer-user] welcome email failed for ${email}:`, err);

@@ -15,15 +15,32 @@ const withPassword = {
 };
 
 describe("renderWelcomeEmail without a temporary password", () => {
-  it("still sends the activation-link email", () => {
+  it("sends them to choose their own password", () => {
     const { html, text } = renderWelcomeEmail(base);
-    expect(html).toContain("Activate Your Account");
-    expect(text).toContain("Activate your account: https://app.example.com/auth/callback");
+    expect(html).toContain("Choose Your Password");
+    expect(text).toContain("Choose your password: https://app.example.com/auth/callback");
   });
 
-  it("tells the recipient nothing exists yet, because nothing does", () => {
-    const { text } = renderWelcomeEmail(base);
-    expect(text).toContain("no account is created unless you click");
+  it("says nobody emails them a password, because nobody does any more", () => {
+    const { html, text } = renderWelcomeEmail(base);
+    expect(html).toContain("never sees it, and nobody emails you one");
+    expect(text).toContain("never sees it, and nobody emails you one");
+  });
+
+  /**
+   * "No account will be created unless you click" is standard invite-flow copy and was never true in
+   * this app -- createCustomerLogin creates the Supabase account before the email goes out, with or
+   * without a password. Telling someone to ignore it would leave them a live login they never knew about.
+   */
+  it("never tells the recipient to ignore it, in either variant", () => {
+    for (const data of [base, withPassword]) {
+      const { html, text } = renderWelcomeEmail(data);
+      expect(html).not.toContain("safely ignore");
+      expect(text).not.toContain("ignore it safely");
+      expect(html).not.toContain("no account will be created");
+      expect(text).not.toContain("no account is created");
+      expect(text).toContain("ask them to remove it");
+    }
   });
 });
 
@@ -58,13 +75,6 @@ describe("renderWelcomeEmail with a temporary password", () => {
 
   /** The account already exists by then, so "ignore this email" would leave a live login the
    *  recipient never knew about. */
-  it("does not tell the recipient to ignore it", () => {
-    const { html, text } = renderWelcomeEmail(withPassword);
-    expect(html).not.toContain("no account will be created");
-    expect(text).not.toContain("no account is created");
-    expect(text).toContain("ask them to remove it");
-  });
-
   it("escapes a password containing HTML, rather than emitting markup", () => {
     const { html } = renderWelcomeEmail({ ...withPassword, temporaryPassword: 'a<b>&"c' });
     expect(html).toContain("a&lt;b&gt;&amp;&quot;c");

@@ -764,21 +764,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 ) : null}
                 <div className="grid gap-2 md:grid-cols-2">
                   <NameInput name="name" required placeholder="Contact name" className="app-field-sm" />
-                  <input name="email" type="email" required placeholder="Email" className="app-field-sm" />
-                  <input
-                    name="password"
-                    type="text"
-                    required
-                    minLength={8}
-                    placeholder="Temporary password (min 8 characters)"
-                    className="app-field-sm md:col-span-2"
-                  />
+                  <input name="email" type="email" required placeholder="Email" className="app-field-sm md:col-span-2" />
                 </div>
                 <p className="mt-1 text-xs text-brand-muted">
-                  Emailed to the customer with a welcome message and a link to{" "}
-                  <code className="rounded bg-brand-border px-1">/portal/login</code>, so there is
-                  nothing to pass along yourself. The portal makes them replace it before it opens, so
-                  it only works once.
+                  They get a welcome email with a link to choose their own password — no password for
+                  you to pick or pass along. The link is single-use and expires in 48 hours; if it
+                  lapses, add the login again or send them to{" "}
+                  <code className="rounded bg-brand-border px-1">/portal/login</code> to reset it.
                 </p>
                 <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                   Add portal login

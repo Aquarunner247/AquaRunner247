@@ -147,13 +147,14 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
                   <td style="border-radius:6px;background-color:${primaryColor};">
                     <a href="${escapeHtml(data.activationUrl)}" target="_blank" rel="noopener noreferrer"
                        style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">
-                      Activate Your Account
+                      Choose Your Password
                     </a>
                   </td>
                 </tr>
               </table>
 
               <p style="font-size:13px;line-height:20px;color:#6b7280;margin:0 0 24px;">
+                You pick the password yourself -- ${orgName} never sees it, and nobody emails you one.
                 This link is unique to you, can only be used once, and expires in ${expiryHours} hours.
                 Please don't forward it to anyone else. If it expires, you can request a new one from ${orgName}.
               </p>`;
@@ -192,15 +193,15 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
   const actionBlock = showsPassword ? credentialsBlock : activationButton;
 
   /**
-   * "No account will be created unless you click" is true of the link-only email and false of this
-   * one: when a password is included the account already exists, so telling someone to ignore the
-   * email would leave a live login they do not know about. They are told to say so instead.
+   * Not conditional, because the account exists either way. "No account will be created unless you
+   * click" is standard invite-flow copy and was never true here: createCustomerLogin creates the
+   * Supabase account before this email is sent, whether or not a password goes with it. Telling
+   * someone to safely ignore the email would leave them a live login they never knew about, so they
+   * are told how to get it removed instead.
    */
-  const unexpectedNote = showsPassword
-    ? `Didn't expect this email? An account was set up for you at ${orgName}'s request. ` +
-      `If that is a mistake, contact ${orgName} directly and ask them to remove it.`
-    : `Didn't expect this email? You can safely ignore it -- no account will be created unless ` +
-      `you click the button above. If you have concerns, contact ${orgName} directly.`;
+  const unexpectedNote =
+    `Didn't expect this email? An account was set up for you at ${orgName}'s request. ` +
+    `If that is a mistake, contact ${orgName} directly and ask them to remove it.`;
 
   const subject = `Welcome to ${data.orgName} -- your account is ready`;
 
@@ -289,13 +290,12 @@ ${actionBlock}
         `(That link is unique to you, single-use, and expires in ${expiryHours} hours. Don't forward it.)`,
       ]
     : [
-        `Activate your account: ${data.activationUrl}`,
+        `Choose your password: ${data.activationUrl}`,
+        `You pick it yourself -- ${data.orgName} never sees it, and nobody emails you one.`,
         `(This link is unique to you, single-use, and expires in ${expiryHours} hours. Don't forward it.)`,
       ];
 
-  const textUnexpectedNote = showsPassword
-    ? `Didn't expect this email? An account was set up for you at ${data.orgName}'s request. If that is a mistake, contact ${data.orgName} directly and ask them to remove it.`
-    : "Didn't expect this email? You can ignore it safely -- no account is created unless you click the link above.";
+  const textUnexpectedNote = `Didn't expect this email? An account was set up for you at ${data.orgName}'s request. If that is a mistake, contact ${data.orgName} directly and ask them to remove it.`;
 
   const text = [
     `Hi ${data.customerFirstName || "there"},`,

@@ -438,17 +438,10 @@ export default async function UsersPage({ searchParams }: PageProps) {
                   </option>
                 ))}
               </select>
-              <input
-                name="password"
-                type="text"
-                required
-                minLength={8}
-                placeholder="Temporary password (min 8 characters)"
-                className="app-field md:col-span-2"
-              />
             </div>
             <p className="mt-1 text-xs text-brand-ink/60">
-              Share this password with the customer directly — they can sign in at{" "}
+              They get a welcome email with a link to choose their own password — nothing for you to
+              pick or pass along. They sign in afterwards at{" "}
               <code className="app-code">/portal/login</code>.
             </p>
             <button className="app-btn-primary-sm mt-2" type="submit">

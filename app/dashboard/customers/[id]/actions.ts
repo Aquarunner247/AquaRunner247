@@ -10,6 +10,7 @@ import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/
 import { uploadDocumentForCustomer, deleteDocumentForCustomer, moveCustomerDocumentToInspectionReport } from "@/lib/customer-documents";
 import { uploadInspectionReport, deleteInspectionReport } from "@/lib/inspection-reports";
 import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/admin";
+import { generateUnknowablePassword } from "@/lib/auth/initial-password";
 import { sendCustomerAccessEndedEmail } from "@/lib/email";
 import { sendAlertToCustomer } from "@/lib/customer-alerts";
 import { sendWelcomeEmail } from "@/lib/mail/send-welcome-email";
@@ -1231,9 +1232,11 @@ export async function createCustomerLogin(formData: FormData) {
   const customerId = String(formData.get("customerId") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "").trim();
-  if (!customerId || !name || !email || !password) return;
-  if (password.length < 8) return;
+  if (!customerId || !name || !email) return;
+
+  // Not typed by anyone, not emailed, not stored -- the customer sets their own password through the
+  // activation link in the welcome email. See lib/auth/initial-password.ts.
+  const password = generateUnknowablePassword();
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
@@ -1255,7 +1258,7 @@ export async function createCustomerLogin(formData: FormData) {
     redirect(`/dashboard/customers/${customerId}?tab=overview&error=email-in-use`);
   }
 
-  const { id: authUserId, created: authUserCreated } = await createOrFindAuthUser(email, password);
+  const { id: authUserId } = await createOrFindAuthUser(email, password);
 
   if (existingCustomerUser) {
     await prisma.customerUser.update({
@@ -1264,12 +1267,10 @@ export async function createCustomerLogin(formData: FormData) {
     });
   } else {
     await prisma.customerUser.create({
-      // The password emailed to them is the one an admin typed and is sitting in their inbox in
-      // plain text, so the portal requires a replacement before it opens (app/portal/set-password).
-      // Only set when this request actually created the Supabase account: on the found branch the
-      // typed password was never applied, so their own existing password stands and there is nothing
-      // to force.
-      data: { customerId, authUserId, email, name, active: true, mustChangePassword: authUserCreated },
+      // Nothing to force a change of: there is no password anyone knows, and the one they set through
+      // the activation link is their own choice. The flag and the /portal/set-password screen stay for
+      // the logins created while a typed temporary password was still emailed.
+      data: { customerId, authUserId, email, name, active: true, mustChangePassword: false },
     });
 
     // Best-effort, same as sendCustomerAccessEndedEmail below -- a welcome email failing
@@ -1284,10 +1285,9 @@ export async function createCustomerLogin(formData: FormData) {
         customerEmail: email,
         customerFirstName: name.split(" ")[0] || name,
         portalBaseUrl: appUrl,
-        // Only when this call actually set the password. If the Supabase account already existed --
-        // the same person holding a login at another org on this platform -- their existing password
-        // still stands, and emailing the one just typed would send a password that does not work.
-        temporaryPassword: authUserCreated ? password : null,
+        // No password in the email, ever: the one above is unknowable even to us, so the activation
+        // link is the only way in. renderWelcomeEmail keeps its temporaryPassword branch for the
+        // logins created before this change -- nothing passes it now.
       });
     } catch (err) {
       console.error(`[create-customer-login] welcome email failed for ${email}:`, err);
