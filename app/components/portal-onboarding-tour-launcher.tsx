@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { OnboardingTour } from "./onboarding-tour";
 import { PORTAL_TOURS } from "@/lib/onboarding-tour-steps";
 import { markPortalOnboardingTourPageSeen } from "@/lib/onboarding-actions";
+import { REPLAY_LOCATION } from "@/lib/onboarding-replay-location";
 
 type Props = {
   seenPages: string[];
@@ -27,6 +28,8 @@ export function PortalOnboardingTourLauncher({ seenPages }: Props) {
       steps={steps}
       onFinish={() => setClosed(true)}
       markSeenAction={() => markPortalOnboardingTourPageSeen(pathname)}
+      // Same reasoning as the dashboard launcher: no note when they came from Replay tour themselves.
+      replayLocation={forced ? null : REPLAY_LOCATION.CUSTOMER}
     />
   );
 }

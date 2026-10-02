@@ -26,6 +26,15 @@ type Props = {
   steps: TourStep[];
   onFinish: () => void;
   markSeenAction: () => Promise<void>;
+  /**
+   * Where this person's "Replay tour" button lives -- "Settings", "More", "the menu" (see
+   * lib/onboarding-replay-location.ts). Given one, skipping the tour says how to get it back instead
+   * of the tour simply vanishing, which reads as having turned it off for good.
+   *
+   * Pass null to skip that note: during a replay the person just came from that very button, so being
+   * told where it is would be telling them what they already did.
+   */
+  replayLocation?: string | null;
 };
 
 const GAP = 12;
@@ -65,7 +74,7 @@ function waitForStep(step: TourStep): Promise<boolean> {
  * camera-capture.tsx) since dashboard pages are full of backdrop-blur cards, which
  * break `position: fixed` for descendants.
  */
-export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
+export function OnboardingTour({ steps, onFinish, markSeenAction, replayLocation = null }: Props) {
   const [mounted, setMounted] = useState(false);
   const [resolvedSteps, setResolvedSteps] = useState<TourStep[] | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
@@ -79,6 +88,16 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
   const [markSeenOnFinish, setMarkSeenOnFinish] = useState(true);
 
   /**
+   * Shown after Skip or Escape, in place of the callout, saying how to start the tour again.
+   *
+   * Skipping used to close the tour with no word about it ever coming back, so the sensible reading
+   * was that it had been turned off permanently -- which is exactly backwards, since Replay tour
+   * works as often as you like. The welcome dialog already says this when the tour is declined before
+   * it starts; this is the same sentence for the person who gets part-way and stops.
+   */
+  const [skipNote, setSkipNote] = useState(false);
+
+  /**
    * `dismissed` = the user actively opted out (Skip, or Escape) rather than reading to the
    * end. That always sticks, even for a tour that came up thin: otherwise a shop that
    * never builds routes would get the Routes tour on every single visit forever, with no
@@ -88,9 +107,15 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
   const finish = useCallback(
     ({ dismissed = false }: { dismissed?: boolean } = {}) => {
       if (dismissed || markSeenOnFinish) void markSeenAction();
+      // The page is marked seen either way, above -- the note only delays unmounting, so closing it
+      // with Escape or the browser's back button cannot leave the tour reopening on the next visit.
+      if (dismissed && replayLocation) {
+        setSkipNote(true);
+        return;
+      }
       onFinish();
     },
-    [markSeenOnFinish, markSeenAction, onFinish],
+    [markSeenOnFinish, markSeenAction, onFinish, replayLocation],
   );
 
   // Resolve which of this page's steps actually have a present target before showing
@@ -167,13 +192,47 @@ export function OnboardingTour({ steps, onFinish, markSeenAction }: Props) {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") finish({ dismissed: true });
+      // Escape dismisses the tour, then dismisses the note -- a second press always gets you out,
+      // rather than the note becoming something Escape cannot close.
+      if (e.key !== "Escape") return;
+      if (skipNote) onFinish();
+      else finish({ dismissed: true });
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [finish]);
+  }, [finish, skipNote, onFinish]);
 
-  if (!mounted || !resolvedSteps || !step || !rect) return null;
+  if (!mounted) return null;
+
+  /**
+   * Centred rather than anchored: the spotlight is gone by now and there is no element this is about,
+   * so pinning it beside the step they stopped on would point at something the note does not discuss.
+   * Rendered before the step/rect guard below for the same reason -- it no longer depends on either.
+   */
+  if (skipNote) {
+    return createPortal(
+      <div className="fixed inset-0 flex items-center justify-center px-4" style={{ zIndex: ABOVE_MAP_Z_INDEX }}>
+        <div role="dialog" aria-modal="true" aria-labelledby="tour-skip-note-title" className="app-card w-80 max-w-full">
+          <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-primary">Tour skipped</p>
+          <h2 id="tour-skip-note-title" className="mt-1 font-display text-lg font-semibold text-brand-ink">
+            You can start it again any time
+          </h2>
+          <p className="mt-3 text-sm text-brand-ink">
+            Open <strong>{replayLocation}</strong> and choose <strong>Replay tour</strong>. It starts from
+            the beginning, as often as you want.
+          </p>
+          <div className="mt-5">
+            <button type="button" onClick={onFinish} className="app-btn-primary-sm min-h-[44px]" autoFocus>
+              Got it
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
+  if (!resolvedSteps || !step || !rect) return null;
 
   const placement = step.placement ?? "bottom";
   let top: number;

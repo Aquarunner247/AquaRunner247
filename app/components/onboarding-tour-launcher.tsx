@@ -6,6 +6,7 @@ import type { UserRole } from "@/generated/prisma/enums";
 import { OnboardingTour } from "./onboarding-tour";
 import { OnboardingWelcome } from "./onboarding-welcome";
 import { ADMIN_TOURS, TECHNICIAN_TOURS, VISIT_DETAIL_TOUR_STEPS } from "@/lib/onboarding-tour-steps";
+import { REPLAY_LOCATION } from "@/lib/onboarding-replay-location";
 import {
   markOnboardingTourPageSeen,
   startOnboardingTours,
@@ -95,6 +96,12 @@ export function OnboardingTourLauncher({ role, seenPages, welcomeSeenAt, toursDi
           steps={steps}
           onFinish={() => setClosed(true)}
           markSeenAction={() => markOnboardingTourPageSeen(pageKey)}
+          // Null on a replay: they pressed Replay tour to get here, so being told where that button is
+          // would be telling them what they just did. OFFICE never reaches here (no steps), but it has
+          // no Replay tour button either, so it gets no note rather than a wrong one.
+          replayLocation={
+            forced ? null : role === "ADMIN" ? REPLAY_LOCATION.ADMIN : role === "TECHNICIAN" ? REPLAY_LOCATION.TECHNICIAN : null
+          }
         />
       ) : null}
     </>

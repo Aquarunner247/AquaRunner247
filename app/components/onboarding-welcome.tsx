@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
+import { REPLAY_LOCATION } from "@/lib/onboarding-replay-location";
 
 type Props = {
   /** Shapes where the "how to get it back" line points, which differs per role. */
@@ -12,12 +13,6 @@ type Props = {
   onStart: () => void;
   /** Decline: records the answer and suppresses tours, then shows the reminder step. */
   onDismiss: () => void;
-};
-
-/** Where "Replay tour" actually lives for each role -- see settings/page.tsx and more/page.tsx. */
-const REPLAY_LOCATION: Record<Props["role"], string> = {
-  ADMIN: "Settings",
-  TECHNICIAN: "More",
 };
 
 /**
@@ -120,8 +115,8 @@ export function OnboardingWelcome({ role, orgName, onStart, onDismiss }: Props) 
               You can start it any time
             </h2>
             <p className="mt-3 text-sm text-brand-ink">
-              Open <strong>{REPLAY_LOCATION[role]}</strong> in the menu and choose{" "}
-              <strong>Replay tour</strong>. It starts from the beginning, as often as you want.
+              Open <strong>{REPLAY_LOCATION[role]}</strong> and choose <strong>Replay tour</strong>. It
+              starts from the beginning, as often as you want.
             </p>
             <p className="mt-2 text-sm text-brand-muted">
               Until then the callouts stay out of your way.
