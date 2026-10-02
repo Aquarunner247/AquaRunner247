@@ -93,8 +93,13 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
 
   if (!visit || visit.organizationId !== appUser.organizationId) notFound();
 
-  const canAccess = appUser.role === "ADMIN" || appUser.role === "OFFICE" || visit.technicianId === appUser.id;
+  const isAdminOrOffice = appUser.role === "ADMIN" || appUser.role === "OFFICE";
+  const canAccess = isAdminOrOffice || visit.technicianId === appUser.id;
   if (!canAccess) notFound();
+
+  // Lets the office correct a dose after the fact -- see canRemoveDose in the forms. Everything
+  // else on a completed visit stays read-only for everyone.
+  const canCorrectCompleted = isAdminOrOffice;
 
   // Cyanuric acid only needs checking once every N days per body of water (state-
   // configurable via ComplianceRuleset, 30 days by default) — skip requiring it again if a
@@ -297,6 +302,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
         <ResidentialVisitForm
           visitId={visit.id}
           visitStatus={visit.status}
+          canCorrectCompleted={canCorrectCompleted}
           hasVolume={visit.bodyOfWater.volumeGallons != null}
           requiresFC={visit.bodyOfWater.requiresFC}
           requiresPH={visit.bodyOfWater.requiresPH}
@@ -327,6 +333,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
         <VisitForm
           visitId={visit.id}
           visitStatus={visit.status}
+          canCorrectCompleted={canCorrectCompleted}
           hasVolume={visit.bodyOfWater.volumeGallons != null}
           readingFields={readingFields}
           chemicalProducts={chemicalProducts}

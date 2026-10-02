@@ -77,6 +77,13 @@ type Props = {
   visitId: string;
   visitStatus: string;
   hasVolume: boolean;
+  /** True for an ADMIN or OFFICE user. Only used to keep the dose Remove button available after the
+   * visit is COMPLETED, matching the rule the DELETE endpoint enforces
+   * (app/api/visits/[id]/doses/[doseId]/route.ts): a technician corrects his own mis-tap while the
+   * visit is open, and after that a mis-logged chemical is an office correction -- which is the case
+   * that actually matters, since a dose is usually only noticed as wrong once someone reads the
+   * record. */
+  canCorrectCompleted: boolean;
   requiresFC: boolean;
   requiresPH: boolean;
   requiresAlkalinity: boolean;
@@ -115,6 +122,7 @@ function roundToStep(value: number, step: number): number {
 export function ResidentialVisitForm({
   visitId,
   visitStatus,
+  canCorrectCompleted,
   hasVolume: initialHasVolume,
   requiresFC,
   requiresPH,
@@ -167,6 +175,15 @@ export function ResidentialVisitForm({
   const doseSectionRef = useRef<HTMLDivElement | null>(null);
 
   const isCompleted = visitStatus === "COMPLETED";
+
+  /**
+   * The Remove button on a logged dose. Everything else on this form is locked once the visit is
+   * COMPLETED, and a dose was too -- which hid the button in the exact situation it exists for. A
+   * mis-tapped chemical is almost never caught during the visit; it is caught later, by whoever
+   * reads the billing line or the log. So an ADMIN or OFFICE user keeps it, which is the same
+   * boundary app/api/visits/[id]/doses/[doseId]/route.ts enforces server-side.
+   */
+  const canRemoveDose = !isCompleted || canCorrectCompleted;
 
   async function markArrived() {
     setArrivalSaving(true);
@@ -291,9 +308,21 @@ export function ResidentialVisitForm({
 /** A dose is a billing line and part of what the customer is told, so removing one asks first. Uses
  *  the browser's own confirm deliberately: this runs on a technician's phone in sunlight, where a
  *  native modal is more legible and harder to dismiss by accident than a styled one. */
-function confirmRemoveDose(dose: { productName: string; quantity: string; unit: string }): boolean {
+function confirmRemoveDose(
+  dose: { productName: string; quantity: string; unit: string },
+  alreadyReported: boolean,
+): boolean {
   if (typeof window === "undefined") return false;
-  return window.confirm(`Remove ${dose.productName} ${dose.quantity} ${dose.unit} from this visit?`);
+  const what = `Remove ${dose.productName} ${dose.quantity} ${dose.unit} from this visit?`;
+  // Says plainly what removal does NOT undo. The billing total, the usage report and the compliance
+  // log all recalculate from these rows, so they correct themselves -- a summary email already sent
+  // named the dose and cannot be taken back, and the person deciding should know that before they do
+  // it rather than after.
+  return window.confirm(
+    alreadyReported
+      ? `${what}\n\nThe charge and the service log will be corrected. A summary email already sent to the customer named this dose and will not change.`
+      : what,
+  );
 }
 
   /**
@@ -302,7 +331,7 @@ function confirmRemoveDose(dose: { productName: string; quantity: string; unit: 
    * accidental press otherwise billed a chemical that was never poured, permanently.
    */
   async function removeDose(dose: Dose) {
-    if (!confirmRemoveDose(dose)) return;
+    if (!confirmRemoveDose(dose, isCompleted)) return;
     setRemovingDoseId(dose.id);
     try {
       const response = await fetch(`/api/visits/${visitId}/doses/${dose.id}`, { method: "DELETE" });
@@ -718,7 +747,7 @@ function confirmRemoveDose(dose: { productName: string; quantity: string; unit: 
               <span>
                 {d.productName}: {d.quantity} {d.unit}
               </span>
-              {!isCompleted ? (
+              {canRemoveDose ? (
                 <button
                   type="button"
                   onClick={() => void removeDose(d)}
