@@ -242,6 +242,10 @@ export async function POST(req: Request) {
               name: true,
               businessName: true,
               state: true,
+              // Reply-To for the access-ended emails below. Without it a customer's reply goes to the
+              // platform's own from address, which accepts no inbound mail, so it is silently lost --
+              // and endCustomerRelationship, which sends the same email by hand, has always passed it.
+              welcomeEmailSupportEmail: true,
               users: { where: { role: "ADMIN", active: true }, select: { email: true } },
             },
           });
@@ -288,6 +292,9 @@ export async function POST(req: Request) {
                   customerName: cu.name ?? cu.customer.name,
                   organizationName,
                   subscribeUrl: `${appUrl}/portal/login?redirect=/portal/subscribe`,
+                  // The org is cancelling, but its support address is the only one that can help a
+                  // customer asking what happens to their records -- replying into the void is worse.
+                  replyTo: org.welcomeEmailSupportEmail,
                 });
               } catch (err) {
                 console.error(`[stripe webhook] access-ended email failed for ${cu.email}:`, err);
