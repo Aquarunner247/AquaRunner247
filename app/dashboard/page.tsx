@@ -206,7 +206,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     // flag nearly everything as overdue for most of the day).
     const todayStart = startOfLocalDay(now, tz);
     const overdue = await prisma.serviceVisit.findMany({
-      where: { organizationId: orgId, status: { in: ["SCHEDULED", "IN_PROGRESS"] }, scheduledStart: { lt: todayStart }, ...visitPropertyFilter },
+      // pushedAt excludes a stop the nightly sweep already closed out (lib/visit-pushed.ts). It is
+      // genuinely unfinished, but it has been acknowledged and the customer told, so repeating it here
+      // every day is noise. A past day's SCHEDULED stop still counts: nobody touched that one at all.
+      where: {
+        organizationId: orgId,
+        status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+        pushedAt: null,
+        scheduledStart: { lt: todayStart },
+        ...visitPropertyFilter,
+      },
       orderBy: { scheduledStart: "asc" },
       take: 10,
       select: {

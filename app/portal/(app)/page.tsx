@@ -118,6 +118,11 @@ export default async function PortalHomePage({ searchParams }: PageProps) {
       where: {
         property: { customerId: customerUser.customerId },
         status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+        // A stop the nightly sweep closed out is not upcoming -- it is a past day that did not finish,
+        // and this heading says "Upcoming service days". The customer was already told about it in that
+        // day's summary ("wasn't completed today, will be picked up on the next service call"), so
+        // leaving it listed here as "In progress" weeks later contradicts the email they have.
+        pushedAt: null,
       },
       orderBy: { scheduledStart: "asc" },
       take: 50,

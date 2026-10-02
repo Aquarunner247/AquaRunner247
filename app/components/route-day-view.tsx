@@ -14,10 +14,14 @@ import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { fetchDrivingRoute, computeOptimizedStopOrder } from "@/lib/routing";
 import { sameEndpoint } from "@/lib/route-endpoints";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
+import { isPushedVisit } from "@/lib/visit-pushed";
 
 export type RouteStop = {
   id: string;
   status: string;
+  /// Set by the nightly sweep when this stop was still IN_PROGRESS after its own local day ended.
+  /// Serialized, since this is a client component. See lib/visit-pushed.ts for what counts as pushed.
+  pushedAt?: string | null;
   propertyId: string;
   propertyName: string;
   bodyName: string;
@@ -208,7 +212,21 @@ function computeAutoArrivalEligibleIds(visits: RouteStop[]): Set<string> {
   return eligible;
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, pushedAt = null }: { status: string; pushedAt?: string | null }) {
+  // Before IN_PROGRESS, because a pushed stop is still IN_PROGRESS in the data -- that is the point of
+  // the stamp. Completed is checked first of all, so a stop finished days after being pushed reads as
+  // completed rather than carrying the older label.
+  if (status !== "COMPLETED" && isPushedVisit({ status, pushedAt })) {
+    return (
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-brand-muted">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9 9l6 6M15 9l-6 6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Pushed
+      </span>
+    );
+  }
   if (status === "COMPLETED") {
     return (
       <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-brand-ok">
@@ -1023,7 +1041,7 @@ export function RouteDayView({
                                 {m.bodyName}
                               </Link>
                               <span className="flex shrink-0 items-center gap-2">
-                                <StatusBadge status={m.status} />
+                                <StatusBadge status={m.status} pushedAt={m.pushedAt ?? null} />
                                 {!effectiveReadOnly ? (
                                   <button type="button" onClick={() => void toggleSkip(m)} className="app-btn-ghost-sm">
                                     Skip
@@ -1115,7 +1133,7 @@ export function RouteDayView({
                     </div>
                     {!effectiveReadOnly ? (
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        <StatusBadge status={v.status} />
+                        <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} />
                         <button
                           type="button"
                           onClick={() => void toggleSkip(v)}
@@ -1125,7 +1143,7 @@ export function RouteDayView({
                         </button>
                       </div>
                     ) : (
-                      <StatusBadge status={v.status} />
+                      <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} />
                     )}
                   </li>
                 </Fragment>

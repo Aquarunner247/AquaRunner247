@@ -19,6 +19,10 @@ export const runtime = "nodejs";
  *
  * Deliberately only looks at days already over, in each org's OWN timezone. Sweeping today would
  * race a technician still working: a pool done at 9am and a spa due at 3pm is not a stuck bundle.
+ *
+ * Then closes out those unfinished stops -- see closeOutUnfinishedVisits below. Both halves answer the
+ * same problem from different ends: the customer stops waiting for an email that was never coming, and
+ * the office stops seeing a stop claim someone is working on it weeks later.
  */
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -81,5 +85,58 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, considered: pending.length, sent, skipped, failed, reasons });
+  const pushed = await closeOutUnfinishedVisits(now);
+
+  return NextResponse.json({ ok: true, considered: pending.length, sent, skipped, failed, reasons, pushed });
+}
+
+/**
+ * Stops an unfinished stop reading "In progress" forever.
+ *
+ * A visit left IN_PROGRESS stays that way indefinitely -- nothing ever closes it -- so weeks-old stops
+ * still said someone was working on them and still counted as overdue stops in the bell. Once the
+ * visit's own local day has ended that is simply false: nobody is working on it, and nobody will on
+ * that day.
+ *
+ * Stamping `pushedAt` rather than setting status = COMPLETED, which is what the compliance log and the
+ * public inspector record count. The stop was not serviced and the record has to keep saying so.
+ * Readings already entered stay exactly where they are, which is the whole reason they were imported
+ * or typed in the first place.
+ *
+ * Deliberately silent. A customer whose pool WAS serviced has already had the summary naming this body
+ * as not completed (that is the loop above). A stop with no finished sibling has had no email at all,
+ * and a bare "we didn't finish" with no readings and nothing serviced alarms more than it informs --
+ * that is the office's call to make, not a cron job's at 3am. The office sees these on the dashboard.
+ */
+async function closeOutUnfinishedVisits(now: Date): Promise<number> {
+  // 90 days, not the 14 the summary loop uses: that window is about what is still reasonable to email
+  // a customer, and this is about not lying on a screen, which does not expire. Bounded all the same so
+  // this can never become a scan of all history.
+  const since = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const open = await prisma.serviceVisit.findMany({
+    where: {
+      status: "IN_PROGRESS",
+      pushedAt: null,
+      scheduledStart: { gte: since },
+    },
+    select: { id: true, scheduledStart: true, organization: { select: { state: true } } },
+  });
+
+  // Same per-org timezone rule as the summary loop: sweeping today would push a stop a technician is
+  // working on right now. A pool started at 9am is not an abandoned one at 9:05.
+  const dueIds = open
+    .filter((visit) => {
+      const timeZone = timeZoneForState(visit.organization.state);
+      const { end: dayEnd } = localDayBounds(ymdInTimeZone(visit.scheduledStart, timeZone), timeZone);
+      return now >= dayEnd;
+    })
+    .map((visit) => visit.id);
+
+  if (dueIds.length === 0) return 0;
+
+  const result = await prisma.serviceVisit.updateMany({
+    where: { id: { in: dueIds }, status: "IN_PROGRESS", pushedAt: null },
+    data: { pushedAt: now },
+  });
+  return result.count;
 }

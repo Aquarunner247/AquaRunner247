@@ -1357,6 +1357,16 @@ model ServiceVisit {
   /// member carries the same stamp.
   summaryEmailSentAt DateTime?
 
+  /// Set by the nightly sweep when a stop was still IN_PROGRESS after its own local day
+  /// ended -- nobody is working on it, so "in progress" stops being true. Shown as "Pushed" on
+  /// the schedule, and keeps it out of the overdue-stops list, which otherwise nagged forever.
+  ///
+  /// Deliberately NOT a status change to COMPLETED: that is what the compliance log and the
+  /// public inspector record count, and this stop was never serviced. Readings already entered
+  /// stay exactly where they are. "Pushed" means left for the body's next regular service call,
+  /// not rescheduled -- no new visit is created.
+  pushedAt DateTime?
+
   startedAt             DateTime?
   /// GPS location captured at the moment arrival was logged (geofence auto-detect or the
   /// manual "I've arrived" button, best-effort — null if the device denied/lacked location).
