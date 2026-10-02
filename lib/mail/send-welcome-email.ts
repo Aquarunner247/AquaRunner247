@@ -144,7 +144,9 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
     await logSend(params, "failed", "RESEND_API_KEY not set");
     return { ok: false, reason: "Email failed to send." };
   }
-  const fromAddress = resolveFromAddress();
+  // Same `branded` gate the body above uses, so a downgraded org's name stops appearing as the
+  // sender at the same moment its logo and colours stop being applied.
+  const fromAddress = resolveFromAddress(branded ? org.name : null);
   const resend = new Resend(apiKey);
 
   const result = await resend.emails.send({

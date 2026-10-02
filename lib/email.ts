@@ -271,7 +271,10 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = resolveFromAddress();
+  // The org's own name when it is white-labelled, so the sender line matches the branded body
+  // instead of showing aquarunner247.com. `branding` is already null unless the tier includes
+  // white-labelling, so that gate travels with it.
+  const fromAddress = resolveFromAddress(input.branding?.orgName);
 
   const resend = new Resend(apiKey);
   const brand = resolveEmailBranding(input.branding ?? null);
@@ -563,7 +566,10 @@ export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Pr
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
-  const fromAddress = resolveFromAddress();
+  // The org's own name when it is white-labelled, so the sender line matches the branded body
+  // instead of showing aquarunner247.com. `branding` is already null unless the tier includes
+  // white-labelling, so that gate travels with it.
+  const fromAddress = resolveFromAddress(input.branding?.orgName);
 
   const resend = new Resend(apiKey);
   const brand = resolveEmailBranding(input.branding ?? null);
@@ -624,6 +630,9 @@ export async function sendCustomerAccessEndedEmail(input: CustomerAccessEndedEma
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
+  // Platform identity deliberately, unlike the other customer-facing emails: this one is AquaRunner
+  // telling a customer their access ended and offering AquaRunner Compliance, so it carries no
+  // white-label branding and sending it as the pool company would misattribute it.
   const fromAddress = resolveFromAddress();
 
   const resend = new Resend(apiKey);
