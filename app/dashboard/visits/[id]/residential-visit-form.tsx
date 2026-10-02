@@ -156,6 +156,7 @@ export function ResidentialVisitForm({
   const [pendingDoseHint, setPendingDoseHint] = useState<{ rawAmount: number; dosingUnit: DosingUnit } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [completingVisit, setCompletingVisit] = useState(false);
+  const [removingDoseId, setRemovingDoseId] = useState<string | null>(null);
   const [noPhotoPrompt, setNoPhotoPrompt] = useState(false);
   // Preselected only when there's exactly one option -- see the commercial form for why.
   const [selectedServiceMessageId, setSelectedServiceMessageId] = useState(
@@ -285,6 +286,45 @@ export function ResidentialVisitForm({
     const data = (await response.json()) as { dose: Dose };
     setDoses((prev) => [data.dose, ...prev]);
     return true;
+  }
+
+/** A dose is a billing line and part of what the customer is told, so removing one asks first. Uses
+ *  the browser's own confirm deliberately: this runs on a technician's phone in sunlight, where a
+ *  native modal is more legible and harder to dismiss by accident than a styled one. */
+function confirmRemoveDose(dose: { productName: string; quantity: string; unit: string }): boolean {
+  if (typeof window === "undefined") return false;
+  return window.confirm(`Remove ${dose.productName} ${dose.quantity} ${dose.unit} from this visit?`);
+}
+
+  /**
+   * Removes a logged dose. A dose is a billing line and part of what the customer is told, so this
+   * confirms first -- but it has to exist at all, because "Add to visit" writes immediately and an
+   * accidental press otherwise billed a chemical that was never poured, permanently.
+   */
+  async function removeDose(dose: Dose) {
+    if (!confirmRemoveDose(dose)) return;
+    setRemovingDoseId(dose.id);
+    try {
+      const response = await fetch(`/api/visits/${visitId}/doses/${dose.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        setSaveState("error");
+        setSaveMsg(
+          data?.error === "VISIT_ALREADY_COMPLETED"
+            ? "This visit is completed — ask an admin to remove the dose"
+            : "Couldn't remove that dose",
+        );
+        return;
+      }
+      setDoses((prev) => prev.filter((d) => d.id !== dose.id));
+      setSaveState("saved");
+      setSaveMsg("Dose removed");
+    } catch {
+      setSaveState("error");
+      setSaveMsg("Connection issue — the dose was not removed");
+    } finally {
+      setRemovingDoseId(null);
+    }
   }
 
   async function addDose(e: FormEvent) {
@@ -674,8 +714,21 @@ export function ResidentialVisitForm({
         )}
         <ul className="mt-3 space-y-1 text-sm text-brand-ink">
           {doses.map((d) => (
-            <li key={d.id}>
-              {d.productName}: {d.quantity} {d.unit}
+            <li key={d.id} className="flex items-center gap-2">
+              <span>
+                {d.productName}: {d.quantity} {d.unit}
+              </span>
+              {!isCompleted ? (
+                <button
+                  type="button"
+                  onClick={() => void removeDose(d)}
+                  disabled={removingDoseId === d.id}
+                  aria-label={`Remove ${d.productName} ${d.quantity} ${d.unit}`}
+                  className="app-btn-ghost-sm ml-auto"
+                >
+                  {removingDoseId === d.id ? "Removing…" : "Remove"}
+                </button>
+              ) : null}
             </li>
           ))}
           {doses.length === 0 ? <li className="text-brand-muted">No doses added yet.</li> : null}

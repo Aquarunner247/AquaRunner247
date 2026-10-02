@@ -130,6 +130,14 @@ function toTimeInput(v: unknown): string {
   return d.toTimeString().slice(0, 5); // "HH:MM", in the device's own zone
 }
 
+/** A dose is a billing line and part of what the customer is told, so removing one asks first. Uses
+ *  the browser's own confirm deliberately: this runs on a technician's phone in sunlight, where a
+ *  native modal is more legible and harder to dismiss by accident than a styled one. */
+function confirmRemoveDose(dose: { productName: string; quantity: string; unit: string }): boolean {
+  if (typeof window === "undefined") return false;
+  return window.confirm(`Remove ${dose.productName} ${dose.quantity} ${dose.unit} from this visit?`);
+}
+
 /** "9:45 AM" from an ISO instant, in the device's own zone -- for the backwash hint. */
 function fmtClock(iso: string): string {
   const d = new Date(iso);
@@ -229,6 +237,7 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
   /** In flight, so a second tap can't log the dose twice. The form only clears after the request
    *  resolves, so without this the button stayed live and enabled while nothing visibly happened. */
   const [addingDose, setAddingDose] = useState(false);
+  const [removingDoseId, setRemovingDoseId] = useState<string | null>(null);
   /** Bodies of water on this same walk-up still needing work. Set from the completion response and
    *  shown as a notice the technician has to acknowledge -- the success path reloads the page, so a
    *  message set here would otherwise be wiped before he could read it. */
@@ -432,6 +441,46 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
     const data = (await result.response.json()) as { dose: Dose };
     setDoses((prev) => [data.dose, ...prev]);
     return true;
+  }
+
+  /**
+   * Removes a logged dose. A dose is a billing line and part of what the customer is told, so this
+   * confirms first -- but it has to exist at all, because "Add to visit" writes immediately and an
+   * accidental press otherwise billed a chemical that was never poured, permanently.
+   *
+   * A queued dose has no server id yet (see submitDose), so it is dropped locally instead; the queued
+   * request itself is still pending, which is why the row says so rather than disappearing silently.
+   */
+  async function removeDose(dose: Dose) {
+    if (!confirmRemoveDose(dose)) return;
+    if (dose.pending) {
+      setDoses((prev) => prev.filter((d) => d.id !== dose.id));
+      setSaveState("error");
+      setSaveMsg("That dose hadn't synced yet — removed here, but check it after the next sync");
+      return;
+    }
+    setRemovingDoseId(dose.id);
+    try {
+      const response = await fetch(`/api/visits/${visitId}/doses/${dose.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        setSaveState("error");
+        setSaveMsg(
+          data?.error === "VISIT_ALREADY_COMPLETED"
+            ? "This visit is completed — ask an admin to remove the dose"
+            : "Couldn't remove that dose",
+        );
+        return;
+      }
+      setDoses((prev) => prev.filter((d) => d.id !== dose.id));
+      setSaveState("saved");
+      setSaveMsg("Dose removed");
+    } catch {
+      setSaveState("error");
+      setSaveMsg("Connection issue — the dose was not removed");
+    } finally {
+      setRemovingDoseId(null);
+    }
   }
 
   async function addDose(e: FormEvent) {
@@ -1061,6 +1110,17 @@ export function VisitForm({ visitId, visitStatus, hasVolume: initialHasVolume, r
                 {d.productName}: {d.quantity} {d.unit}
               </span>
               {d.pending ? <span className="app-pill-attention">Pending sync</span> : null}
+              {!isCompleted ? (
+                <button
+                  type="button"
+                  onClick={() => void removeDose(d)}
+                  disabled={removingDoseId === d.id}
+                  aria-label={`Remove ${d.productName} ${d.quantity} ${d.unit}`}
+                  className="app-btn-ghost-sm ml-auto"
+                >
+                  {removingDoseId === d.id ? "Removing…" : "Remove"}
+                </button>
+              ) : null}
             </li>
           ))}
           {doses.length === 0 ? <li className="text-brand-muted">No doses added yet.</li> : null}
