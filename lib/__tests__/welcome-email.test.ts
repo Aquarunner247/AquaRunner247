@@ -42,16 +42,18 @@ describe("renderWelcomeEmail with a temporary password", () => {
     expect(text).toContain("Sign in: https://app.example.com/portal/login");
   });
 
-  it("asks them to change it", () => {
+  it("says the password is temporary and will have to be replaced", () => {
     const { html, text } = renderWelcomeEmail(withPassword);
-    expect(html).toContain("change this password once you are signed in");
-    expect(text).toContain("change this password once you are signed in");
+    expect(html).toContain("This password is temporary");
+    expect(html).toContain("you'll be asked to choose your own");
+    expect(text).toContain("This password is temporary");
+    expect(text).toContain("you'll be asked to choose your own");
   });
 
   it("keeps the activation link available for anyone who would rather choose their own", () => {
     const { html, text } = renderWelcomeEmail(withPassword);
     expect(html).toContain(base.activationUrl.replace(/&/g, "&amp;"));
-    expect(text).toContain(`Prefer to set your own password now? ${base.activationUrl}`);
+    expect(text).toContain(`Prefer to set it now instead? ${base.activationUrl}`);
   });
 
   /** The account already exists by then, so "ignore this email" would leave a live login the

@@ -713,6 +713,12 @@ model CustomerUser {
   /// finished or skipped -- one entry per page, not a single tour-wide flag.
   seenTourPages String[] @default([])
 
+  /// True while this login still has the temporary password an admin typed when creating it, which
+  /// was emailed to the customer in plain text. The portal refuses to open until they replace it
+  /// (app/portal/set-password). Defaults false so every existing login, and every account whose
+  /// password was set by the customer themselves through the activation link, is unaffected.
+  mustChangePassword Boolean @default(false)
+
   @@index([customerId])
 }
 

@@ -10,6 +10,11 @@ export default async function PortalAppLayout({ children }: { children: React.Re
   if (access.status === "none") redirect("/portal/login?error=no-access");
   if (access.status === "converted") redirect("/login");
   if (access.status === "blocked") redirect("/portal/subscribe");
+  // Checked after the access redirects, because a customer whose service has ended or whose org has
+  // lapsed has nothing to come in to -- changing a password first would be a pointless detour. Every
+  // portal page renders inside this layout, so one redirect here covers all of them; the portal's own
+  // server actions check it too (app/portal/actions.ts), since a layout cannot gate those.
+  if (access.customerUser.mustChangePassword) redirect("/portal/set-password");
   const customerUser = access.customerUser;
 
   // Org branding (logo + colors) -- shared with the welcome email, see

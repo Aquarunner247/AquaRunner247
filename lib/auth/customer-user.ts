@@ -57,9 +57,23 @@ export async function getCustomerPortalAccessState(supabaseUser: SupabaseUser): 
   const blocked = !record.active || record.customer.relationshipEndedAt != null || record.customer.organization.planStatus === "CANCELED";
   if (blocked) return { status: "blocked" };
 
-  const { id, customerId, authUserId, email: recordEmail, name, active, createdAt, updatedAt, seenTourPages } = record;
+  const { id, customerId, authUserId, email: recordEmail, name, active, createdAt, updatedAt, seenTourPages, mustChangePassword } =
+    record;
   return {
     status: "active",
-    customerUser: { id, customerId, authUserId, email: recordEmail, name, active, createdAt, updatedAt, seenTourPages },
+    customerUser: {
+      id,
+      customerId,
+      authUserId,
+      email: recordEmail,
+      name,
+      active,
+      createdAt,
+      updatedAt,
+      seenTourPages,
+      // Carried through deliberately: the portal layout turns this into a redirect, and this
+      // destructure exists only to drop the `customer` include, not to decide what callers may see.
+      mustChangePassword,
+    },
   };
 }

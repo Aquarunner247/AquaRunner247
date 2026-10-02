@@ -144,7 +144,12 @@ async function createCustomerUserForOrg(appUser: { organizationId: string }, for
     });
   } else {
     await prisma.customerUser.create({
-      data: { customerId, authUserId, email, name, active: true },
+      // The password emailed to them is the one an admin typed and is sitting in their inbox in
+      // plain text, so the portal requires a replacement before it opens (app/portal/set-password).
+      // Only set when this request actually created the Supabase account: on the found branch the
+      // typed password was never applied, so their own existing password stands and there is nothing
+      // to force.
+      data: { customerId, authUserId, email, name, active: true, mustChangePassword: authUserCreated },
     });
 
     // Same send as createCustomerLogin on the customer page. This path had none at all, so a portal

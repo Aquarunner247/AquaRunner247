@@ -777,7 +777,8 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 <p className="mt-1 text-xs text-brand-muted">
                   Emailed to the customer with a welcome message and a link to{" "}
                   <code className="rounded bg-brand-border px-1">/portal/login</code>, so there is
-                  nothing to pass along yourself. They&rsquo;re asked to change it once they sign in.
+                  nothing to pass along yourself. The portal makes them replace it before it opens, so
+                  it only works once.
                 </p>
                 <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                   Add portal login

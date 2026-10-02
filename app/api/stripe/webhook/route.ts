@@ -91,10 +91,10 @@ export async function POST(req: Request) {
                       complianceRulesetId: stateRuleset?.id ?? null,
                     },
                   });
-                  // createCustomerLogin (the only path that creates a CustomerUser) always
-                  // sets authUserId, so this can attach the User here too, same as
-                  // completeCompliancePlan -- skipped only in the defensive case of a
-                  // pre-existing row that somehow predates that guarantee.
+                  // Both paths that create a CustomerUser -- createCustomerLogin on the customer
+                  // page and createCustomerUserForOrg on the Users page -- always set authUserId, so
+                  // this can attach the User here too, same as completeCompliancePlan -- skipped only
+                  // in the defensive case of a pre-existing row that somehow predates that guarantee.
                   if (customerUser.authUserId) {
                     await tx.user.create({
                       data: {

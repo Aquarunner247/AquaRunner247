@@ -181,11 +181,12 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
               </table>
 
               <p style="font-size:13px;line-height:20px;color:#6b7280;margin:0 0 24px;">
-                Please change this password once you are signed in -- ${orgName} chose it for you, and
-                anyone who can read this email can read it too.
+                This password is temporary. Because it was sent by email, anyone who can read this
+                message can read it -- so the first time you sign in you'll be asked to choose your own,
+                and that is the one you'll use from then on.
                 <a href="${escapeHtml(data.activationUrl)}" target="_blank" rel="noopener noreferrer" style="color:${primaryColor};">
-                  You can also set your own password now</a>, using a link that is unique to you,
-                works once, and expires in ${expiryHours} hours.
+                  You can also set it now instead</a>, using a link that is unique to you, works once,
+                and expires in ${expiryHours} hours.
               </p>`;
 
   const actionBlock = showsPassword ? credentialsBlock : activationButton;
@@ -280,10 +281,11 @@ ${actionBlock}
         "",
         `Sign in: ${data.portalLoginUrl}`,
         "",
-        `Please change this password once you are signed in -- ${data.orgName} chose it for you, and`,
-        "anyone who can read this email can read it too.",
+        "This password is temporary. Because it was sent by email, anyone who can read this message can",
+        "read it -- so the first time you sign in you'll be asked to choose your own, and that is the one",
+        "you'll use from then on.",
         "",
-        `Prefer to set your own password now? ${data.activationUrl}`,
+        `Prefer to set it now instead? ${data.activationUrl}`,
         `(That link is unique to you, single-use, and expires in ${expiryHours} hours. Don't forward it.)`,
       ]
     : [
