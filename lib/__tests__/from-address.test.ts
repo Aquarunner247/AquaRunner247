@@ -1,25 +1,16 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { resolveFromAddress } from "@/lib/mail/from-address";
 
-const ORIGINAL = process.env.RESEND_FROM_EMAIL;
-
 describe("resolveFromAddress", () => {
-  beforeEach(() => {
-    process.env.RESEND_FROM_EMAIL = "service@mail.example.com";
-  });
-  afterAll(() => {
-    if (ORIGINAL === undefined) delete process.env.RESEND_FROM_EMAIL;
-    else process.env.RESEND_FROM_EMAIL = ORIGINAL;
-  });
 
   it("uses the platform name when no organization name is given", () => {
-    expect(resolveFromAddress()).toBe('"AquaRunner 24/7" <service@mail.example.com>');
-    expect(resolveFromAddress(null)).toBe('"AquaRunner 24/7" <service@mail.example.com>');
+    expect(resolveFromAddress()).toBe('"AquaRunner 24/7" <service@mail.aquarunner247.com>');
+    expect(resolveFromAddress(null)).toBe('"AquaRunner 24/7" <service@mail.aquarunner247.com>');
   });
 
   it("shows the organization's own name when it has one", () => {
     expect(resolveFromAddress("Lindley's Pool & Spa Service LLC")).toBe(
-      '"Lindley\'s Pool & Spa Service LLC" <service@mail.example.com>',
+      '"Lindley\'s Pool & Spa Service LLC" <service@mail.aquarunner247.com>',
     );
   });
 
@@ -31,12 +22,12 @@ describe("resolveFromAddress", () => {
     const injected = resolveFromAddress("Acme Pools\r\nBcc: attacker@example.com");
     expect(injected).not.toContain("\r");
     expect(injected).not.toContain("\n");
-    expect(injected).toBe('"Acme Pools Bcc: attacker@example.com" <service@mail.example.com>');
+    expect(injected).toBe('"Acme Pools Bcc: attacker@example.com" <service@mail.aquarunner247.com>');
   });
 
   it("drops quotes and backslashes, which would otherwise break out of the quoted name", () => {
-    expect(resolveFromAddress('Acme "Best" Pools')).toBe('"Acme Best Pools" <service@mail.example.com>');
-    expect(resolveFromAddress('Acme\\Pools')).toBe('"AcmePools" <service@mail.example.com>');
+    expect(resolveFromAddress('Acme "Best" Pools')).toBe('"Acme Best Pools" <service@mail.aquarunner247.com>');
+    expect(resolveFromAddress('Acme\\Pools')).toBe('"AcmePools" <service@mail.aquarunner247.com>');
   });
 
   it("keeps characters that only matter unquoted", () => {
@@ -45,7 +36,7 @@ describe("resolveFromAddress", () => {
   });
 
   it("collapses runs of whitespace rather than emitting them", () => {
-    expect(resolveFromAddress("Acme    Pools\t\tLLC")).toBe('"Acme Pools LLC" <service@mail.example.com>');
+    expect(resolveFromAddress("Acme    Pools\t\tLLC")).toBe('"Acme Pools LLC" <service@mail.aquarunner247.com>');
   });
 
   it("caps an absurdly long name", () => {
@@ -55,14 +46,30 @@ describe("resolveFromAddress", () => {
   });
 
   it("falls back to the platform name for a name that sanitizes to nothing", () => {
-    expect(resolveFromAddress('   ""   ')).toBe('"AquaRunner 24/7" <service@mail.example.com>');
+    expect(resolveFromAddress('   ""   ')).toBe('"AquaRunner 24/7" <service@mail.aquarunner247.com>');
   });
 
-  it("honours RESEND_FROM_EMAIL, and falls back to the verified sending subdomain", () => {
-    process.env.RESEND_FROM_EMAIL = "hello@mail.other.com";
-    expect(resolveFromAddress()).toContain("<hello@mail.other.com>");
-    delete process.env.RESEND_FROM_EMAIL;
-    // The fallback must stay on a Resend-verified domain -- an unverified one stops ALL mail.
+  /**
+   * The regression this pins: a service summary went out as no-reply@ hours after the switch to
+   * service@, because Vercel bakes environment variables into a deployment and that build still
+   * carried a stale RESEND_FROM_EMAIL. Nothing may override the address now -- setting that variable
+   * must have no effect at all.
+   */
+  it("ignores RESEND_FROM_EMAIL entirely", () => {
+    const original = process.env.RESEND_FROM_EMAIL;
+    process.env.RESEND_FROM_EMAIL = "no-reply@mail.aquarunner247.com";
+    try {
+      expect(resolveFromAddress()).toContain("<service@mail.aquarunner247.com>");
+      expect(resolveFromAddress("Lindley's Pool & Spa Service")).toContain("<service@mail.aquarunner247.com>");
+      expect(resolveFromAddress()).not.toContain("no-reply");
+    } finally {
+      if (original === undefined) delete process.env.RESEND_FROM_EMAIL;
+      else process.env.RESEND_FROM_EMAIL = original;
+    }
+  });
+
+  // Must stay a mailbox on the Resend-verified sending subdomain -- an unverified domain stops ALL mail.
+  it("sends from the verified sending subdomain", () => {
     expect(resolveFromAddress()).toContain("<service@mail.aquarunner247.com>");
   });
 });

@@ -1,9 +1,16 @@
 /**
  * The address every outbound email is sent from, and the name shown beside it.
  *
- * One definition rather than the seven copies of `process.env.RESEND_FROM_EMAIL || "..."` this
- * replaces -- those drifted out of reach of a single change, so switching the address meant finding
- * all of them and the fallback silently disagreed with whatever was configured.
+ * One constant, not an environment variable. It replaced seven copies of
+ * `process.env.RESEND_FROM_EMAIL || "..."`, which drifted out of reach of a single change -- and
+ * keeping the env read was the same bug one layer down: a service summary went out on 2026-10-02 as
+ * no-reply@ hours after the switch to service@, because Vercel bakes environment variables into a
+ * deployment and that build still carried a stale RESEND_FROM_EMAIL. Removing the variable from the
+ * dashboard could not fix a build that already had it.
+ *
+ * So there is nothing to override. Changing the sending address is a code change, reviewed and
+ * deployed like the rest, instead of a dashboard value that can disagree with what the code says and
+ * win silently.
  *
  * `service@` rather than `no-reply@`, which is Resend's own guidance: mailbox providers treat a
  * no-reply sender as a weaker signal, and a customer who replies to a service summary is doing a
@@ -19,7 +26,7 @@
 /** Must stay a mailbox on a domain verified in Resend. Sending from an unverified domain is rejected
  *  outright, so a wrong value here stops ALL mail rather than degrading. `mail.aquarunner247.com` is
  *  the verified sending subdomain; the root domain is not. */
-const FALLBACK_FROM = "service@mail.aquarunner247.com";
+const FROM_ADDRESS = "service@mail.aquarunner247.com";
 
 /** What a customer sees when the sending organization has no white-label branding of its own. */
 const PLATFORM_FROM_NAME = "AquaRunner 24/7";
@@ -59,9 +66,8 @@ function sanitizeFromName(name: string): string | null {
  * Always quoted, so an ampersand, apostrophe or period in a business name needs no special casing.
  */
 export function resolveFromAddress(displayName?: string | null): string {
-  const address = process.env.RESEND_FROM_EMAIL || FALLBACK_FROM;
   // Falls back to the platform name when the given one sanitizes away to nothing (a name that was
   // only quotes or whitespace). A sender with no name at all reads worse than the platform's.
   const name = sanitizeFromName(displayName ?? "") ?? sanitizeFromName(PLATFORM_FROM_NAME);
-  return name ? `"${name}" <${address}>` : address;
+  return name ? `"${name}" <${FROM_ADDRESS}>` : FROM_ADDRESS;
 }
