@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { formatLocalTime } from "@/lib/timezone";
+import { monthWindowInTimeZone, bucketVisitsByLogDay } from "@/lib/reading-log-days";
 
 export type MonthlyReadingRow = {
   day: number;
@@ -18,16 +19,24 @@ export type MonthlyReadingRow = {
   backwashTime: string | null;
 };
 
-function daysInMonth(year: number, monthIndex: number) {
-  return new Date(year, monthIndex + 1, 0).getDate();
-}
-
 const num = (d: unknown) => (d == null ? null : Number(d));
 
+/**
+ * The aquatic maintenance log for one body of water: one row per calendar day of the month.
+ *
+ * `timeZone` is the POOL's zone, and the month window and the day each reading lands on are both
+ * resolved in it. They used to be built with `new Date(year, monthIndex, 1)` and
+ * `completedAt.getDate()`, which are the SERVER's zone -- UTC in production. A reading taken at 6pm in
+ * Nevada is 01:00 UTC the next day, so it was filed on the following day's row, and one taken on the
+ * last evening of a month fell outside the window and vanished from the log entirely. Nobody noticed
+ * while technicians worked mornings; it is unmissable for anyone logging readings at the end of a shift.
+ */
 export async function getMonthlyReadingRows(bodyId: string, year: number, monthIndex: number, timeZone: string) {
-  const monthStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
-  const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
-  const totalDays = daysInMonth(year, monthIndex);
+  const { start: monthStart, endExclusive: monthEndExclusive, totalDays } = monthWindowInTimeZone(
+    year,
+    monthIndex,
+    timeZone,
+  );
 
   const visits = await prisma.serviceVisit.findMany({
     // DELIBERATELY does not filter logOnlyRecord. Every other query that reasons about a completed
@@ -39,17 +48,14 @@ export async function getMonthlyReadingRows(bodyId: string, year: number, monthI
       bodyOfWaterId: bodyId,
       status: "COMPLETED",
       serviceComplete: true,
-      completedAt: { gte: monthStart, lte: monthEnd },
+      completedAt: { gte: monthStart, lt: monthEndExclusive },
     },
     orderBy: { completedAt: "asc" },
     include: { reading: true },
   });
 
-  const byDay = new Map<number, (typeof visits)[number]>();
-  for (const v of visits) {
-    if (!v.completedAt) continue;
-    byDay.set(v.completedAt.getDate(), v);
-  }
+  // Ordered by completedAt ascending above, so the latest reading of each day is the one kept.
+  const byDay = bucketVisitsByLogDay(visits, timeZone);
 
   const rows: MonthlyReadingRow[] = Array.from({ length: totalDays }, (_, i) => {
     const day = i + 1;
