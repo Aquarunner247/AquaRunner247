@@ -1290,6 +1290,7 @@ export async function createCustomerLogin(formData: FormData) {
         customerEmail: email,
         customerFirstName: name.split(" ")[0] || name,
         portalBaseUrl: appUrl,
+        audience: role === "MAINTENANCE" ? "MAINTENANCE" : "CUSTOMER",
         // No password in the email, ever: the one above is unknowable even to us, so the activation
         // link is the only way in. renderWelcomeEmail keeps its temporaryPassword branch for the
         // logins created before this change -- nothing passes it now.

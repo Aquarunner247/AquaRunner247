@@ -46,6 +46,13 @@ export interface WelcomeEmailData {
    * and never written to the WelcomeEmailSend audit row.
    */
   temporaryPassword?: string | null;
+  /**
+   * Who this login is for. MAINTENANCE is the property's own maintenance person, who gets the daily
+   * reading log and the chemical safety data sheets -- so an email about service history, photos and
+   * compliance summaries describes a portal they will never see. Defaults to CUSTOMER, which is the
+   * email as it has always read.
+   */
+  audience?: "CUSTOMER" | "MAINTENANCE";
   /** The customer's own sign-in email. Shown beside the password so there is no guessing which
    *  address the portal expects. Required in practice whenever temporaryPassword is given. */
   customerEmail?: string | null;
@@ -59,9 +66,25 @@ export interface WelcomeEmailData {
 const DEFAULT_PRIMARY_COLOR = "#0A6E7C";
 // Unset headerColor renders a plain white band -- today's unchanged look.
 const DEFAULT_HEADER_COLOR = "#ffffff";
+/**
+ * What the customer portal is. It used to end "...and billing -- all in one place", which this app has
+ * no billing to show: the only billing page in the portal is the Compliance subscribe page, and that
+ * only appears once a pool company has ENDED the relationship. Every customer who got this email was
+ * promised a feature that does not exist.
+ */
 const DEFAULT_INTRO =
   "Your pool service company has set up an online account for you so you can " +
-  "keep track of your service visits, chemistry readings, and billing -- all in one place.";
+  "keep track of your service visits, chemistry readings, and compliance records -- all in one place.";
+
+/**
+ * What the daily log is. A maintenance person has no service history, no photos and no compliance
+ * summaries -- they have one job in here, which is to put the day's readings in. So this says that and
+ * nothing else, and says the thing that actually sells it: the binder can go.
+ */
+const MAINTENANCE_INTRO =
+  "Your pool service company has set up an account so you can record the readings your state " +
+  "requires right here in the app -- from your phone, standing at the pool. No more paper log, and " +
+  "no more binder to keep track of.";
 
 function escapeHtml(input: string): string {
   return input
@@ -122,7 +145,13 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
   const firstName = escapeHtml(data.customerFirstName || "there");
   const primaryColor = data.primaryColor && /^#[0-9A-Fa-f]{6}$/.test(data.primaryColor) ? data.primaryColor : DEFAULT_PRIMARY_COLOR;
   const headerColor = data.headerColor && /^#[0-9A-Fa-f]{6}$/.test(data.headerColor) ? data.headerColor : DEFAULT_HEADER_COLOR;
-  const intro = data.introText ? escapeHtml(data.introText) : DEFAULT_INTRO;
+  const isMaintenance = data.audience === "MAINTENANCE";
+  /**
+   * An organization's own introText is deliberately ignored for a maintenance login: it was written to
+   * welcome a customer to the portal, and showing it to the maintenance guy would describe a product he
+   * cannot open. Customers keep using it exactly as before.
+   */
+  const intro = isMaintenance ? MAINTENANCE_INTRO : data.introText ? escapeHtml(data.introText) : DEFAULT_INTRO;
   const expiryHours = data.linkExpiryHours ?? 48;
   const supportEmail = data.supportEmail ? escapeHtml(data.supportEmail) : null;
   const supportPhone = data.supportPhone ? escapeHtml(data.supportPhone) : null;
@@ -193,6 +222,35 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
   const actionBlock = showsPassword ? credentialsBlock : activationButton;
 
   /**
+   * What they can actually do, which is not what this list used to claim.
+   *
+   * "Request service or report an issue directly" and "Message <org> without picking up the phone" were
+   * both in here, and neither exists: /portal/alerts is read-only -- messages the pool company sends
+   * THEM -- and the portal's only actions are uploading and deleting a document. Checked against
+   * app/portal rather than trusted, because the whole list reads plausibly and three of four lines were
+   * wrong.
+   *
+   * One array for both halves of the email, so the HTML and the plain text cannot drift into promising
+   * different things.
+   */
+  const capabilities = isMaintenance
+    ? [
+        "Record the readings your state requires, pool by pool, as you take them",
+        "See what has already been logged today -- including readings your pool service company took",
+        "Every entry lands on the same log an inspector sees when they scan the QR code on site",
+        "Safety Data Sheets for the chemicals used on your property",
+      ]
+    : [
+        "See your upcoming and past service visits, with photos your technician takes on-site",
+        "Check water chemistry readings and compliance status for your pool or spa",
+        "Open the full reading log an inspector sees when they scan the QR code on site",
+        // data.orgName, not the pre-escaped orgName: this array feeds the plain-text half too, where
+        // "Lindley&#39;s" would be the reader's problem. The HTML half escapes each item itself.
+        `Share documents with ${data.orgName} -- inspection reports, permits, anything they need`,
+      ];
+
+
+  /**
    * Not conditional, because the account exists either way. "No account will be created unless you
    * click" is standard invite-flow copy and was never true here: createCustomerLogin creates the
    * Supabase account before this email is sent, whether or not a password goes with it. Telling
@@ -247,10 +305,7 @@ ${actionBlock}
 
               <h2 style="font-size:15px;color:#111827;margin:0 0 12px;">What you can do once you're in:</h2>
               <ul style="font-size:14px;line-height:22px;color:#374151;margin:0 0 24px;padding-left:20px;">
-                <li>See your upcoming and past service visits, with photos your technician takes on-site</li>
-                <li>Check water chemistry readings and compliance status for your pool or spa</li>
-                <li>Request service or report an issue directly</li>
-                <li>Message ${orgName} without picking up the phone</li>
+                ${capabilities.map((item) => `<li>${escapeHtml(item)}</li>`).join("\n                ")}
               </ul>
 
               <p style="font-size:13px;line-height:20px;color:#6b7280;margin:0 0 8px;">
@@ -300,15 +355,12 @@ ${actionBlock}
   const text = [
     `Hi ${data.customerFirstName || "there"},`,
     "",
-    data.introText || DEFAULT_INTRO,
+    isMaintenance ? MAINTENANCE_INTRO : data.introText || DEFAULT_INTRO,
     "",
     ...textAction,
     "",
     "What you can do once you're in:",
-    "- See upcoming and past service visits, with photos from your technician",
-    "- Check water chemistry readings and compliance status",
-    "- Request service or report an issue",
-    `- Message ${data.orgName} directly`,
+    ...capabilities.map((item) => `- ${item}`),
     "",
     textUnexpectedNote,
     "",

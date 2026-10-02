@@ -75,6 +75,8 @@ export interface SendWelcomeEmailParams {
    * same address being mailed a password repeatedly.
    */
   temporaryPassword?: string | null;
+  /** MAINTENANCE gets an email about the daily log, not about a portal it cannot open. */
+  audience?: "CUSTOMER" | "MAINTENANCE";
 }
 
 const RATE_LIMIT_MAX_SENDS = 3;
@@ -146,6 +148,7 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
     customerFirstName: params.customerFirstName,
     activationUrl: data.properties.action_link,
     temporaryPassword: params.temporaryPassword ?? null,
+    audience: params.audience ?? "CUSTOMER",
     customerEmail: params.customerEmail,
     // The portal's own sign-in page, not the staff /login -- a customer sent to the wrong one sees a
     // form their credentials are rejected by.

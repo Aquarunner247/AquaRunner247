@@ -92,3 +92,75 @@ describe("renderWelcomeEmail with a temporary password", () => {
     );
   });
 });
+
+describe("what the email claims the portal can do", () => {
+  /**
+   * Three of the four original lines were false: there is no billing in the portal, no way to request
+   * service, and no way to message the company -- /portal/alerts is read-only and the only portal
+   * actions are uploading and deleting a document. These assertions exist so a plausible-sounding
+   * promise cannot be added back without a test failing.
+   */
+  it("promises a customer nothing the portal does not do", () => {
+    const { html, text } = renderWelcomeEmail(base);
+    for (const claim of ["billing", "Request service", "request service", "Message", "without picking up the phone"]) {
+      expect(html).not.toContain(claim);
+      expect(text).not.toContain(claim);
+    }
+  });
+
+  /** The list feeds both halves, so an item built from a pre-escaped value leaks entities into the
+   *  plain text -- which is what happened the first time this was written. */
+  it("does not leak HTML entities into the plain-text half", () => {
+    const { text, html } = renderWelcomeEmail({ ...base, orgName: "Lindley's Pool & Spa Service" });
+    expect(text).toContain("Share documents with Lindley's Pool & Spa Service");
+    expect(text).not.toContain("&#39;");
+    expect(text).not.toContain("&amp;");
+    // Still escaped where it must be.
+    expect(html).toContain("Lindley&#39;s Pool &amp; Spa Service");
+  });
+
+  it("tells a customer the things that are real", () => {
+    const { html } = renderWelcomeEmail(base);
+    expect(html).toContain("photos your technician takes on-site");
+    expect(html).toContain("compliance status");
+    expect(html).toContain("scan the QR code");
+  });
+});
+
+describe("renderWelcomeEmail for a maintenance login", () => {
+  const maintenance = { ...base, audience: "MAINTENANCE" as const };
+
+  it("describes the daily log, not the customer portal", () => {
+    const { html, text } = renderWelcomeEmail(maintenance);
+    expect(html).toContain("readings your state");
+    expect(html).toContain("no more binder");
+    expect(text).toContain("readings your state");
+  });
+
+  it("does not describe a portal they cannot open", () => {
+    const { html, text } = renderWelcomeEmail(maintenance);
+    for (const claim of ["service visits", "upcoming", "billing", "Request service"]) {
+      expect(html).not.toContain(claim);
+      expect(text).not.toContain(claim);
+    }
+  });
+
+  it("names what they can actually reach: the log and the safety data sheets", () => {
+    const { html } = renderWelcomeEmail(maintenance);
+    expect(html).toContain("Record the readings your state requires");
+    expect(html).toContain("Safety Data Sheets");
+    expect(html).toContain("already been logged today");
+  });
+
+  /** An org's own intro was written to welcome a customer to the portal. */
+  it("ignores the organization's custom customer intro", () => {
+    const { html } = renderWelcomeEmail({ ...maintenance, introText: "Welcome to our family of pool owners!" });
+    expect(html).not.toContain("family of pool owners");
+    expect(html).toContain("readings your state");
+  });
+
+  it("still uses a custom intro for a customer login", () => {
+    const { html } = renderWelcomeEmail({ ...base, introText: "Welcome to our family of pool owners!" });
+    expect(html).toContain("family of pool owners");
+  });
+});
