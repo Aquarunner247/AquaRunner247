@@ -6,6 +6,7 @@ import { UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { createOrFindAuthUser, createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendWelcomeEmail } from "@/lib/mail/send-welcome-email";
 import { userLimitFor } from "@/lib/plan-tiers";
 
 /** UI-only value for the "Add user" role select -- not part of the Prisma UserRole enum,
@@ -85,7 +86,7 @@ async function createStaffUserForOrg(appUser: { organizationId: string }, formDa
     }
   }
 
-  const authUserId = await createOrFindAuthUser(email, password);
+  const { id: authUserId } = await createOrFindAuthUser(email, password);
 
   if (existingStaffUser) {
     await prisma.user.update({
@@ -134,7 +135,7 @@ async function createCustomerUserForOrg(appUser: { organizationId: string }, for
     redirect("/dashboard/users?error=email-in-use");
   }
 
-  const authUserId = await createOrFindAuthUser(email, password);
+  const { id: authUserId, created: authUserCreated } = await createOrFindAuthUser(email, password);
 
   if (existingCustomerUser) {
     await prisma.customerUser.update({
@@ -145,6 +146,24 @@ async function createCustomerUserForOrg(appUser: { organizationId: string }, for
     await prisma.customerUser.create({
       data: { customerId, authUserId, email, name, active: true },
     });
+
+    // Same send as createCustomerLogin on the customer page. This path had none at all, so a portal
+    // account created from the Users page left the customer with no email and no way to know the
+    // account existed -- the only difference between the two screens should be which one you happened
+    // to be on. Best-effort for the same reason: a failed email must not undo the login.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    try {
+      await sendWelcomeEmail({
+        organizationId: appUser.organizationId,
+        customerId,
+        customerEmail: email,
+        customerFirstName: name.split(" ")[0] || name,
+        portalBaseUrl: appUrl,
+        temporaryPassword: authUserCreated ? password : null,
+      });
+    } catch (err) {
+      console.error(`[create-customer-user] welcome email failed for ${email}:`, err);
+    }
   }
 
   revalidatePath("/dashboard/users");

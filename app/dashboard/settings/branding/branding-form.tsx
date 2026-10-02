@@ -58,6 +58,11 @@ export function BrandingForm({
       orgName,
       customerFirstName: "Jordan",
       activationUrl: "https://example.com/preview-only",
+      // Sample values, so the preview shows the credentials block customers actually receive rather
+      // than the link-only variant they do not.
+      temporaryPassword: "swim-2026-temp",
+      customerEmail: "jordan@example.com",
+      portalLoginUrl: "https://example.com/portal/login",
       logoUrl: canBrand ? previewLogoUrl : null,
       primaryColor: canBrand ? value.primaryColor || null : null,
       headerColor: canBrand ? value.headerColor || null : null,

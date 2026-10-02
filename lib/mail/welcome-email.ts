@@ -32,6 +32,26 @@ export interface WelcomeEmailData {
   supportPhone?: string | null;
   introText?: string | null; // plain text, already validated/length-capped
   linkExpiryHours?: number; // default 48
+  /**
+   * The temporary password the admin typed when creating the login, so the customer can simply sign
+   * in with it. Omit (or pass null) and the email is exactly what it was before: activation link
+   * only.
+   *
+   * Only ever pass this when the Supabase account was actually CREATED with it -- see
+   * createOrFindAuthUser's `created` flag. On an email that already had an account the typed
+   * password was never applied, and printing it would hand the customer a password that does not
+   * work.
+   *
+   * This is a live credential in an inbox. It is escaped like everything else here, never logged,
+   * and never written to the WelcomeEmailSend audit row.
+   */
+  temporaryPassword?: string | null;
+  /** The customer's own sign-in email. Shown beside the password so there is no guessing which
+   *  address the portal expects. Required in practice whenever temporaryPassword is given. */
+  customerEmail?: string | null;
+  /** The portal sign-in page, e.g. https://app.example.com/portal/login -- https only, same rule as
+   *  activationUrl. Required whenever temporaryPassword is given. */
+  portalLoginUrl?: string | null;
 }
 
 // Falls back to this app's own brand.primary token (tailwind.config.ts) when an org
@@ -88,6 +108,16 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
   assertHttpsUrl(data.activationUrl, "activationUrl");
   if (data.logoUrl) assertValidLogoUrl(data.logoUrl);
 
+  // A password is only shown with somewhere to use it and an address to use it with. Throwing rather
+  // than quietly dropping the block: a half-rendered credentials section would send the customer a
+  // password and no way to tell what to do with it, and the caller would never know.
+  const showsPassword = Boolean(data.temporaryPassword);
+  if (showsPassword) {
+    if (!data.portalLoginUrl) throw new Error("portalLoginUrl is required when temporaryPassword is given");
+    if (!data.customerEmail) throw new Error("customerEmail is required when temporaryPassword is given");
+    assertHttpsUrl(data.portalLoginUrl, "portalLoginUrl");
+  }
+
   const orgName = escapeHtml(data.orgName);
   const firstName = escapeHtml(data.customerFirstName || "there");
   const primaryColor = data.primaryColor && /^#[0-9A-Fa-f]{6}$/.test(data.primaryColor) ? data.primaryColor : DEFAULT_PRIMARY_COLOR;
@@ -96,6 +126,80 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
   const expiryHours = data.linkExpiryHours ?? 48;
   const supportEmail = data.supportEmail ? escapeHtml(data.supportEmail) : null;
   const supportPhone = data.supportPhone ? escapeHtml(data.supportPhone) : null;
+  // A password is chosen by a person and can contain anything -- &, <, quotes. Escaped like every
+  // other interpolated value, which also keeps it rendering as typed rather than as broken markup.
+  const tempPassword = data.temporaryPassword ? escapeHtml(data.temporaryPassword) : null;
+  const signInEmail = data.customerEmail ? escapeHtml(data.customerEmail) : null;
+  const portalLoginUrl = data.portalLoginUrl ? escapeHtml(data.portalLoginUrl) : null;
+
+
+  /**
+   * The part of the email that gets the customer in.
+   *
+   * Without a temporary password this is exactly what it has always been: one activation button and
+   * the single-use notice. With one, the password leads -- it is what the office told the customer
+   * they would receive, and it works on the second device and the third week, after a single-use link
+   * has expired. The link stays below it as the better option for anyone who would rather pick their
+   * own password, which is also the recovery path once the temporary one is changed.
+   */
+  const activationButton = `              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="border-radius:6px;background-color:${primaryColor};">
+                    <a href="${escapeHtml(data.activationUrl)}" target="_blank" rel="noopener noreferrer"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">
+                      Activate Your Account
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size:13px;line-height:20px;color:#6b7280;margin:0 0 24px;">
+                This link is unique to you, can only be used once, and expires in ${expiryHours} hours.
+                Please don't forward it to anyone else. If it expires, you can request a new one from ${orgName}.
+              </p>`;
+
+  const credentialsBlock = `              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #e5e7eb;border-radius:6px;background-color:#f9fafb;">
+                <tr>
+                  <td style="padding:18px 20px;">
+                    <p style="font-size:12px;line-height:16px;color:#6b7280;margin:0 0 14px;text-transform:uppercase;letter-spacing:0.05em;">Your sign-in details</p>
+                    <p style="font-size:13px;line-height:18px;color:#6b7280;margin:0 0 4px;">Email</p>
+                    <p style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:15px;line-height:20px;color:#111827;margin:0 0 14px;">${signInEmail}</p>
+                    <p style="font-size:13px;line-height:18px;color:#6b7280;margin:0 0 4px;">Temporary password</p>
+                    <p style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:18px;line-height:24px;font-weight:bold;color:#111827;margin:0 0 18px;">${tempPassword}</p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0;">
+                      <tr>
+                        <td style="border-radius:6px;background-color:${primaryColor};">
+                          <a href="${portalLoginUrl}" target="_blank" rel="noopener noreferrer"
+                             style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">
+                            Sign In
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size:13px;line-height:20px;color:#6b7280;margin:0 0 24px;">
+                Please change this password once you are signed in -- ${orgName} chose it for you, and
+                anyone who can read this email can read it too.
+                <a href="${escapeHtml(data.activationUrl)}" target="_blank" rel="noopener noreferrer" style="color:${primaryColor};">
+                  You can also set your own password now</a>, using a link that is unique to you,
+                works once, and expires in ${expiryHours} hours.
+              </p>`;
+
+  const actionBlock = showsPassword ? credentialsBlock : activationButton;
+
+  /**
+   * "No account will be created unless you click" is true of the link-only email and false of this
+   * one: when a password is included the account already exists, so telling someone to ignore the
+   * email would leave a live login they do not know about. They are told to say so instead.
+   */
+  const unexpectedNote = showsPassword
+    ? `Didn't expect this email? An account was set up for you at ${orgName}'s request. ` +
+      `If that is a mistake, contact ${orgName} directly and ask them to remove it.`
+    : `Didn't expect this email? You can safely ignore it -- no account will be created unless ` +
+      `you click the button above. If you have concerns, contact ${orgName} directly.`;
 
   const subject = `Welcome to ${data.orgName} -- your account is ready`;
 
@@ -137,21 +241,7 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
               <h1 style="font-size:20px;color:#111827;margin:0 0 16px;">Hi ${firstName},</h1>
               <p style="font-size:15px;line-height:22px;color:#374151;margin:0 0 20px;">${intro}</p>
 
-              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-                <tr>
-                  <td style="border-radius:6px;background-color:${primaryColor};">
-                    <a href="${escapeHtml(data.activationUrl)}" target="_blank" rel="noopener noreferrer"
-                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">
-                      Activate Your Account
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="font-size:13px;line-height:20px;color:#6b7280;margin:0 0 24px;">
-                This link is unique to you, can only be used once, and expires in ${expiryHours} hours.
-                Please don't forward it to anyone else. If it expires, you can request a new one from ${orgName}.
-              </p>
+${actionBlock}
 
               <h2 style="font-size:15px;color:#111827;margin:0 0 12px;">What you can do once you're in:</h2>
               <ul style="font-size:14px;line-height:22px;color:#374151;margin:0 0 24px;padding-left:20px;">
@@ -162,8 +252,7 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
               </ul>
 
               <p style="font-size:13px;line-height:20px;color:#6b7280;margin:0 0 8px;">
-                Didn't expect this email? You can safely ignore it -- no account will be created unless
-                you click the button above. If you have concerns, contact ${orgName} directly.
+                ${unexpectedNote}
               </p>
             </td>
           </tr>
@@ -181,13 +270,37 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
 </body>
 </html>`;
 
+  // Mirrors actionBlock. The plain-text part is what a screen reader and a text-only client get, so
+  // it carries the same credentials rather than telling them to look at the HTML.
+  const textAction = showsPassword
+    ? [
+        "Your sign-in details",
+        `  Email:              ${data.customerEmail}`,
+        `  Temporary password: ${data.temporaryPassword}`,
+        "",
+        `Sign in: ${data.portalLoginUrl}`,
+        "",
+        `Please change this password once you are signed in -- ${data.orgName} chose it for you, and`,
+        "anyone who can read this email can read it too.",
+        "",
+        `Prefer to set your own password now? ${data.activationUrl}`,
+        `(That link is unique to you, single-use, and expires in ${expiryHours} hours. Don't forward it.)`,
+      ]
+    : [
+        `Activate your account: ${data.activationUrl}`,
+        `(This link is unique to you, single-use, and expires in ${expiryHours} hours. Don't forward it.)`,
+      ];
+
+  const textUnexpectedNote = showsPassword
+    ? `Didn't expect this email? An account was set up for you at ${data.orgName}'s request. If that is a mistake, contact ${data.orgName} directly and ask them to remove it.`
+    : "Didn't expect this email? You can ignore it safely -- no account is created unless you click the link above.";
+
   const text = [
     `Hi ${data.customerFirstName || "there"},`,
     "",
     data.introText || DEFAULT_INTRO,
     "",
-    `Activate your account: ${data.activationUrl}`,
-    `(This link is unique to you, single-use, and expires in ${expiryHours} hours. Don't forward it.)`,
+    ...textAction,
     "",
     "What you can do once you're in:",
     "- See upcoming and past service visits, with photos from your technician",
@@ -195,7 +308,7 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
     "- Request service or report an issue",
     `- Message ${data.orgName} directly`,
     "",
-    "Didn't expect this email? You can ignore it safely -- no account is created unless you click the link above.",
+    textUnexpectedNote,
     "",
     `-- ${data.orgName}${data.supportEmail ? ` (${data.supportEmail})` : ""}${data.supportPhone ? ` ${data.supportPhone}` : ""}`,
   ].join("\n");

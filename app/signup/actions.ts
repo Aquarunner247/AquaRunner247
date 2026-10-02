@@ -371,7 +371,7 @@ export async function completeSignup(formData: FormData) {
     }
   }
 
-  const authUserId = await createOrFindAuthUser(email, password);
+  const { id: authUserId } = await createOrFindAuthUser(email, password);
 
   try {
     if (targetOrgId) {

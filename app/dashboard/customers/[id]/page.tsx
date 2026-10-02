@@ -775,8 +775,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   />
                 </div>
                 <p className="mt-1 text-xs text-brand-muted">
-                  Share this password with the customer directly — they can sign in at{" "}
-                  <code className="rounded bg-brand-border px-1">/portal/login</code>.
+                  Emailed to the customer with a welcome message and a link to{" "}
+                  <code className="rounded bg-brand-border px-1">/portal/login</code>, so there is
+                  nothing to pass along yourself. They&rsquo;re asked to change it once they sign in.
                 </p>
                 <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                   Add portal login

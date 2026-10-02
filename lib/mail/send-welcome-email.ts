@@ -59,8 +59,22 @@ export interface SendWelcomeEmailParams {
   customerEmail: string;
   customerFirstName: string;
   /** e.g. https://app.aquarunner247.com -- the recovery link's redirectTo is built from
-   * this, through /auth/callback?next=/reset-password%3Fportal%3D1. */
+   * this, through /auth/callback?next=/reset-password%3Fportal%3D1. The portal sign-in URL shown
+   * beside a temporary password is built from it too. */
   portalBaseUrl: string;
+  /**
+   * The temporary password the admin typed, included in the email so the customer can just sign in
+   * -- which is what the office told them to expect.
+   *
+   * Pass it ONLY when createOrFindAuthUser reported `created: true`. On an email that already had a
+   * Supabase account the typed password was never applied, so including it would send a password
+   * that does not work.
+   *
+   * It is a live credential: it goes into the rendered email and nowhere else. Never log it, never
+   * put it in the WelcomeEmailSend audit row, and note that rate limiting here is what stops the
+   * same address being mailed a password repeatedly.
+   */
+  temporaryPassword?: string | null;
 }
 
 const RATE_LIMIT_MAX_SENDS = 3;
@@ -131,6 +145,11 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
     orgName: org.name,
     customerFirstName: params.customerFirstName,
     activationUrl: data.properties.action_link,
+    temporaryPassword: params.temporaryPassword ?? null,
+    customerEmail: params.customerEmail,
+    // The portal's own sign-in page, not the staff /login -- a customer sent to the wrong one sees a
+    // form their credentials are rejected by.
+    portalLoginUrl: `${params.portalBaseUrl}/portal/login`,
     logoUrl: branded ? org.brandingLogoUrl : null,
     primaryColor: branded ? org.brandingPrimaryColor : null,
     headerColor: branded ? org.brandingHeaderColor : null,

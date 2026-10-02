@@ -1255,7 +1255,7 @@ export async function createCustomerLogin(formData: FormData) {
     redirect(`/dashboard/customers/${customerId}?tab=overview&error=email-in-use`);
   }
 
-  const authUserId = await createOrFindAuthUser(email, password);
+  const { id: authUserId, created: authUserCreated } = await createOrFindAuthUser(email, password);
 
   if (existingCustomerUser) {
     await prisma.customerUser.update({
@@ -1279,6 +1279,10 @@ export async function createCustomerLogin(formData: FormData) {
         customerEmail: email,
         customerFirstName: name.split(" ")[0] || name,
         portalBaseUrl: appUrl,
+        // Only when this call actually set the password. If the Supabase account already existed --
+        // the same person holding a login at another org on this platform -- their existing password
+        // still stands, and emailing the one just typed would send a password that does not work.
+        temporaryPassword: authUserCreated ? password : null,
       });
     } catch (err) {
       console.error(`[create-customer-login] welcome email failed for ${email}:`, err);
