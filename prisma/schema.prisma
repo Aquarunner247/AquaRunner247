@@ -1669,6 +1669,19 @@ model ChemicalProductCatalog {
   /// acid) -- see this model's own doc comment and computePhDose.
   isDemandBased  Boolean @default(false)
 
+  /// True for a product that LOWERS its measurement rather than raising it.
+  ///
+  /// chemicalType alone cannot express this for free chlorine: Sodium Thiosulfate reduces
+  /// chlorine but shares chemicalType FREE_CHLORINE with ten products that raise it, and shares
+  /// form GRANULAR with most of them too, so nothing distinguished them. The dose picker chose by
+  /// isPrimary alone, and a reading ABOVE target therefore recommended adding chlorine --
+  /// Fifty101's pool read 12ppm against a 10ppm ceiling on 2026-10-01 and was told to add 1.25
+  /// gallons of Liquid Chlorine 12%. The technician did.
+  ///
+  /// Set for every *_DOWN type as well, even though those are already unambiguous by type, so one
+  /// rule covers the whole catalog instead of free chlorine being a special case.
+  lowersValue Boolean @default(false)
+
   isSystemDefault Boolean @default(true)
   displayOrder    Int     @default(0)
 

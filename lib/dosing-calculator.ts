@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { getOrganizationRuleset, isComplianceActive, chlorineFamilyThreshold, activeChemistryThresholds } from "@/lib/compliance";
 import { formatDose, convertToBillingUnit, daysUntilNextWeekday, computeTabletRecommendation, buildTabletNote } from "@/lib/dosing-units";
-import type { ChemicalType, ChemicalProductForm, DosingUnit, DisinfectionMethod, ChlorineFeedMechanism } from "@/generated/prisma/enums";
+import type { ChemicalType, DosingUnit, DisinfectionMethod, ChlorineFeedMechanism } from "@/generated/prisma/enums";
+import {
+  pickPrimaryProduct,
+  type LinkedBillingProduct,
+  type SettingWithCatalog,
+} from "@/lib/dose-product-selection";
 
 export { formatLiquidOz, formatWeightOz, convertToBillingUnit, daysUntilNextWeekday, computeTabletRecommendation } from "@/lib/dosing-units";
 
@@ -198,10 +203,6 @@ function isInRange(current: number, resolved: ResolvedTarget): boolean {
 // Product selection
 // ---------------------------------------------------------------------------
 
-type CatalogRow = { id: string; name: string; chemicalType: ChemicalType; form: ChemicalProductForm; dosingUnit: DosingUnit; dosingConstant: unknown; isDemandBased: boolean };
-type LinkedBillingProduct = { id: string; unit: string; active: boolean };
-type SettingWithCatalog = { id: string; isPrimary: boolean; catalogProduct: CatalogRow; linkedBillingProduct: LinkedBillingProduct | null };
-
 /** Builds the billingLink for a computed dose, or null if unlinked or the link points at a
  * since-deactivated billing product. Shared by both the ppm-based pass below and
  * computePhDose, so the two stay consistent. */
@@ -226,18 +227,6 @@ async function loadEnabledProductsByType(organizationId: string): Promise<Map<Ch
     byType.set(s.catalogProduct.chemicalType, arr);
   }
   return byType;
-}
-
-/** Excludes TABLET-form products: erosion feeders release chlorine continuously, not as a
- * batch ppm-delta dose -- Taylor's tables have no dosing constant for that (see
- * seed-chemical-product-catalog.ts), so recommending "add N tablets now" would be the same
- * kind of dishonest guess convertToBillingUnit already refuses to make. A tablet product can
- * still be enabled/priced for billing (feeder refills logged manually), it just never gets
- * auto-selected for the computed recommendation. */
-function pickPrimaryProduct(byType: Map<ChemicalType, SettingWithCatalog[]>, chemicalType: ChemicalType): SettingWithCatalog | null {
-  const settings = byType.get(chemicalType)?.filter((s) => s.catalogProduct.form !== "TABLET");
-  if (!settings || settings.length === 0) return null;
-  return settings.find((s) => s.isPrimary) ?? settings[0];
 }
 
 /** Prefixes a FREE_CHLORINE recommendation's note with mechanism-specific guidance -- a low
@@ -415,7 +404,7 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
       continue;
     }
 
-    const setting = pickPrimaryProduct(enabledProductsByType, productChemicalType);
+    const setting = pickPrimaryProduct(enabledProductsByType, productChemicalType, direction);
     if (!setting) {
       recommendations.push(
         buildRecommendation({
@@ -424,9 +413,17 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
           targetValue: resolved.targetValue,
           targetMin: resolved.boundMin,
           targetMax: resolved.boundMax,
-          note: feedPrefix
-            ? `${feedPrefix}no enabled primary product is configured for a manual correction -- set one on the Chemicals admin page.`
-            : `No enabled primary product configured for ${CHEMICAL_LABELS[key]} -- set one on the Chemicals admin page.`,
+          // A too-high reading needs different advice from a too-low one. "Configure a product" is
+          // right when nothing can raise the value, and actively misleading when the reading is
+          // already above target -- the honest answer there is that adding more is wrong.
+          note:
+            direction === "DOWN"
+              ? key === "FREE_CHLORINE"
+                ? "Free chlorine is ABOVE target -- do not add chlorine. It falls on its own in sunlight; partially draining and refilling brings it down faster. Sodium thiosulfate lowers it chemically if you stock it (enable it under Settings > Chemicals)."
+                : `${CHEMICAL_LABELS[key]} is above target. No enabled product lowers it -- partial drain and refill is the usual correction.`
+              : feedPrefix
+                ? `${feedPrefix}no enabled primary product is configured for a manual correction -- set one on the Chemicals admin page.`
+                : `No enabled primary product configured for ${CHEMICAL_LABELS[key]} -- set one on the Chemicals admin page.`,
         }),
       );
       if (key === "CYA") cyaOutOfRange = true;
