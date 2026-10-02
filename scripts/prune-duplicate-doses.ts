@@ -7,6 +7,14 @@
  *   node --env-file=.env node_modules/.bin/tsx scripts/prune-duplicate-doses.ts
  *   node --env-file=.env node_modules/.bin/tsx scripts/prune-duplicate-doses.ts --apply
  *
+ * `.env` points DATABASE_URL at the LOCAL Supabase stack, so the commands above inspect your dev
+ * database. To act on production data, set it for the one command -- a shell value wins, because
+ * node --env-file does not override an already-set variable:
+ *
+ *   DATABASE_URL="<production connection string>" npm run db:prune-duplicate-doses -- --apply
+ *
+ * Every run prints which database it is talking to before it does anything. Check that line.
+ *
  * The cause is fixed going forward (the Add dose button now disables while in flight, and
  * app/api/visits/[id]/doses/route.ts returns the existing row for an identical dose inside a minute
  * rather than creating another). This exists for the rows written before that.
@@ -23,6 +31,7 @@
  * so the dose itself, its cost and its charge survive exactly as first recorded.
  */
 import { prisma } from "@/lib/prisma";
+import { printDatabaseTarget } from "./db-target";
 
 const APPLY = process.argv.includes("--apply");
 
@@ -34,6 +43,8 @@ function money(n: number): string {
 }
 
 async function main() {
+  printDatabaseTarget(APPLY);
+
   const doses = await prisma.visitChemicalDose.findMany({
     orderBy: { createdAt: "asc" },
     select: {

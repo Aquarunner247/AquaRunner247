@@ -12,12 +12,21 @@
  *   node --env-file=.env node_modules/.bin/tsx scripts/prune-out-of-window-visits.ts
  *   node --env-file=.env node_modules/.bin/tsx scripts/prune-out-of-window-visits.ts --apply
  *
+ * `.env` points DATABASE_URL at the LOCAL Supabase stack, so the commands above inspect your dev
+ * database. To act on production data, set it for the one command -- a shell value wins, because
+ * node --env-file does not override an already-set variable:
+ *
+ *   DATABASE_URL="<production connection string>" npm run db:prune-out-of-window-visits -- --apply
+ *
+ * Every run prints which database it is talking to before it does anything. Check that line.
+ *
  * Only SCHEDULED visits are ever touched, the same rule deleteRoute and removeRouteStop follow:
  * anything started or completed is the service record and stays under the customer, even if it
  * happened on a day the window now excludes. A visit with readings, photos or a completion is
  * therefore never at risk here regardless of which flag you pass.
  */
 import { prisma } from "@/lib/prisma";
+import { printDatabaseTarget } from "./db-target";
 import { timeZoneForState, formatLocalDate, ymdInTimeZone } from "@/lib/timezone";
 import { serviceWindowExclusionBounds, ymdOfDateColumn } from "@/lib/route-service-window";
 
@@ -26,6 +35,8 @@ const APPLY = process.argv.includes("--apply");
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 async function main() {
+  printDatabaseTarget(APPLY);
+
   const routes = await prisma.recurringRoute.findMany({
     where: { OR: [{ startsOn: { not: null } }, { endsOn: { not: null } }] },
     select: {
