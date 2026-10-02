@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
+import { requirePortalPage } from "@/lib/auth/portal-page-guard";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { uploadDocumentAsCustomer, deleteDocumentAsCustomer } from "../../actions";
 
 export default async function PortalDocumentsPage() {
-  const customerUser = await getCurrentCustomerUser();
+  const customerUser = await requirePortalPage("/portal/documents");
   if (!customerUser) redirect("/portal/login");
 
   const documents = await prisma.customerDocument.findMany({

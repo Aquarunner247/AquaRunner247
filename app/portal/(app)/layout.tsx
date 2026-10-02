@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PortalNav } from "../components/portal-nav";
 import { PortalOnboardingTourLauncher } from "@/app/components/portal-onboarding-tour-launcher";
 import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
+import { recordPortalActivation } from "@/lib/portal-activation";
 
 export default async function PortalAppLayout({ children }: { children: React.ReactNode }) {
   const access = await getCurrentCustomerPortalAccessState();
@@ -16,6 +17,12 @@ export default async function PortalAppLayout({ children }: { children: React.Re
   // server actions check it too (app/portal/actions.ts), since a layout cannot gate those.
   if (access.customerUser.mustChangePassword) redirect("/portal/set-password");
   const customerUser = access.customerUser;
+
+  // First authenticated render from this login is the only moment the app can observe that the welcome
+  // email worked, so it is where the organization gets told. Awaited rather than fired and forgotten:
+  // a server component that returns before its own promise settles can have the work cut short, and it
+  // writes one row and sends at most one email in the life of a login. It never throws.
+  if (customerUser.activatedAt == null) await recordPortalActivation(customerUser.id);
 
   // Org branding (logo + colors) -- shared with the welcome email, see
   // lib/mail/welcome-email.ts and prisma/schema.prisma's Organization.branding* fields.
@@ -58,7 +65,11 @@ export default async function PortalAppLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-brand-surface md:flex" style={brandingStyle}>
-      <PortalNav logoUrl={(branded ? org?.brandingLogoUrl : null) ?? null} orgName={orgName} />
+      <PortalNav
+        logoUrl={(branded ? org?.brandingLogoUrl : null) ?? null}
+        orgName={orgName}
+        isMaintenance={customerUser.role === "MAINTENANCE"}
+      />
       <div className="min-w-0 flex-1">{children}</div>
       <PortalOnboardingTourLauncher seenPages={customerUser.seenTourPages} />
     </div>

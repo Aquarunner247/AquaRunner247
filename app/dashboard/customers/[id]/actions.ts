@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { BodyOfWaterType, EquipmentKind, FilterMedia, EquipmentPurpose, PropertyType, DisinfectionMethod, ChlorineFeedMechanism, VolumeShape } from "@/generated/prisma/client";
+import type { CustomerUserRole } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
@@ -1234,6 +1235,10 @@ export async function createCustomerLogin(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!customerId || !name || !email) return;
 
+  // Anything other than the one value that grants extra ability falls back to a plain customer login --
+  // a tampered or missing field must not be the way someone gets the reading-logging capability.
+  const role: CustomerUserRole = formData.get("role") === "MAINTENANCE" ? "MAINTENANCE" : "CUSTOMER";
+
   // Not typed by anyone, not emailed, not stored -- the customer sets their own password through the
   // activation link in the welcome email. See lib/auth/initial-password.ts.
   const password = generateUnknowablePassword();
@@ -1263,14 +1268,14 @@ export async function createCustomerLogin(formData: FormData) {
   if (existingCustomerUser) {
     await prisma.customerUser.update({
       where: { id: existingCustomerUser.id },
-      data: { authUserId, name, active: true },
+      data: { authUserId, name, active: true, role },
     });
   } else {
     await prisma.customerUser.create({
       // Nothing to force a change of: there is no password anyone knows, and the one they set through
       // the activation link is their own choice. The flag and the /portal/set-password screen stay for
       // the logins created while a typed temporary password was still emailed.
-      data: { customerId, authUserId, email, name, active: true, mustChangePassword: false },
+      data: { customerId, authUserId, email, name, active: true, mustChangePassword: false, role },
     });
 
     // Best-effort, same as sendCustomerAccessEndedEmail below -- a welcome email failing

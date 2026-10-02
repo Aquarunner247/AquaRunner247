@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
+import { requirePortalPage } from "@/lib/auth/portal-page-guard";
 import { getSdsSignedUrl, resolveSds } from "@/lib/sds-documents";
 
 export default async function PortalChemicalsPage() {
-  const customerUser = await getCurrentCustomerUser();
+  const customerUser = await requirePortalPage("/portal/chemicals");
   if (!customerUser) redirect("/portal/login");
 
   const customer = await prisma.customer.findUnique({

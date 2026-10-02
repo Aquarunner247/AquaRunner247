@@ -729,6 +729,10 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     <span>
                       <span className="font-medium text-brand-ink">{cu.name ?? cu.email}</span>
                       <span className="ml-2 text-brand-muted">{cu.email}</span>
+                      {cu.role === "MAINTENANCE" ? <span className="app-badge ml-2">Maintenance log</span> : null}
+                      {/* Whether the welcome email was ever acted on. Until this is set, nobody has come
+                          through it -- which is the difference between a quiet customer and a dead address. */}
+                      {cu.activatedAt ? null : <span className="ml-2 text-xs text-brand-muted">not signed in yet</span>}
                     </span>
                     {isEnded ? (
                       <button type="button" disabled aria-disabled="true" className="cursor-not-allowed rounded px-2 py-1 text-base text-brand-muted opacity-50">
@@ -764,13 +768,23 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 ) : null}
                 <div className="grid gap-2 md:grid-cols-2">
                   <NameInput name="name" required placeholder="Contact name" className="app-field-sm" />
-                  <input name="email" type="email" required placeholder="Email" className="app-field-sm md:col-span-2" />
+                  <input name="email" type="email" required placeholder="Email" className="app-field-sm" />
+                  <select name="role" defaultValue="CUSTOMER" className="app-field-sm" aria-label="Login type">
+                    <option value="CUSTOMER">Customer — full portal</option>
+                    <option value="MAINTENANCE">Maintenance — daily log only</option>
+                  </select>
                 </div>
                 <p className="mt-1 text-xs text-brand-muted">
                   They get a welcome email with a link to choose their own password — no password for
                   you to pick or pass along. The link is single-use and expires in 48 hours; if it
                   lapses, add the login again or send them to{" "}
                   <code className="rounded bg-brand-border px-1">/portal/login</code> to reset it.
+                </p>
+                <p className="mt-1 text-xs text-brand-muted">
+                  <strong>Maintenance</strong> is for the property&rsquo;s own maintenance person: they can
+                  log daily chemistry readings and see the chemical safety data sheets, and nothing else.
+                  Their readings never overwrite your technician&rsquo;s — the compliance log shows one line
+                  per day with the latest reading on it.
                 </p>
                 <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                   Add portal login

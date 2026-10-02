@@ -625,6 +625,84 @@ type CustomerAccessEndedEmailInput = {
  * login is blocked, not deleted, and their historical data is untouched either way -- this
  * tells them how to get full access back on their own, via AquaRunner Compliance.
  */
+export interface PortalActivationEmailInput {
+  /** The organization's own people -- this is an internal notice, never the customer. */
+  to: string[];
+  organizationName: string;
+  customerName: string;
+  personName: string;
+  personEmail: string;
+  /** "their maintenance log" vs "the customer portal" -- the two are different news. */
+  isMaintenanceLogin: boolean;
+  /** Deep link to the customer in the dashboard, so the office can act on it in one click. */
+  customerUrl: string;
+}
+
+/**
+ * Tells the organization that a portal login they created has actually been used for the first time.
+ *
+ * Creating a login sends the customer an email and then tells the office nothing ever again: whether
+ * they set a password, whether the invitation went to a dead address, whether it is worth following up
+ * by phone. This closes that loop once per login, on first sign-in.
+ *
+ * Platform identity, not the pool company's -- it is AquaRunner reporting to its own customer about
+ * their account, the same reasoning as sendCustomerAccessEndedEmail. No white-label branding.
+ */
+export async function sendPortalActivationEmail(input: PortalActivationEmailInput): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
+  }
+  if (input.to.length === 0) {
+    return { ok: false, error: "No recipient — organization has no support address or admin users." };
+  }
+  const fromAddress = resolveFromAddress();
+  const resend = new Resend(apiKey);
+
+  const what = input.isMaintenanceLogin
+    ? `signed in to the daily chemistry log for ${escapeEmailHtml(input.customerName)}`
+    : `signed in to the customer portal for ${escapeEmailHtml(input.customerName)}`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
+      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Account activated</p>
+        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${escapeEmailHtml(input.customerName)}</h1>
+      </div>
+      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size:14px; margin:0 0 16px;">
+          <strong>${escapeEmailHtml(input.personName)}</strong> (${escapeEmailHtml(input.personEmail)}) has ${what}
+          for the first time, so the welcome email reached them and they have set their own password.
+        </p>
+        <p style="margin:0 0 16px;">
+          <a href="${escapeEmailHtml(input.customerUrl)}" style="display:inline-block; background:#0A6E7C; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+            Open ${escapeEmailHtml(input.customerName)}
+          </a>
+        </p>
+        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+          Sent once per login, the first time it is used. An automated notice from AquaRunner 24/7 Pro
+          to ${escapeEmailHtml(input.organizationName)}.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: fromAddress,
+      to: input.to,
+      subject: `${input.personName} activated their login — ${input.customerName}`,
+      html,
+    });
+    if (result.error) {
+      return { ok: false, error: result.error.message };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
+  }
+}
+
 export async function sendCustomerAccessEndedEmail(input: CustomerAccessEndedEmailInput): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {

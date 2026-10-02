@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
+import { requirePortalPage } from "@/lib/auth/portal-page-guard";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
 import { PhotoThumbnail } from "@/app/components/photo-thumbnail";
@@ -32,7 +32,7 @@ function fmt(n: number | null, digits = 1): string {
 }
 
 export default async function PortalHomePage({ searchParams }: PageProps) {
-  const customerUser = await getCurrentCustomerUser();
+  const customerUser = await requirePortalPage("/portal");
   if (!customerUser) redirect("/portal/login");
 
   const sp = (await searchParams) ?? {};

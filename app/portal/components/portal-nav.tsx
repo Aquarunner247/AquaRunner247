@@ -16,12 +16,21 @@ function navClass(active: boolean) {
     : "flex items-center rounded-md px-3 py-2 text-sm font-medium text-brand-border hover:bg-white/5 hover:text-white";
 }
 
-const LINKS = [
+const CUSTOMER_LINKS = [
   { href: "/portal", label: "Dashboard" },
   { href: "/portal/documents", label: "Documents" },
   { href: "/portal/chemicals", label: "Chemicals" },
   { href: "/portal/alerts", label: "Alerts" },
   { href: "/portal/compliance", label: "Compliance" },
+];
+
+/** A maintenance login gets the log it exists for, and the safety data sheets for the chemicals it
+ *  handles. Kept in step with lib/portal-access.ts, which is what actually enforces this -- the nav only
+ *  decides what is offered, and a page is served or refused by its own guard. */
+const MAINTENANCE_LINKS = [
+  { href: "/portal/log", label: "Daily log" },
+  // tour: the maintenance tour's last step points at this link, so it needs a handle in the DOM.
+  { href: "/portal/chemicals", label: "Chemicals", tour: "portal-nav-chemicals" },
 ];
 
 /** Text wordmark used when the org hasn't uploaded a logo -- unchanged from before this
@@ -43,8 +52,18 @@ function Wordmark({ size }: { size: "sm" | "lg" }) {
   );
 }
 
-export function PortalNav({ logoUrl, orgName }: { logoUrl: string | null; orgName: string }) {
+export function PortalNav({
+  logoUrl,
+  orgName,
+  isMaintenance = false,
+}: {
+  logoUrl: string | null;
+  orgName: string;
+  /** A maintenance login: the daily log and the safety data sheets, nothing else. */
+  isMaintenance?: boolean;
+}) {
   const pathname = usePathname();
+  const links = isMaintenance ? MAINTENANCE_LINKS : CUSTOMER_LINKS;
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -86,8 +105,13 @@ export function PortalNav({ logoUrl, orgName }: { logoUrl: string | null; orgNam
         </div>
 
         <nav className="flex flex-col gap-1 px-3 py-3 md:flex-1 md:py-0">
-          {LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className={navClass(isActive(pathname, link.href))}>
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              data-tour={"tour" in link ? link.tour : undefined}
+              className={navClass(isActive(pathname, link.href))}
+            >
               {link.label}
             </Link>
           ))}
@@ -95,7 +119,7 @@ export function PortalNav({ logoUrl, orgName }: { logoUrl: string | null; orgNam
 
         <div className="border-t border-white/10 px-3 py-3">
           <ReplayTourButton
-            returnTo="/portal"
+            returnTo={isMaintenance ? "/portal/log" : "/portal"}
             className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-brand-border hover:bg-white/5 hover:text-white"
           />
           <button

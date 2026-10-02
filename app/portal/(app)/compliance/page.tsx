@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
+import { requirePortalPage } from "@/lib/auth/portal-page-guard";
 import { getOrganizationRuleset, isComplianceActive } from "@/lib/compliance";
 import { SimpleMarkdown } from "@/lib/simple-markdown";
 
 export default async function PortalCompliancePage() {
-  const customerUser = await getCurrentCustomerUser();
+  const customerUser = await requirePortalPage("/portal/compliance");
   if (!customerUser) redirect("/portal/login");
 
   const customer = await prisma.customer.findUnique({

@@ -695,6 +695,15 @@ model WelcomeEmailSend {
 
 /// A customer-portal login (separate from staff `User`) — a customer's own contact who can
 /// sign in at /portal to see their scheduled visits, reports, photos, documents, and alerts.
+/// What a portal login is for. A customer's own people (a property manager, an owner) get the whole
+/// portal; a maintenance person employed at the property gets the daily log and the chemical safety
+/// data sheets and nothing else, because the rest of the portal -- service history, billing context,
+/// documents, alerts -- is the customer's business, not their contractor's.
+enum CustomerUserRole {
+  CUSTOMER
+  MAINTENANCE
+}
+
 model CustomerUser {
   id         String   @id @default(cuid())
   customerId String
@@ -717,7 +726,21 @@ model CustomerUser {
   /// was emailed to the customer in plain text. The portal refuses to open until they replace it
   /// (app/portal/set-password). Defaults false so every existing login, and every account whose
   /// password was set by the customer themselves through the activation link, is unaffected.
+  /// No login created after c998e74 sets this -- there is no typed password any more.
   mustChangePassword Boolean @default(false)
+
+  /// CUSTOMER sees the whole portal. MAINTENANCE is the property's own maintenance person: they may
+  /// log daily readings, and they see only the log and the chemical safety data sheets.
+  role CustomerUserRole @default(CUSTOMER)
+
+  /// First time this login was seen signed in. Set once, and the organization is emailed when it
+  /// happens -- the pool company creates the login and then has no way to know whether the customer
+  /// ever used it. Null means the welcome email has gone out and nobody has come through it yet.
+  activatedAt DateTime?
+
+  /// Readings this person logged, as log-only visits. A maintenance person's entry never touches the
+  /// technician's service visit for that day; see ServiceVisit.loggedByCustomerUser.
+  loggedVisits ServiceVisit[] @relation("VisitLoggedByCustomerUser")
 
   @@index([customerId])
 }
@@ -1366,6 +1389,15 @@ model ServiceVisit {
   /// stay exactly where they are. "Pushed" means left for the body's next regular service call,
   /// not rescheduled -- no new visit is created.
   pushedAt DateTime?
+
+  /// Set when a reading was logged by the property's own maintenance person through the portal,
+  /// rather than recorded by a technician on a service visit. Always alongside logOnlyRecord: it is a
+  /// reading for the compliance log, not work anyone was dispatched for.
+  ///
+  /// It also answers "who recorded this day" on the log, which an inspector asks and which nothing
+  /// could answer before -- an imported row and a CPO-logged row both have no author at all.
+  loggedByCustomerUserId String?
+  loggedByCustomerUser   CustomerUser? @relation("VisitLoggedByCustomerUser", fields: [loggedByCustomerUserId], references: [id], onDelete: SetNull)
 
   startedAt             DateTime?
   /// GPS location captured at the moment arrival was logged (geofence auto-detect or the

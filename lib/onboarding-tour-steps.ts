@@ -266,6 +266,31 @@ export const TECHNICIAN_TOURS: Record<string, TourStep[]> = {
 };
 
 export const PORTAL_TOURS: Record<string, TourStep[]> = {
+  /**
+   * A maintenance login never sees /portal, so it would never meet the tour above. This is its whole
+   * introduction to the product: what the page is for, that the pool company's own readings appear here
+   * too, and where the safety data sheets are.
+   */
+  "/portal/log": [
+    {
+      target: "portal-log-bodies",
+      title: "Your pools, every day",
+      body: "One card per pool or spa. Each card says whether anything has been logged today yet — including readings your pool service company took — so you can see at a glance what still needs doing.",
+    },
+    {
+      target: "portal-log-save",
+      title: "Enter what you measured",
+      body: "Fill in the numbers you took and save. Leave anything you didn't test blank. Your entry is filed under today's date on the compliance log for that pool.",
+      placement: "top",
+    },
+    {
+      target: "portal-nav-chemicals",
+      title: "Safety data sheets",
+      body: "Safety Data Sheets for every chemical your pool company uses on this property, if you ever need to check handling or first aid.",
+      placement: "right",
+      optional: true,
+    },
+  ],
   "/portal": [
     {
       target: "portal-day-nav",

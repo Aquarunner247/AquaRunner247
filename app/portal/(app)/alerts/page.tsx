@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
+import { requirePortalPage } from "@/lib/auth/portal-page-guard";
 import { timeZoneForState, formatLocalDateTime } from "@/lib/timezone";
 
 export default async function PortalAlertsPage() {
-  const customerUser = await getCurrentCustomerUser();
+  const customerUser = await requirePortalPage("/portal/alerts");
   if (!customerUser) redirect("/portal/login");
 
   const [alerts, customer] = await Promise.all([
