@@ -16,6 +16,9 @@ import {
   deleteCustomerDocument,
   attachCustomerDocumentAsInspectionReport,
   createCustomerLogin,
+  addCustomerContact,
+  updateCustomerContact,
+  deleteCustomerContact,
   deleteCustomerLogin,
   sendCustomerAlert,
   updateCustomerChecklist,
@@ -28,6 +31,7 @@ import { RouteSuggestionPanel } from "@/app/components/route-suggestion-panel";
 import { FilterTypeFields } from "@/app/components/filter-type-fields";
 import { PropertyContactFields } from "@/app/components/property-contact-fields";
 import { NameInput } from "@/app/components/name-input";
+import { PhoneInput } from "@/app/components/phone-input";
 import { timeZoneForState, formatLocalDateTime, formatLocalTime } from "@/lib/timezone";
 import { ALERT_PLACEHOLDER_HINT } from "@/lib/alert-placeholders";
 import { AlertOutcomeBadge } from "@/app/components/alert-outcome-badge";
@@ -42,6 +46,8 @@ type PageProps = {
     checklistSaved?: string;
     alertSent?: string;
     docAttached?: string;
+    contactError?: string;
+    editContact?: string;
   }>;
 };
 
@@ -126,6 +132,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   const customerUsers = await prisma.customerUser.findMany({
     where: { customerId: customer.id },
     orderBy: { createdAt: "desc" },
+  });
+
+  // Oldest first: an office adds the people they deal with most in the order they think of them, and a
+  // list that reshuffles when someone is edited is harder to scan than one that stays put.
+  const contacts = await prisma.customerContact.findMany({
+    where: { customerId: customer.id },
+    orderBy: { createdAt: "asc" },
   });
 
   const alerts = await prisma.customerAlert.findMany({
@@ -710,6 +723,115 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 </Link>{" "}
                 settings page first.
               </p>
+            )}
+          </section>
+
+          <section className="app-card mt-6">
+            <h2 className="text-base font-semibold text-brand-ink">Other contacts</h2>
+            <p className="mt-1 text-sm text-brand-muted">
+              People at this account who aren&rsquo;t tied to one property — regional managers, assistant
+              managers, accounts payable. A property&rsquo;s own manager and maintenance contacts stay on
+              that property.
+            </p>
+            <p className="mt-1 text-xs text-brand-muted">
+              For reference only. Service summaries and alerts still go to the property contact, so adding
+              someone here doesn&rsquo;t start emailing them.
+            </p>
+
+            {sp.contactError ? <p className="mt-3 text-sm text-brand-danger">{sp.contactError}</p> : null}
+
+            {contacts.length ? (
+              <ul className="mt-3 space-y-2">
+                {contacts.map((contact) =>
+                  sp.editContact === contact.id ? (
+                    <li key={contact.id} className="rounded border border-brand-primary bg-brand-surface p-2">
+                      <form action={updateCustomerContact} className="grid gap-2 md:grid-cols-2">
+                        <input type="hidden" name="customerId" value={customer.id} />
+                        <input type="hidden" name="contactId" value={contact.id} />
+                        <NameInput name="name" required defaultValue={contact.name ?? ""} placeholder="Name" className="app-field-sm" />
+                        <input name="title" defaultValue={contact.title ?? ""} placeholder="Title" className="app-field-sm" />
+                        <input name="email" type="email" defaultValue={contact.email ?? ""} placeholder="Email" className="app-field-sm" />
+                        <PhoneInput name="phone" defaultValue={contact.phone ?? ""} placeholder="Phone" className="app-field-sm" />
+                        <div className="flex items-center gap-2 md:col-span-2">
+                          <button type="submit" className="app-btn-primary-sm min-h-[44px]">
+                            Save
+                          </button>
+                          <Link
+                            href={`/dashboard/customers/${customer.id}?tab=overview`}
+                            className="app-btn-secondary-sm flex min-h-[44px] items-center"
+                          >
+                            Cancel
+                          </Link>
+                        </div>
+                      </form>
+                    </li>
+                  ) : (
+                    <li
+                      key={contact.id}
+                      className="flex flex-wrap items-start justify-between gap-2 rounded border border-brand-border bg-brand-surface px-2 py-1.5 text-sm"
+                    >
+                      <span>
+                        <span className="font-medium text-brand-ink">{contact.name}</span>
+                        {contact.title ? <span className="ml-2 text-brand-muted">{contact.title}</span> : null}
+                        <span className="mt-0.5 block text-brand-muted">
+                          {contact.email ? (
+                            <a href={`mailto:${contact.email}`} className="app-link">
+                              {contact.email}
+                            </a>
+                          ) : null}
+                          {contact.email && contact.phone ? <span className="mx-1">·</span> : null}
+                          {contact.phone ? (
+                            <a href={`tel:${contact.phone.replace(/[^0-9+]/g, "")}`} className="app-metric app-link">
+                              {contact.phone}
+                            </a>
+                          ) : null}
+                          {!contact.email && !contact.phone ? <span className="text-xs">No email or phone on file</span> : null}
+                        </span>
+                      </span>
+                      {isEnded ? null : (
+                        <span className="flex items-center gap-1">
+                          <Link
+                            href={`/dashboard/customers/${customer.id}?tab=overview&editContact=${contact.id}`}
+                            className="rounded px-2 py-1 text-sm text-brand-primary hover:bg-brand-border"
+                          >
+                            Edit
+                          </Link>
+                          <form action={deleteCustomerContact}>
+                            <input type="hidden" name="customerId" value={customer.id} />
+                            <input type="hidden" name="contactId" value={contact.id} />
+                            <ConfirmSubmitButton
+                              label="🗑"
+                              confirmMessage={`Remove ${contact.name} from this customer's contacts?`}
+                              className="rounded px-2 py-1 text-base hover:bg-brand-border"
+                            />
+                          </form>
+                        </span>
+                      )}
+                    </li>
+                  ),
+                )}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-brand-muted">No other contacts yet.</p>
+            )}
+
+            {isEnded ? (
+              <p className="mt-3 text-sm text-brand-muted">
+                This relationship has ended — contacts can&rsquo;t be added or changed here anymore.
+              </p>
+            ) : (
+              <form action={addCustomerContact} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
+                <input type="hidden" name="customerId" value={customer.id} />
+                <div className="grid gap-2 md:grid-cols-2">
+                  <NameInput name="name" required placeholder="Name" className="app-field-sm" />
+                  <input name="title" placeholder="Title (e.g. Regional Manager)" className="app-field-sm" />
+                  <input name="email" type="email" placeholder="Email (optional)" className="app-field-sm" />
+                  <PhoneInput name="phone" placeholder="Phone (optional)" className="app-field-sm" />
+                </div>
+                <button className="app-btn-primary-sm mt-2 min-h-[44px]" type="submit">
+                  Add contact
+                </button>
+              </form>
             )}
           </section>
 

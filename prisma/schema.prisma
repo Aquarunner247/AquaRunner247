@@ -664,8 +664,41 @@ model Customer {
   alerts              CustomerAlert[]
   checklistExclusions CustomerChecklistExclusion[]
   welcomeEmailSends   WelcomeEmailSend[]
+  contacts            CustomerContact[]
 
   @@index([organizationId])
+}
+
+/// People at the customer worth having a number for, who are not tied to one property: a regional
+/// manager, an assistant manager, accounts payable.
+///
+/// Distinct from Property's own contact fields (managerName/managerEmail, the on-site maintenance
+/// contact, the HOA manager, ownerName/ownerEmail), which describe whoever is responsible for THAT
+/// address. A regional manager covering nine properties would otherwise have to be typed into nine
+/// of them and corrected in nine places.
+///
+/// Reference only, deliberately. Nothing here is emailed: service summaries and alerts go to the
+/// address propertyContactEmail resolves (lib/property-contact.ts), and silently widening that to
+/// every contact on the account would start mailing pool chemistry to accounts payable. Sending to a
+/// chosen contact is a separate decision with its own switch.
+model CustomerContact {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  name  String
+  /// Free text, not an enum: "Regional Manager", "AP", "Assistant Manager - weekends" are all things
+  /// an office actually writes, and a fixed list would be wrong for the next customer.
+  title String?
+  email String?
+  /// Stored as the admin typed it, formatted by app/components/phone-input.tsx. Normalization for
+  /// matching is lib/phone-match.ts's job and happens at read time.
+  phone String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
 }
 
 /// Append-only send log for the customer welcome email -- the single most important piece

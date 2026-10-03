@@ -16,6 +16,7 @@ import { sendCustomerAccessEndedEmail } from "@/lib/email";
 import { sendAlertToCustomer } from "@/lib/customer-alerts";
 import { sendWelcomeEmail } from "@/lib/mail/send-welcome-email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
+import { parseCustomerContact } from "@/lib/customer-contact-fields";
 import { parseFormNumber as numOrNull } from "@/lib/form-utils";
 import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
 import { createPayRateRow } from "@/lib/technician-pay";
@@ -1300,6 +1301,79 @@ export async function createCustomerLogin(formData: FormData) {
     }
   }
 
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+/**
+ * Contacts at the customer who are not tied to one property -- a regional manager, accounts payable.
+ *
+ * All three actions resolve the customer through the caller's own organization before touching
+ * anything, and the UPDATE and DELETE find the contact through that customer rather than by id alone,
+ * so a contact id from another organization cannot be edited or removed by guessing it.
+ *
+ * None of this changes who receives email. Service summaries and alerts still go to the address
+ * propertyContactEmail resolves; see CustomerContact in the schema for why that is deliberate.
+ */
+async function customerForContactEdit(customerId: string, organizationId: string) {
+  if (!customerId) return null;
+  return prisma.customer.findFirst({
+    where: { id: customerId, organizationId, relationshipEndedAt: null },
+    select: { id: true },
+  });
+}
+
+export async function addCustomerContact(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const customer = await customerForContactEdit(customerId, appUser.organizationId);
+  if (!customer) return;
+
+  const parsed = parseCustomerContact(formData);
+  if (!parsed.ok) {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&contactError=${encodeURIComponent(parsed.error)}`);
+  }
+
+  await prisma.customerContact.create({ data: { customerId: customer.id, ...parsed.value } });
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function updateCustomerContact(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const contactId = String(formData.get("contactId") ?? "").trim();
+  const customer = await customerForContactEdit(customerId, appUser.organizationId);
+  if (!customer || !contactId) return;
+
+  const parsed = parseCustomerContact(formData);
+  if (!parsed.ok) {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&contactError=${encodeURIComponent(parsed.error)}`);
+  }
+
+  // Scoped to the customer this request is editing, so an id from elsewhere matches nothing.
+  const existing = await prisma.customerContact.findFirst({
+    where: { id: contactId, customerId: customer.id },
+    select: { id: true },
+  });
+  if (!existing) return;
+
+  await prisma.customerContact.update({ where: { id: existing.id }, data: parsed.value });
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function deleteCustomerContact(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const contactId = String(formData.get("contactId") ?? "").trim();
+  const customer = await customerForContactEdit(customerId, appUser.organizationId);
+  if (!customer || !contactId) return;
+
+  const existing = await prisma.customerContact.findFirst({
+    where: { id: contactId, customerId: customer.id },
+    select: { id: true },
+  });
+  if (!existing) return;
+
+  await prisma.customerContact.delete({ where: { id: existing.id } });
   revalidatePath(`/dashboard/customers/${customerId}`);
 }
 
