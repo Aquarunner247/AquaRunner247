@@ -6,6 +6,7 @@ import { timeZoneForState, localDayBounds, ymdInTimeZone } from "@/lib/timezone"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
 import { resolveSummaryBundle, type BundleCandidate } from "@/lib/service-summary-bundle";
+import { photoDownloadFilename } from "@/lib/photo-download-name";
 
 // Long enough that the link in the email is still good whenever the recipient actually opens it
 // (people don't always open a service email the minute it lands) -- much longer than the 1-hour
@@ -189,7 +190,7 @@ export async function sendBundledServiceSummary(
   if (!claimed) return { sent: false, reason: "already-sent", waitingOn: [] };
 
   try {
-    const bodies = await loadBodies(decision);
+    const bodies = await loadBodies(decision, { propertyName: visit.property.name, ymd });
     if (bodies.length === 0) {
       await releaseClaim(decision.memberIds, claimedAt);
       return { sent: false, reason: "nothing-completed", waitingOn: outstandingNames };
@@ -237,6 +238,143 @@ export async function sendBundledServiceSummary(
   }
 }
 
+export type ResendSummaryResult = { ok: true; sentTo: string[] } | { ok: false; error: string };
+
+/**
+ * Sends a service day's summary again, to whoever is chosen.
+ *
+ * Separate from sendBundledServiceSummary rather than a flag on it, because almost every rule that
+ * function enforces exists to govern an AUTOMATIC send and is wrong for a deliberate one:
+ *
+ *  - No claim and no advisory lock. Those stop two concurrent completions both emailing the same
+ *    bundle; a person pressing a button is not a race, and refusing to send because the day is already
+ *    marked sent would refuse the entire point of this.
+ *  - No age limit. MAX_SERVICE_AGE_MS keeps the nightly sweep from surprising a customer with work they
+ *    have forgotten. Being asked for last August's report is not a surprise -- it is the request.
+ *  - No property contact, and no CC to the organization. It goes exactly where it is addressed. The
+ *    original recipients already have their copy, and sending them another unasked is how a resend
+ *    becomes an embarrassment.
+ *
+ * It still refuses a log-only record: an imported logbook reading is not a visit anyone performed, so
+ * there is no service to report, however it is asked for.
+ *
+ * `summaryEmailSentAt` is stamped if the bundle has never been sent, so the nightly sweep does not
+ * later send its own copy of a day the office has already dealt with by hand. An already-stamped bundle
+ * keeps its original timestamp -- that records when the customer was first told, and a resend does not
+ * change that fact.
+ */
+export async function resendServiceSummary(visitId: string, recipients: string[]): Promise<ResendSummaryResult> {
+  if (recipients.length === 0) return { ok: false, error: "No recipients given." };
+
+  const visit = await prisma.serviceVisit.findUnique({
+    where: { id: visitId },
+    select: {
+      id: true,
+      propertyId: true,
+      technicianId: true,
+      logOnlyRecord: true,
+      scheduledStart: true,
+      organizationId: true,
+      organization: {
+        select: {
+          state: true,
+          name: true,
+          planStatus: true,
+          planTier: true,
+          welcomeEmailSupportEmail: true,
+          brandingLogoUrl: true,
+          brandingPrimaryColor: true,
+          brandingHeaderColor: true,
+        },
+      },
+      property: {
+        select: { name: true, addressLine1: true, city: true, region: true },
+      },
+      technician: { select: { name: true, email: true } },
+    },
+  });
+  if (!visit) return { ok: false, error: "That visit no longer exists." };
+  if (visit.logOnlyRecord) {
+    return { ok: false, error: "That record is an imported reading, not a service visit, so there is nothing to send." };
+  }
+
+  const timeZone = timeZoneForState(visit.organization.state);
+  const ymd = ymdInTimeZone(visit.scheduledStart, timeZone);
+  const { start: dayStart, end: dayEnd } = localDayBounds(ymd, timeZone);
+
+  const candidates = await prisma.serviceVisit.findMany({
+    where: {
+      propertyId: visit.propertyId,
+      technicianId: visit.technicianId,
+      scheduledStart: { gte: dayStart, lt: dayEnd },
+      logOnlyRecord: false,
+    },
+    orderBy: { routeSequence: "asc" },
+    select: {
+      id: true,
+      status: true,
+      summaryEmailSentAt: true,
+      bodyOfWater: { select: { name: true, type: true, latitude: true, longitude: true } },
+    },
+  });
+
+  // force: the day is over and this is being asked for on purpose, so an unfinished body is reported as
+  // not completed rather than holding the whole thing back.
+  const decision = resolveSummaryBundle(
+    visit.id,
+    candidates.map((c) => ({
+      visitId: c.id,
+      bodyType: c.bodyOfWater?.type ?? null,
+      latitude: c.bodyOfWater?.latitude != null ? Number(c.bodyOfWater.latitude) : null,
+      longitude: c.bodyOfWater?.longitude != null ? Number(c.bodyOfWater.longitude) : null,
+      status: c.status,
+      // Hidden from the bundle rule on purpose: an already-sent day must still resolve into a bundle
+      // here, where being sent before is the normal case rather than a reason to stop.
+      summaryEmailSentAt: null,
+    })),
+    { force: true },
+  );
+
+  const bodies = await loadBodies(decision, { propertyName: visit.property.name, ymd });
+  if (bodies.length === 0) {
+    return { ok: false, error: "Nothing was serviced on that day, so there is no report to send." };
+  }
+
+  const startedAts = bodies.map((b) => b.startedAt).filter((d): d is Date => d != null);
+  const result = await sendServiceSummaryEmail({
+    to: recipients,
+    branding: hasWhiteLabelBranding(visit.organization)
+      ? {
+          orgName: visit.organization.name,
+          logoUrl: visit.organization.brandingLogoUrl,
+          primaryColor: visit.organization.brandingPrimaryColor,
+          headerColor: visit.organization.brandingHeaderColor,
+        }
+      : null,
+    propertyName: visit.property.name,
+    bodies: bodies.map((b) => b.body),
+    address:
+      [visit.property.addressLine1, visit.property.city, visit.property.region].filter(Boolean).join(", ") || null,
+    technicianName: visit.technician?.name ?? visit.technician?.email ?? null,
+    startedAt: startedAts.length > 0 ? new Date(Math.min(...startedAts.map((d) => d.getTime()))) : null,
+    completedAt: new Date(Math.max(...bodies.map((b) => b.body.completedAt.getTime()))),
+    timeZone,
+    ccEmail: null,
+    replyTo: visit.organization.welcomeEmailSupportEmail,
+  });
+  if (!result.ok) return { ok: false, error: result.error ?? "The email did not send." };
+
+  // Only where it was never sent at all, and only on this day's own members, so the sweep does not
+  // email a day the office has now handled. A real first-send timestamp is never overwritten.
+  await prisma.serviceVisit.updateMany({
+    where: { id: { in: decision.memberIds }, summaryEmailSentAt: null },
+    data: { summaryEmailSentAt: new Date() },
+  });
+
+  return { ok: true, sentTo: recipients };
+}
+
+
 /**
  * Undoes the claim so the summary isn't permanently marked sent when it never went. Scoped to
  * `claimedAt` so it can only ever clear this attempt's own stamp, never a genuine later send's.
@@ -254,12 +392,17 @@ async function releaseClaim(memberIds: string[], claimedAt: Date): Promise<void>
 }
 
 /** Each serviced member's own record, plus any skipped or unfinished ones named without readings. */
-async function loadBodies(decision: {
-  completedIds: string[];
-  skippedIds: string[];
-  incompleteIds: string[];
-  memberIds: string[];
-}): Promise<{ body: ServiceSummaryBody; startedAt: Date | null }[]> {
+async function loadBodies(
+  decision: {
+    completedIds: string[];
+    skippedIds: string[];
+    incompleteIds: string[];
+    memberIds: string[];
+  },
+  /** Only used to name a saved photo file -- see photoDownloadFilename. */
+  naming: { propertyName: string; ymd: string },
+): Promise<{ body: ServiceSummaryBody; startedAt: Date | null }[]> {
+  const { propertyName, ymd } = naming;
   const members = await prisma.serviceVisit.findMany({
     where: { id: { in: [...decision.completedIds, ...decision.skippedIds, ...decision.incompleteIds] } },
     orderBy: { routeSequence: "asc" },
@@ -287,18 +430,35 @@ async function loadBodies(decision: {
       const outcome: ServiceSummaryBody["outcome"] =
         m.status === "COMPLETED" ? "serviced" : m.status === "CANCELLED" ? "skipped" : "incomplete";
       const skipped = outcome !== "serviced";
-      const photoUrls = skipped
+      // Two signed URLs per photo: one the <img> displays, one with a download disposition and a real
+      // filename behind a "Save this photo" link. The link exists because a customer could not save a
+      // photo from the inline image -- see ServiceSummaryBody.photos.
+      const photos = skipped
         ? []
         : (
             await Promise.all(
-              m.photos.map(async (p) => {
-                const { data } = await supabaseAdmin.storage
-                  .from(VISIT_PHOTOS_BUCKET)
-                  .createSignedUrl(p.storagePath, PHOTO_EMAIL_LINK_TTL_SECONDS);
-                return data?.signedUrl ?? null;
+              m.photos.map(async (p, index) => {
+                const storage = supabaseAdmin.storage.from(VISIT_PHOTOS_BUCKET);
+                const [inline, download] = await Promise.all([
+                  storage.createSignedUrl(p.storagePath, PHOTO_EMAIL_LINK_TTL_SECONDS),
+                  storage.createSignedUrl(p.storagePath, PHOTO_EMAIL_LINK_TTL_SECONDS, {
+                    download: photoDownloadFilename({
+                      propertyName,
+                      bodyName: m.bodyOfWater?.name ?? "Pool",
+                      ymd,
+                      index: index + 1,
+                      storagePath: p.storagePath,
+                    }),
+                  }),
+                ]);
+                const url = inline.data?.signedUrl;
+                if (!url) return null;
+                // Without a download URL the photo still shows; it just loses its save link, which is
+                // better than dropping the photo from the email over a signing failure.
+                return { url, downloadUrl: download.data?.signedUrl ?? url };
               }),
             )
-          ).filter((url): url is string => url != null);
+          ).filter((photo): photo is { url: string; downloadUrl: string } => photo != null);
 
       const body: ServiceSummaryBody = {
         bodyOfWaterName: m.bodyOfWater?.name ?? "Body of water",
@@ -319,7 +479,7 @@ async function loadBodies(decision: {
         doses: skipped ? [] : m.doses.map((d) => ({ productName: d.productName, quantity: Number(d.quantity), unit: d.unit })),
         checklistLabels: skipped ? [] : m.checklistCompletions.map((c) => c.label).filter(Boolean),
         techNotes: skipped ? null : m.techNotes,
-        photoUrls,
+        photos,
         // A skipped visit has no completedAt; its scheduled day is what the email is about, and the
         // header uses the latest completion across the bundle anyway.
         lastWorkEvidenceAt: m.photos.reduce<Date | null>(

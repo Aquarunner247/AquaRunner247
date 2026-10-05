@@ -13,11 +13,13 @@ import { ResidentialVisitForm } from "./residential-visit-form";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
 import { getSavedDosingRecommendation } from "@/lib/dosing-calculator";
 import type { VisitWaterReading } from "@/generated/prisma/client";
-import { formatLocalDate, localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { formatLocalDate, formatLocalDateTime, localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { propertyContactEmail } from "@/lib/property-contact";
+import { resendServiceSummaryEmail } from "./actions";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ from?: string }>;
+  searchParams?: Promise<{ from?: string; resendError?: string; resentTo?: string }>;
 };
 
 /**
@@ -68,7 +70,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
     include: {
       // `name` for interpolating {{orgName}} into the service messages the technician picks from.
       organization: { select: { state: true, name: true } },
-      property: { select: { name: true, propertyType: true, customerId: true } },
+      property: { select: { name: true, propertyType: true, customerId: true, managerEmail: true, ownerEmail: true } },
       bodyOfWater: {
         select: {
           id: true,
@@ -279,6 +281,10 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
     }
   }
 
+  // Who the automatic send went to, shown so the office can see whether the person asking has
+  // already had a copy. Same resolution the sender uses, rather than a second guess at it.
+  const originalRecipient = propertyContactEmail(visit.property);
+
   return (
     <main className={`mx-auto min-h-screen max-w-4xl px-6 py-10 ${showsNextStop ? "pb-32" : ""}`}>
       <div className="mb-6">
@@ -358,6 +364,50 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           serviceMessages={serviceMessages}
         />
       )}
+      {isAdminOrOffice ? (
+        <section className="app-card mt-6">
+          <h2 className="font-[family-name:var(--font-display)] text-base font-semibold text-brand-ink">
+            Send this report again
+          </h2>
+          <p className="mt-1 text-sm text-brand-muted">
+            Emails this service day&rsquo;s summary — every pool and spa done on this walk-up, with its
+            readings, chemicals and photos — to whoever you put below. It goes only to these addresses;
+            nobody who received it the first time gets another copy.
+          </p>
+
+          <p className="mt-2 text-xs text-brand-muted">
+            {visit.summaryEmailSentAt ? (
+              <>
+                First sent{" "}
+                {formatLocalDateTime(visit.summaryEmailSentAt, timeZoneForState(visit.organization.state))}
+                {originalRecipient ? <> to {originalRecipient}</> : null}.
+              </>
+            ) : (
+              <>Never sent automatically{originalRecipient ? <> — the property contact is {originalRecipient}</> : null}.</>
+            )}
+          </p>
+
+          {sp.resendError ? <p className="mt-3 text-sm text-brand-danger">{sp.resendError}</p> : null}
+          {sp.resentTo ? <p className="mt-3 text-sm text-brand-ok">Sent to {sp.resentTo}.</p> : null}
+
+          <form action={resendServiceSummaryEmail} className="mt-3 flex flex-wrap items-start gap-2">
+            <input type="hidden" name="visitId" value={visit.id} />
+            <input
+              name="recipients"
+              type="text"
+              required
+              placeholder="name@example.com, another@example.com"
+              className="app-field-sm min-w-[18rem] flex-1"
+            />
+            <button type="submit" className="app-btn-primary-sm min-h-[44px]">
+              Send
+            </button>
+          </form>
+          <p className="mt-1 text-xs text-brand-muted">
+            Separate several addresses with commas. Up to 10 at a time.
+          </p>
+        </section>
+      ) : null}
       {showsNextStop ? <NextStopRibbon next={nextStop} /> : null}
     </main>
   );

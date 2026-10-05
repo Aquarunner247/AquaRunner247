@@ -50,6 +50,13 @@ type DoseSummary = { productName: string; quantity: number; unit: string };
  * compliance records, so the customer gets a single email holding both rather than two emails for
  * one visit -- see lib/service-summary-bundle.ts for what counts as one visit.
  */
+/** One photo, as the email needs it: one URL to show it and one to save it. */
+export type ServiceSummaryPhoto = {
+  url: string;
+  /** Signed with a download disposition and a filename, so a click saves the file. */
+  downloadUrl: string;
+};
+
 export type ServiceSummaryBody = {
   bodyOfWaterName: string;
   /** Which disinfectant this body uses (BodyOfWater.disinfectionMethod) -- decides whether the
@@ -60,11 +67,19 @@ export type ServiceSummaryBody = {
   doses: DoseSummary[];
   checklistLabels: string[];
   techNotes: string | null;
-  /** Signed Supabase Storage URLs (see VISIT_PHOTOS_BUCKET) -- the bucket is private, so these
-   * must already be signed by the caller, with an expiry long enough to still resolve whenever the
-   * recipient actually opens the email, not the short-lived one used for a page that regenerates
-   * it on every load. */
-  photoUrls: string[];
+  /**
+   * Signed Supabase Storage URLs (see VISIT_PHOTOS_BUCKET) -- the bucket is private, so these must
+   * already be signed by the caller, with an expiry long enough to still resolve whenever the
+   * recipient actually opens the email, not the short-lived one used for a page that regenerates it on
+   * every load.
+   *
+   * Two URLs per photo, because one is not enough. `url` is what the <img> displays. `downloadUrl` is
+   * the same object signed with a download disposition and a real filename, behind a visible link: a
+   * customer asked to keep a photo and could not, and right-clicking an inline image is not a reliable
+   * way to save one -- Gmail serves it through its own proxy, and a phone's mail client often offers no
+   * way at all. A link they can tap always works.
+   */
+  photos: ServiceSummaryPhoto[];
   /** The latest moment there is evidence of work at this body -- the newest photo's own capture
    *  time. Null when no photo was taken. Used only to decide whether the visit's completion
    *  timestamp is close enough to the work to support an "on site" duration; never shown. */
@@ -88,7 +103,9 @@ export type ServiceSummaryBody = {
 };
 
 type ServiceSummaryEmailInput = {
-  to: string;
+  /** One address for the automatic send to the property contact, several for a resend the office
+   *  addresses by hand (see resendServiceSummary). */
+  to: string | string[];
   /** The org's branding when it's on a tier that includes white-labelling, else null. Resolved
    * by the caller (see the completion route) so the tier gate lives with the other org lookups
    * rather than being re-derived here. Null yields the platform's own look. */
@@ -252,13 +269,16 @@ function renderBody(body: ServiceSummaryBody, timeZone: string, showHeading: boo
     }
     ${body.techNotes ? section("Notes", `<p style="font-size:14px; margin:0; white-space:pre-wrap;">${escapeEmailHtml(body.techNotes)}</p>`) : ""}
     ${
-      body.photoUrls.length
+      body.photos.length
         ? section(
-            "Photos from this visit",
-            body.photoUrls
+            body.photos.length === 1 ? "Photo from this visit" : "Photos from this visit",
+            body.photos
               .map(
-                (url) =>
-                  `<img src="${url}" alt="Service visit photo" style="display:block; width:100%; max-width:512px; border-radius:8px; margin:0 0 8px; border:1px solid #C4D9DA;" />`,
+                (photo) =>
+                  `<img src="${photo.url}" alt="Service visit photo" style="display:block; width:100%; max-width:512px; border-radius:8px; margin:0 0 6px; border:1px solid #C4D9DA;" />` +
+                  // Under each photo rather than one link for all of them, so it is clear which image
+                  // a link saves when there are several.
+                  `<p style="font-size:13px; margin:0 0 14px;"><a href="${photo.downloadUrl}" style="color:#0A6E7C;">Save this photo</a></p>`,
               )
               .join(""),
           )
