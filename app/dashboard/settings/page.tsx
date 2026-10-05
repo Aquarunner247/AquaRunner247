@@ -218,6 +218,16 @@ export default async function SettingsPage() {
       </div>
 
       <section className="app-card mt-4">
+        <h2 className="font-display text-base font-semibold text-brand-ink">What&rsquo;s new</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          Every change to the app, newest first — what it affects and who it affects.
+        </p>
+        <Link href="/dashboard/whats-new" className="app-btn-secondary-sm mt-3 inline-flex">
+          Read what&rsquo;s new
+        </Link>
+      </section>
+
+      <section className="app-card mt-4">
         <h2 className="font-display text-base font-semibold text-brand-ink">Getting-started tour</h2>
         <p className="mt-1 text-sm text-brand-muted">Revisit the dashboard walkthrough shown when you first signed in.</p>
         <ReplayTourButton returnTo="/dashboard" className="app-btn-secondary-sm mt-3" />

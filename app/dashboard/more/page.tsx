@@ -51,6 +51,13 @@ export default async function MorePage() {
         Safety Data Sheets
       </Link>
 
+      <Link
+        href="/dashboard/whats-new"
+        className="mt-4 block rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm"
+      >
+        What&rsquo;s new
+      </Link>
+
       <ReplayTourButton
         returnTo="/dashboard/schedule"
         className="mt-4 block w-full rounded-lg border border-brand-border bg-white px-4 py-2.5 text-left text-sm font-semibold text-brand-ink shadow-sm"
