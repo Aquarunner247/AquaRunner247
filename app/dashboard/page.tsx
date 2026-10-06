@@ -242,7 +242,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const dueTaskRows = await prisma.customerTask.findMany({
       where: {
         completedAt: null,
-        OR: [{ remindOn: { lte: dueCutoffForTimeZone(now, tz) } }, { dueOn: null }],
+        OR: [
+          // No deadline: show it now.
+          { dueOn: null },
+          // Its reminder day has arrived.
+          { remindOn: { lte: dueCutoffForTimeZone(now, tz) } },
+          // Dated but with no reminder day, which happens to any row written between a migration and
+          // the deploy that starts filling the column in -- one was created exactly that way on
+          // 2026-10-06. Falling back to the due date means such a row surfaces late rather than never,
+          // and the backfill in 20261006160000 fixes the ones already written.
+          { AND: [{ remindOn: null }, { dueOn: { lte: dueCutoffForTimeZone(now, tz) } }] },
+        ],
         customer: { organizationId: orgId, relationshipEndedAt: null },
       },
       // Soonest deadline first, undated ones last -- they are the least time-critical by definition.
