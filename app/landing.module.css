@@ -316,7 +316,10 @@
   text-decoration: none;
 }
 
-.brand svg {
+/* img as well as svg: the logo mark is now the app icon served from /icons/icon.svg rather than an
+   inline outline, and it still has to be exactly 34px in the nav and the footer. */
+.brand svg,
+.brand img {
   width: 34px;
   height: 34px;
   flex: none;

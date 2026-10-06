@@ -108,3 +108,13 @@ until it's marked done.
 Done is kept rather than deleted, so "did we ever do that for them" stays answerable — with who
 finished it and when. Delete is there for the ones typed by mistake. Only your staff see these; the
 customer never does.
+
+## October 6, 2026
+
+**New app icon.** The runner mark now appears on the browser tab, as a bookmark or home-screen icon, and
+in the corner of every marketing page, in the site's own teal rather than the original black and bright
+blue. It was redrawn as vector, so it stays sharp at every size instead of being an enlarged photo of a
+small image.
+
+If your tab still shows the old one, browsers hold on to icons hard — a forced refresh or a new tab
+sorts it out.

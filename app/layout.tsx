@@ -58,7 +58,13 @@ export const metadata: Metadata = {
     images: ["/og/home.png"],
   },
   icons: {
-    icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }],
+    icon: [
+      // SVG first: a browser that supports it renders the tab icon from vector, so it is sharp on a
+      // high-DPI screen at whatever size the browser chooses. The 32px PNG stays for the ones that
+      // don't, and Safari still needs the apple-touch PNG below either way.
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+    ],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
