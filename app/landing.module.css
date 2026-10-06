@@ -740,6 +740,19 @@
   margin-top: clamp(28px, 3.5vw, 40px);
 }
 
+/* Section 02 shows the placard beside what scanning it opens: the code that hangs in the pump room,
+   then the record an inspector lands on. The section's whole claim is that pairing, so the two belong
+   in one figure rather than the record alone. Same top margin as .visual, which this replaces there. */
+.scanPair {
+  margin-top: clamp(28px, 3.5vw, 40px);
+  display: grid;
+  /* 300px, not the placard's own 340px cap: the QR is square, so the column width sets the card's
+     height, and at 340 it towered over the record beside it. */
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: clamp(22px, 3vw, 38px);
+  align-items: start;
+}
+
 /* Same visual language as .formOk.onDark (a left-accent-bordered highlight on dark
    backgrounds) but full-width and standalone -- used to call out one specific feature
    inside a section, not a form success state. */
@@ -1960,6 +1973,16 @@
 }
 
 @media (max-width: 860px) {
+  /* Stacks with the placard first -- the story only reads scan-then-see in that order. The placard's
+     340px cap is a desktop column width, not a design constraint, so it is lifted when it is alone. */
+  .scanPair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scanPair .placard {
+    max-width: none;
+  }
+
   /* The marketing links collapse on phones, but Sign in stays -- a technician opening
      the site on their phone still needs a way into the app. Hide the links themselves
      rather than the <nav>, so the landmark and the .navIn flex row both survive. */

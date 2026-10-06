@@ -118,3 +118,7 @@ small image.
 
 If your tab still shows the old one, browsers hold on to icons hard — a forced refresh or a new tab
 sorts it out.
+
+**QR code back on the landing page.** Section 02 — "An inspector walks up" — now shows the pump-room
+placard next to the record it opens, instead of the record alone. The section's whole claim is that
+pairing, and only half of it was on screen.

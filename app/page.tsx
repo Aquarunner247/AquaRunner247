@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { AppPreview } from "./components/landing/app-preview";
-import { InspectorRecord } from "./components/landing/scan-flow";
+import { InspectorRecord, QrPlacard } from "./components/landing/scan-flow";
 import { SiteNav, SiteFooter } from "./components/landing/site-chrome";
 import { WaitlistForm } from "./components/landing/waitlist-form";
 import styles from "./landing.module.css";
@@ -239,7 +239,10 @@ export default function Home() {
               </ul>
             </div>
 
-            <div className={styles.visual}>
+            {/* The placard and the record it opens, together: this section's claim is that an inspector
+                walks up and scans what is already on the wall, which the record alone does not show. */}
+            <div className={styles.scanPair}>
+              <QrPlacard />
               <InspectorRecord />
             </div>
 
