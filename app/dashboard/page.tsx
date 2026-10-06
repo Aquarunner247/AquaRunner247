@@ -10,6 +10,7 @@ import { ChemGauge } from "@/app/components/chem-gauge";
 import { resolveIssue } from "./actions";
 import { TechnicianHome } from "./technician-home";
 import { timeZoneForState, formatLocalDate, startOfLocalDay } from "@/lib/timezone";
+import { dueCutoffForTimeZone, taskDueState } from "@/lib/customer-task-due";
 
 type ReadingParam = { key: string; label: string; value: number; unit: string; min: number; max: number; idealMin: number; idealMax: number };
 
@@ -79,6 +80,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   let stats: { customers: number; managementCompanies: number; bodiesOfWater: number; upcomingThisWeek: number; weekTotal: number; weekCompleted: number } | null = null;
   let activity: Array<{ id: string; label: string; detail: string; at: Date }> = [];
   let overdueVisits: Array<{ id: string; property: string; body: string; tech: string; scheduledStart: Date }> = [];
+  let dueTasks: Array<{ id: string; customerId: string; customer: string; title: string; dueOn: Date | null }> = [];
   let outOfRangeReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[]; params: ReadingParam[] }> = [];
   let closureHazardReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[]; params: ReadingParam[] }> = [];
 
@@ -226,6 +228,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         technician: { select: { name: true, email: true } },
       },
     });
+    // Office to-dos due today or already past. dueOn is a @db.Date (UTC midnight), so the cutoff is the
+    // org's own today resolved first -- see lib/customer-task-due.ts. A customer whose relationship has
+    // ended is excluded: its to-dos are history, not work owed.
+    const dueTaskRows = await prisma.customerTask.findMany({
+      where: {
+        completedAt: null,
+        dueOn: { not: null, lte: dueCutoffForTimeZone(now, tz) },
+        customer: { organizationId: orgId, relationshipEndedAt: null },
+      },
+      orderBy: { dueOn: "asc" },
+      take: 10,
+      select: { id: true, title: true, dueOn: true, customer: { select: { id: true, name: true } } },
+    });
+    dueTasks = dueTaskRows.map((t) => ({
+      id: t.id,
+      customerId: t.customer.id,
+      customer: t.customer.name,
+      title: t.title,
+      dueOn: t.dueOn,
+    }));
+
     overdueVisits = overdue.map((v) => ({
       id: v.id,
       property: v.property.name,
@@ -495,6 +518,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     dueLabel: formatLocalDate(v.scheduledStart, tz),
   }));
 
+  const dueTaskItems = dueTasks.map((t) => {
+    const state = taskDueState(t.dueOn, new Date(), tz);
+    return {
+      id: t.id,
+      customerId: t.customerId,
+      customer: t.customer,
+      title: t.title,
+      dueLabel: state === "today" ? "due today" : `overdue — was due ${formatLocalDate(t.dueOn, "UTC")}`,
+      overdue: state === "overdue",
+    };
+  });
+
   const outOfRangeItems = outOfRangeReadings.map((r) => ({
     id: r.id,
     property: r.property,
@@ -523,6 +558,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               reportedIssues={reportedIssueItems}
               overdueVisits={overdueVisitItems}
               outOfRangeReadings={outOfRangeItems}
+              dueTasks={dueTaskItems}
               resolveIssue={resolveIssue}
               closureFeeLabel={closureFeeLabel}
             />

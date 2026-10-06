@@ -37,11 +37,23 @@ export type OutOfRangeItem = {
   issues: string[];
 };
 
+export type DueTaskItem = {
+  id: string;
+  customerId: string;
+  customer: string;
+  title: string;
+  /** "overdue" or "due today" -- resolved in the organization's timezone by the caller. */
+  dueLabel: string;
+  overdue: boolean;
+};
+
 type AlertsBellProps = {
   closureHazardReadings: ClosureHazardItem[];
   reportedIssues: ReportedIssueItem[];
   overdueVisits: OverdueVisitItem[];
   outOfRangeReadings: OutOfRangeItem[];
+  /** Office to-dos against a customer that are due today or overdue (CustomerTask). */
+  dueTasks: DueTaskItem[];
   resolveIssue: (formData: FormData) => void | Promise<void>;
   /** e.g. "$909 reopening fee" -- from the org's ComplianceRuleset, so this isn't hardcoded
    * to Nevada's fee. Omitted entirely when the linked department doesn't charge one / isn't known. */
@@ -72,6 +84,7 @@ export function AlertsBell({
   reportedIssues,
   overdueVisits,
   outOfRangeReadings,
+  dueTasks,
   resolveIssue,
   closureFeeLabel,
 }: AlertsBellProps) {
@@ -79,7 +92,11 @@ export function AlertsBell({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const totalCount =
-    closureHazardReadings.length + reportedIssues.length + overdueVisits.length + outOfRangeReadings.length;
+    closureHazardReadings.length +
+    reportedIssues.length +
+    overdueVisits.length +
+    outOfRangeReadings.length +
+    dueTasks.length;
   const hasHazard = closureHazardReadings.length > 0;
 
   useEffect(() => {
@@ -160,6 +177,29 @@ export function AlertsBell({
                             Mark resolved
                           </button>
                         </form>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {dueTasks.length > 0 ? (
+                <div className="rounded-xl border border-brand-border bg-brand-surface p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">To-dos</p>
+                  <ul className="mt-2 space-y-1">
+                    {dueTasks.map((task) => (
+                      <li key={task.id} className="text-sm text-brand-ink/80">
+                        <Link
+                          href={`/dashboard/customers/${task.customerId}?tab=overview`}
+                          className="app-link"
+                          onClick={() => setOpen(false)}
+                        >
+                          {task.customer}
+                        </Link>{" "}
+                        · {task.title} ·{" "}
+                        <span className={task.overdue ? "font-semibold text-brand-danger" : "text-brand-warn"}>
+                          {task.dueLabel}
+                        </span>
                       </li>
                     ))}
                   </ul>

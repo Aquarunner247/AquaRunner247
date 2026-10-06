@@ -17,6 +17,7 @@ import { sendAlertToCustomer } from "@/lib/customer-alerts";
 import { sendWelcomeEmail } from "@/lib/mail/send-welcome-email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
 import { parseCustomerContact } from "@/lib/customer-contact-fields";
+import { parseDueOn } from "@/lib/customer-task-due";
 import { parseFormNumber as numOrNull } from "@/lib/form-utils";
 import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
 import { createPayRateRow } from "@/lib/technician-pay";
@@ -1374,6 +1375,84 @@ export async function deleteCustomerContact(formData: FormData) {
   if (!existing) return;
 
   await prisma.customerContact.delete({ where: { id: existing.id } });
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+/**
+ * To-dos the office keeps against a customer.
+ *
+ * Every action resolves the customer through the caller's own organization first, and update/complete/
+ * delete find the task through that customer rather than by id alone, so a task id from another
+ * organization matches nothing.
+ *
+ * Completing sets a timestamp rather than deleting the row: "what did we say we would do for them"
+ * stays answerable afterwards, which a deleted to-do cannot be. Delete exists for the ones typed by
+ * mistake.
+ */
+export async function addCustomerTask(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const customer = await customerForContactEdit(customerId, appUser.organizationId);
+  if (!customer) return;
+
+  const title = String(formData.get("title") ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  if (!title) {
+    redirect(`/dashboard/customers/${customerId}?tab=overview&taskError=${encodeURIComponent("A to-do needs a description.")}`);
+  }
+  const details = String(formData.get("details") ?? "").trim().slice(0, 2000) || null;
+
+  await prisma.customerTask.create({
+    data: {
+      customerId: customer.id,
+      title,
+      details,
+      // An unparseable or empty date is no deadline rather than a guess -- see parseDueOn.
+      dueOn: parseDueOn(String(formData.get("dueOn") ?? "")),
+      createdByUserId: appUser.id,
+    },
+  });
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function setCustomerTaskDone(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const taskId = String(formData.get("taskId") ?? "").trim();
+  const done = String(formData.get("done") ?? "") === "1";
+  const customer = await customerForContactEdit(customerId, appUser.organizationId);
+  if (!customer || !taskId) return;
+
+  const existing = await prisma.customerTask.findFirst({
+    where: { id: taskId, customerId: customer.id },
+    select: { id: true },
+  });
+  if (!existing) return;
+
+  await prisma.customerTask.update({
+    where: { id: existing.id },
+    data: done
+      ? { completedAt: new Date(), completedByUserId: appUser.id }
+      : // Reopening clears who completed it too, so the record never says someone finished a to-do
+        // that is currently open.
+        { completedAt: null, completedByUserId: null },
+  });
+  revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+export async function deleteCustomerTask(formData: FormData) {
+  const appUser = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const taskId = String(formData.get("taskId") ?? "").trim();
+  const customer = await customerForContactEdit(customerId, appUser.organizationId);
+  if (!customer || !taskId) return;
+
+  const existing = await prisma.customerTask.findFirst({
+    where: { id: taskId, customerId: customer.id },
+    select: { id: true },
+  });
+  if (!existing) return;
+
+  await prisma.customerTask.delete({ where: { id: existing.id } });
   revalidatePath(`/dashboard/customers/${customerId}`);
 }
 

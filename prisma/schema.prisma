@@ -630,6 +630,8 @@ model User {
   payRatesCreated                TechnicianPayRate[]     @relation("TechnicianPayRateCreatedBy")
   payrollSettingsUpdates         OrgPayrollSettings[]
   phoneAgentSettingsUpdates      OrgPhoneAgentSettings[]
+  customerTasksCreated           CustomerTask[]          @relation("CustomerTaskCreatedBy")
+  customerTasksCompleted         CustomerTask[]          @relation("CustomerTaskCompletedBy")
 
   @@index([organizationId])
 }
@@ -665,8 +667,46 @@ model Customer {
   checklistExclusions CustomerChecklistExclusion[]
   welcomeEmailSends   WelcomeEmailSend[]
   contacts            CustomerContact[]
+  tasks               CustomerTask[]
 
   @@index([organizationId])
+}
+
+/// A to-do against one customer: "take the new pump basket to Borgata", "chase the signed contract",
+/// "ask about the gym spa heater".
+///
+/// Distinct from a VisitIssueFlag, which a technician raises about something he found on a visit, and
+/// from a CustomerAlert, which is a message sent TO the customer. This is the office's own list, and
+/// nothing here is ever shown to a customer.
+model CustomerTask {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  title   String
+  details String?
+
+  /// The day it is wanted by, not an instant -- "Tuesday" is what an office writes down, and a due time
+  /// of 14:32 would be false precision. A @db.Date round-trips as UTC midnight, so comparing it against
+  /// "today" has to resolve today in the ORGANIZATION's timezone first; see lib/customer-task-due.ts.
+  /// Null is a to-do with no deadline, which is most of them.
+  dueOn DateTime? @db.Date
+
+  /// Null while open. Set rather than deleted, so "what did we say we would do for them" survives
+  /// being done -- a deleted to-do answers nothing later.
+  completedAt       DateTime?
+  completedByUserId String?
+  completedBy       User?     @relation("CustomerTaskCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+
+  createdByUserId String?
+  createdBy       User?   @relation("CustomerTaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  /// Drives the "due now" list in the notification bell, which filters on dueOn across every customer.
+  @@index([dueOn])
 }
 
 /// People at the customer worth having a number for, who are not tied to one property: a regional

@@ -98,3 +98,13 @@ compliance log, which is why they are imported, and nothing else.
 
 **Old visits are never emailed to customers.** A summary more than a week old is not sent — the
 customer has long since forgotten the visit.
+
+## October 5, 2026 (later)
+
+**To-dos per customer.** On any customer page: what needs doing, an optional due date, and any detail
+worth keeping. Anything due today or overdue appears in the notification bell with the customer's name
+until it's marked done.
+
+Done is kept rather than deleted, so "did we ever do that for them" stays answerable — with who
+finished it and when. Delete is there for the ones typed by mistake. Only your staff see these; the
+customer never does.

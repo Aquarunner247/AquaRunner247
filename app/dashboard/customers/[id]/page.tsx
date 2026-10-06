@@ -16,6 +16,9 @@ import {
   deleteCustomerDocument,
   attachCustomerDocumentAsInspectionReport,
   createCustomerLogin,
+  addCustomerTask,
+  setCustomerTaskDone,
+  deleteCustomerTask,
   addCustomerContact,
   updateCustomerContact,
   deleteCustomerContact,
@@ -32,7 +35,8 @@ import { FilterTypeFields } from "@/app/components/filter-type-fields";
 import { PropertyContactFields } from "@/app/components/property-contact-fields";
 import { NameInput } from "@/app/components/name-input";
 import { PhoneInput } from "@/app/components/phone-input";
-import { timeZoneForState, formatLocalDateTime, formatLocalTime } from "@/lib/timezone";
+import { timeZoneForState, formatLocalDateTime, formatLocalTime, formatLocalDate } from "@/lib/timezone";
+import { taskDueState } from "@/lib/customer-task-due";
 import { ALERT_PLACEHOLDER_HINT } from "@/lib/alert-placeholders";
 import { AlertOutcomeBadge } from "@/app/components/alert-outcome-badge";
 
@@ -48,6 +52,7 @@ type PageProps = {
     docAttached?: string;
     contactError?: string;
     editContact?: string;
+    taskError?: string;
   }>;
 };
 
@@ -140,6 +145,22 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
     where: { customerId: customer.id },
     orderBy: { createdAt: "asc" },
   });
+
+  // Open ones first, soonest deadline first, and the ones with no deadline after those -- a list you
+  // work from top to bottom. Completed ones are kept but only the last handful are shown.
+  // One `now` for every due comparison on this page, so two to-dos cannot straddle midnight and
+  // disagree about what "today" is.
+  const now = new Date();
+
+  const tasks = await prisma.customerTask.findMany({
+    where: { customerId: customer.id },
+    orderBy: [{ completedAt: "asc" }, { dueOn: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    include: { completedBy: { select: { name: true, email: true } } },
+  });
+  const openTasks = tasks.filter((t) => t.completedAt == null);
+  // Only the last handful: the point of keeping completed to-dos is answering "did we do that", not
+  // scrolling a year of them.
+  const doneTasks = tasks.filter((t) => t.completedAt != null).slice(-8).reverse();
 
   const alerts = await prisma.customerAlert.findMany({
     where: { customerId: customer.id },
@@ -724,6 +745,120 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                 settings page first.
               </p>
             )}
+          </section>
+
+          <section className="app-card mt-6">
+            <h2 className="text-base font-semibold text-brand-ink">To-dos</h2>
+            <p className="mt-1 text-sm text-brand-muted">
+              Things to do for this customer. A due date is optional — anything due today or overdue shows
+              up in the notification bell until it&rsquo;s done. Only your staff see these; the customer
+              never does.
+            </p>
+
+            {sp.taskError ? <p className="mt-3 text-sm text-brand-danger">{sp.taskError}</p> : null}
+
+            {openTasks.length ? (
+              <ul className="mt-3 space-y-2">
+                {openTasks.map((task) => {
+                  const due = taskDueState(task.dueOn, now, tz);
+                  return (
+                    <li
+                      key={task.id}
+                      className="flex flex-wrap items-start justify-between gap-2 rounded border border-brand-border bg-brand-surface px-2 py-1.5 text-sm"
+                    >
+                      <span className="min-w-0">
+                        <span className="font-medium text-brand-ink">{task.title}</span>
+                        {due !== "none" && task.dueOn ? (
+                          <span
+                            className={
+                              due === "overdue"
+                                ? "ml-2 text-xs font-semibold text-brand-danger"
+                                : due === "today"
+                                  ? "ml-2 text-xs font-semibold text-brand-warn"
+                                  : "ml-2 text-xs text-brand-muted"
+                            }
+                          >
+                            {due === "overdue" ? "overdue — " : due === "today" ? "due today" : "due "}
+                            {due === "today" ? "" : formatLocalDate(task.dueOn, "UTC", { month: "short", day: "numeric" })}
+                          </span>
+                        ) : null}
+                        {task.details ? (
+                          <span className="mt-0.5 block whitespace-pre-wrap text-brand-muted">{task.details}</span>
+                        ) : null}
+                      </span>
+                      {isEnded ? null : (
+                        <span className="flex shrink-0 items-center gap-1">
+                          <form action={setCustomerTaskDone}>
+                            <input type="hidden" name="customerId" value={customer.id} />
+                            <input type="hidden" name="taskId" value={task.id} />
+                            <input type="hidden" name="done" value="1" />
+                            <button type="submit" className="app-btn-secondary-sm min-h-[44px]">
+                              Done
+                            </button>
+                          </form>
+                          <form action={deleteCustomerTask}>
+                            <input type="hidden" name="customerId" value={customer.id} />
+                            <input type="hidden" name="taskId" value={task.id} />
+                            <ConfirmSubmitButton
+                              label="🗑"
+                              confirmMessage={`Delete "${task.title}"? Use Done instead if it was finished.`}
+                              className="rounded px-2 py-1 text-base hover:bg-brand-border"
+                            />
+                          </form>
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-brand-muted">Nothing outstanding.</p>
+            )}
+
+            {isEnded ? (
+              <p className="mt-3 text-sm text-brand-muted">
+                This relationship has ended — to-dos can&rsquo;t be added here anymore.
+              </p>
+            ) : (
+              <form action={addCustomerTask} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
+                <input type="hidden" name="customerId" value={customer.id} />
+                <div className="grid gap-2 md:grid-cols-[2fr_1fr]">
+                  <input name="title" required placeholder="What needs doing" className="app-field-sm" />
+                  <input name="dueOn" type="date" aria-label="Due date (optional)" className="app-field-sm" />
+                </div>
+                <input name="details" placeholder="Any detail worth keeping (optional)" className="app-field-sm mt-2 w-full" />
+                <button className="app-btn-primary-sm mt-2 min-h-[44px]" type="submit">
+                  Add to-do
+                </button>
+              </form>
+            )}
+
+            {doneTasks.length ? (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-sm text-brand-muted">
+                  Recently done ({doneTasks.length})
+                </summary>
+                <ul className="mt-2 space-y-1">
+                  {doneTasks.map((task) => (
+                    <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 text-sm text-brand-muted">
+                      <span>
+                        <span className="line-through">{task.title}</span>
+                        {task.completedAt ? <> · {formatLocalDate(task.completedAt, tz, { month: "short", day: "numeric" })}</> : null}
+                        {task.completedBy ? <> · {task.completedBy.name ?? task.completedBy.email}</> : null}
+                      </span>
+                      <form action={setCustomerTaskDone}>
+                        <input type="hidden" name="customerId" value={customer.id} />
+                        <input type="hidden" name="taskId" value={task.id} />
+                        <input type="hidden" name="done" value="0" />
+                        <button type="submit" className="app-btn-ghost-sm">
+                          Reopen
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
           </section>
 
           <section className="app-card mt-6">
