@@ -17,7 +17,7 @@ import { sendAlertToCustomer } from "@/lib/customer-alerts";
 import { sendWelcomeEmail } from "@/lib/mail/send-welcome-email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
 import { parseCustomerContact } from "@/lib/customer-contact-fields";
-import { parseDueOn } from "@/lib/customer-task-due";
+import { parseDueOn, parseRemindDaysBefore, reminderDayFor } from "@/lib/customer-task-due";
 import { parseFormNumber as numOrNull } from "@/lib/form-utils";
 import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
 import { createPayRateRow } from "@/lib/technician-pay";
@@ -1401,13 +1401,20 @@ export async function addCustomerTask(formData: FormData) {
   }
   const details = String(formData.get("details") ?? "").trim().slice(0, 2000) || null;
 
+  // An unparseable or empty date is no deadline rather than a guess -- see parseDueOn.
+  const dueOn = parseDueOn(String(formData.get("dueOn") ?? ""));
+  const remindDaysBefore = parseRemindDaysBefore(String(formData.get("remindDaysBefore") ?? ""));
+
   await prisma.customerTask.create({
     data: {
       customerId: customer.id,
       title,
       details,
-      // An unparseable or empty date is no deadline rather than a guess -- see parseDueOn.
-      dueOn: parseDueOn(String(formData.get("dueOn") ?? "")),
+      dueOn,
+      remindDaysBefore: dueOn ? remindDaysBefore : null,
+      // Derived here and stored, because the bell filters on it across every customer -- see
+      // reminderDayFor. Null without a due date, and those show in the bell immediately instead.
+      remindOn: reminderDayFor(dueOn, remindDaysBefore),
       createdByUserId: appUser.id,
     },
   });

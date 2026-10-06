@@ -36,7 +36,7 @@ import { PropertyContactFields } from "@/app/components/property-contact-fields"
 import { NameInput } from "@/app/components/name-input";
 import { PhoneInput } from "@/app/components/phone-input";
 import { timeZoneForState, formatLocalDateTime, formatLocalTime, formatLocalDate } from "@/lib/timezone";
-import { taskDueState } from "@/lib/customer-task-due";
+import { taskDueState, REMINDER_CHOICES } from "@/lib/customer-task-due";
 import { ALERT_PLACEHOLDER_HINT } from "@/lib/alert-placeholders";
 import { AlertOutcomeBadge } from "@/app/components/alert-outcome-badge";
 
@@ -750,9 +750,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           <section className="app-card mt-6">
             <h2 className="text-base font-semibold text-brand-ink">To-dos</h2>
             <p className="mt-1 text-sm text-brand-muted">
-              Things to do for this customer. A due date is optional — anything due today or overdue shows
-              up in the notification bell until it&rsquo;s done. Only your staff see these; the customer
-              never does.
+              Things to do for this customer. Everything here shows up in the notification bell until
+              it&rsquo;s marked done — a dated one from however long before you choose, and one with no date
+              right away. Only your staff see these; the customer never does.
             </p>
 
             {sp.taskError ? <p className="mt-3 text-sm text-brand-danger">{sp.taskError}</p> : null}
@@ -768,6 +768,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     >
                       <span className="min-w-0">
                         <span className="font-medium text-brand-ink">{task.title}</span>
+                        {due === "none" ? (
+                          <span className="ml-2 text-xs text-brand-muted">no date · in the bell now</span>
+                        ) : null}
                         {due !== "none" && task.dueOn ? (
                           <span
                             className={
@@ -780,6 +783,11 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                           >
                             {due === "overdue" ? "overdue — " : due === "today" ? "due today" : "due "}
                             {due === "today" ? "" : formatLocalDate(task.dueOn, "UTC", { month: "short", day: "numeric" })}
+                          </span>
+                        ) : null}
+                        {due === "upcoming" && task.remindDaysBefore ? (
+                          <span className="ml-2 text-xs text-brand-muted">
+                            reminder {REMINDER_CHOICES.find((c) => c.days === task.remindDaysBefore)?.label.toLowerCase() ?? `${task.remindDaysBefore} days before`}
                           </span>
                         ) : null}
                         {task.details ? (
@@ -822,9 +830,16 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             ) : (
               <form action={addCustomerTask} className="mt-3 rounded border border-brand-border bg-brand-surface p-2">
                 <input type="hidden" name="customerId" value={customer.id} />
-                <div className="grid gap-2 md:grid-cols-[2fr_1fr]">
+                <div className="grid gap-2 md:grid-cols-[2fr_1fr_1fr]">
                   <input name="title" required placeholder="What needs doing" className="app-field-sm" />
                   <input name="dueOn" type="date" aria-label="Due date (optional)" className="app-field-sm" />
+                  <select name="remindDaysBefore" defaultValue="0" aria-label="Remind me" className="app-field-sm">
+                    {REMINDER_CHOICES.map((choice) => (
+                      <option key={choice.days} value={choice.days}>
+                        Remind: {choice.label.toLowerCase()}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <input name="details" placeholder="Any detail worth keeping (optional)" className="app-field-sm mt-2 w-full" />
                 <button className="app-btn-primary-sm mt-2 min-h-[44px]" type="submit">

@@ -122,3 +122,7 @@ sorts it out.
 **QR code back on the landing page.** Section 02 — "An inspector walks up" — now shows the pump-room
 placard next to the record it opens, instead of the record alone. The section's whole claim is that
 pairing, and only half of it was on screen.
+
+**To-dos tell you sooner.** A to-do with no due date now appears in the notification bell straight away
+instead of never — if it was worth writing down, it's worth being reminded of. And when you do set a
+date you can choose how far ahead to be told: on the day, 1 or 3 days before, or 1 or 2 weeks before.

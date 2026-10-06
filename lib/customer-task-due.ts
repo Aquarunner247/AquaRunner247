@@ -22,6 +22,44 @@ export function dueCutoffForTimeZone(now: Date, timeZone: string): Date {
   return new Date(`${ymdInTimeZone(now, timeZone)}T00:00:00.000Z`);
 }
 
+/** How far ahead of the due date a to-do starts appearing in the bell. */
+export const REMINDER_CHOICES = [
+  { days: 0, label: "On the day" },
+  { days: 1, label: "1 day before" },
+  { days: 3, label: "3 days before" },
+  { days: 7, label: "1 week before" },
+  { days: 14, label: "2 weeks before" },
+] as const;
+
+const MAX_REMIND_DAYS = 14;
+
+/**
+ * Parses the chosen lead time. Anything unrecognised becomes 0 -- "on the day" -- rather than being
+ * rejected: a to-do that saved with a deadline and no reminder is still useful, and one that refused to
+ * save because a dropdown was odd is not.
+ */
+export function parseRemindDaysBefore(raw: string): number {
+  const value = Number(String(raw).trim());
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.min(Math.floor(value), MAX_REMIND_DAYS);
+}
+
+/**
+ * The day a to-do starts showing in the bell: its due date minus the lead time.
+ *
+ * Stored on the row (CustomerTask.remindOn) because the bell filters across every customer, and
+ * "dueOn - remindDaysBefore <= today" is a column comparison a Prisma where cannot express. Both
+ * callers that set a due date go through here, so the stored value cannot disagree with the inputs.
+ *
+ * Null in, null out: a to-do with no deadline has no reminder day, and is shown immediately instead.
+ */
+export function reminderDayFor(dueOn: Date | null, remindDaysBefore: number): Date | null {
+  if (!dueOn) return null;
+  const remindOn = new Date(dueOn.getTime());
+  remindOn.setUTCDate(remindOn.getUTCDate() - Math.max(0, remindDaysBefore));
+  return remindOn;
+}
+
 export type TaskDueState = "none" | "upcoming" | "today" | "overdue";
 
 /** What to call a to-do's deadline, for the office reading a list of them. */

@@ -104,9 +104,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   let closureFeeLabel: string | null = null;
   let tz = timeZoneForState(undefined);
 
+  // One `now` for the whole page, so the queries and the labels rendered from them cannot disagree about
+  // what "today" is -- a to-do fetched as due today must not be labelled overdue because the render
+  // happened a moment after midnight.
+  const now = new Date();
+
   if (appUser?.role === "ADMIN") {
     const orgId = appUser.organizationId;
-    const now = new Date();
 
     const [organization, ruleset] = await Promise.all([
       prisma.organization.findUnique({ where: { id: orgId }, select: { state: true, hasCommercialPools: true } }),
@@ -228,16 +232,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         technician: { select: { name: true, email: true } },
       },
     });
-    // Office to-dos due today or already past. dueOn is a @db.Date (UTC midnight), so the cutoff is the
-    // org's own today resolved first -- see lib/customer-task-due.ts. A customer whose relationship has
-    // ended is excluded: its to-dos are history, not work owed.
+    // Office to-dos the bell should be showing. Two ways in: a deadline whose reminder day has arrived
+    // (remindOn is dueOn minus the chosen lead time, stored because this filters across every customer),
+    // or no deadline at all -- an undated to-do is still something somebody wanted done, and waiting for
+    // a date it will never have is how one gets quietly forgotten.
+    //
+    // Dates are @db.Date (UTC midnight), so the cutoff resolves the org's own today first. A customer
+    // whose relationship has ended is excluded: its to-dos are history, not work owed.
     const dueTaskRows = await prisma.customerTask.findMany({
       where: {
         completedAt: null,
-        dueOn: { not: null, lte: dueCutoffForTimeZone(now, tz) },
+        OR: [{ remindOn: { lte: dueCutoffForTimeZone(now, tz) } }, { dueOn: null }],
         customer: { organizationId: orgId, relationshipEndedAt: null },
       },
-      orderBy: { dueOn: "asc" },
+      // Soonest deadline first, undated ones last -- they are the least time-critical by definition.
+      orderBy: [{ dueOn: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
       take: 10,
       select: { id: true, title: true, dueOn: true, customer: { select: { id: true, name: true } } },
     });
@@ -519,13 +528,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }));
 
   const dueTaskItems = dueTasks.map((t) => {
-    const state = taskDueState(t.dueOn, new Date(), tz);
+    const state = taskDueState(t.dueOn, now, tz);
+    // Four cases now that a to-do can reach the bell ahead of its deadline, or without one at all.
+    const dueLabel =
+      state === "overdue"
+        ? `overdue — was due ${formatLocalDate(t.dueOn, "UTC")}`
+        : state === "today"
+          ? "due today"
+          : state === "upcoming"
+            ? `due ${formatLocalDate(t.dueOn, "UTC", { month: "short", day: "numeric" })}`
+            : "no date set";
     return {
       id: t.id,
       customerId: t.customerId,
       customer: t.customer,
       title: t.title,
-      dueLabel: state === "today" ? "due today" : `overdue — was due ${formatLocalDate(t.dueOn, "UTC")}`,
+      dueLabel,
       overdue: state === "overdue",
     };
   });

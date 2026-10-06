@@ -692,6 +692,18 @@ model CustomerTask {
   /// Null is a to-do with no deadline, which is most of them.
   dueOn DateTime? @db.Date
 
+  /// How many days before `dueOn` this should start appearing in the notification bell. 0 is "on the
+  /// day". Null means no deadline was set, in which case the to-do is shown immediately -- an undated
+  /// to-do is still something somebody wanted done, and hiding it until a date it will never have was
+  /// how the first two written went straight into a list nobody is shown.
+  remindDaysBefore Int?
+
+  /// `dueOn` minus `remindDaysBefore`, stored rather than computed, because the bell filters on it
+  /// across every customer and a column comparison cannot be expressed as a Prisma where. Written
+  /// only by the actions that set dueOn, from the same pure helper, so the two cannot drift.
+  /// Null whenever dueOn is null.
+  remindOn DateTime? @db.Date
+
   /// Null while open. Set rather than deleted, so "what did we say we would do for them" survives
   /// being done -- a deleted to-do answers nothing later.
   completedAt       DateTime?
@@ -705,8 +717,9 @@ model CustomerTask {
   updatedAt DateTime @updatedAt
 
   @@index([customerId])
-  /// Drives the "due now" list in the notification bell, which filters on dueOn across every customer.
-  @@index([dueOn])
+  /// Drives the "due now" list in the notification bell, which filters on remindOn across every
+  /// customer rather than within one.
+  @@index([remindOn])
 }
 
 /// People at the customer worth having a number for, who are not tied to one property: a regional

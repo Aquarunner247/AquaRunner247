@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { dueCutoffForTimeZone, taskDueState, parseDueOn } from "@/lib/customer-task-due";
+import {
+  dueCutoffForTimeZone,
+  taskDueState,
+  parseDueOn,
+  parseRemindDaysBefore,
+  reminderDayFor,
+  REMINDER_CHOICES,
+} from "@/lib/customer-task-due";
 
 const LAS_VEGAS = "America/Los_Angeles";
 const day = (ymd: string) => new Date(`${ymd}T00:00:00.000Z`);
@@ -68,5 +75,47 @@ describe("parseDueOn", () => {
 
   it("accepts a real leap day", () => {
     expect(parseDueOn("2028-02-29")?.toISOString()).toBe("2028-02-29T00:00:00.000Z");
+  });
+});
+
+describe("parseRemindDaysBefore", () => {
+  it("takes the offered choices", () => {
+    for (const { days } of REMINDER_CHOICES) expect(parseRemindDaysBefore(String(days))).toBe(days);
+  });
+
+  /** A to-do that saved with a deadline and no reminder still works; one that refused to save does not. */
+  it("falls back to the day itself rather than refusing", () => {
+    for (const raw of ["", "  ", "soon", "-3", "NaN"]) expect(parseRemindDaysBefore(raw)).toBe(0);
+  });
+
+  it("caps an absurd lead time", () => {
+    expect(parseRemindDaysBefore("3650")).toBe(14);
+  });
+});
+
+describe("reminderDayFor", () => {
+  const day = (ymd: string) => new Date(`${ymd}T00:00:00.000Z`);
+
+  it("counts back from the due date", () => {
+    expect(reminderDayFor(day("2026-10-20"), 3)?.toISOString()).toBe("2026-10-17T00:00:00.000Z");
+    expect(reminderDayFor(day("2026-10-20"), 7)?.toISOString()).toBe("2026-10-13T00:00:00.000Z");
+  });
+
+  it("is the due date itself with no lead time", () => {
+    expect(reminderDayFor(day("2026-10-20"), 0)?.toISOString()).toBe("2026-10-20T00:00:00.000Z");
+  });
+
+  it("crosses a month and a year boundary", () => {
+    expect(reminderDayFor(day("2026-11-02"), 7)?.toISOString()).toBe("2026-10-26T00:00:00.000Z");
+    expect(reminderDayFor(day("2027-01-03"), 7)?.toISOString()).toBe("2026-12-27T00:00:00.000Z");
+  });
+
+  /** No deadline means no reminder day -- the bell shows those immediately instead. */
+  it("has no reminder day without a due date", () => {
+    expect(reminderDayFor(null, 7)).toBeNull();
+  });
+
+  it("never drifts past the due date on a negative lead time", () => {
+    expect(reminderDayFor(day("2026-10-20"), -5)?.toISOString()).toBe("2026-10-20T00:00:00.000Z");
   });
 });
