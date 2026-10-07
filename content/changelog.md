@@ -126,3 +126,8 @@ pairing, and only half of it was on screen.
 **To-dos tell you sooner.** A to-do with no due date now appears in the notification bell straight away
 instead of never — if it was worth writing down, it's worth being reminded of. And when you do set a
 date you can choose how far ahead to be told: on the day, 1 or 3 days before, or 1 or 2 weeks before.
+
+**A daily to-do email.** Each morning you get one email listing everything outstanding, grouped by
+customer, with overdue items first and in red. It only arrives when something is actually due — no
+"nothing today" mail to train you into ignoring it. It shows exactly what the notification bell shows,
+so the two can never disagree.

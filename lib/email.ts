@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { escapeEmailHtml, resolveEmailBranding, type EmailBrandingInput } from "@/lib/mail/email-branding";
 import { resolveFromAddress } from "@/lib/mail/from-address";
+import { renderTaskDigestEmail, type TaskDigestInput } from "@/lib/mail/task-digest-email";
 
 /**
  * Notifies the site owner of a new waitlist signup. Best-effort — the WaitlistSignup
@@ -717,6 +718,40 @@ export async function sendPortalActivationEmail(input: PortalActivationEmailInpu
     if (result.error) {
       return { ok: false, error: result.error.message };
     }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
+  }
+}
+
+export interface TaskDigestEmailInput extends TaskDigestInput {
+  /** The organization's own people. Internal; a customer must never receive this. */
+  to: string[];
+}
+
+/**
+ * The day's to-do list, emailed to the office each morning.
+ *
+ * Exists because the notification bell only exists while somebody has the dashboard open, and "send over
+ * a bid ASAP" is exactly the sort of thing written down by someone about to get busy with something else.
+ *
+ * Only called when there is something to say -- see the cron. A digest that arrives every morning saying
+ * "nothing due" is one people stop opening, and then the morning it matters it goes unread with the rest.
+ *
+ * Platform identity like the other internal notices: AquaRunner reporting to its own customer about their
+ * account, so no white-label branding. The markup is rendered by lib/mail/task-digest-email.ts, which is
+ * pure so it can be looked at without sending anything.
+ */
+export async function sendTaskDigestEmail(input: TaskDigestEmailInput): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
+  if (input.to.length === 0) return { ok: false, error: "No recipient — no support address and no admin users." };
+
+  const { subject, html } = renderTaskDigestEmail(input);
+  const resend = new Resend(apiKey);
+  try {
+    const result = await resend.emails.send({ from: resolveFromAddress(), to: input.to, subject, html });
+    if (result.error) return { ok: false, error: result.error.message };
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };

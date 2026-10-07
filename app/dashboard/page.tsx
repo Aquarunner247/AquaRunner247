@@ -10,7 +10,8 @@ import { ChemGauge } from "@/app/components/chem-gauge";
 import { resolveIssue } from "./actions";
 import { TechnicianHome } from "./technician-home";
 import { timeZoneForState, formatLocalDate, startOfLocalDay } from "@/lib/timezone";
-import { dueCutoffForTimeZone, taskDueState } from "@/lib/customer-task-due";
+import { taskDueState } from "@/lib/customer-task-due";
+import { findDueTasks } from "@/lib/customer-tasks";
 
 type ReadingParam = { key: string; label: string; value: number; unit: string; min: number; max: number; idealMin: number; idealMax: number };
 
@@ -232,38 +233,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         technician: { select: { name: true, email: true } },
       },
     });
-    // Office to-dos the bell should be showing. Two ways in: a deadline whose reminder day has arrived
-    // (remindOn is dueOn minus the chosen lead time, stored because this filters across every customer),
-    // or no deadline at all -- an undated to-do is still something somebody wanted done, and waiting for
-    // a date it will never have is how one gets quietly forgotten.
-    //
-    // Dates are @db.Date (UTC midnight), so the cutoff resolves the org's own today first. A customer
-    // whose relationship has ended is excluded: its to-dos are history, not work owed.
-    const dueTaskRows = await prisma.customerTask.findMany({
-      where: {
-        completedAt: null,
-        OR: [
-          // No deadline: show it now.
-          { dueOn: null },
-          // Its reminder day has arrived.
-          { remindOn: { lte: dueCutoffForTimeZone(now, tz) } },
-          // Dated but with no reminder day, which happens to any row written between a migration and
-          // the deploy that starts filling the column in -- one was created exactly that way on
-          // 2026-10-06. Falling back to the due date means such a row surfaces late rather than never,
-          // and the backfill in 20261006160000 fixes the ones already written.
-          { AND: [{ remindOn: null }, { dueOn: { lte: dueCutoffForTimeZone(now, tz) } }] },
-        ],
-        customer: { organizationId: orgId, relationshipEndedAt: null },
-      },
-      // Soonest deadline first, undated ones last -- they are the least time-critical by definition.
-      orderBy: [{ dueOn: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
-      take: 10,
-      select: { id: true, title: true, dueOn: true, customer: { select: { id: true, name: true } } },
-    });
-    dueTasks = dueTaskRows.map((t) => ({
+    // One definition of "due", shared with the daily digest email -- see lib/customer-tasks.ts. An
+    // email that disagreed with this bell would be worse than either alone. 10 here because the bell is
+    // a dropdown; the digest takes them all.
+    dueTasks = (await findDueTasks(orgId, now, tz, 10)).map((t) => ({
       id: t.id,
-      customerId: t.customer.id,
-      customer: t.customer.name,
+      customerId: t.customerId,
+      customer: t.customerName,
       title: t.title,
       dueOn: t.dueOn,
     }));
