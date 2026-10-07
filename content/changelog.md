@@ -3,7 +3,35 @@
 Changes to AquaRunner 24/7, newest first. Written for the people using it rather than for the code —
 if something here affects how you or your technicians work, it says so.
 
+<!-- New entries go DIRECTLY BELOW the rule, above the newest dated heading. Appending to the end
+     puts them under September, which is where the first three days of October ended up. -->
+
 ---
+
+## October 7, 2026
+
+**A daily to-do email.** Each morning you get one email listing everything outstanding, grouped by
+customer, with overdue items first and in red. It only arrives when something is actually due — no
+"nothing today" mail to train you into ignoring it. It shows exactly what the notification bell shows,
+so the two can never disagree.
+
+## October 6, 2026
+
+**New app icon.** The runner mark now appears on the browser tab, as a bookmark or home-screen icon, and
+in the corner of every marketing page, in the site's own teal rather than the original black and bright
+blue. It was redrawn as vector, so it stays sharp at every size instead of being an enlarged photo of a
+small image.
+
+If your tab still shows the old one, browsers hold on to icons hard — a forced refresh or a new tab
+sorts it out.
+
+**QR code back on the landing page.** Section 02 — "An inspector walks up" — now shows the pump-room
+placard next to the record it opens, instead of the record alone. The section's whole claim is that
+pairing, and only half of it was on screen.
+
+**To-dos tell you sooner.** A to-do with no due date now appears in the notification bell straight away
+instead of never — if it was worth writing down, it's worth being reminded of. And when you do set a
+date you can choose how far ahead to be told: on the day, 1 or 3 days before, or 1 or 2 weeks before.
 
 ## October 5, 2026
 
@@ -22,6 +50,14 @@ from different visits can be told apart.
 **Connection monitoring.** The database now records how many connections are in use, once a minute.
 This is groundwork, not a feature: it is the early warning for the kind of overload that took the site
 down on September 18th.
+
+**To-dos per customer.** On any customer page: what needs doing, an optional due date, and any detail
+worth keeping. Anything due today or overdue appears in the notification bell with the customer's name
+until it's marked done.
+
+Done is kept rather than deleted, so "did we ever do that for them" stays answerable — with who
+finished it and when. Delete is there for the ones typed by mistake. Only your staff see these; the
+customer never does.
 
 ## October 3, 2026
 
@@ -98,36 +134,3 @@ compliance log, which is why they are imported, and nothing else.
 
 **Old visits are never emailed to customers.** A summary more than a week old is not sent — the
 customer has long since forgotten the visit.
-
-## October 5, 2026 (later)
-
-**To-dos per customer.** On any customer page: what needs doing, an optional due date, and any detail
-worth keeping. Anything due today or overdue appears in the notification bell with the customer's name
-until it's marked done.
-
-Done is kept rather than deleted, so "did we ever do that for them" stays answerable — with who
-finished it and when. Delete is there for the ones typed by mistake. Only your staff see these; the
-customer never does.
-
-## October 6, 2026
-
-**New app icon.** The runner mark now appears on the browser tab, as a bookmark or home-screen icon, and
-in the corner of every marketing page, in the site's own teal rather than the original black and bright
-blue. It was redrawn as vector, so it stays sharp at every size instead of being an enlarged photo of a
-small image.
-
-If your tab still shows the old one, browsers hold on to icons hard — a forced refresh or a new tab
-sorts it out.
-
-**QR code back on the landing page.** Section 02 — "An inspector walks up" — now shows the pump-room
-placard next to the record it opens, instead of the record alone. The section's whole claim is that
-pairing, and only half of it was on screen.
-
-**To-dos tell you sooner.** A to-do with no due date now appears in the notification bell straight away
-instead of never — if it was worth writing down, it's worth being reminded of. And when you do set a
-date you can choose how far ahead to be told: on the day, 1 or 3 days before, or 1 or 2 weeks before.
-
-**A daily to-do email.** Each morning you get one email listing everything outstanding, grouped by
-customer, with overdue items first and in red. It only arrives when something is actually due — no
-"nothing today" mail to train you into ignoring it. It shows exactly what the notification bell shows,
-so the two can never disagree.
