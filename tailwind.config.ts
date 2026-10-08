@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { COLOR, FONT } from "./lib/design-tokens";
 
 const config: Config = {
   content: [
@@ -14,72 +15,30 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // These previously pointed at --font-dm-sans/--font-outfit, which nothing
-        // defines (app/layout.tsx sets --font-display/--font-body/--font-mono) --
-        // font-display and font-sans utility classes were silently falling back to
-        // system-ui instead of the intended brand fonts.
-        sans: ["var(--font-body)", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "var(--font-body)", "system-ui", "sans-serif"],
+        // From lib/design-tokens.ts. These previously pointed at --font-dm-sans/--font-outfit, which
+        // nothing defines (app/layout.tsx sets --font-display/--font-body/--font-mono), so the
+        // font-display and font-sans utilities silently fell back to system-ui instead of the brand
+        // fonts -- the kind of mismatch that having one definition is meant to prevent.
+        sans: [...FONT.sans],
+        display: [...FONT.display],
+        // FONT.mono is deliberately NOT mapped onto the `font-mono` utility here. Doing so changes what
+        // `font-mono` renders -- today it resolves to Tailwind's system stack, not IBM Plex Mono, so
+        // every existing `font-mono` would silently switch typeface. That may well be the right fix
+        // (.app-metric already uses Plex for readings and timestamps), but it is a design decision
+        // rather than part of moving values into one file, and it is not being smuggled in here.
+        // lib/design-tokens.ts carries the stack for whoever makes that call.
       },
       colors: {
-        // ─────────────────────────────────────────────────────────────────────────
-        // AquaRunner design system — "Sunset Water" (System B)
-        //
-        // Derived from pool water at sunset: deep turquoise below, bright coral light
-        // on the surface. Two temperatures with two jobs:
-        //   COOL (teal/turquoise) = the product. Every dashboard, technician, and
-        //     inspector surface. Calm, legible, gets out of the way.
-        //   WARM (coral/clay)     = marketing. The landing page and anything selling.
-        //     Also the single "act now" accent inside the product, used sparingly.
-        //
-        // Every value below is contrast-checked. Rules that are NOT optional:
-        //   • `accent` (#F99486) is DARK-BACKGROUND ONLY. 6.2:1 on ink, 2.2:1 on
-        //     white — it is decoration on dark, never text on light, never a fill
-        //     behind white text.
-        //   • Status colors (ok / warn / danger) are reserved for reading results.
-        //     Never use `cta` or `accent` to signal a chemical value. A failed
-        //     chlorine reading must not compete with a marketing color.
-        //   • No new hex literals in components. If a color is missing, add it here.
-        // ─────────────────────────────────────────────────────────────────────────
-        brand: {
-          // — Core cool (product) —
-          ink: "#06333B",         // deepest surface + primary text        13.6:1 on white
-          anchor: "#07606D",      // headers, filled dark chrome            7.2:1 on white
-          primary: "#0A6E7C",     // primary action, links, focus           5.9:1 on white
-          primaryHover: "#054E58",
-          surface: "#F4F8F8",     // product page background
-          foam: "#E4EFEF",        // subtle raised/zebra fill
-          border: "#C4D9DA",      // hairline dividers (decorative)
-          control: "#6C8F93",     // input + control outlines               3.3:1 on surface
-          muted: "#55696C",       // secondary text on cool surface         5.2:1
-
-          // — Core warm (marketing + urgent accent) —
-          cta: "#CF3F2A",         // warm button fill, white text           4.8:1 on white
-          ctaHover: "#A93322",
-          accent: "#F99486",      // DARK BACKGROUNDS ONLY — eyebrows, tags, highlights
-          warmSurface: "#FBF6F3", // marketing page background
-          warmFoam: "#F2E5DE",
-          warmBorder: "#DCC8BE",
-          warmControl: "#9A7C68",
-          warmMuted: "#5C6F72",
-
-          // — Status: reading results only —
-          ok: "#0F6B57",          // PASS      6.4:1 on white
-          warn: "#9A6212",        // WATCH     5.1:1 on white
-          danger: "#A32E22",      // FAIL      7.1:1 on white
-          okFill: "#E2F0EA",
-          warnFill: "#F7EBD6",
-          dangerFill: "#F7E3E0",
-
-          icon: "#55696C",
-          // `muted`/`icon` above are contrast-checked against light surfaces only (5.2:1 on
-          // brand-surface) -- reusing either one as inactive-nav-item text/icon color on a
-          // brand-ink background (the mobile bottom nav) measured only ~2.35:1, illegible
-          // in direct sun or a dark pump room (the exact report that added this token).
-          // Already proven as a muted-on-ink label color in the service-summary email
-          // template before being formalized here.
-          mutedOnDark: "#9CC3C6", // secondary text/icons on brand-ink background   7.1:1 on ink
-        },
+        /**
+         * Spread from lib/design-tokens.ts, which is the source. The palette used to be written out
+         * here AND mirrored by hand in app/lib/chart-colors.ts AND restated as literals in each email
+         * template; a token could be changed in one and not the others, and the only thing keeping
+         * them equal was somebody remembering.
+         *
+         * The reasoning behind each colour -- what it is for, what it must not be used for, and the
+         * measured contrast that decided it -- lives with the values in that file.
+         */
+        brand: { ...COLOR },
       },
       boxShadow: {
         soft: "0 8px 30px -12px rgba(6, 51, 59, 0.16)",
