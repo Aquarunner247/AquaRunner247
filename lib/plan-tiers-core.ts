@@ -8,14 +8,15 @@ import type { OrganizationPlanStatus, PlanTier } from "@/generated/prisma/client
  */
 
 /** Staff seats (User rows: ADMIN/OFFICE/TECHNICIAN) included per tier, matching the
- * pricing cards on the landing page -- see app/dashboard/users/actions.ts, which counts
+ * pricing cards on the landing page (pinned by lib/__tests__/plan-seats-match-pricing.test.ts,
+ * because the two used to be able to drift apart silently) -- see app/dashboard/users/actions.ts, which counts
  * only the User table against this. Customer portal logins (CustomerUser) are a separate
  * model entirely and never count against a seat limit, no matter how many a customer has.
  * `null` means unlimited (Enterprise is volume-priced/custom, set manually by a platform
  * admin). */
 export const PLAN_TIER_USER_LIMITS: Record<PlanTier, number | null> = {
-  SERVICE: 5,
-  WHITE_LABEL: 10,
+  SERVICE: 3,
+  WHITE_LABEL: 5,
   ENTERPRISE: null,
   /// AquaRunner Compliance (app/cpo) -- up to 2 seats (e.g. a CPO plus a backup), added
   /// via app/cpo/(app)/users/page.tsx. No OFFICE/TECHNICIAN concept for this product --

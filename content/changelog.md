@@ -10,6 +10,13 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 8, 2026
 
+**Plan seats changed.** Service now includes 3 staff logins and White Label 5, down from 5 and 10.
+Enterprise is still unlimited, and customer portal logins have never counted against either number —
+a customer can have as many people in the portal as they like on any plan.
+
+Nobody loses access: the limit is only checked when you add someone, so an account already above its
+number keeps everyone on it and simply can't add more.
+
 **The legal pages and the link previews caught up.** Terms and Privacy were still wearing the old
 page shell — and, because they were added to the site after the rule that hides it was written, the
 staff sidebar was showing down the left edge of both for anyone signed in. Fixed, and the rule now

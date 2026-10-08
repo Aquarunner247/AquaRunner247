@@ -36,7 +36,7 @@ const PLANS: Plan[] = [
     featured: true,
     points: [
       "Unlimited pools, one account for residential and commercial work",
-      "Up to 5 staff logins — unlimited customers on the portal, always",
+      "Up to 3 staff logins — unlimited customers on the portal, always",
       "AI phone agent, dosing calculator, and route optimization included, not upsold",
       "Full chemical logging, service reports, and photos",
       "Customer portal, equipment records, and safety data sheets",
@@ -52,7 +52,7 @@ const PLANS: Plan[] = [
     per: "/month",
     points: [
       "Everything in Service, plus:",
-      "Up to 10 staff logins — unlimited customers on the portal, always",
+      "Up to 5 staff logins — unlimited customers on the portal, always",
       "Your logo and brand colours on the customer portal your clients log into",
       "Your branding on the welcome email that sets up their login",
       "AquaRunner branding minimised wherever your customers look",
