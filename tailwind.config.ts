@@ -21,6 +21,8 @@ const config: Config = {
         // fonts -- the kind of mismatch that having one definition is meant to prevent.
         sans: [...FONT.sans],
         display: [...FONT.display],
+        // Landing pages only -- see FONT.marketing.
+        marketing: [...FONT.marketing],
         // FONT.mono is deliberately NOT mapped onto the `font-mono` utility here. Doing so changes what
         // `font-mono` renders -- today it resolves to Tailwind's system stack, not IBM Plex Mono, so
         // every existing `font-mono` would silently switch typeface. That may well be the right fix

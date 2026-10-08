@@ -10,6 +10,12 @@
    the product runs COOL (surface / foam / anchor / primary). Reading results always use
    the reserved status tokens. */
 
+/* The token block is its own class so a page built in Tailwind can still host these components.
+   `.root` carries the module's reset and base typography as well, and that reset ("margin: 0" on
+   every heading and paragraph) lands at the same specificity as a Tailwind margin utility and after
+   it in source order -- so a Tailwind page that wore `.root` would silently lose every `mt-*`. It
+   wears `.tokens` instead and keeps its own spacing. */
+.tokens,
 .root {
   /* — warm: marketing chrome — */
   --warm-surface: theme("colors.brand.warmSurface");
@@ -50,7 +56,9 @@
   --pad: clamp(20px, 5vw, 80px);
   --maxw: 1440px;
   --rhythm: clamp(64px, 9vw, 136px);
+}
 
+.root {
   background: var(--warm-surface);
   color: var(--ink);
   font-family: var(--body);

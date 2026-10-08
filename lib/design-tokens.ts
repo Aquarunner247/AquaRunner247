@@ -147,12 +147,14 @@ export const EMAIL_COLOR = {
  */
 export const FONT = {
   /**
-   * Condensed, heavy, and used UPPERCASE ITALIC with tight tracking for display headlines and eyebrow
-   * labels. This is a marketing treatment: the handoff's own rule is "do not apply the display font to
-   * body copy", and in dense product UI -- a reading table, a technician's checklist -- it would cost
-   * legibility for nothing. Sparingly inside the app.
+   * The landing pages' display face: condensed, heavy, set UPPERCASE ITALIC with tight tracking.
+   *
+   * Marketing only. The handoff's own rule is not to set body copy in it, and the same argument rules
+   * it out of dense product UI -- a reading table or a technician's checklist is read, not looked at.
    */
-  display: ["var(--font-display)", "Arial Narrow", "Roboto Condensed", "Impact", "sans-serif"],
+  marketing: ["var(--font-marketing)", "Arial Narrow", "Roboto Condensed", "Impact", "sans-serif"],
+  /** The product's heading face, used by 77 headings across the dashboard, portal and technician screens. */
+  display: ["var(--font-display)", "var(--font-body)", "system-ui", "sans-serif"],
   /** Inter carries everything that is read rather than looked at, in both marketing and product. */
   sans: ["var(--font-body)", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
   /**

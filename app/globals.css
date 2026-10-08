@@ -5,10 +5,17 @@
 :root {
   --foreground: #06333b;   /* brand.ink */
   --background: #f4f8f8;   /* brand.surface */
-  /* --font-satoshi and --font-mono are set by next/font/local and next/font/google
-     respectively, via their own .variable classNames on <html> in app/layout.tsx. */
+  /* --font-body, --font-display-face and --font-mono are set by next/font on <html> in
+     app/layout.tsx; --font-satoshi is the previous face, kept loaded until the product screens
+     have been through the redesign so nothing loses its typeface mid-way.
+
+     Two display faces on purpose. --font-marketing is the condensed one from the design handoff,
+     set uppercase, italic and tightly tracked for landing-page headlines and eyebrow labels.
+     --font-display stays the product's own heading face, because 77 headings across 38 dashboard,
+     portal and technician files use it -- a condensed italic face on a reading table or a visit form
+     costs legibility for nothing, which is the handoff's own argument against setting body copy in it. */
   --font-display: var(--font-satoshi), system-ui, sans-serif;
-  --font-body: var(--font-satoshi), system-ui, sans-serif;
+  --font-marketing: var(--font-display-face), "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
 }
 
 @layer base {

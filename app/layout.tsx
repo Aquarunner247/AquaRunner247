@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Inter, Roboto_Condensed } from "next/font/google";
 import localFont from "next/font/local";
 import Script from "next/script";
 import { headers } from "next/headers";
@@ -30,6 +30,35 @@ const satoshi = localFont({
     { path: "../public/fonts/satoshi/satoshi-900.woff2", weight: "900", style: "normal" },
   ],
   variable: "--font-satoshi",
+  display: "swap",
+});
+
+/**
+ * Inter carries body copy across the marketing site and the product -- everything that is read rather
+ * than looked at.
+ */
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+/**
+ * The display face: condensed, heavy, set UPPERCASE ITALIC with tight tracking.
+ *
+ * The design handoff names a system stack ("Arial Narrow", "Roboto Condensed", Impact) and says Roboto
+ * Condensed is the closest installable equivalent. Installed rather than relied on: Arial Narrow is not
+ * present on Linux or Android, so a system stack would land on Impact or a default sans for a large
+ * share of visitors and the headlines would not be the same typeface twice.
+ *
+ * 900 only -- this face is used for display headlines and eyebrow labels and nothing else.
+ */
+const display = Roboto_Condensed({
+  subsets: ["latin"],
+  weight: ["700", "900"],
+  style: ["normal", "italic"],
+  variable: "--font-display-face",
   display: "swap",
 });
 
@@ -103,7 +132,7 @@ export default async function RootLayout({
     !organization?.onboardingCallDeclinedAt;
 
   return (
-    <html lang="en" className={`${satoshi.variable} ${mono.variable}`}>
+    <html lang="en" className={`${satoshi.variable} ${inter.variable} ${display.variable} ${mono.variable}`}>
       <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased">
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-T91TBD4WF1" strategy="afterInteractive" nonce={nonce} />
         <Script id="google-analytics" strategy="afterInteractive" nonce={nonce}>

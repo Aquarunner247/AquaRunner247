@@ -1,4 +1,5 @@
 import styles from "../../landing.module.css";
+import { Eyebrow, DisplayHeading } from "./ui";
 
 type CellValue = "yes" | "no" | "partial";
 
@@ -82,10 +83,14 @@ export function ComparisonTable() {
   const hasNotes = ROWS.some((row) => row.note);
 
   return (
-    <div className={styles.cmpWrap}>
-      <div className={styles.cmpHead}>
-        <p className={styles.eyebrow}>How we stack up</p>
-        <h3 className={styles.cmpTitle}>Compared to the other pool service apps.</h3>
+    // The heading is rendered here rather than through .cmpWrap/.cmpHead so it carries the marketing
+    // display face like every other section heading; the module keeps only the table itself.
+    <div>
+      <div className="mb-10 text-center">
+        <Eyebrow>How we stack up</Eyebrow>
+        <DisplayHeading as="h3" accent="pool service apps." className="mt-3">
+          Compared to the other
+        </DisplayHeading>
       </div>
 
       <div className={styles.cmpTableScroll}>

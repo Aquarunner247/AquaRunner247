@@ -8,6 +8,18 @@ if something here affects how you or your technicians work, it says so.
 
 ---
 
+## October 8, 2026
+
+**A new look for the public site.** The home, features, pricing, and property-manager pages have been
+rebuilt to a single design — one navy, one coral, one set of headline type — instead of four pages
+that had quietly drifted apart. Nothing about how the app works changed, and the app's own screens
+are untouched for now.
+
+Three claims came off the site while rebuilding it, because the app doesn't do them: route-deviation
+alerts, tablet feeder timing in the dosing calculator, and white-labelling "the app" (your branding
+reaches the customer portal and the emails, not the technician and office screens). The pages say
+what the app actually does instead.
+
 ## October 7, 2026
 
 **A daily to-do email.** Each morning you get one email listing everything outstanding, grouped by

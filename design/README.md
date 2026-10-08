@@ -5,7 +5,9 @@
 The icon itself is **not** generated from it at build time — `public/icons/icon.svg` is the master, and
 every PNG under `public/icons/` plus `public/favicon-32.png` was rendered from that SVG. The raster was
 traced once: enlarged 4×, each ink colour separated and traced to vector, then recoloured from the
-source's black and `#0078C8` to `brand.ink` and `brand.primary` (tailwind.config.ts). The source's drop
+source's black and `#0078C8` to `brand.ink` and `brand.primary`, which now live in lib/design-tokens.ts.
+When the palette moved to the Marbalism navy and Pool Blue, the icon was re-rendered from the same trace
+with the new values -- the SVG carries literal hexes, so it does not follow a token change by itself. The source's drop
 shadow was dropped, because platforms draw their own and a baked one doubles up on iOS.
 
 `public/icons/icon-art.svg` is the same artwork without the white badge, on transparency, for any
