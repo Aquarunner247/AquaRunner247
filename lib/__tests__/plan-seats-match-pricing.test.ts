@@ -1,29 +1,41 @@
 import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { PLAN_TIER_USER_LIMITS } from "../plan-tiers-core";
+import { EXTRA_SEAT_PRICE_USD, PLAN_TIER_INCLUDED_SEATS } from "../plan-tiers-core";
 
 /**
- * PLAN_TIER_USER_LIMITS says in its own doc comment that it matches the pricing cards, but nothing
- * made that true -- the seat counts are enforced in app/dashboard/users/actions.ts and advertised in
- * app/pricing/page.tsx, and the two could drift silently. Selling 5 seats while the app stops a
- * customer at 3 is a support ticket; selling 3 while the app allows 5 is money left on the table.
+ * The seat numbers are enforced in app/dashboard/users/actions.ts and advertised in
+ * app/pricing/page.tsx, and nothing used to stop the two drifting. Selling 5 included seats
+ * while the app starts charging at 3 is a support ticket; selling a $15 seat while the app
+ * bills a different number is a chargeback.
  */
-describe("the advertised seat counts", () => {
+describe("the advertised seat terms", () => {
   const pricing = fs.readFileSync(path.join(process.cwd(), "app", "pricing", "page.tsx"), "utf8");
-  const advertised = [...pricing.matchAll(/Up to (\d+) staff logins/g)].map((m) => Number(m[1]));
+  const advertised = [...pricing.matchAll(/(\d+) staff logins included, then \$(\d+)\/month each/g)].map((m) => ({
+    included: Number(m[1]),
+    seatPrice: Number(m[2]),
+  }));
 
-  it("appears once per capped plan, in card order", () => {
-    // Service then White Label. Enterprise says "Unlimited staff logins" and has no number.
-    expect(advertised).toEqual([PLAN_TIER_USER_LIMITS.SERVICE, PLAN_TIER_USER_LIMITS.WHITE_LABEL]);
+  it("states the included count for each capped plan, in card order", () => {
+    expect(advertised.map((a) => a.included)).toEqual([
+      PLAN_TIER_INCLUDED_SEATS.SERVICE,
+      PLAN_TIER_INCLUDED_SEATS.WHITE_LABEL,
+    ]);
   });
 
-  it("never advertises more seats than White Label on the cheaper plan", () => {
-    expect(PLAN_TIER_USER_LIMITS.SERVICE!).toBeLessThan(PLAN_TIER_USER_LIMITS.WHITE_LABEL!);
+  it("quotes the same extra-seat price the app charges, on every card that mentions one", () => {
+    expect(advertised.length).toBeGreaterThan(0);
+    for (const { seatPrice } of advertised) {
+      expect(seatPrice).toBe(EXTRA_SEAT_PRICE_USD);
+    }
   });
 
-  it("still describes Enterprise as uncapped, matching a null limit", () => {
-    expect(PLAN_TIER_USER_LIMITS.ENTERPRISE).toBeNull();
+  it("never includes more seats on the cheaper plan than on the dearer one", () => {
+    expect(PLAN_TIER_INCLUDED_SEATS.SERVICE!).toBeLessThan(PLAN_TIER_INCLUDED_SEATS.WHITE_LABEL!);
+  });
+
+  it("still describes Enterprise as uncapped, matching a null included count", () => {
+    expect(PLAN_TIER_INCLUDED_SEATS.ENTERPRISE).toBeNull();
     expect(pricing).toContain("Unlimited staff logins");
   });
 });

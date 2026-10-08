@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe, mapSubscriptionStatus, tierForPriceId, isSelfServePlanTier, type SelfServePlanTier } from "@/lib/stripe";
+import { stripe, mapSubscriptionStatus, tierForPriceId, isSelfServePlanTier, planItemOf, type SelfServePlanTier } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
 import { DEFAULT_SERVICE_MESSAGES } from "@/lib/default-service-messages";
@@ -83,8 +83,8 @@ export async function POST(req: Request) {
                       stripeCustomerId: customerId,
                       stripeSubscriptionId: subscriptionId,
                       trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-                      currentPeriodEnd: subscription.items.data[0]?.current_period_end
-                        ? new Date(subscription.items.data[0].current_period_end * 1000)
+                      currentPeriodEnd: planItemOf(subscription)?.current_period_end
+                        ? new Date(planItemOf(subscription)!.current_period_end * 1000)
                         : null,
                       state: customer.organization.state,
                       hasCommercialPools: customer.organization.hasCommercialPools,
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
 
         // The subscription's actual Price is the source of truth for which tier this is;
         // the metadata set at checkout is only a fallback in case that lookup comes up empty.
-        const subscribedPriceId = subscription.items.data[0]?.price?.id;
+        const subscribedPriceId = planItemOf(subscription)?.price?.id;
         const metadataTier = session.metadata?.planTier;
         const planTier = tierForPriceId(subscribedPriceId) ?? (isSelfServePlanTier(String(metadataTier ?? "")) ? (metadataTier as SelfServePlanTier) : null);
 
@@ -165,8 +165,8 @@ export async function POST(req: Request) {
               stripeCustomerId: customerId,
               stripeSubscriptionId: subscriptionId,
               trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-              currentPeriodEnd: subscription.items.data[0]?.current_period_end
-                ? new Date(subscription.items.data[0].current_period_end * 1000)
+              currentPeriodEnd: planItemOf(subscription)?.current_period_end
+                ? new Date(planItemOf(subscription)!.current_period_end * 1000)
                 : null,
               state,
               hasCommercialPools,
@@ -212,7 +212,12 @@ export async function POST(req: Request) {
         // just the tier chosen at signup. Only set when the current price actually resolves
         // to one of the two self-serve tiers -- e.g. a custom Enterprise price must not
         // clobber a planTier a platform admin set by hand.
-        const resolvedTier = tierForPriceId(subscription.items.data[0]?.price?.id);
+        // By price, never by position: this subscription may now carry a second item for extra
+        // staff seats, and Stripe does not promise which comes first. Reading index 0 could hand
+        // back the seat item, whose price maps to no tier, and the planTier sync below would then
+        // quietly stop applying upgrades made through the billing portal.
+        const planItem = planItemOf(subscription);
+        const resolvedTier = tierForPriceId(planItem?.price?.id);
 
         // Set the scrub-scheduling flag as part of the same update that flips
         // planStatus -- this is the durable source of truth the cron reads, so it must
@@ -227,8 +232,8 @@ export async function POST(req: Request) {
           data: {
             planStatus,
             ...(resolvedTier ? { planTier: resolvedTier } : {}),
-            currentPeriodEnd: subscription.items.data[0]?.current_period_end
-              ? new Date(subscription.items.data[0].current_period_end * 1000)
+            currentPeriodEnd: planItem?.current_period_end
+              ? new Date(planItem.current_period_end * 1000)
               : null,
             dataScrubScheduledAt: isCancellation ? scrubScheduledAt : null,
           },

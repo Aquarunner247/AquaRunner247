@@ -36,7 +36,7 @@ const PLANS: Plan[] = [
     featured: true,
     points: [
       "Unlimited pools, one account for residential and commercial work",
-      "Up to 3 staff logins — unlimited customers on the portal, always",
+      "3 staff logins included, then $15/month each — unlimited customers on the portal, always",
       "AI phone agent, dosing calculator, and route optimization included, not upsold",
       "Full chemical logging, service reports, and photos",
       "Customer portal, equipment records, and safety data sheets",
@@ -52,7 +52,7 @@ const PLANS: Plan[] = [
     per: "/month",
     points: [
       "Everything in Service, plus:",
-      "Up to 5 staff logins — unlimited customers on the portal, always",
+      "5 staff logins included, then $15/month each — unlimited customers on the portal, always",
       "Your logo and brand colours on the customer portal your clients log into",
       "Your branding on the welcome email that sets up their login",
       "AquaRunner branding minimised wherever your customers look",
@@ -114,13 +114,13 @@ export default function PricingPage() {
           <div className="mx-auto max-w-6xl">
             <Eyebrow>Pricing that scales with the work, not the pool count</Eyebrow>
             <div className="mt-4 h-1 w-24 bg-brand-cta" aria-hidden="true" />
-            <DisplayHeading as="h1" tone="dark" accent="No per-pool fees." className="mt-6 max-w-4xl">
-              One flat monthly price.
+            <DisplayHeading as="h1" tone="dark" accent="No per-pool fees. Ever." className="mt-6 max-w-4xl">
+              Grow the route, not the bill.
             </DisplayHeading>
             <p className="mt-6 max-w-2xl font-sans text-lg leading-relaxed text-brand-mutedOnDark">
-              Residential, commercial, or both, in one account. Every plan runs the whole platform — including the AI
-              phone agent and the dosing calculator. Plans differ by how many staff logins you need and how your
-              customers see the software, never by which features you get.
+              Add a pool, a spa, a splash pad, a fountain — the price does not move. Every plan runs the whole
+              platform, including the AI phone agent and the dosing calculator. Plans differ by how many staff log in
+              and how your customers see the software, never by which features you get.
             </p>
             <div className="mt-8">
               <PrimaryButton href="#waitlist">Join the waitlist</PrimaryButton>

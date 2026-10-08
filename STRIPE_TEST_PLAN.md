@@ -66,3 +66,45 @@ Purpose: end-to-end verification of the multi-tenant self-serve signup flow usin
 - [ ] All above steps pass — core flow verified; tenant-isolation/trial-gating/expiry items above still open
 - [ ] No elevated DB role used anywhere in the provisioning path — believed true per architecture (Prisma `DATABASE_URL`, not service role) but not independently re-checked this pass
 - [ ] Ready to move to live-mode key swap — not yet; close the open items above first
+
+---
+
+## Extra staff seats ($15/month)
+
+Beyond the seats a plan includes (`PLAN_TIER_INCLUDED_SEATS` — Service 3, White Label 5),
+each active staff `User` adds $15/month as a second item on the org's subscription.
+
+### Setup
+
+Create one more Price in the Stripe dashboard and set `STRIPE_PRICE_ID_EXTRA_SEAT`:
+
+- Product: "Additional staff seat"
+- Recurring, monthly, **$15.00**
+- Usage type: **Licensed** (per-unit quantity), *not* metered — the app sets the quantity
+  explicitly from the live active-user count.
+
+Leaving the env unset is a supported state: `syncExtraSeatQuantity` no-ops and nothing is
+charged, which is what production runs today (one org, COMPED, no subscription).
+
+### Test sequence
+
+- [ ] **Confirmation is required.** On a Service org with 3 active staff, add a 4th. The form
+      must interrupt with the $15/month confirmation before submitting.
+- [ ] **Consent is enforced server-side.** Submit the same form with
+      `acknowledgedSeatCharge` stripped (devtools, or curl the action). It must redirect to
+      `?error=seat-confirm-required` and create no user.
+- [ ] **Quantity appears.** After confirming, the subscription has a second item on the seat
+      Price with quantity 1, prorated.
+- [ ] **Quantity tracks headcount.** Add a 5th staff user → quantity 2. Delete one → quantity 1.
+- [ ] **The item is removed, not zeroed.** Delete back down to 3 staff → the seat item is gone
+      from the subscription, so the invoice has no $0 line.
+- [ ] **Customer logins are free.** Add several CUSTOMER-role users → quantity unchanged, and
+      no confirmation dialog appears.
+- [ ] **Compliance still walls.** A COMPLIANCE org at 2 users gets `?error=user-limit`, never a
+      charge dialog.
+- [ ] **COMPED is never billed.** A COMPED org adds a 10th user with no dialog and no
+      subscription item.
+- [ ] **Tier sync survives two items.** With a seat item present, change the plan through the
+      billing portal and confirm `customer.subscription.updated` still updates `planTier` —
+      this is what `planItemOf` exists for; reading `items.data[0]` would have picked the seat
+      item and silently skipped the update.

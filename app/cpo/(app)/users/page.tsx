@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { prisma } from "@/lib/prisma";
-import { PLAN_TIER_USER_LIMITS } from "@/lib/plan-tiers";
+import { PLAN_TIER_INCLUDED_SEATS } from "@/lib/plan-tiers";
 import { NameInput } from "@/app/components/name-input";
 import { PhoneInput } from "@/app/components/phone-input";
 import { createCpoUser } from "@/app/cpo/actions";
@@ -28,7 +28,9 @@ export default async function CpoUsersPage({ searchParams }: PageProps) {
     select: { id: true, name: true, email: true },
   });
 
-  const seatLimit = PLAN_TIER_USER_LIMITS.COMPLIANCE;
+  // Compliance is the one tier whose seat number is a wall rather than a billing event --
+  // see hardSeatCapFor in lib/plan-tiers-core.ts for why extra seats are not sold here.
+  const seatLimit = PLAN_TIER_INCLUDED_SEATS.COMPLIANCE;
   const atLimit = seatLimit != null && users.length >= seatLimit;
 
   return (

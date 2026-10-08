@@ -10,12 +10,16 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 8, 2026
 
-**Plan seats changed.** Service now includes 3 staff logins and White Label 5, down from 5 and 10.
-Enterprise is still unlimited, and customer portal logins have never counted against either number —
-a customer can have as many people in the portal as they like on any plan.
+**Plan seats changed, and extra ones are now buyable.** Service includes 3 staff logins and White
+Label 5. Past that you're no longer stopped — each additional staff login is $15/month, and the app
+asks you to accept the charge before it adds the person. Remove them later and the charge goes with
+them. Enterprise stays unlimited.
 
-Nobody loses access: the limit is only checked when you add someone, so an account already above its
-number keeps everyone on it and simply can't add more.
+Customer portal logins have never counted toward either number and still don't — a customer can have
+as many people in their portal as they like, on any plan.
+
+AquaRunner Compliance is the exception: it stays a hard 2 seats. At $19/month, a $15 third seat would
+be most of another subscription.
 
 **The legal pages and the link previews caught up.** Terms and Privacy were still wearing the old
 page shell — and, because they were added to the site after the rule that hides it was written, the

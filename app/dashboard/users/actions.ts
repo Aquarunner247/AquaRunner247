@@ -8,7 +8,8 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { createOrFindAuthUser, createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { generateUnknowablePassword } from "@/lib/auth/initial-password";
 import { sendWelcomeEmail } from "@/lib/mail/send-welcome-email";
-import { userLimitFor } from "@/lib/plan-tiers";
+import { outcomeOfAddingSeat } from "@/lib/plan-tiers";
+import { syncExtraSeatQuantity } from "@/lib/stripe-seats";
 
 /** UI-only value for the "Add user" role select -- not part of the Prisma UserRole enum,
  * since a customer portal login is a CustomerUser row, not a staff User row with a role. */
@@ -70,19 +71,30 @@ async function createStaffUserForOrg(appUser: { organizationId: string }, formDa
     redirect(`${redirectBase}?error=email-in-use`);
   }
 
-  // Only a seat-count check when this action would actually add a net-new active seat --
+  // Only a seat check when this action would actually add a net-new active seat --
   // editing an already-active staff user's role/details isn't growing headcount.
   const addsActiveSeat = !existingStaffUser || !existingStaffUser.active;
+  let seatBecomesBillable = false;
   if (addsActiveSeat) {
     const organization = await prisma.organization.findUnique({
       where: { id: appUser.organizationId },
       select: { planStatus: true, planTier: true },
     });
-    const limit = organization ? userLimitFor(organization) : null;
-    if (limit != null) {
+    if (organization) {
       const activeCount = await prisma.user.count({ where: { organizationId: appUser.organizationId, active: true } });
-      if (activeCount >= limit) {
+      const outcome = outcomeOfAddingSeat(organization, activeCount);
+      if (outcome === "blocked") {
         redirect(`${redirectBase}?error=user-limit`);
+      }
+      if (outcome === "billable") {
+        // The form shows a confirmation before it submits this flag, but the check belongs here
+        // too: a request that never rendered that dialog must not be able to add a paid seat
+        // just because the client skipped it. Consent for a recurring charge is not something to
+        // take on trust from the browser.
+        if (String(formData.get("acknowledgedSeatCharge") ?? "") !== "true") {
+          redirect(`${redirectBase}?error=seat-confirm-required`);
+        }
+        seatBecomesBillable = true;
       }
     }
   }
@@ -106,6 +118,13 @@ async function createStaffUserForOrg(appUser: { organizationId: string }, formDa
         active: true,
       },
     });
+  }
+
+  // After the User row exists, never before: the row is the source of truth and the
+  // subscription item only reflects it. Recomputed from the live count inside, so it is
+  // correct even if an earlier sync failed.
+  if (seatBecomesBillable) {
+    await syncExtraSeatQuantity(appUser.organizationId);
   }
 
   revalidatePath("/dashboard/users");
@@ -402,6 +421,11 @@ export async function deleteStaffUser(formData: FormData) {
   if (!user) return;
 
   await prisma.user.delete({ where: { id: user.id } });
+
+  // Headcount just fell, which may take the org back under its included seats or simply reduce
+  // what it owes. Not conditional on the org having been over: the sync recomputes from the live
+  // count and no-ops when there is nothing to change.
+  await syncExtraSeatQuantity(appUser.organizationId);
 
   // Best-effort: also remove their Supabase Auth login so they can't sign in anymore.
   if (user.authUserId) {

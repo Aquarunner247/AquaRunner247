@@ -7,14 +7,22 @@ import type { OrganizationPlanStatus, PlanTier } from "@/generated/prisma/client
  * (getOrgPlanAccess) on top.
  */
 
-/** Staff seats (User rows: ADMIN/OFFICE/TECHNICIAN) included per tier, matching the
- * pricing cards on the landing page (pinned by lib/__tests__/plan-seats-match-pricing.test.ts,
- * because the two used to be able to drift apart silently) -- see app/dashboard/users/actions.ts, which counts
- * only the User table against this. Customer portal logins (CustomerUser) are a separate
- * model entirely and never count against a seat limit, no matter how many a customer has.
- * `null` means unlimited (Enterprise is volume-priced/custom, set manually by a platform
- * admin). */
-export const PLAN_TIER_USER_LIMITS: Record<PlanTier, number | null> = {
+/** Dollars per month for each staff seat beyond the ones a plan includes. Advertised on the
+ * pricing cards and pinned to them by lib/__tests__/plan-seats-match-pricing.test.ts. */
+export const EXTRA_SEAT_PRICE_USD = 15;
+
+/** Staff seats (User rows: ADMIN/OFFICE/TECHNICIAN) bundled into each tier's own price,
+ * matching the pricing cards on the landing page (pinned by
+ * lib/__tests__/plan-seats-match-pricing.test.ts, because the two used to be able to drift
+ * apart silently). Customer portal logins (CustomerUser) are a separate model entirely and
+ * never count toward a seat number, no matter how many a customer has.
+ *
+ * This is an INCLUDED count, not a cap: on the pool-service tiers an admin may go past it and
+ * pay EXTRA_SEAT_PRICE_USD per seat per month. `null` means unlimited and never billed
+ * (Enterprise is volume-priced/custom, set by hand by a platform admin).
+ *
+ * COMPLIANCE is the exception and stays a hard cap -- see hardSeatCapFor. */
+export const PLAN_TIER_INCLUDED_SEATS: Record<PlanTier, number | null> = {
   SERVICE: 3,
   WHITE_LABEL: 5,
   ENTERPRISE: null,
@@ -56,9 +64,67 @@ export function hasWhiteLabelBranding(org: OrgPlanFields): boolean {
 }
 
 /** Untiered orgs (pre-tier accounts, or a dev-path signup with no Stripe price configured)
- * fall back to the Service limit -- the safest default until a tier is actually chosen,
+ * fall back to Service everywhere -- the safest default until a tier is actually chosen,
  * since every pre-COMPLIANCE-era org was a pool-service org, never a Compliance one. */
-export function userLimitFor(org: OrgPlanFields): number | null {
+function effectiveTier(org: OrgPlanFields): PlanTier {
+  return org.planTier ?? "SERVICE";
+}
+
+/**
+ * Seats included in what the org already pays. `null` means unlimited, so nothing is ever
+ * billable: Enterprise by its pricing card, and COMPED because comping is a platform admin
+ * deliberately handing out a full account rather than a paid tier.
+ */
+export function includedSeatsFor(org: OrgPlanFields): number | null {
   if (org.planStatus === "COMPED") return null;
-  return PLAN_TIER_USER_LIMITS[org.planTier ?? "SERVICE"];
+  return PLAN_TIER_INCLUDED_SEATS[effectiveTier(org)];
+}
+
+/**
+ * A ceiling that cannot be bought past, as opposed to the included count that can.
+ *
+ * Only AquaRunner Compliance has one. It is a $19/month product sold to a property with an
+ * in-house CPO, so a $15 third seat would be most of another subscription -- selling extra
+ * seats there would be close to selling a second copy of the product at a discount. Every
+ * pool-service tier returns null: going past the included count is a billing event, not a wall.
+ */
+export function hardSeatCapFor(org: OrgPlanFields): number | null {
+  if (org.planStatus === "COMPED") return null;
+  return effectiveTier(org) === "COMPLIANCE" ? PLAN_TIER_INCLUDED_SEATS.COMPLIANCE : null;
+}
+
+/** Whether this org can add a seat beyond its included count by paying for it. */
+export function allowsExtraSeats(org: OrgPlanFields): boolean {
+  return hardSeatCapFor(org) === null && includedSeatsFor(org) !== null;
+}
+
+/**
+ * How many of the org's currently active staff are billable as extra seats. Zero whenever the
+ * org is unlimited, and zero while headcount is at or under the included count.
+ *
+ * This is computed from the live active-user count rather than accumulated by add/remove, so a
+ * seat that was deleted outside the normal path, or a sync that failed halfway, self-corrects
+ * the next time anything recomputes it.
+ */
+export function billableSeatsFor(org: OrgPlanFields, activeStaffCount: number): number {
+  const included = includedSeatsFor(org);
+  if (included === null) return 0;
+  return Math.max(0, activeStaffCount - included);
+}
+
+/** What adding one more active staff user would mean for this org. */
+export type SeatOutcome =
+  /** Covered by the plan already -- no charge, no confirmation. */
+  | "included"
+  /** Allowed, but adds EXTRA_SEAT_PRICE_USD per month. Requires explicit confirmation. */
+  | "billable"
+  /** Refused -- the tier has a hard ceiling and it is already reached. */
+  | "blocked";
+
+export function outcomeOfAddingSeat(org: OrgPlanFields, activeStaffCount: number): SeatOutcome {
+  const cap = hardSeatCapFor(org);
+  if (cap !== null) return activeStaffCount >= cap ? "blocked" : "included";
+  const included = includedSeatsFor(org);
+  if (included === null) return "included";
+  return activeStaffCount >= included ? "billable" : "included";
 }

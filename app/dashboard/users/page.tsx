@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { AddUserFormFields } from "@/app/components/add-user-form-fields";
+import { AddUserSeatSubmit } from "@/app/components/add-user-seat-submit";
 import { NameInput } from "@/app/components/name-input";
 import { RowActionsMenu } from "@/app/components/row-actions-menu";
+import { EXTRA_SEAT_PRICE_USD, includedSeatsFor, outcomeOfAddingSeat } from "@/lib/plan-tiers";
 import {
   createUser,
   deleteStaffUser,
@@ -39,7 +41,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
   const tab = params.tab === "customers" ? "customers" : "staff";
 
-  const [users, customers, customerUsers] = await Promise.all([
+  const [users, customers, customerUsers, organization] = await Promise.all([
     prisma.user.findMany({
       where: { organizationId: appUser.organizationId },
       orderBy: { createdAt: "desc" },
@@ -54,7 +56,17 @@ export default async function UsersPage({ searchParams }: PageProps) {
       orderBy: { createdAt: "desc" },
       select: { id: true, name: true, email: true, active: true, customer: { select: { id: true, name: true } } },
     }),
+    prisma.organization.findUnique({
+      where: { id: appUser.organizationId },
+      select: { planStatus: true, planTier: true },
+    }),
   ]);
+
+  // Only active staff count toward a seat -- a deactivated row and every customer portal login
+  // are both free, which is the same rule createStaffUserForOrg applies on the server.
+  const activeStaffCount = users.filter((u) => u.active).length;
+  const includedSeats = organization ? includedSeatsFor(organization) : null;
+  const nextSeatIsBillable = organization ? outcomeOfAddingSeat(organization, activeStaffCount) === "billable" : false;
 
   const tabClass = (target: string) => (target === tab ? "app-tab-active" : "app-tab");
 
@@ -276,6 +288,12 @@ export default async function UsersPage({ searchParams }: PageProps) {
                   to add more.
                 </p>
               ) : null}
+              {params.error === "seat-confirm-required" ? (
+                <p className="mt-1 text-sm font-medium text-brand-danger">
+                  That would add a paid seat, and the charge wasn&rsquo;t confirmed. Try again and accept the
+                  ${EXTRA_SEAT_PRICE_USD}/month when asked.
+                </p>
+              ) : null}
               <div className="mt-2 grid gap-2 md:grid-cols-2">
                 <NameInput name="name" required placeholder="Full name" className="app-field" />
                 <input name="email" type="email" required placeholder="Email" className="app-field" />
@@ -294,9 +312,12 @@ export default async function UsersPage({ searchParams }: PageProps) {
                 customers at <code className="app-code">/portal/login</code>; either should change it from their
                 account settings.
               </p>
-              <button className="app-btn-primary-sm mt-2" type="submit">
-                Add user
-              </button>
+              <AddUserSeatSubmit
+                nextSeatIsBillable={nextSeatIsBillable}
+                includedSeats={includedSeats ?? 0}
+                seatPriceUsd={EXTRA_SEAT_PRICE_USD}
+                activeStaffCount={activeStaffCount}
+              />
             </form>
           </section>
         </>
