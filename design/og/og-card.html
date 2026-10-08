@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AquaRunner 24/7 — Open Graph card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Roboto+Condensed:ital,wght@1,900&display=swap"
+  rel="stylesheet"
+/>
+<style>
+  /* These five values are the marketing palette. They are duplicated from lib/design-tokens.ts
+     because this file is rendered by a headless browser outside the Next build and cannot import
+     TypeScript. lib/__tests__/og-card-palette.test.ts fails if the two ever disagree, which is the
+     only thing keeping a palette change from silently leaving the share images behind -- that is
+     exactly what happened to the previous set. */
+  :root {
+    --ink: #0B2A4A;
+    --anchor: #0E3A5C;
+    --cta: #F2685A;
+    --muted-on-dark: #E7EEF4;
+    --white: #FFFFFF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; }
+  body {
+    background: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    color: var(--white);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 58px 72px;
+    position: relative;
+    overflow: hidden;
+  }
+  /* A single Deep Sea wedge off the right edge, so the card is not a flat rectangle but also does
+     not introduce a colour the palette does not have. */
+  body::after {
+    content: "";
+    position: absolute;
+    top: -120px;
+    right: -300px;
+    width: 700px;
+    height: 900px;
+    background: var(--anchor);
+    transform: rotate(14deg);
+    z-index: 0;
+  }
+  .layer { position: relative; z-index: 1; }
+  .brand {
+    font-family: "Roboto Condensed", "Arial Narrow", Impact, sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    font-size: 34px;
+  }
+  .brand span { color: var(--cta); }
+  .rule { width: 96px; height: 5px; background: var(--cta); margin: 26px 0 24px; }
+  .eyebrow {
+    font-family: "Roboto Condensed", "Arial Narrow", Impact, sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 19px;
+    color: var(--cta);
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-family: "Roboto Condensed", "Arial Narrow", Impact, sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: -0.04em;
+    line-height: 0.96;
+    font-size: 64px;
+    max-width: 19ch;
+  }
+  h1 .accent { color: var(--cta); }
+  .sub {
+    margin-top: 24px;
+    font-size: 23px;
+    line-height: 1.45;
+    color: var(--muted-on-dark);
+    max-width: 42ch;
+  }
+  .foot {
+    font-family: "Roboto Condensed", "Arial Narrow", Impact, sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 18px;
+    color: var(--muted-on-dark);
+  }
+  .foot b { color: var(--cta); font-weight: 900; }
+</style>
+</head>
+<body>
+  <div class="layer">
+    <p class="brand">AquaRunner <span>247</span></p>
+    <div class="rule"></div>
+    <p class="eyebrow" id="eyebrow"></p>
+    <h1 id="head"></h1>
+    <p class="sub" id="sub"></p>
+  </div>
+  <p class="foot layer"><b>Built by pool pros in Las Vegas</b> &nbsp;·&nbsp; aquarunner247.com</p>
+<script>
+  // Values come in on the query string so one template renders every card.
+  const q = new URLSearchParams(location.search);
+  const text = (id, value) => { document.getElementById(id).textContent = value ?? ""; };
+  text("eyebrow", q.get("eyebrow"));
+  text("sub", q.get("sub"));
+  const head = document.getElementById("head");
+  head.textContent = q.get("head") ?? "";
+  const accent = q.get("accent");
+  if (accent) {
+    const span = document.createElement("span");
+    span.className = "accent";
+    span.textContent = " " + accent;
+    head.appendChild(span);
+  }
+</script>
+</body>
+</html>

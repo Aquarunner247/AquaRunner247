@@ -10,6 +10,15 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 8, 2026
 
+**The legal pages and the link previews caught up.** Terms and Privacy were still wearing the old
+page shell — and, because they were added to the site after the rule that hides it was written, the
+staff sidebar was showing down the left edge of both for anyone signed in. Fixed, and the rule now
+reads from one list so a new public page cannot miss it again.
+
+The images that show when a page is shared — in a text message, on Facebook, in Slack — were still
+the old teal design and still carried headlines the site no longer uses. All four were redrawn to
+match, and a test now fails if the colours ever drift apart again.
+
 **A new look for the public site.** The home, features, pricing, and property-manager pages have been
 rebuilt to a single design — one navy, one coral, one set of headline type — instead of four pages
 that had quietly drifted apart. Nothing about how the app works changed, and the app's own screens

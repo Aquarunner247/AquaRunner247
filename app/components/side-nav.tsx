@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { isMarketingRoute } from "@/lib/marketing-routes";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { NavIcon, type NavIconKind } from "./nav-icons";
@@ -66,13 +67,11 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
   // AquaRunner Compliance is a separate product with its own nav/layout (app/cpo) --
   // never show the pool-service staff nav there.
   if (pathname.startsWith("/cpo")) return null;
-  // The marketing site (Home, Pricing, Features, and per-persona pages like
-  // /for-property-managers) has its own nav/footer, not part of the app shell -- without
-  // this, a logged-in admin browsing the marketing pages would see the staff nav
-  // overlaid on top of them.
-  if (pathname === "/" || pathname.startsWith("/pricing") || pathname.startsWith("/features") || pathname.startsWith("/for-property-managers")) {
-    return null;
-  }
+  // The marketing site has its own nav/footer and is not part of the app shell -- without this, a
+  // logged-in admin browsing it sees the staff rail overlaid beside the page. The list lives in
+  // lib/marketing-routes.ts because it was a hardcoded four paths here and /privacy and /terms were
+  // added to the site without it, so both legal pages shipped with the rail down their left edge.
+  if (isMarketingRoute(pathname)) return null;
 
   async function onSignOut() {
     setSigningOut(true);
