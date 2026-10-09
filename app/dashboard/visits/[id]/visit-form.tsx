@@ -252,6 +252,9 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
   const [pendingDoseHint, setPendingDoseHint] = useState<{ rawAmount: number; dosingUnit: DosingUnit } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [completingVisit, setCompletingVisit] = useState(false);
+  /** "I did not add chemicals at today's service call" -- the alternative to logging a dose.
+   *  Only consulted while the dose list is empty; the server ignores it otherwise. */
+  const [noChemicals, setNoChemicals] = useState(false);
   const [noPhotoPrompt, setNoPhotoPrompt] = useState(false);
   /** In flight, so a second tap can't log the dose twice. The form only clears after the request
    *  resolves, so without this the button stayed live and enabled while nothing visibly happened. */
@@ -619,6 +622,7 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
         body: JSON.stringify({
           serviceMessageTemplateId: selectedServiceMessageId || null,
           acknowledgedNoPhoto: opts.acknowledgedNoPhoto === true,
+          acknowledgedNoChemicals: noChemicals,
         }),
       });
       if (response.ok) {
@@ -648,6 +652,12 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
       if (data.error === "MISSING_REQUIRED_READINGS") {
         setSaveState("error");
         setSaveMsg("Missing required readings");
+        return;
+      }
+      if (data.error === "MISSING_CHEMICALS_CONFIRMATION") {
+        setSaveState("error");
+        setSaveMsg("Add the chemicals you used, or tick that you added none");
+        doseSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
       setSaveState("error");
@@ -1153,6 +1163,21 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
           ))}
           {doses.length === 0 ? <li className="text-brand-muted">No doses added yet.</li> : null}
         </ul>
+
+        {/* The way to close out a stop where nothing was poured. Shown only while the list is
+            empty -- once a dose exists the question is answered, and a stale tick alongside real
+            doses would be a contradiction in the record. */}
+        {doses.length === 0 && !isCompleted ? (
+          <label className="mt-3 flex min-h-[44px] items-start gap-3 rounded border border-brand-border bg-brand-surface px-3 py-2 text-sm text-brand-ink">
+            <input
+              type="checkbox"
+              checked={noChemicals}
+              onChange={(e) => setNoChemicals(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0"
+            />
+            <span>I did not add chemicals at today&rsquo;s service call.</span>
+          </label>
+        ) : null}
       </div>
 
       <div className="app-card">
@@ -1274,6 +1299,7 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
             hasInvalidReading ||
             photoCount < 1 ||
             completingVisit ||
+            (doses.length === 0 && !noChemicals) ||
             (serviceMessages.length > 0 && !selectedServiceMessageId)
           }
           className="rounded bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primaryHover disabled:cursor-not-allowed disabled:bg-brand-control"
@@ -1284,6 +1310,10 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
           <p className="mt-2 text-sm text-brand-danger">Fix the reading(s) marked in red above before completing.</p>
         ) : !isCompleted && (requiredMissing || photoCount < 1) ? (
           <p className="mt-2 text-sm text-brand-warn">Completion requires all required (*) readings and at least one photo.</p>
+        ) : !isCompleted && doses.length === 0 && !noChemicals ? (
+          <p className="mt-2 text-sm text-brand-warn">
+            Add the chemicals you used above, or tick that you added none, before completing.
+          </p>
         ) : !isCompleted && serviceMessages.length > 0 && !selectedServiceMessageId ? (
           <p className="mt-2 text-sm text-brand-warn">Pick a message to the customer above before completing.</p>
         ) : null}

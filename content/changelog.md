@@ -8,6 +8,15 @@ if something here affects how you or your technicians work, it says so.
 
 ---
 
+## October 9, 2026
+
+**Chemicals have to be answered for.** A visit can't be completed until either the chemicals used
+are logged, or the technician ticks *I did not add chemicals at today's service call*. An empty dose
+list used to read the same whether nothing was needed or something was poured and never written
+down — which is a bad place to be if a customer ever asks.
+
+---
+
 ## October 8, 2026
 
 **Plan seats changed, and extra ones are now buyable.** Service includes 3 staff logins and White

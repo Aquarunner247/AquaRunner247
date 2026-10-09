@@ -16,10 +16,18 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   /** Set by the form's second attempt, after the technician was told a photo is expected and chose
    *  to finish without one. See the photo gate below. */
   let acknowledgedNoPhoto = false;
+  /** The technician ticked "I did not add chemicals at today's service call". See the chemicals
+   *  gate below. */
+  let acknowledgedNoChemicals = false;
   try {
-    const body = (await request.json()) as { serviceMessageTemplateId?: unknown; acknowledgedNoPhoto?: unknown };
+    const body = (await request.json()) as {
+      serviceMessageTemplateId?: unknown;
+      acknowledgedNoPhoto?: unknown;
+      acknowledgedNoChemicals?: unknown;
+    };
     if (typeof body?.serviceMessageTemplateId === "string") serviceMessageTemplateId = body.serviceMessageTemplateId.trim() || null;
     acknowledgedNoPhoto = body?.acknowledgedNoPhoto === true;
+    acknowledgedNoChemicals = body?.acknowledgedNoChemicals === true;
   } catch {
     serviceMessageTemplateId = null;
   }
@@ -148,6 +156,25 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
    */
   if (visit.photos.length < 1 && !acknowledgedNoPhoto) {
     return NextResponse.json({ error: "MISSING_REQUIRED_PHOTO" }, { status: 400 });
+  }
+
+  /**
+   * Either a dose was logged, or the technician says plainly that none was added.
+   *
+   * "No doses recorded" used to be ambiguous in exactly the way that matters in a dispute: it read
+   * the same whether nothing was needed, or something was poured and never logged. This makes the
+   * technician answer the question before the stop can close.
+   *
+   * Unlike the photo above this does not relent on a second attempt -- the checkbox IS the second
+   * option, so there is nothing to fall back to. It is one tick, always available, and never a
+   * reason a technician cannot close out on a jobsite.
+   *
+   * No column for the acknowledgement on purpose, same reasoning as the photo: COMPLETED with zero
+   * doses already is the record. (Worth revisiting if the attestation itself ever has to be
+   * produced as evidence -- then it needs its own timestamped field, not an inference.)
+   */
+  if (visit.doses.length === 0 && !acknowledgedNoChemicals) {
+    return NextResponse.json({ error: "MISSING_CHEMICALS_CONFIRMATION" }, { status: 400 });
   }
 
   // A service message is required ONLY when the org actually has some configured. A seeding gap
