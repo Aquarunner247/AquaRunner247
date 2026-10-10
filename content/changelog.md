@@ -10,6 +10,14 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 9, 2026
 
+**One property at a time.** A technician can't start a stop at a new property while one at a
+different property is still open. Tapping *I've arrived* — or driving into the next property's
+geofence — tells them which stop to go back and finish first. Several pools and spas at the *same*
+property still open together, exactly as before; that's a single walk-up, not two stops.
+
+If a property genuinely can't be serviced, skip it from the schedule and the route moves on. Stops
+left open from a previous day never block the next day's work.
+
 **Chemicals have to be answered for.** A visit can't be completed until either the chemicals used
 are logged, or the technician ticks *I did not add chemicals at today's service call*. An empty dose
 list used to read the same whether nothing was needed or something was poured and never written

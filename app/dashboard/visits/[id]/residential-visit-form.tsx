@@ -197,11 +197,19 @@ export function ResidentialVisitForm({
       // call below, which the arrival route accepts as a location-only update once
       // startedAt is already set.
       const response = await fetch(`/api/visits/${visitId}/arrival`, { method: "PATCH" });
+      if (response.status === 409) {
+        // Another property is still open. The server names it, because "finish your other stop"
+        // is useless on a jobsite if it doesn't say which one.
+        const blocked = (await response.json().catch(() => null)) as { message?: string } | null;
+        setArrivalError(blocked?.message ?? "Finish the property you're on before starting another.");
+        return;
+      }
       if (!response.ok) throw new Error("Couldn't log arrival — try again.");
       const data = (await response.json()) as { visit: { startedAt: string | null } };
       setStartedAt(data.visit.startedAt);
     } catch (err) {
       setArrivalError(err instanceof Error ? err.message : "Couldn't log arrival — try again.");
+      return;
     } finally {
       setArrivalSaving(false);
     }

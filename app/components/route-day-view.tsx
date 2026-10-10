@@ -311,6 +311,15 @@ export function RouteDayView({
     notifiedRef.current.add(visitId);
     try {
       const res = await fetch(`/api/visits/${visitId}/arrival`, { method: "PATCH" });
+      if (res.status === 409) {
+        // Blocked because another property is still open. Silent on purpose -- this fires from a
+        // background GPS watcher, and a technician driving past a later stop should not be nagged
+        // about it. Dropping the id makes it retriable: once they close out the stop that was in
+        // the way, standing here still stamps arrival, instead of this visit being permanently
+        // marked as already-attempted.
+        notifiedRef.current.delete(visitId);
+        return;
+      }
       if (!res.ok) return;
       const data = await res.json();
       setItems((prev) =>

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { blockedStartMessage, blockingStopFor, openStopsBlockingStartWhere } from "@/lib/visit-start-gate";
+import { localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 
 function decimalOrNull(v: unknown): number | null {
   const n = Number(v);
@@ -29,7 +31,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params;
   const visit = await prisma.serviceVisit.findUnique({
     where: { id },
-    select: { id: true, technicianId: true, organizationId: true, status: true, startedAt: true },
+    select: {
+      id: true,
+      technicianId: true,
+      organizationId: true,
+      status: true,
+      startedAt: true,
+      propertyId: true,
+      scheduledStart: true,
+      organization: { select: { state: true } },
+    },
   });
   if (!visit) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
@@ -52,6 +63,51 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ ok: true, visit: withLocation });
     }
     return NextResponse.json({ ok: true, visit: { id: visit.id, startedAt: visit.startedAt, status: visit.status } });
+  }
+
+  /**
+   * One property at a time.
+   *
+   * This is the only place a visit becomes IN_PROGRESS, so gating here covers the "I've arrived"
+   * button and GPS auto-arrival with one rule rather than two that could disagree.
+   *
+   * Only for technicians. An ADMIN or OFFICE user hitting this is doing back-office correction --
+   * stamping an arrival somebody forgot, fixing a bad record -- and must not be told to go finish
+   * a stop they are not standing at. They are also the escape hatch if a technician gets wedged.
+   */
+  if (appUser.role === "TECHNICIAN" && visit.technicianId) {
+    const timeZone = timeZoneForState(visit.organization.state);
+    const { start, end } = localDayBounds(ymdInTimeZone(visit.scheduledStart, timeZone), timeZone);
+    const openStops = await prisma.serviceVisit.findMany({
+      where: { ...openStopsBlockingStartWhere(visit.technicianId, start, end), id: { not: visit.id } },
+      select: {
+        id: true,
+        propertyId: true,
+        property: { select: { name: true } },
+        bodyOfWater: { select: { name: true } },
+      },
+    });
+    const blocker = blockingStopFor(
+      openStops.map((s) => ({
+        id: s.id,
+        propertyId: s.propertyId,
+        propertyName: s.property.name,
+        bodyName: s.bodyOfWater?.name ?? null,
+      })),
+      visit.propertyId,
+    );
+    if (blocker) {
+      return NextResponse.json(
+        {
+          error: "OTHER_PROPERTY_IN_PROGRESS",
+          message: blockedStartMessage(blocker),
+          blockingVisitId: blocker.id,
+          blockingPropertyName: blocker.propertyName,
+          blockingBodyName: blocker.bodyName,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const updated = await prisma.serviceVisit.update({
