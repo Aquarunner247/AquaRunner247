@@ -36,21 +36,24 @@ describe("blockingStopFor", () => {
 });
 
 describe("openStopsBlockingStartWhere", () => {
-  const dayStart = new Date("2026-10-09T07:00:00.000Z");
-  const dayEnd = new Date("2026-10-10T07:00:00.000Z");
-  const where = openStopsBlockingStartWhere("tech-1", dayStart, dayEnd);
+  const from = new Date("2026-10-09T07:00:00.000Z");
+  const before = new Date("2026-10-10T07:00:00.000Z");
+  const where = openStopsBlockingStartWhere("tech-1", from, before);
 
   it("looks only at this technician's own in-progress stops", () => {
     expect(where.technicianId).toBe("tech-1");
     expect(where.status).toBe("IN_PROGRESS");
   });
 
-  it("excludes pushed stops, so last week's leftovers cannot lock a technician out today", () => {
+  it("excludes pushed stops, so swept leftovers cannot lock a technician out", () => {
     expect(where.pushedAt).toBeNull();
   });
 
-  it("confines the check to the stop's own local day", () => {
-    expect(where.scheduledStart).toEqual({ gte: dayStart, lt: dayEnd });
+  it("windows on startedAt, not scheduledStart", () => {
+    // Elkhorn Pointe was scheduled 2026-10-08 and arrived at on 2026-10-09 15:16. Scoping by the
+    // scheduled day would have missed a stop that was genuinely open on the technician's phone.
+    expect(where.startedAt).toEqual({ gte: from, lt: before });
+    expect(where).not.toHaveProperty("scheduledStart");
   });
 
   it("is a plain mutable object -- Prisma rejects readonly shapes", () => {

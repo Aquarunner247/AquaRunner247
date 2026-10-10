@@ -38,7 +38,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       status: true,
       startedAt: true,
       propertyId: true,
-      scheduledStart: true,
       organization: { select: { state: true } },
     },
   });
@@ -77,7 +76,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
    */
   if (appUser.role === "TECHNICIAN" && visit.technicianId) {
     const timeZone = timeZoneForState(visit.organization.state);
-    const { start, end } = localDayBounds(ymdInTimeZone(visit.scheduledStart, timeZone), timeZone);
+    // The CURRENT local day, not the visit's scheduled one: a stop scheduled for Tuesday and
+    // worked on Thursday is still work started today, and is exactly the case that exposed this.
+    const { start, end } = localDayBounds(ymdInTimeZone(new Date(), timeZone), timeZone);
     const openStops = await prisma.serviceVisit.findMany({
       where: { ...openStopsBlockingStartWhere(visit.technicianId, start, end), id: { not: visit.id } },
       select: {

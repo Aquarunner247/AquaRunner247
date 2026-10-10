@@ -22,20 +22,30 @@ export type OpenStop = {
  *    time is the normal shape of a work day, not something to prevent.
  *
  *  - `pushedAt: null`. The nightly sweep stamps pushedAt on anything still IN_PROGRESS after its
- *    own local day ended (app/api/cron/send-pending-summaries). Those stops are abandoned, not
- *    active -- nobody is coming back to them today. Without this, a technician who left stops open
- *    last week would arrive tomorrow morning unable to start anything at all, which is a far worse
- *    failure than the one this gate exists to prevent.
+ *    own scheduled day ended (app/api/cron/send-pending-summaries). Those stops are abandoned, not
+ *    active -- nobody is coming back to them.
  *
- *  - The same local day as the stop being started. Belt and braces behind pushedAt: if the sweep
- *    ever fails to run, yesterday's leftovers still must not lock a technician out of today.
+ *  - Started within the window, by `startedAt` -- NOT by `scheduledStart`.
+ *
+ *    This is the subtle one. Technicians here routinely work a stop days after the day it was
+ *    scheduled for: Elkhorn Pointe was scheduled 2026-10-08 and arrived at 2026-10-09 15:16.
+ *    Scoping by scheduled day got that exactly backwards in both directions -- a stop genuinely
+ *    open on the technician's phone right now would not block, because its scheduled day was
+ *    yesterday, while a stale stop from a catch-up day could block work that has nothing to do
+ *    with it. "What did you start and not finish" is a question about when work began, which is
+ *    what startedAt records. Every IN_PROGRESS visit has one, because arrival is the only thing
+ *    that sets that status.
+ *
+ *    The window exists so a cron outage cannot lock a technician out: without it, one stop left
+ *    open and never swept would refuse every future arrival, which is far worse than the problem
+ *    this gate solves.
  */
-export function openStopsBlockingStartWhere(technicianId: string, dayStart: Date, dayEnd: Date) {
+export function openStopsBlockingStartWhere(technicianId: string, startedFrom: Date, startedBefore: Date) {
   return {
     technicianId,
     status: "IN_PROGRESS" as const,
     pushedAt: null,
-    scheduledStart: { gte: dayStart, lt: dayEnd },
+    startedAt: { gte: startedFrom, lt: startedBefore },
   };
 }
 
