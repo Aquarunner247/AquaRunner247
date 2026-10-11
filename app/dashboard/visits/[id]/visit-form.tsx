@@ -242,6 +242,12 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMsg, setSaveMsg] = useState("");
   const [photoCount, setPhotoCount] = useState(initialPhotoCount);
+  const [photos, setPhotos] = useState<PhotoOption[]>(initialPhotos);
+  /** The photo the technician is being asked to confirm deleting. Destructive and irreversible --
+   *  unlike a dose, a photo cannot be re-added once they have left the property. */
+  const [photoPendingDelete, setPhotoPendingDelete] = useState<PhotoOption | null>(null);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+
   const [doses, setDoses] = useState<Dose[]>(initialDoses);
   const [dosing, setDosing] = useState<DosingResult | null>(initialDosing);
   const [doseForm, setDoseForm] = useState({ chemicalProductId: "", quantity: "" });
@@ -285,6 +291,10 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
    * boundary app/api/visits/[id]/doses/[doseId]/route.ts enforces server-side.
    */
   const canRemoveDose = !isCompleted || canCorrectCompleted;
+  // Same boundary as a dose: the technician fixes their own mistake while the stop is open,
+  // the office fixes it afterwards. Deliberately not `!isCompleted` alone -- that would hide the
+  // control in exactly the case it is needed, which is the bug the dose version shipped with.
+  const canRemovePhoto = !isCompleted || canCorrectCompleted;
 
   async function markArrived() {
     setArrivalSaving(true);
@@ -577,6 +587,36 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
     }
   }
 
+  /** Mirrors removeDose: same permission boundary, same one-row-at-a-time narrowness. */
+  async function deletePhoto(photo: PhotoOption) {
+    setDeletingPhotoId(photo.id);
+    try {
+      const response = await fetch(`/api/visits/${visitId}/photos/${photo.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(
+          data?.error === "VISIT_ALREADY_COMPLETED"
+            ? "This visit is already completed — ask the office to remove it."
+            : "Couldn't delete that photo — try again.",
+        );
+      }
+      const data = (await response.json().catch(() => null)) as { remainingPhotos?: number } | null;
+      setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+      // Trust the server's count over decrementing: photos taken offline are queued and not in
+      // `photos`, so a local subtraction would drift from what completion actually checks.
+      setPhotoCount((n) => data?.remainingPhotos ?? Math.max(0, n - 1));
+      setSaveState("saved");
+      setSaveMsg("Photo deleted");
+    } catch (err) {
+      setSaveState("error");
+      setSaveMsg(err instanceof Error ? err.message : "Couldn't delete that photo");
+    } finally {
+      setDeletingPhotoId(null);
+      setPhotoPendingDelete(null);
+    }
+  }
+
+
   async function toggleChecklistItem(itemId: string, completed: boolean) {
     setChecklistItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, completed } : it)));
     const result = await queuedSubmitJson({
@@ -696,6 +736,58 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
    * Finishing without one is one deliberate extra tap rather than the easy path, and a completed
    * visit with no photo stays visible to an admin afterwards.
    */
+  /**
+   * Confirmation before deleting a photo. A dose can be re-added from the catalog; a photo cannot be
+   * re-taken once the technician has driven away, so this one asks first.
+   *
+   * On a completed visit it also says the part that is easy to assume away: the customer's summary
+   * already went out with this photo attached, and deleting it here does not reach into their inbox.
+   */
+  function renderDeletePhotoPrompt() {
+    const photo = photoPendingDelete;
+    if (!photo) return null;
+    return createPortal(
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-brand-ink/70 p-4"
+        style={{ zIndex: ABOVE_MAP_Z_INDEX }}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-photo-title"
+      >
+        <div className="w-full max-w-sm rounded-2xl border border-brand-border bg-white p-5 shadow-soft">
+          <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-danger">Delete photo</p>
+          <h2 id="delete-photo-title" className="mt-1 font-display text-lg font-bold text-brand-ink">
+            Delete this photo?
+          </h2>
+          <p className="mt-2 text-sm text-brand-ink">
+            This can&rsquo;t be undone, and the photo can&rsquo;t be re-taken once you&rsquo;ve left the property.
+          </p>
+          {isCompleted ? (
+            <p className="mt-2 text-sm text-brand-warn">
+              This visit is already completed, so the customer&rsquo;s report went out with this photo attached.
+              Deleting it here removes it from the record but doesn&rsquo;t unsend that email.
+            </p>
+          ) : null}
+
+          <div className="mt-5 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => void deletePhoto(photo)}
+              disabled={deletingPhotoId === photo.id}
+              className="app-btn-danger-sm min-h-[44px]"
+            >
+              {deletingPhotoId === photo.id ? "Deleting…" : "Delete it"}
+            </button>
+            <button type="button" onClick={() => setPhotoPendingDelete(null)} className="app-btn-secondary-sm min-h-[44px]">
+              Keep it
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
   function renderNoPhotoPrompt() {
     if (!noPhotoPrompt) return null;
     return createPortal(
@@ -890,6 +982,7 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
     <section className="mt-6 space-y-4">
       {renderWaitingOnNotice()}
       {renderNoPhotoPrompt()}
+      {renderDeletePhotoPrompt()}
       {!isCompleted ? (
         <div className="app-card">
           {startedAt ? (
@@ -1243,17 +1336,34 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
           At least 1 photo is required to complete this visit. Photos must be taken live with the camera — uploading an existing image isn&rsquo;t allowed.
         </p>
         <p className="mt-1 text-sm font-medium text-brand-ink">Photos on file: {photoCount}</p>
-        {initialPhotos.length ? (
+        {photos.length ? (
           <div className="mt-2 flex flex-wrap gap-2">
-            {initialPhotos.map((p) =>
+            {photos.map((p) =>
               p.url ? (
-                <PhotoThumbnail
-                  key={p.id}
-                  src={p.url}
-                  alt="Service visit photo"
-                  size={80}
-                  className="h-20 w-20 rounded border border-brand-border object-cover"
-                />
+                <div key={p.id} className="relative">
+                  <PhotoThumbnail
+                    src={p.url}
+                    alt="Service visit photo"
+                    size={80}
+                    className="h-20 w-20 rounded border border-brand-border object-cover"
+                  />
+                  {canRemovePhoto ? (
+                    <button
+                      type="button"
+                      onClick={() => setPhotoPendingDelete(p)}
+                      disabled={deletingPhotoId === p.id}
+                      aria-label="Delete this photo"
+                      title="Delete this photo"
+                      /* 44px tap target per DESIGN-SYSTEM.md, sitting half outside an 80px
+                         thumbnail so it does not cover the image it is asking about. */
+                      className="absolute -right-2 -top-2 flex h-11 w-11 items-center justify-center rounded-full"
+                    >
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white bg-brand-danger text-xs font-bold leading-none text-white">
+                        ×
+                      </span>
+                    </button>
+                  ) : null}
+                </div>
               ) : null,
             )}
           </div>

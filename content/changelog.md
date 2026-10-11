@@ -10,6 +10,14 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 11, 2026
 
+**A wrong photo can be deleted.** Tap the × on any photo on the visit screen. A technician can
+remove one while the stop is still open — the case this is for, catching your own mistake on site —
+and after that the office can, any time, the same rule chemicals already follow.
+
+It asks first, because unlike a chemical a photo can't be re-taken once you've driven away. If the
+visit is already completed it also says plainly that the customer's report went out with that photo
+attached, so deleting it here doesn't unsend the email.
+
 **Extra stops are readable again.** An errand on the schedule — a supply run, a repair — was cut off
 after a few words, so a completed one was impossible to identify. Its description is the only record
 of what the stop was, unlike a pool visit that has a page behind it, so it now wraps in full and the
