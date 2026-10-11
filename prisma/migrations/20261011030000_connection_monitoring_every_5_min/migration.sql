@@ -17,4 +17,16 @@
 --
 -- cron.schedule upserts by job name, so this re-points the existing job rather than adding a second
 -- one, and re-running it is a no-op.
-SELECT cron.schedule('monitoring-sample-connections', '*/5 * * * *', $$SELECT monitoring.sample_connections();$$);
+-- Guarded because pg_cron is an account-level capability Supabase manages, not something a local
+-- Postgres necessarily has. The 2026-10-05 migration that created this job hit exactly that and
+-- failed a local migrate; without the guard this would too, and a cron schedule is not worth
+-- blocking local development over.
+DO $guard$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron') THEN
+    PERFORM cron.schedule('monitoring-sample-connections', '*/5 * * * *', $job$SELECT monitoring.sample_connections();$job$);
+  ELSE
+    RAISE NOTICE 'pg_cron not installed here -- skipping the connection-sampler reschedule.';
+  END IF;
+END
+$guard$;
