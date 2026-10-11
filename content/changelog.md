@@ -8,6 +8,15 @@ if something here affects how you or your technicians work, it says so.
 
 ---
 
+## October 11, 2026
+
+**Extra stops are readable again.** An errand on the schedule — a supply run, a repair — was cut off
+after a few words, so a completed one was impossible to identify. Its description is the only record
+of what the stop was, unlike a pool visit that has a page behind it, so it now wraps in full and the
+Done and Delete buttons move below it on a phone instead of squeezing it.
+
+---
+
 ## October 9, 2026
 
 **One property at a time.** A technician can't start a stop at a new property while one at a

@@ -904,10 +904,13 @@ export function RouteDayView({
                         {techGroup.label} ({techGroup.count} stop{techGroup.count === 1 ? "" : "s"})
                       </li>
                     ) : null}
+                    {/* flex-wrap, unlike the visit row below: an errand carries Done and Delete
+                        buttons where a visit carries only a small status badge, and those two
+                        shrink-0 buttons left the description about 150px on a phone. */}
                     <li
                       ref={setItemRef(idx)}
                       data-tour={idx === 0 ? "schedule-first-stop" : undefined}
-                      className={`flex items-center gap-3 rounded border border-brand-border bg-white p-2 ${draggingIndex === idx ? "opacity-60" : ""}`}
+                      className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-brand-border bg-white p-2 ${draggingIndex === idx ? "opacity-60" : ""}`}
                     >
                       {!effectiveReadOnly ? (
                         <span
@@ -922,13 +925,22 @@ export function RouteDayView({
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">
                         {idx + 1}
                       </span>
-                      <div className="min-w-0 flex-1">
-                        <p className={`truncate text-sm font-medium ${item.completed ? "text-brand-muted line-through" : "text-brand-ink"}`}>
+                      {/* No truncate. An errand's description IS the whole record of what the stop
+                          was -- there is no detail page behind it to go and read instead, the way a
+                          visit has one -- so cutting it off at one line loses the information
+                          entirely. It wraps, and min-w pushes the buttons onto their own line
+                          before the text gets squeezed narrow enough to matter. */}
+                      <div className="min-w-[12rem] flex-1">
+                        <p
+                          className={`whitespace-normal break-words text-sm font-medium ${
+                            item.completed ? "text-brand-muted line-through" : "text-brand-ink"
+                          }`}
+                        >
                           {item.description}
                           {item.propertyName ? ` — ${item.propertyName}` : ""}
                         </p>
                       </div>
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="ml-auto flex shrink-0 items-center gap-2">
                         <form action={toggleAdHocStop}>
                           <input type="hidden" name="stopId" value={item.id} />
                           <button type="submit" className="app-btn-ghost-sm">
