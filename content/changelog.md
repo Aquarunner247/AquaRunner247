@@ -10,6 +10,18 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 11, 2026
 
+**A stop starts when you say you've arrived.** Open a stop and the first thing on screen is *Start
+this stop*. Readings, chemicals and photos stay locked until you tap *I've arrived* — one tap, and
+the arrival time is recorded.
+
+This is because arrival was only logging itself automatically while the schedule screen was open, in
+front, on today's date. Any stop worked from the visit screen — or from yesterday's schedule while
+catching up — recorded no arrival at all, which was about one stop in six. Those stops also slipped
+past the "finish one property before starting another" rule, because that rule watches arrivals.
+
+No signal doesn't stop you. If the tap can't reach us the stop still opens and the arrival records
+itself once you're back online.
+
 **A wrong photo can be deleted.** Tap the × on any photo on the visit screen. A technician can
 remove one while the stop is still open — the case this is for, catching your own mistake on site —
 and after that the office can, any time, the same rule chemicals already follow.

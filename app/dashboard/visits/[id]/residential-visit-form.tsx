@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { ServiceMessageOption } from "./visit-form";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
 import { CameraCapture } from "@/app/components/camera-capture";
@@ -143,6 +144,8 @@ export function ResidentialVisitForm({
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
   const [arrivalSaving, setArrivalSaving] = useState(false);
   const [arrivalError, setArrivalError] = useState("");
+  /** Set from a 409 so the refusal can link straight to the stop that is in the way. */
+  const [blockingVisitId, setBlockingVisitId] = useState<string | null>(null);
   const [issues, setIssues] = useState<IssueOption[]>(initialIssues);
   const [issueForm, setIssueForm] = useState({ description: "", severity: "MEDIUM" });
   const [reportingIssue, setReportingIssue] = useState(false);
@@ -198,6 +201,18 @@ export function ResidentialVisitForm({
   // control in exactly the case it is needed, which is the bug the dose version shipped with.
   const canRemovePhoto = !isCompleted || canCorrectCompleted;
 
+  /**
+   * Work cannot start until arrival is logged.
+   *
+   * GPS auto-arrival only runs while the technician's own schedule screen is open, in the
+   * foreground, on today's date -- so in practice a real share of stops were being filled in and
+   * completed with no arrival at all (13% of one technician's visits over two weeks, 20% of
+   * another's). That left the one-property-at-a-time gate, which lives on arrival, unable to see
+   * most of the day. Making arrival the way work starts puts every stop back through it.
+   */
+  const notStarted = !startedAt && !isCompleted;
+  const inputsLocked = isCompleted || notStarted;
+
   async function markArrived() {
     setArrivalSaving(true);
     setArrivalError("");
@@ -210,15 +225,22 @@ export function ResidentialVisitForm({
       if (response.status === 409) {
         // Another property is still open. The server names it, because "finish your other stop"
         // is useless on a jobsite if it doesn't say which one.
-        const blocked = (await response.json().catch(() => null)) as { message?: string } | null;
+        const blocked = (await response.json().catch(() => null)) as { message?: string; blockingVisitId?: string } | null;
         setArrivalError(blocked?.message ?? "Finish the property you're on before starting another.");
+        setBlockingVisitId(blocked?.blockingVisitId ?? null);
         return;
       }
       if (!response.ok) throw new Error("Couldn't log arrival — try again.");
       const data = (await response.json()) as { visit: { startedAt: string | null } };
       setStartedAt(data.visit.startedAt);
     } catch (err) {
-      setArrivalError(err instanceof Error ? err.message : "Couldn't log arrival — try again.");
+      // A failed REQUEST is not a refusal. A pump room with no signal must never be a place a
+      // technician cannot work, so start the stop locally and let completion backfill the real
+      // startedAt server-side. A 409 returns above and deliberately does NOT reach this.
+      setStartedAt(new Date().toISOString());
+      setArrivalError("");
+      setSaveState("saved");
+      setSaveMsg(err instanceof Error && err.message ? "Arrival will record when you're back online" : "Arrival will record when you're back online");
       return;
     } finally {
       setArrivalSaving(false);
@@ -547,7 +569,7 @@ function confirmRemoveDose(
               min={f.min}
               max={f.max}
               value={reading[f.key]}
-              disabled={isCompleted}
+              disabled={inputsLocked}
               placeholder={fallback.toString()}
               onChange={(e) => {
                 const raw = e.target.value;
@@ -581,7 +603,7 @@ function confirmRemoveDose(
             max={f.max}
             step={f.step}
             value={value}
-            disabled={isCompleted}
+            disabled={inputsLocked}
             onPointerDown={() => {
               if (!isSet) setReading((prev) => ({ ...prev, [f.key]: String(roundToStep(fallback, f.step)) }));
             }}
@@ -717,25 +739,33 @@ function confirmRemoveDose(
               Arrived at {new Date(startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
             </p>
           ) : (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-brand-ink">Not logged as arrived yet</p>
-                <p className="text-xs text-brand-muted">
-                  This usually happens automatically when your phone&apos;s location enters the property. Tap this if
-                  location isn&apos;t available or hasn&apos;t caught up yet.
-                </p>
-              </div>
+            <div>
+              <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-primary">Step one</p>
+              <p className="mt-1 text-base font-semibold text-brand-ink">Start this stop</p>
+              <p className="mt-1 text-sm text-brand-muted">
+                Confirm you&rsquo;re at the property. Readings, chemicals and photos open up once you do, and your
+                arrival time is recorded. It happens on its own when your phone&rsquo;s location reaches the property,
+                but not every stop catches it &mdash; so tap it yourself.
+              </p>
               <button
                 type="button"
                 onClick={() => void markArrived()}
                 disabled={arrivalSaving}
-                className="app-btn-accent-sm shrink-0"
+                className="app-btn-primary-sm mt-3 min-h-[44px] w-full sm:w-auto"
               >
-                {arrivalSaving ? "Logging..." : "I've arrived"}
+                {arrivalSaving ? "Logging\u2026" : "I've arrived"}
               </button>
             </div>
           )}
           {arrivalError ? <p className="mt-1 text-sm text-brand-danger">{arrivalError}</p> : null}
+          {blockingVisitId ? (
+            <Link
+              href={`/dashboard/visits/${blockingVisitId}?from=schedule`}
+              className="mt-2 inline-flex min-h-[44px] items-center text-sm font-semibold text-brand-primary underline"
+            >
+              Go to that stop &rarr;
+            </Link>
+          ) : null}
         </div>
       ) : null}
 
@@ -750,7 +780,7 @@ function confirmRemoveDose(
           <button
             type="button"
             onClick={() => void saveReading("manual")}
-            disabled={isCompleted}
+            disabled={inputsLocked}
             className="app-btn-secondary-sm disabled:opacity-50"
           >
             Save / Sync now
@@ -803,7 +833,7 @@ function confirmRemoveDose(
           <form className="mt-3 grid grid-cols-3 gap-2" onSubmit={addDose}>
             <select
               value={doseForm.chemicalProductId}
-              disabled={isCompleted}
+              disabled={inputsLocked}
               onChange={(e) => {
                 const id = e.target.value;
                 if (pendingDoseHint) {
@@ -833,7 +863,7 @@ function confirmRemoveDose(
               type="number"
               step={doseStepFor(chemicalProducts.find((p) => p.id === doseForm.chemicalProductId)?.unit ?? "")}
               value={doseForm.quantity}
-              disabled={isCompleted}
+              disabled={inputsLocked}
               onChange={(e) => {
                 const raw = e.target.value;
                 const unit = chemicalProducts.find((p) => p.id === doseForm.chemicalProductId)?.unit ?? "";
@@ -845,7 +875,7 @@ function confirmRemoveDose(
             />
             <button
               type="submit"
-              disabled={isCompleted || !doseForm.chemicalProductId || !doseForm.quantity}
+              disabled={inputsLocked || !doseForm.chemicalProductId || !doseForm.quantity}
               className="app-btn-primary-sm"
             >
               Add dose
@@ -911,7 +941,7 @@ function confirmRemoveDose(
         <form onSubmit={reportIssue} className="mt-3 space-y-2">
           <textarea
             value={issueForm.description}
-            disabled={isCompleted || reportingIssue}
+            disabled={inputsLocked || reportingIssue}
             onChange={(e) => setIssueForm((f) => ({ ...f, description: e.target.value }))}
             placeholder="Describe what's wrong or needs repair..."
             rows={2}
@@ -920,7 +950,7 @@ function confirmRemoveDose(
           <div className="flex items-center gap-2">
             <select
               value={issueForm.severity}
-              disabled={isCompleted || reportingIssue}
+              disabled={inputsLocked || reportingIssue}
               onChange={(e) => setIssueForm((f) => ({ ...f, severity: e.target.value }))}
               className="app-field-sm"
             >
@@ -930,7 +960,7 @@ function confirmRemoveDose(
             </select>
             <button
               type="submit"
-              disabled={isCompleted || reportingIssue || !issueForm.description.trim()}
+              disabled={inputsLocked || reportingIssue || !issueForm.description.trim()}
               className="app-btn-accent-sm"
             >
               {reportingIssue ? "Reporting..." : "Report issue"}
@@ -977,7 +1007,7 @@ function confirmRemoveDose(
             )}
           </div>
         ) : null}
-        <CameraCapture onCapture={uploadPhoto} disabled={isCompleted || uploadingPhoto} />
+        <CameraCapture onCapture={uploadPhoto} disabled={inputsLocked || uploadingPhoto} />
         {uploadingPhoto ? <p className="mt-2 text-sm text-brand-muted">Uploading photo...</p> : null}
       </div>
 
@@ -1020,6 +1050,7 @@ function confirmRemoveDose(
           onClick={() => void completeVisit()}
           disabled={
             isCompleted ||
+            notStarted ||
             requiredMissing ||
             hasInvalidReading ||
             photoCount < 1 ||
@@ -1031,7 +1062,9 @@ function confirmRemoveDose(
         >
           {isCompleted ? "Visit completed" : completingVisit ? "Completing..." : "Complete service visit"}
         </button>
-        {!isCompleted && hasInvalidReading ? (
+        {notStarted ? (
+          <p className="mt-2 text-sm text-brand-warn">Tap &ldquo;I&rsquo;ve arrived&rdquo; above to start this stop.</p>
+        ) : !isCompleted && hasInvalidReading ? (
           <p className="mt-2 text-sm text-brand-danger">Fix the reading(s) marked in red above before completing.</p>
         ) : !isCompleted && (requiredMissing || photoCount < 1) ? (
           <p className="mt-2 text-sm text-brand-warn">Completion requires all required (*) readings and at least one photo.</p>
