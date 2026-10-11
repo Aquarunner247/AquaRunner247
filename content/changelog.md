@@ -10,6 +10,15 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 11, 2026
 
+**Picking up an unfinished stop starts it properly.** A stop left over from another day used to
+keep saying *Pushed* on the schedule even while a technician was standing at it working. Open one now
+and it says *Pick this stop back up* — tap *I've arrived* and it reads In Progress like any other
+stop.
+
+That also fixes something customers could see. The service report prints how long the visit took,
+and a picked-up stop kept the arrival time from the day it was abandoned — so reports have gone out
+saying a pool was serviced for 18 or 20 hours. The clock now starts when the work actually restarts.
+
 **A stop starts when you say you've arrived.** Open a stop and the first thing on screen is *Start
 this stop*. Readings, chemicals and photos stay locked until you tap *I've arrived* — one tap, and
 the arrival time is recorded.

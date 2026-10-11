@@ -323,7 +323,13 @@ export function RouteDayView({
       if (!res.ok) return;
       const data = await res.json();
       setItems((prev) =>
-        prev.map((v) => (v.kind === "visit" && v.id === visitId ? { ...v, startedAt: data.visit.startedAt ?? v.startedAt, status: data.visit.status ?? v.status } : v)),
+        prev.map((v) =>
+          v.kind === "visit" && v.id === visitId
+            ? // pushedAt cleared locally because arrival always clears it server-side now -- without
+              // this the badge would keep reading "Pushed" on a stop somebody just resumed.
+              { ...v, startedAt: data.visit.startedAt ?? v.startedAt, status: data.visit.status ?? v.status, pushedAt: null }
+            : v,
+        ),
       );
     } catch {
       notifiedRef.current.delete(visitId);

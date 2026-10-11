@@ -332,6 +332,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
             unit: d.unit,
           }))}
           initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
+          initialPushedAt={visit.pushedAt ? visit.pushedAt.toISOString() : null}
           initialDosing={dosing}
           serviceMessages={serviceMessages}
         />
@@ -360,6 +361,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
             unit: d.unit,
           }))}
           initialStartedAt={visit.startedAt ? visit.startedAt.toISOString() : null}
+          initialPushedAt={visit.pushedAt ? visit.pushedAt.toISOString() : null}
           initialDosing={dosing}
           serviceMessages={serviceMessages}
         />

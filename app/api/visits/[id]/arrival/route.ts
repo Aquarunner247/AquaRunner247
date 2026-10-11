@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { blockedStartMessage, blockingStopFor, openStopsBlockingStartWhere } from "@/lib/visit-start-gate";
 import { localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { isPushedVisit } from "@/lib/visit-pushed";
 
 function decimalOrNull(v: unknown): number | null {
   const n = Number(v);
@@ -37,6 +38,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       organizationId: true,
       status: true,
       startedAt: true,
+      pushedAt: true,
       propertyId: true,
       organization: { select: { state: true } },
     },
@@ -48,7 +50,23 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     (appUser.role === "ADMIN" || appUser.role === "OFFICE" || visit.technicianId === appUser.id);
   if (!canEdit) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
-  if (visit.startedAt || visit.status === "COMPLETED" || visit.status === "CANCELLED") {
+  /**
+   * Picking a swept stop back up counts as starting it, not as an arrival already logged.
+   *
+   * The nightly sweep stamps pushedAt and nothing ever clears it, so a resumed stop kept reading
+   * "Pushed" on the schedule while someone was standing at it working. Worse, it kept the startedAt
+   * from the day it was abandoned: the customer's summary prints completedAt minus startedAt, so
+   * real reports have gone out saying a pool was serviced for 18, 20, even 126 hours.
+   *
+   * Falling through re-stamps startedAt to now, clears pushedAt, and -- because this is a start --
+   * puts the resumption through the one-property-at-a-time gate like any other.
+   *
+   * The follow-up location PATCH that the form sends a moment later needs no special case: pushedAt
+   * is null by then, so it takes the ordinary location-only path below.
+   */
+  const isResuming = isPushedVisit({ status: visit.status, pushedAt: visit.pushedAt });
+
+  if ((visit.startedAt && !isResuming) || visit.status === "COMPLETED" || visit.status === "CANCELLED") {
     // Arrival's already logged (or can't be) -- the client fires the initial PATCH
     // immediately for an instant "Arrived" confirmation, without waiting on the
     // geolocation prompt, then sends a follow-up PATCH once location resolves. This is
@@ -115,6 +133,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     where: { id },
     data: {
       startedAt: new Date(),
+      // Cleared so the stop stops reading "Pushed" the moment someone is actually on it again.
+      pushedAt: null,
       status: visit.status === "SCHEDULED" ? "IN_PROGRESS" : visit.status,
       arrivalLatitude: latitude,
       arrivalLongitude: longitude,

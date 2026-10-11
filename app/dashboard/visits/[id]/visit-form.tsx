@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { isPushedVisit } from "@/lib/visit-pushed";
 import { createPortal } from "react-dom";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
 import { CameraCapture } from "@/app/components/camera-capture";
@@ -110,6 +111,8 @@ type Props = {
    * that actually matters, since a dose is usually only noticed as wrong once someone reads the
    * record. */
   canCorrectCompleted: boolean;
+  /** Set when the nightly sweep closed this stop out. Picking it back up starts it again. */
+  initialPushedAt?: string | null;
   readingFields: ReadingFieldSpec[];
   chemicalProducts: ChemicalProductOption[];
   checklistItems: ChecklistItemOption[];
@@ -203,13 +206,15 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume: initialHasVolume, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt, initialDosing, serviceMessages }: Props) {
+export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume: initialHasVolume, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt,
+  initialPushedAt = null, initialDosing, serviceMessages }: Props) {
   const [hasVolume, setHasVolume] = useState(initialHasVolume);
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
   const [arrivalSaving, setArrivalSaving] = useState(false);
   const [arrivalError, setArrivalError] = useState("");
   /** Set from a 409 so the refusal can link straight to the stop that is in the way. */
   const [blockingVisitId, setBlockingVisitId] = useState<string | null>(null);
+  const [pushedAt, setPushedAt] = useState<string | null>(initialPushedAt);
   const [checklistItems, setChecklistItems] = useState<ChecklistItemOption[]>(initialChecklistItems);
   const [issues, setIssues] = useState<IssueOption[]>(initialIssues);
   const [issueForm, setIssueForm] = useState({ description: "", severity: "MEDIUM" });
@@ -308,7 +313,11 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
    * another's). That left the one-property-at-a-time gate, which lives on arrival, unable to see
    * most of the day. Making arrival the way work starts puts every stop back through it.
    */
-  const notStarted = !startedAt && !isCompleted;
+  // A swept stop counts as not started: pushedAt means nobody was working it, so picking it back
+  // up goes through the same "I've arrived" step, which re-stamps the arrival time and puts the
+  // resumption through the one-property gate.
+  const isResuming = isPushedVisit({ status: visitStatus, pushedAt });
+  const notStarted = (!startedAt || isResuming) && !isCompleted;
   const inputsLocked = isCompleted || notStarted;
 
   async function markArrived() {
@@ -331,6 +340,8 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
       if (!response.ok) throw new Error("Couldn't log arrival — try again.");
       const data = (await response.json()) as { visit: { startedAt: string | null } };
       setStartedAt(data.visit.startedAt);
+      setPushedAt(null);
+      setBlockingVisitId(null);
     } catch (err) {
       // A failed REQUEST is not a refusal. A pump room with no signal must never be a place a
       // technician cannot work, so start the stop locally and let completion backfill the real
@@ -1013,8 +1024,10 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
             </p>
           ) : (
             <div>
-              <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-primary">Step one</p>
-              <p className="mt-1 text-base font-semibold text-brand-ink">Start this stop</p>
+              <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-primary">
+                {isResuming ? "Left unfinished" : "Step one"}
+              </p>
+              <p className="mt-1 text-base font-semibold text-brand-ink">{isResuming ? "Pick this stop back up" : "Start this stop"}</p>
               <p className="mt-1 text-sm text-brand-muted">
                 Confirm you&rsquo;re at the property. Readings, chemicals and photos open up once you do, and your
                 arrival time is recorded. It happens on its own when your phone&rsquo;s location reaches the property,
