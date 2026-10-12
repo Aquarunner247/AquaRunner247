@@ -518,6 +518,10 @@ function confirmRemoveDose(
           serviceMessageTemplateId: selectedServiceMessageId || null,
           acknowledgedNoPhoto: opts.acknowledgedNoPhoto === true,
           acknowledgedNoChemicals: noChemicals,
+          // Only matters when the arrival PATCH never reached the server -- no signal, and the form
+          // started the stop locally so work could happen. Completion carries that time so the
+          // server has a real arrival rather than refusing or backfilling to the completion instant.
+          clientStartedAt: startedAt,
         }),
       });
       if (response.ok) {
@@ -539,6 +543,12 @@ function confirmRemoveDose(
       if (data.error === "MISSING_REQUIRED_READINGS") {
         setSaveState("error");
         setSaveMsg("Missing required readings");
+        return;
+      }
+      if (data.error === "ARRIVAL_REQUIRED") {
+        setSaveState("error");
+        setSaveMsg("Tap \u201cI\u2019ve arrived\u201d at the top before completing");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
       if (data.error === "MISSING_CHEMICALS_CONFIRMATION") {

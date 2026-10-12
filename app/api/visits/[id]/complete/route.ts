@@ -4,6 +4,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { applyServiceMessagePlaceholders } from "@/lib/default-service-messages";
 import { sendBundledServiceSummary } from "@/lib/service-summary-email";
 import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
+import { resolveMissingArrival } from "@/lib/arrival-backfill";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
@@ -19,12 +20,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   /** The technician ticked "I did not add chemicals at today's service call". See the chemicals
    *  gate below. */
   let acknowledgedNoChemicals = false;
+  /** The arrival time the device recorded when the arrival PATCH could not reach us. See the gate
+   *  below and lib/arrival-backfill.ts. */
+  let clientStartedAt: unknown = null;
   try {
     const body = (await request.json()) as {
       serviceMessageTemplateId?: unknown;
       acknowledgedNoPhoto?: unknown;
       acknowledgedNoChemicals?: unknown;
+      clientStartedAt?: unknown;
     };
+    clientStartedAt = body?.clientStartedAt ?? null;
     if (typeof body?.serviceMessageTemplateId === "string") serviceMessageTemplateId = body.serviceMessageTemplateId.trim() || null;
     acknowledgedNoPhoto = body?.acknowledgedNoPhoto === true;
     acknowledgedNoChemicals = body?.acknowledgedNoChemicals === true;
@@ -87,9 +93,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   });
   if (!visit) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
+  const isAdminOrOffice = appUser.role === "ADMIN" || appUser.role === "OFFICE";
   const canEdit =
-    appUser.organizationId === visit.organizationId &&
-    (appUser.role === "ADMIN" || appUser.role === "OFFICE" || visit.technicianId === appUser.id);
+    appUser.organizationId === visit.organizationId && (isAdminOrOffice || visit.technicianId === appUser.id);
   if (!canEdit) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
   if (visit.status === "COMPLETED") {
@@ -198,6 +204,37 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const completedAt = new Date();
+
+  /**
+   * A stop cannot be completed without an arrival.
+   *
+   * The form locks every input until "I've arrived", but that is a browser, and a tab opened before
+   * that shipped does not know about it. This is the half that cannot be walked past -- and it is
+   * the half that matters, because the one-property-at-a-time gate watches arrivals, so a visit with
+   * none slips past it entirely. That was 13% of one technician's visits and 20% of another's.
+   *
+   * Backfilling to completedAt, which is what this used to do, is what made those invisible: the
+   * visit ended up with startedAt exactly equal to completedAt and nothing looked wrong.
+   *
+   * Two deliberate ways through. A technician whose arrival could not reach us -- no signal, the
+   * form starts the stop locally anyway -- sends the time their device recorded, and it is accepted
+   * if it is plausible. And ADMIN/OFFICE are exempt entirely: the office closing out a stop a
+   * technician forgot was never standing at the property, and refusing them would break the only
+   * way a forgotten stop gets tidied up.
+   */
+  let startedAt = visit.startedAt;
+  if (!startedAt) {
+    if (isAdminOrOffice) {
+      startedAt = completedAt;
+    } else {
+      const resolved = resolveMissingArrival(clientStartedAt, completedAt);
+      if (resolved.kind === "refuse") {
+        return NextResponse.json({ error: "ARRIVAL_REQUIRED" }, { status: 400 });
+      }
+      startedAt = resolved.startedAt;
+    }
+  }
+
   const completed = await prisma.serviceVisit.update({
     where: { id: visit.id },
     data: {
@@ -205,7 +242,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       status: "COMPLETED",
       serviceComplete: true,
       completedAt,
-      startedAt: visit.startedAt ?? completedAt,
+      startedAt,
     },
     select: {
       id: true,
