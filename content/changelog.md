@@ -28,9 +28,11 @@ keep saying *Pushed* on the schedule even while a technician was standing at it 
 and it says *Pick this stop back up* — tap *I've arrived* and it reads In Progress like any other
 stop.
 
-That also fixes something customers could see. The service report prints how long the visit took,
-and a picked-up stop kept the arrival time from the day it was abandoned — so reports have gone out
-saying a pool was serviced for 18 or 20 hours. The clock now starts when the work actually restarts.
+It also straightens out the arrival time. A picked-up stop kept the arrival time from the day it was
+abandoned, so the record showed visits spanning 18 or 20 hours. Customers were never told that — the
+report already withholds "time on site" when a visit is closed out long after the work — but the
+times on the report read oddly across two days, and the record itself was wrong. The clock now
+starts when the work actually restarts.
 
 **A stop starts when you say you've arrived.** Open a stop and the first thing on screen is *Start
 this stop*. Readings, chemicals and photos stay locked until you tap *I've arrived* — one tap, and
