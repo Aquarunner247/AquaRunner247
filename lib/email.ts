@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { escapeEmailHtml, resolveEmailBranding, type EmailBrandingInput } from "@/lib/mail/email-branding";
 import { resolveFromAddress } from "@/lib/mail/from-address";
 import { renderTaskDigestEmail, type TaskDigestInput } from "@/lib/mail/task-digest-email";
+import { onSiteLabel } from "@/lib/mail/on-site-duration";
 
 /**
  * Notifies the site owner of a new waitlist signup. Best-effort — the WaitlistSignup
@@ -147,16 +148,6 @@ function fmt(n: number | null, digits = 1): string {
 
 function fmtTime(d: Date, timeZone: string): string {
   return d.toLocaleTimeString(undefined, { timeZone, hour: "numeric", minute: "2-digit" });
-}
-
-/** "1h 12m" / "42m" / "<1m" -- never a raw minute count over 60 or a decimal, since this
- * is read at a glance next to two clock times, not computed from. */
-function fmtDuration(startedAt: Date, completedAt: Date): string {
-  const totalMinutes = Math.round((completedAt.getTime() - startedAt.getTime()) / 60_000);
-  if (totalMinutes < 1) return "<1m";
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
 /** One label/value block in the visit-info strip -- same shape whether or not `sub` is
@@ -307,28 +298,22 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   const hasDistinctArrival = input.startedAt != null && input.startedAt.getTime() !== input.completedAt.getTime();
 
   /**
-   * Whether "Xh Ym on site" is a claim this data can actually support.
+   * "Xh Ym on site", where the data supports it.
    *
-   * It is derived from arrival to completion, and completion is when someone pressed Complete -- not
-   * when the technician finished. An admin tidying up pending visits that evening sets it hours late,
-   * and the email then told the customer their pool had been serviced for eight hours. Seen live:
-   * Elkhorn Pointe arrived 06:44 with its photo at 06:47 and reported 8h 10m; The Alcove reported
-   * 14h 11m for 42 minutes of work.
+   * Completion is when somebody pressed Complete, not when the technician finished -- here that is
+   * routinely a batch at the end of a route, six stops across three properties closed inside twelve
+   * minutes on 2026-10-09. Arrival to completion is then a wildly overstated span.
    *
-   * There is no trustworthy "work ended" timestamp to substitute -- a photo's takenAt proves work was
-   * happening at that moment, not that it stopped there -- so rather than invent a duration, the
-   * duration is simply withheld whenever completion is implausibly far from the last evidence of
-   * work. Arrival and completion times are still shown; only the inference is dropped.
+   * This used to withhold the line entirely in that case. It now falls back to the last photo's
+   * takenAt, which comes off the camera and proves work was happening at that moment, and labels it
+   * "at least" because work carried on past the photo by an unknown amount. See
+   * lib/mail/on-site-duration.ts for the full ordering and its tests.
    */
-  const lastEvidence = input.bodies
+  const lastPhotoAt = input.bodies
     .map((b) => b.lastWorkEvidenceAt)
     .filter((d): d is Date => d != null)
     .reduce<Date | null>((latest, d) => (latest == null || d > latest ? d : latest), null);
-  const COMPLETION_LAG_TOLERANCE_MS = 45 * 60 * 1000;
-  const onSiteCredible =
-    hasDistinctArrival &&
-    lastEvidence != null &&
-    input.completedAt.getTime() - lastEvidence.getTime() <= COMPLETION_LAG_TOLERANCE_MS;
+  const onSite = onSiteLabel({ startedAt: input.startedAt ?? null, completedAt: input.completedAt, lastPhotoAt });
 
   const infoBlocks = [
     infoBlock("Technician", input.technicianName ?? "—"),
@@ -336,7 +321,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
     infoBlock(
       "Completed",
       fmtTime(input.completedAt, input.timeZone),
-      onSiteCredible ? `${fmtDuration(input.startedAt!, input.completedAt)} on site` : undefined,
+      onSite,
     ),
   ]
     .filter((b): b is string => b != null)

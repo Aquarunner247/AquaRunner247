@@ -10,6 +10,13 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 12, 2026
 
+**Service reports say how long the visit took again.** When a stop is closed out hours later — a
+batch of paperwork at the end of a route — arrival-to-completion was never the real time on site, so
+the report simply left it out. It now falls back to the last photo, which carries the time it was
+actually taken, and says *at least 54m on site* rather than claiming a figure it can't stand behind.
+
+Where a stop is closed out at the stop, nothing changes: the report says *54m on site* as before.
+
 **Chemicals can be added to a visit that's already closed.** If a pour happened but never got typed
 in, open the visit and add it — the dose list works on a completed visit for admin and office users,
 the same as removing a wrong one already did. Technicians still log chemicals while the stop is open
