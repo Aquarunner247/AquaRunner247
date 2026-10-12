@@ -903,8 +903,11 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
             {names.length === 1 ? " needs" : " need"} finishing.
           </p>
           <p className="mt-2 text-sm text-brand-muted">
+            {/* Curly apostrophes as literal characters, NOT &rsquo; -- an entity only works in JSX
+                text (as in won&rsquo;t above). Inside a JavaScript string it is just an ampersand,
+                which React escapes, and the technician reads "it&rsquo;s done or skipped". */}
             The customer gets one summary for the whole stop, so it won&rsquo;t send until
-            {names.length === 1 ? " it&rsquo;s" : " they&rsquo;re"} done or skipped.
+            {names.length === 1 ? " it\u2019s" : " they\u2019re"} done or skipped.
           </p>
 
           <div className="mt-5 flex flex-col gap-2">
