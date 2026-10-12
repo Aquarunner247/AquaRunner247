@@ -8,6 +8,19 @@ if something here affects how you or your technicians work, it says so.
 
 ---
 
+## October 12, 2026
+
+**Chemicals can be added to a visit that's already closed.** If a pour happened but never got typed
+in, open the visit and add it — the dose list works on a completed visit for admin and office users,
+the same as removing a wrong one already did. Technicians still log chemicals while the stop is open
+and nothing changes for them.
+
+The record and the customer's portal both correct themselves. The report they were emailed went out
+without it, so if they need the corrected copy, *Send this report again* further down the page does
+that. The charge uses the chemical's price today, since that's the only price we hold.
+
+---
+
 ## October 11, 2026
 
 **Picking up an unfinished stop starts it properly.** A stop left over from another day used to

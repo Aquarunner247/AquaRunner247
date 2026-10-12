@@ -19,12 +19,27 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   });
   if (!visit) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
+  const isAdminOrOffice = appUser.role === "ADMIN" || appUser.role === "OFFICE";
   const canEdit =
-    appUser.organizationId === visit.organizationId &&
-    (appUser.role === "ADMIN" || appUser.role === "OFFICE" || visit.technicianId === appUser.id);
+    appUser.organizationId === visit.organizationId && (isAdminOrOffice || visit.technicianId === appUser.id);
   if (!canEdit) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
-  if (visit.status === "COMPLETED") {
+  /**
+   * The same boundary removal already uses (app/api/visits/[id]/doses/[doseId]/route.ts): a
+   * technician logs doses while the stop is open, and after that only an ADMIN or OFFICE user can
+   * change what is on the record.
+   *
+   * Adding after the fact exists because a pour that happened but was never typed in is a worse
+   * record than a correction: the compliance log under-reports what went in the water, and the
+   * customer is under-charged for chemical they actually received. The office has always been able
+   * to take a wrong dose off a closed visit; this is the other half of that.
+   *
+   * Two things it deliberately does NOT do. It does not re-send the customer's summary -- that went
+   * out when the visit closed, and a second email about a chemical is more confusing than the gap it
+   * fills. And the charge uses the product's price today, not its price on the day of the visit,
+   * because that is the only figure that exists; ChemicalProduct keeps no price history.
+   */
+  if (visit.status === "COMPLETED" && !isAdminOrOffice) {
     return NextResponse.json({ error: "VISIT_ALREADY_COMPLETED" }, { status: 400 });
   }
 

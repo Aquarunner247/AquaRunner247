@@ -221,6 +221,10 @@ export function ResidentialVisitForm({
   const isResuming = isPushedVisit({ status: visitStatus, pushedAt });
   const notStarted = (!startedAt || isResuming) && !isCompleted;
   const inputsLocked = isCompleted || notStarted;
+  // A pour that happened but was never typed in under-reports the compliance log and under-charges
+  // the customer, so the office can add one to a closed visit -- the other half of being able to
+  // remove a wrong one. Still blocked before arrival, like every other input.
+  const canAddDose = (!isCompleted || canCorrectCompleted) && !notStarted;
 
   async function markArrived() {
     setArrivalSaving(true);
@@ -838,6 +842,13 @@ function confirmRemoveDose(
 
       <div data-tour="visit-doses" className="app-card" ref={doseSectionRef}>
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemical Doses</h2>
+        {isCompleted && canAddDose ? (
+          <p className="mt-2 text-sm text-brand-warn">
+            This visit is closed. Adding a chemical here corrects the record and the customer&rsquo;s portal, but
+            the report they were emailed went out without it &mdash; use <strong>Send this report again</strong>
+            below if they need the corrected copy.
+          </p>
+        ) : null}
         {chemicalProducts.length === 0 ? (
           <p className="mt-2 text-sm text-brand-muted">
             No chemical products set up yet. An admin can add them under Chemicals in the sidebar.
@@ -846,7 +857,7 @@ function confirmRemoveDose(
           <form className="mt-3 grid grid-cols-3 gap-2" onSubmit={addDose}>
             <select
               value={doseForm.chemicalProductId}
-              disabled={inputsLocked}
+              disabled={!canAddDose}
               onChange={(e) => {
                 const id = e.target.value;
                 if (pendingDoseHint) {
@@ -876,7 +887,7 @@ function confirmRemoveDose(
               type="number"
               step={doseStepFor(chemicalProducts.find((p) => p.id === doseForm.chemicalProductId)?.unit ?? "")}
               value={doseForm.quantity}
-              disabled={inputsLocked}
+              disabled={!canAddDose}
               onChange={(e) => {
                 const raw = e.target.value;
                 const unit = chemicalProducts.find((p) => p.id === doseForm.chemicalProductId)?.unit ?? "";
@@ -888,7 +899,7 @@ function confirmRemoveDose(
             />
             <button
               type="submit"
-              disabled={inputsLocked || !doseForm.chemicalProductId || !doseForm.quantity}
+              disabled={!canAddDose || !doseForm.chemicalProductId || !doseForm.quantity}
               className="app-btn-primary-sm"
             >
               Add dose
