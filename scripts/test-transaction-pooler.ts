@@ -57,7 +57,16 @@ async function run(shape: string, fn: () => Promise<unknown>, results: Result[])
     for (let i = 0; i < REPEATS; i++) await fn();
     results.push({ shape, ok: true, detail: `${REPEATS}/${REPEATS} runs` });
   } catch (err) {
-    results.push({ shape, ok: false, detail: firstUsefulLine(err) });
+    const detail = firstUsefulLine(err);
+    results.push({
+      shape,
+      ok: false,
+      // An auth failure says nothing about prepared statements, which is the whole question here --
+      // make sure it is never mistaken for a pooler incompatibility.
+      detail: /SASL|password authentication|authentication failed/i.test(detail)
+        ? `${detail}  <- credentials, NOT a pooler limitation`
+        : detail,
+    });
   }
 }
 
@@ -73,6 +82,41 @@ async function main() {
     console.error("POOLER_URL is not on port 6543 -- that is the session pooler, which already works.");
     console.error("Set ALLOW_ANY_PORT=1 to run it elsewhere anyway (smoke test only).");
     process.exit(1);
+  }
+
+  /**
+   * Printed BEFORE connecting, and never with the password.
+   *
+   * The first real run of this failed with four lines of "SASL authentication failed" and nothing
+   * else, because the target was only reported in the summary at the end. An auth failure is almost
+   * always the username or the host rather than the pooler, and the output has to say which was
+   * tried for that to be obvious.
+   */
+  let parsedUrl: URL | null = null;
+  try {
+    parsedUrl = new URL(raw);
+  } catch {
+    console.error("POOLER_URL is not a valid URL. If the password contains @ / : ? # or %, it must be percent-encoded.");
+    process.exit(1);
+  }
+  const user = decodeURIComponent(parsedUrl.username);
+  console.log(`\nConnecting as  ${user}`);
+  console.log(`to             ${parsedUrl.hostname}:${parsedUrl.port || "5432"}`);
+  console.log(`password       ${parsedUrl.password ? `${parsedUrl.password.length} characters` : "MISSING"}`);
+
+  const looksLikePoolerHost = /\.pooler\.supabase\.com$/i.test(parsedUrl.hostname);
+  const looksLikePoolerUser = /^postgres\.[a-z0-9]+$/i.test(user);
+  if (!looksLikePoolerHost || !looksLikePoolerUser) {
+    console.log("\n  Heads up, this does not look like a pooler connection string:");
+    if (!looksLikePoolerHost) {
+      console.log(`    - host is "${parsedUrl.hostname}", expected something.pooler.supabase.com`);
+      console.log("      (db.<ref>.supabase.co is the DIRECT connection -- changing its port does not reach the pooler)");
+    }
+    if (!looksLikePoolerUser) {
+      console.log(`    - user is "${user}", expected postgres.<project-ref>`);
+      console.log("      (plain \"postgres\" is the direct connection's user; the poolers need the project ref)");
+    }
+    console.log("    Copy the Transaction pooler string from Supabase > Project Settings > Database.\n");
   }
 
   // Same pool and TLS handling as lib/prisma.ts, so this tests the real setup rather than a
