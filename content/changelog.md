@@ -10,6 +10,14 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 13, 2026
 
+**Stops nobody ever started stop nagging forever.** A stop left untouched on a past day stayed
+"overdue" indefinitely — nothing ever closed it, so 109 had built up, the oldest from August. The
+nightly sweep now closes those out the same way it already closed out stops that were started and
+left open: they read *Pushed*, and they drop off the overdue list.
+
+Nothing is marked complete and no reading is touched. *Pushed* says only what's true — that day
+came and went and the stop wasn't done.
+
 **A customer's route schedule shows every day, not one.** The Route schedule list on a customer
 page kept only the last route it read, so a pool serviced four days a week showed one of them.
 Tailgate Beach Club is on five days and showed Sunday.

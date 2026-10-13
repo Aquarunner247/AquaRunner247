@@ -28,7 +28,17 @@ describe("isPushedVisit", () => {
     expect(isPushedVisit({ status: "CANCELLED", pushedAt: stamp })).toBe(false);
   });
 
-  it("is not pushed when it was never started", () => {
+  it("is not pushed when it was never started and never swept", () => {
     expect(isPushedVisit({ status: "SCHEDULED", pushedAt: null })).toBe(false);
+  });
+
+  /** As of 2026-10-13 the sweep closes out stops nobody ever started, which had been accumulating
+   *  as permanently-overdue -- 109 of them. They carry the stamp while still SCHEDULED. */
+  it("IS pushed when a never-started stop has been swept", () => {
+    expect(isPushedVisit({ status: "SCHEDULED", pushedAt: stamp })).toBe(true);
+  });
+
+  it("is not pushed once a swept never-started stop is completed later", () => {
+    expect(isPushedVisit({ status: "COMPLETED", pushedAt: stamp })).toBe(false);
   });
 });

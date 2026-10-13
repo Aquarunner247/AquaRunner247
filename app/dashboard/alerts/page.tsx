@@ -35,6 +35,9 @@ export default async function TechnicianAlertsPage() {
         technicianId: appUser.id,
         organizationId: appUser.organizationId,
         status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+        // Honour the sweep's stamp, which this page never did -- the dashboard's own overdue list
+        // has filtered on it since the stamp existed, so the two disagreed about the same stops.
+        pushedAt: null,
         scheduledStart: { lt: todayStart },
       },
       orderBy: { scheduledStart: "asc" },

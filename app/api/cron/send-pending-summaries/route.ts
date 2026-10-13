@@ -98,6 +98,11 @@ export async function GET(req: Request) {
  * visit's own local day has ended that is simply false: nobody is working on it, and nobody will on
  * that day.
  *
+ * The same is true of a stop nobody ever STARTED, which this missed until 2026-10-13. Those were
+ * closed by nothing at all, so they stayed overdue forever: 109 had built up, some weeks old. A
+ * never-started stop is if anything a clearer case -- there is not even a part-finished visit to
+ * come back to.
+ *
  * Stamping `pushedAt` rather than setting status = COMPLETED, which is what the compliance log and the
  * public inspector record count. The stop was not serviced and the record has to keep saying so.
  * Readings already entered stay exactly where they are, which is the whole reason they were imported
@@ -115,7 +120,11 @@ async function closeOutUnfinishedVisits(now: Date): Promise<number> {
   const since = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
   const open = await prisma.serviceVisit.findMany({
     where: {
-      status: "IN_PROGRESS",
+      // SCHEDULED as well as IN_PROGRESS, as of 2026-10-13. A stop nobody ever started was left
+      // untouched by this, and nothing else ever closes it either -- so it stayed "overdue"
+      // permanently. 109 of them had accumulated, some weeks old, which is enough noise that the
+      // genuinely overdue ones stop standing out.
+      status: { in: ["IN_PROGRESS", "SCHEDULED"] },
       pushedAt: null,
       scheduledStart: { gte: since },
     },
@@ -135,7 +144,7 @@ async function closeOutUnfinishedVisits(now: Date): Promise<number> {
   if (dueIds.length === 0) return 0;
 
   const result = await prisma.serviceVisit.updateMany({
-    where: { id: { in: dueIds }, status: "IN_PROGRESS", pushedAt: null },
+    where: { id: { in: dueIds }, status: { in: ["IN_PROGRESS", "SCHEDULED"] }, pushedAt: null },
     data: { pushedAt: now },
   });
   return result.count;
