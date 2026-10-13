@@ -10,6 +10,17 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 13, 2026
 
+**A customer's route schedule shows every day, not one.** The Route schedule list on a customer
+page kept only the last route it read, so a pool serviced four days a week showed one of them.
+Tailgate Beach Club is on five days and showed Sunday.
+
+It now reads *Mon, Wed, Fri, Sat · Rodrigo Acevedo*, and groups the days by technician when more
+than one covers the property — *Mon, Thu, Fri, Sat (Rich) · Sun (Steve)*.
+
+---
+
+## October 13, 2026
+
 **A stop can be moved to the next working day.** Locked gate, dog in the yard, ran out of daylight —
 on the schedule, each stop now has *Tomorrow* next to *Skip*. Skipping says the visit isn't
 happening; this says it's happening later, and until now there was no way to say that.

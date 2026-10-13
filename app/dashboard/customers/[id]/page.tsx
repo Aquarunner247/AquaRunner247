@@ -29,7 +29,7 @@ import {
 import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
 import { looksLikeInspectionReport } from "@/lib/inspection-report-detection";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
+import { formatRouteSchedule, type RouteScheduleEntry } from "@/lib/customer-route-schedule";
 import { RouteSuggestionPanel } from "@/app/components/route-suggestion-panel";
 import { FilterTypeFields } from "@/app/components/filter-type-fields";
 import { PropertyContactFields } from "@/app/components/property-contact-fields";
@@ -187,27 +187,30 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
   // Route/technician scheduling info, keyed by body of water — falls back to
   // property-wide stops (bodyOfWaterId null, i.e. the whole property is on the route).
-  type ScheduleInfo = { routeName: string; technicianName: string | null; dayOfWeek: number | null };
-  const scheduleByBodyId = new Map<string, ScheduleInfo>();
-  const scheduleByPropertyId = new Map<string, ScheduleInfo>();
+  //
+  // ARRAYS, not single values. These were Maps of one entry and each recurring stop overwrote the
+  // last, so a body on several routes showed only whichever was processed last: Tailgate Beach
+  // Club is serviced five days a week and this read as one day. Most bodies here are on three or
+  // four.
+  const scheduleByBodyId = new Map<string, RouteScheduleEntry[]>();
+  const scheduleByPropertyId = new Map<string, RouteScheduleEntry[]>();
   for (const property of customer.properties) {
     for (const stop of property.recurringStops) {
-      const info: ScheduleInfo = {
+      const info: RouteScheduleEntry = {
         routeName: stop.route.name,
         technicianName: stop.route.technician?.name ?? null,
         dayOfWeek: stop.route.dayOfWeek,
       };
-      if (stop.bodyOfWaterId) {
-        scheduleByBodyId.set(stop.bodyOfWaterId, info);
-      } else {
-        scheduleByPropertyId.set(property.id, info);
-      }
+      const key = stop.bodyOfWaterId ?? property.id;
+      const target = stop.bodyOfWaterId ? scheduleByBodyId : scheduleByPropertyId;
+      target.set(key, [...(target.get(key) ?? []), info]);
     }
   }
-  const formatSchedule = (info: ScheduleInfo) =>
-    `${info.routeName}${info.dayOfWeek ? ` · ${WEEKDAY_LABELS[info.dayOfWeek]}` : ""}${
-      info.technicianName ? ` · Tech: ${info.technicianName}` : ""
-    }`;
+  /** A body on no route of its own still inherits any property-wide stops. */
+  const scheduleFor = (bodyId: string, propertyId: string): RouteScheduleEntry[] => [
+    ...(scheduleByBodyId.get(bodyId) ?? []),
+    ...(scheduleByPropertyId.get(propertyId) ?? []),
+  ];
 
   // Residential venues have no public QR log — skip generating one entirely so admins
   // never see a code that would just 404 if scanned.
@@ -350,13 +353,13 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                     <ul className="mt-1 space-y-0.5">
                       {customer.properties.flatMap((property) =>
                         property.bodiesOfWater.map((body) => {
-                          const schedule = scheduleByBodyId.get(body.id) ?? scheduleByPropertyId.get(property.id);
+                          const schedule = formatRouteSchedule(scheduleFor(body.id, property.id));
                           return (
                             <li key={body.id} className="text-brand-ink">
                               {body.name}
                               {customer.properties.length > 1 ? ` (${property.name})` : ""}:{" "}
                               {schedule ? (
-                                <span className="font-medium text-brand-primary">{formatSchedule(schedule)}</span>
+                                <span className="font-medium text-brand-primary">{schedule}</span>
                               ) : (
                                 <span className="text-brand-control">Not on a recurring route</span>
                               )}
@@ -1301,9 +1304,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       {body.type} · View details &amp; equipment{property.propertyType === "RESIDENTIAL" ? "" : " & QR code"}
                     </p>
                     {(() => {
-                      const schedule = scheduleByBodyId.get(body.id) ?? scheduleByPropertyId.get(property.id);
+                      const schedule = formatRouteSchedule(scheduleFor(body.id, property.id));
                       return schedule ? (
-                        <p className="mt-0.5 text-xs font-medium text-brand-primary">On route: {formatSchedule(schedule)}</p>
+                        <p className="mt-0.5 text-xs font-medium text-brand-primary">On route: {schedule}</p>
                       ) : (
                         <p className="mt-0.5 text-xs text-brand-control">Not on a recurring route</p>
                       );
