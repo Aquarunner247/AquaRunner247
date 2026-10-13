@@ -719,37 +719,96 @@ export function RouteDayView({
   const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(items, persistOrder, effectiveReadOnly);
 
   /**
-   * Moves a stop to tomorrow -- the ordinary "cannot do this one today" case that skipping
-   * overstates and leaving open does not express at all.
+   * Moves one stop to the next day its technician works. Returns the outcome rather than setting
+   * state, so the bundle version below can move several and report once.
+   */
+  async function moveOne(visit: RouteStop): Promise<{ ok: true; landedOn: Date | null } | { ok: false; message: string }> {
+    try {
+      const res = await fetch(`/api/visits/${visit.id}/reschedule`, { method: "PATCH" });
+      const data = (await res.json().catch(() => null)) as { message?: string; visit?: { scheduledStart?: string } } | null;
+      if (!res.ok) return { ok: false, message: data?.message ?? "Couldn't move that stop — try again." };
+      return { ok: true, landedOn: data?.visit?.scheduledStart ? new Date(data.visit.scheduledStart) : null };
+    } catch {
+      return { ok: false, message: "Couldn't move that stop — try again." };
+    }
+  }
+
+  /** "Monday, Oct 19" -- the date is the point of the message, so it is spelled out. */
+  function formatLanding(d: Date | null): string {
+    return d ? d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "the next working day";
+  }
+
+  function stopLabel(v: RouteStop): string {
+    return v.bodyName ? `${v.propertyName} — ${v.bodyName}` : v.propertyName;
+  }
+
+  /**
+   * Moves a stop to the next day its technician works -- the ordinary "cannot do this one today"
+   * case that skipping overstates and leaving open does not express at all.
    *
    * Removed from the list on success rather than left showing, because it is no longer part of
-   * this day: leaving it visible is how somebody taps it again and moves it to the day after.
+   * this day: leaving it visible is how somebody taps it again and moves it on again.
    */
   async function moveToTomorrow(visit: RouteStop) {
     setMovingVisitId(visit.id);
     setMoveError("");
     setMovedNotice("");
     try {
-      const res = await fetch(`/api/visits/${visit.id}/reschedule`, { method: "PATCH" });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as { message?: string } | null;
-        setMoveError(data?.message ?? "Couldn't move that stop — try again.");
+      const result = await moveOne(visit);
+      if (!result.ok) {
+        setMoveError(result.message);
         return;
       }
-      // Say WHERE it went. "Tomorrow" is not always tomorrow: it is the next day this technician
-      // works, so a Saturday stop lands on Monday for most of them -- and for somebody with a
-      // single route day it can be a week out. Moving a stop to an unstated date is how it gets
-      // quietly lost.
-      const data = (await res.json().catch(() => null)) as { visit?: { scheduledStart?: string } } | null;
-      const landedOn = data?.visit?.scheduledStart ? new Date(data.visit.scheduledStart) : null;
-      setMovedNotice(
-        landedOn
-          ? `${visit.bodyName ? `${visit.propertyName} — ${visit.bodyName}` : visit.propertyName} moved to ${landedOn.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}`
-          : "Stop moved.",
-      );
+      setMovedNotice(`${stopLabel(visit)} moved to ${formatLanding(result.landedOn)}`);
       setItems((prev) => prev.filter((i) => !(i.kind === "visit" && i.id === visit.id)));
-    } catch {
-      setMoveError("Couldn't move that stop — try again.");
+    } finally {
+      setMovingVisitId(null);
+    }
+  }
+
+  /**
+   * Moves a whole walk-up at once.
+   *
+   * This is the case the per-stop button does not cover and the one that actually happens: a gate
+   * nobody can open means every body of water at that property moves, and tapping through four of
+   * them one at a time invites doing three and forgetting the fourth.
+   *
+   * Only stops still outstanding. A completed one is finished, and a skipped one has been
+   * deliberately called off -- sweeping it into "tomorrow" would quietly un-skip it.
+   *
+   * Sequential, not Promise.all: each call writes, and four stops is not worth four concurrent
+   * connections through the pooler (lib/prisma.ts caps each instance at two).
+   */
+  async function moveBundleToTomorrow(bundleId: string, members: RouteStop[]) {
+    const movable = members.filter((m) => m.status !== "COMPLETED" && m.status !== "CANCELLED");
+    if (movable.length === 0) return;
+
+    setMovingVisitId(bundleId);
+    setMoveError("");
+    setMovedNotice("");
+    try {
+      const movedIds: string[] = [];
+      let landedOn: Date | null = null;
+      const failures: string[] = [];
+
+      for (const m of movable) {
+        const result = await moveOne(m);
+        if (result.ok) {
+          movedIds.push(m.id);
+          landedOn = landedOn ?? result.landedOn;
+        } else {
+          failures.push(`${m.bodyName ?? "this stop"}: ${result.message}`);
+        }
+      }
+
+      if (movedIds.length > 0) {
+        setItems((prev) => prev.filter((i) => !(i.kind === "visit" && movedIds.includes(i.id))));
+        const what = movedIds.length === 1 ? "1 stop" : `${movedIds.length} stops`;
+        setMovedNotice(`${movable[0].propertyName} — ${what} moved to ${formatLanding(landedOn)}`);
+      }
+      // Named individually, because "some failed" leaves a technician with no idea which pool is
+      // still on today's list.
+      if (failures.length > 0) setMoveError(failures.join(" · "));
     } finally {
       setMovingVisitId(null);
     }
@@ -1063,7 +1122,11 @@ export function RouteDayView({
                           {formatSequenceRange(positions)}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-brand-ink">{v.propertyName}</p>
+                          {/* Wraps, like the single-stop row: the Tomorrow button narrows this
+                              column, and "Elkhorn Pointe At Heartland Townhomes" truncates to
+                              "Elkhorn Pointe At Heartland ..." at phone width. The address below
+                              still truncates -- the property is what identifies the card. */}
+                          <p className="break-words text-sm font-semibold text-brand-ink">{v.propertyName}</p>
                           <p className="truncate text-xs text-brand-muted">{v.address || "No address on file"}</p>
                           {arrivedAt ? (
                             <p className="text-xs font-medium text-brand-ok">
@@ -1071,7 +1134,24 @@ export function RouteDayView({
                             </p>
                           ) : null}
                         </div>
-                        <span className="shrink-0 text-xs text-brand-muted">{members.length} venues</span>
+                        <span className="flex shrink-0 flex-col items-end gap-1">
+                          <span className="text-xs text-brand-muted">{members.length} venues</span>
+                          {/* Card level, not per venue. A gate nobody can open means the whole
+                              walk-up moves, and the member rows below are already tight enough that
+                              another button there would start truncating the venue name. */}
+                          {!effectiveReadOnly &&
+                          members.some((m) => m.status !== "COMPLETED" && m.status !== "CANCELLED") ? (
+                            <button
+                              type="button"
+                              onClick={() => void moveBundleToTomorrow(bundleId, members)}
+                              disabled={movingVisitId === bundleId}
+                              title="Move every outstanding stop here to the next working day"
+                              className="app-btn-ghost-sm"
+                            >
+                              {movingVisitId === bundleId ? "Moving\u2026" : "Tomorrow"}
+                            </button>
+                          ) : null}
+                        </span>
                       </div>
 
                       {/* Each venue keeps its OWN row element with its own drag index. Registering

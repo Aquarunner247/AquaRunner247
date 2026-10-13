@@ -18,6 +18,10 @@ It uses the days that technician actually works, from their own routes. A Saturd
 Monday for someone who doesn't work Sundays, and to Sunday for someone who does. It tells you the
 date it landed on, because "tomorrow" isn't always tomorrow.
 
+A property with several pools has one *Tomorrow* on the card, which moves all of them — a gate
+nobody can open means the whole walk-up moves, and tapping four of them one at a time is how three
+get moved and the fourth forgotten. Anything already finished or already skipped stays put.
+
 It won't move a stop that already has readings, chemicals or photos on it. Those belong to today,
 and carrying them onto tomorrow's visit would file them under tomorrow in the compliance log —
 finish that one instead, or skip it.
