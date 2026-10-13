@@ -22,6 +22,13 @@ A property with several pools has one *Tomorrow* on the card, which moves all of
 nobody can open means the whole walk-up moves, and tapping four of them one at a time is how three
 get moved and the fourth forgotten. Anything already finished or already skipped stays put.
 
+Moving asks first, since *Tomorrow* sits next to *Skip* and there's no one-tap way back. *Skip*
+doesn't ask, because its button turns into *Unskip* in the same place.
+
+A moved stop stays on the day it came from, shaded and marked *Moved* — so the day still shows it
+was scheduled and not done, and so you can see it went somewhere rather than wondering if you
+imagined it.
+
 It won't move a stop that already has readings, chemicals or photos on it. Those belong to today,
 and carrying them onto tomorrow's visit would file them under tomorrow in the compliance log —
 finish that one instead, or skip it.

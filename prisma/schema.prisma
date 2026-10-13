@@ -1476,6 +1476,22 @@ model ServiceVisit {
   /// not rescheduled -- no new visit is created.
   pushedAt DateTime?
 
+  /// Set when this visit was moved to another day (app/api/visits/[id]/reschedule).
+  ///
+  /// The original row STAYS on its original day rather than being relocated. Two reasons, and the
+  /// second is the one that bit: it is the record that the stop was scheduled and did not happen,
+  /// and lib/visit-generation.ts checks "does a visit exist for this recurring stop on this day"
+  /// -- so a day left with no row simply regenerates the stop the next time anyone opens it. That
+  /// happened to Cornerstone Park on 2026-10-12: moved to Tuesday, recreated on Monday hours later.
+  ///
+  /// Status goes to CANCELLED alongside this, so everything that already skips cancelled visits
+  /// (auto-arrival, "is the day finished", the compliance log) treats it correctly without
+  /// changes. This field is what distinguishes it from a genuine skip, which is a different thing
+  /// to say to a technician and to a customer.
+  movedToVisitId String?       @unique
+  movedToVisit   ServiceVisit? @relation("VisitMoved", fields: [movedToVisitId], references: [id], onDelete: SetNull)
+  movedFrom      ServiceVisit? @relation("VisitMoved")
+
   /// Set when a reading was logged by the property's own maintenance person through the portal,
   /// rather than recorded by a technician on a service visit. Always alongside logOnlyRecord: it is a
   /// reading for the compliance log, not work anyone was dispatched for.

@@ -164,6 +164,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             scheduledStart: true,
             startedAt: true,
             pushedAt: true,
+            movedToVisitId: true,
             routeSequence: true,
             property: {
               select: { id: true, name: true, addressLine1: true, city: true, region: true, latitude: true, longitude: true, geofenceMeters: true },
@@ -180,6 +181,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     id: v.id,
     status: v.status,
     pushedAt: v.pushedAt ? v.pushedAt.toISOString() : null,
+    movedToVisitId: v.movedToVisitId,
     propertyId: v.property.id,
     propertyName: v.property.name,
     bodyName: v.bodyOfWater.name,

@@ -30,6 +30,9 @@ export async function PATCH(_request: Request, context: { params: Promise<{ id: 
       status: true,
       scheduledStart: true,
       scheduledEnd: true,
+      propertyId: true,
+      bodyOfWaterId: true,
+      routeSequence: true,
       organization: { select: { state: true } },
       reading: { select: { id: true } },
       _count: { select: { doses: true, photos: true } },
@@ -106,35 +109,49 @@ export async function PATCH(_request: Request, context: { params: Promise<{ id: 
   const scheduledStart = nextWorkingDayAnchor(visit.scheduledStart, timeZone, workingWeekdays);
   const scheduledEnd = visit.scheduledEnd ? nextWorkingDayAnchor(visit.scheduledEnd, timeZone, workingWeekdays) : null;
 
-  const moved = await prisma.serviceVisit.update({
-    where: { id: visit.id },
-    data: {
-      scheduledStart,
-      scheduledEnd,
-      // A clean stop tomorrow. It did not happen today, so nothing about today should survive:
-      // leaving startedAt set would make tomorrow's visit span two days, which is what the service
-      // report prints time on site from, and leaving pushedAt set would have it read "Pushed"
-      // tomorrow while somebody is standing at it.
-      status: "SCHEDULED",
-      startedAt: null,
-      pushedAt: null,
-      arrivalLatitude: null,
-      arrivalLongitude: null,
-      arrivalAccuracyMeters: null,
-      /**
-       * Detached from the recurring stop that generated it, deliberately.
-       *
-       * lib/visit-generation.ts treats "a visit exists for this recurringStopId on this day" as
-       * already generated. A moved visit keeping its link would therefore SUPPRESS tomorrow's own
-       * scheduled visit for the same body -- silently, for any property serviced two days running.
-       * Detaching makes this a one-off make-up stop and leaves tomorrow's schedule intact. If that
-       * produces two stops at one body tomorrow, the technician can see both and skip one; a stop
-       * that quietly vanished is the worse failure.
-       */
-      recurringStopId: null,
-    },
-    select: { id: true, scheduledStart: true, status: true },
+  /**
+   * A new visit on the target day, and the original left where it was, marked as moved.
+   *
+   * Not a relocation of the same row, which is what shipped first and was wrong: moving it left
+   * the recurring stop with no visit on the original day, and lib/visit-generation.ts creates one
+   * whenever that is true. Cornerstone Park's Pool 2 was moved to Tuesday and regenerated on
+   * Monday hours later, so the stop the technician had just moved was back on their list.
+   *
+   * Leaving the row behind also answers the other half: the original day keeps an honest record
+   * that the stop was scheduled and did not happen, which is what the schedule now shows as Moved.
+   */
+  const moved = await prisma.$transaction(async (tx) => {
+    const created = await tx.serviceVisit.create({
+      data: {
+        organizationId: visit.organizationId,
+        propertyId: visit.propertyId,
+        bodyOfWaterId: visit.bodyOfWaterId,
+        technicianId: visit.technicianId,
+        routeSequence: visit.routeSequence,
+        scheduledStart,
+        scheduledEnd,
+        status: "SCHEDULED",
+        /**
+         * Detached from the recurring stop, deliberately.
+         *
+         * Generation treats "a visit exists for this recurring stop on this day" as already
+         * generated, so linking the new one would SUPPRESS the target day's own scheduled visit
+         * for any property serviced two days running. Detached, this is a one-off make-up stop and
+         * the target day's schedule is untouched. Two stops at one body is visible and skippable;
+         * one that quietly vanished is not.
+         */
+        recurringStopId: null,
+      },
+      select: { id: true, scheduledStart: true },
+    });
+
+    await tx.serviceVisit.update({
+      where: { id: visit.id },
+      data: { status: "CANCELLED", movedToVisitId: created.id },
+    });
+
+    return created;
   });
 
-  return NextResponse.json({ ok: true, visit: moved });
+  return NextResponse.json({ ok: true, visit: { id: moved.id, scheduledStart: moved.scheduledStart } });
 }

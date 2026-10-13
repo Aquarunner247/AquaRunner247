@@ -3,6 +3,7 @@
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { BackgroundGeolocationPlugin } from "@capacitor-community/background-geolocation";
@@ -15,6 +16,7 @@ import { fetchDrivingRoute, computeOptimizedStopOrder } from "@/lib/routing";
 import { sameEndpoint } from "@/lib/route-endpoints";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 import { isPushedVisit } from "@/lib/visit-pushed";
+import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
 
 export type RouteStop = {
   id: string;
@@ -22,6 +24,10 @@ export type RouteStop = {
   /// Set by the nightly sweep when this stop was still IN_PROGRESS after its own local day ended.
   /// Serialized, since this is a client component. See lib/visit-pushed.ts for what counts as pushed.
   pushedAt?: string | null;
+  /// Set when this stop was moved to another day. The row stays on its original day so the record
+  /// is honest and visit-generation does not recreate it -- it reads "Moved", not "Skipped", and
+  /// those are different things to tell a technician.
+  movedToVisitId?: string | null;
   propertyId: string;
   propertyName: string;
   bodyName: string;
@@ -212,7 +218,15 @@ function computeAutoArrivalEligibleIds(visits: RouteStop[]): Set<string> {
   return eligible;
 }
 
-function StatusBadge({ status, pushedAt = null }: { status: string; pushedAt?: string | null }) {
+function StatusBadge({
+  status,
+  pushedAt = null,
+  movedToVisitId = null,
+}: {
+  status: string;
+  pushedAt?: string | null;
+  movedToVisitId?: string | null;
+}) {
   // Before IN_PROGRESS, because a pushed stop is still IN_PROGRESS in the data -- that is the point of
   // the stamp. Completed is checked first of all, so a stop finished days after being pushed reads as
   // completed rather than carrying the older label.
@@ -246,6 +260,19 @@ function StatusBadge({ status, pushedAt = null }: { status: string; pushedAt?: s
           <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         In Progress
+      </span>
+    );
+  }
+  if (movedToVisitId) {
+    // Checked before CANCELLED, which a moved stop also is: "Skipped" says the visit is not
+    // happening, and this one is happening tomorrow.
+    return (
+      <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-brand-muted">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9 9l4 3-4 3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Moved
       </span>
     );
   }
@@ -301,6 +328,8 @@ export function RouteDayView({
   const [movingVisitId, setMovingVisitId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState("");
   const [movedNotice, setMovedNotice] = useState("");
+  /** What a tap on Tomorrow is asking to move, held until it is confirmed. */
+  const [pendingMove, setPendingMove] = useState<{ label: string; count: number; run: () => Promise<void> } | null>(null);
 
   useEffect(() => {
     setItems(initialItems);
@@ -719,15 +748,75 @@ export function RouteDayView({
   const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(items, persistOrder, effectiveReadOnly);
 
   /**
+   * Confirmation before moving. Asked for after a stop was moved by accident: Tomorrow sits beside
+   * Skip on a phone used with wet hands, and unlike Skip there is no one-tap way back -- undoing it
+   * means finding the stop on another day.
+   *
+   * Skip deliberately has no equivalent. Its button turns into Unskip in the same place, so a
+   * mis-tap is visible and reversible where it happened.
+   */
+  function renderMoveConfirm() {
+    if (!pendingMove) return null;
+    return createPortal(
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-brand-ink/70 p-4"
+        style={{ zIndex: ABOVE_MAP_Z_INDEX }}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="move-confirm-title"
+      >
+        <div className="w-full max-w-sm rounded-2xl border border-brand-border bg-white p-5 shadow-soft">
+          <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-primary">Move stop</p>
+          <h2 id="move-confirm-title" className="mt-1 font-display text-lg font-bold text-brand-ink">
+            {pendingMove.count > 1 ? `Move all ${pendingMove.count} stops?` : "Move this stop?"}
+          </h2>
+          <p className="mt-2 text-sm text-brand-ink">{pendingMove.label}</p>
+          <p className="mt-2 text-sm text-brand-muted">
+            It moves to the next day you work and comes off today&rsquo;s list. Today keeps a record that it was
+            scheduled and not done.
+          </p>
+          <div className="mt-5 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const run = pendingMove.run;
+                setPendingMove(null);
+                void run();
+              }}
+              className="app-btn-primary-sm min-h-[44px]"
+            >
+              Move it
+            </button>
+            <button type="button" onClick={() => setPendingMove(null)} className="app-btn-secondary-sm min-h-[44px]">
+              Keep it today
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
+
+
+  /**
    * Moves one stop to the next day its technician works. Returns the outcome rather than setting
    * state, so the bundle version below can move several and report once.
    */
-  async function moveOne(visit: RouteStop): Promise<{ ok: true; landedOn: Date | null } | { ok: false; message: string }> {
+  async function moveOne(
+    visit: RouteStop,
+  ): Promise<{ ok: true; landedOn: Date | null; movedToVisitId: string } | { ok: false; message: string }> {
     try {
       const res = await fetch(`/api/visits/${visit.id}/reschedule`, { method: "PATCH" });
-      const data = (await res.json().catch(() => null)) as { message?: string; visit?: { scheduledStart?: string } } | null;
+      const data = (await res.json().catch(() => null)) as
+        | { message?: string; visit?: { id?: string; scheduledStart?: string } }
+        | null;
       if (!res.ok) return { ok: false, message: data?.message ?? "Couldn't move that stop — try again." };
-      return { ok: true, landedOn: data?.visit?.scheduledStart ? new Date(data.visit.scheduledStart) : null };
+      return {
+        ok: true,
+        landedOn: data?.visit?.scheduledStart ? new Date(data.visit.scheduledStart) : null,
+        movedToVisitId: data?.visit?.id ?? "moved",
+      };
     } catch {
       return { ok: false, message: "Couldn't move that stop — try again." };
     }
@@ -760,7 +849,14 @@ export function RouteDayView({
         return;
       }
       setMovedNotice(`${stopLabel(visit)} moved to ${formatLanding(result.landedOn)}`);
-      setItems((prev) => prev.filter((i) => !(i.kind === "visit" && i.id === visit.id)));
+      // Marked, not removed. A stop that vanishes from the list leaves a technician unsure whether
+      // it moved or they imagined it, and the row is also the day's honest record that it was
+      // scheduled and did not happen.
+      setItems((prev) =>
+        prev.map((i) =>
+          i.kind === "visit" && i.id === visit.id ? { ...i, status: "CANCELLED", movedToVisitId: result.movedToVisitId } : i,
+        ),
+      );
     } finally {
       setMovingVisitId(null);
     }
@@ -802,7 +898,9 @@ export function RouteDayView({
       }
 
       if (movedIds.length > 0) {
-        setItems((prev) => prev.filter((i) => !(i.kind === "visit" && movedIds.includes(i.id))));
+        setItems((prev) =>
+          prev.map((i) => (i.kind === "visit" && movedIds.includes(i.id) ? { ...i, status: "CANCELLED", movedToVisitId: "moved" } : i)),
+        );
         const what = movedIds.length === 1 ? "1 stop" : `${movedIds.length} stops`;
         setMovedNotice(`${movable[0].propertyName} — ${what} moved to ${formatLanding(landedOn)}`);
       }
@@ -967,6 +1065,7 @@ export function RouteDayView({
       ) : null}
       {moveError ? <p className="mb-2 text-sm font-medium text-brand-danger">{moveError}</p> : null}
       {movedNotice ? <p className="mb-2 text-sm font-medium text-brand-ok">{movedNotice}</p> : null}
+      {renderMoveConfirm()}
       {locationState === "denied" ? (
         <p className="mb-2 text-xs text-brand-warn">
           Location access is off, so arrival times won&rsquo;t log automatically — enable location for this site in your browser
@@ -1067,7 +1166,11 @@ export function RouteDayView({
               }
 
               const v = item;
-              const isSkipped = v.status === "CANCELLED";
+              // A moved stop is CANCELLED as well, so this has to exclude it or the row paints red
+              // and the badge reads "Skip" -- which says the visit is not happening, when it is,
+              // tomorrow.
+              const isMoved = Boolean(v.movedToVisitId);
+              const isSkipped = v.status === "CANCELLED" && !isMoved;
 
               // A bundle: one card for stops that are a single walk-up. Rendered at the position
               // of its first VISIBLE member; the rest return null below so they aren't drawn
@@ -1143,7 +1246,13 @@ export function RouteDayView({
                           members.some((m) => m.status !== "COMPLETED" && m.status !== "CANCELLED") ? (
                             <button
                               type="button"
-                              onClick={() => void moveBundleToTomorrow(bundleId, members)}
+                              onClick={() =>
+                                setPendingMove({
+                                  label: v.propertyName,
+                                  count: members.filter((m) => m.status !== "COMPLETED" && m.status !== "CANCELLED").length,
+                                  run: () => moveBundleToTomorrow(bundleId, members),
+                                })
+                              }
                               disabled={movingVisitId === bundleId}
                               title="Move every outstanding stop here to the next working day"
                               className="app-btn-ghost-sm"
@@ -1190,7 +1299,7 @@ export function RouteDayView({
                                 {m.bodyName}
                               </Link>
                               <span className="flex shrink-0 items-center gap-2">
-                                <StatusBadge status={m.status} pushedAt={m.pushedAt ?? null} />
+                                <StatusBadge status={m.status} pushedAt={m.pushedAt ?? null} movedToVisitId={m.movedToVisitId ?? null} />
                                 {!effectiveReadOnly ? (
                                   <button type="button" onClick={() => void toggleSkip(m)} className="app-btn-ghost-sm">
                                     Skip
@@ -1225,7 +1334,11 @@ export function RouteDayView({
                     ref={setItemRef(idx)}
                     data-tour={idx === 0 ? "schedule-first-stop" : undefined}
                     className={`flex items-center gap-3 rounded border p-2 ${
-                      isSkipped ? "border-brand-danger bg-brand-dangerFill" : "border-brand-border bg-white"
+                      isSkipped
+                        ? "border-brand-danger bg-brand-dangerFill"
+                        : isMoved
+                          ? "border-brand-border bg-brand-surface"
+                          : "border-brand-border bg-white"
                     } ${draggingIndex === idx ? "opacity-60" : ""}`}
                   >
                     {!effectiveReadOnly ? (
@@ -1240,11 +1353,15 @@ export function RouteDayView({
                     ) : null}
                     <span
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
-                        isSkipped ? "bg-brand-danger" : isMultiTech ? "" : "bg-brand-primary"
+                        isSkipped ? "bg-brand-danger" : isMoved ? "bg-brand-control" : isMultiTech ? "" : "bg-brand-primary"
                       }`}
-                      style={!isSkipped && isMultiTech ? { backgroundColor: technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR } : undefined}
+                      style={
+                        !isSkipped && !isMoved && isMultiTech
+                          ? { backgroundColor: technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR }
+                          : undefined
+                      }
                     >
-                      {isSkipped ? "Skip" : idx + 1}
+                      {isSkipped ? "Skip" : isMoved ? "\u2192" : idx + 1}
                     </span>
                     <div className="min-w-0 flex-1">
                       {/* RouteDayView is only ever rendered from the Schedule tab (both admin and
@@ -1257,7 +1374,7 @@ export function RouteDayView({
                           matters, the street number does not. */}
                       <Link
                         href={`/dashboard/visits/${v.id}?from=schedule`}
-                        className="block break-words text-sm font-medium text-brand-ink underline"
+                        className={`block break-words text-sm font-medium underline ${isMoved ? "text-brand-muted" : "text-brand-ink"}`}
                       >
                         {v.propertyName} — {v.bodyName}
                       </Link>
@@ -1267,7 +1384,7 @@ export function RouteDayView({
                           Arrived {new Date(v.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                         </p>
                       ) : null}
-                      {!isSkipped && (visitIdsByGroupId.get(groupIdByVisitId.get(v.id) ?? "")?.length ?? 0) > 1 &&
+                      {!isSkipped && !isMoved && (visitIdsByGroupId.get(groupIdByVisitId.get(v.id) ?? "")?.length ?? 0) > 1 &&
                       !capturePromptShown.has(groupIdByVisitId.get(v.id) ?? "")
                         ? (() => {
                             const groupId = groupIdByVisitId.get(v.id) ?? "";
@@ -1290,18 +1407,23 @@ export function RouteDayView({
                     </div>
                     {!effectiveReadOnly ? (
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} />
-                        <button
-                          type="button"
-                          onClick={() => void toggleSkip(v)}
-                          className="app-btn-ghost-sm"
-                        >
-                          {isSkipped ? "Unskip" : "Skip"}
-                        </button>
-                        {!isSkipped ? (
+                        <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} movedToVisitId={v.movedToVisitId ?? null} />
+                        {/* A moved stop keeps no actions. Skipping or re-moving it here would act on
+                            the row left behind as a record, not on the stop that now lives on
+                            another day -- which is where it should be changed. */}
+                        {!isMoved ? (
                           <button
                             type="button"
-                            onClick={() => void moveToTomorrow(v)}
+                            onClick={() => void toggleSkip(v)}
+                            className="app-btn-ghost-sm"
+                          >
+                            {isSkipped ? "Unskip" : "Skip"}
+                          </button>
+                        ) : null}
+                        {!isSkipped && !isMoved ? (
+                          <button
+                            type="button"
+                            onClick={() => setPendingMove({ label: stopLabel(v), count: 1, run: () => moveToTomorrow(v) })}
                             disabled={movingVisitId === v.id}
                             title="Move this stop to tomorrow"
                             className="app-btn-ghost-sm"
@@ -1311,7 +1433,7 @@ export function RouteDayView({
                         ) : null}
                       </div>
                     ) : (
-                      <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} />
+                      <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} movedToVisitId={v.movedToVisitId ?? null} />
                     )}
                   </li>
                 </Fragment>
