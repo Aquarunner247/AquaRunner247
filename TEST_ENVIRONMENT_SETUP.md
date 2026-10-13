@@ -19,9 +19,17 @@ signup flows (and future testing) never touch production data.
 Once created, grab two connection strings from **Project Settings → Database**:
 - **Session pooler (port 5432)** — this is what your app uses in production
   (`aws-1-us-east-1.pooler.supabase.com`, username `postgres.<project-ref>`).
-  Not the Transaction pooler (port 6543): that mode disables prepared
-  statements, which breaks the `@prisma/adapter-pg` setup this app uses. Use
-  the same Session pooler connection type here.
+  Use the same Session pooler connection type here, so the test environment
+  matches production.
+
+  This used to say the Transaction pooler (port 6543) was unusable because it
+  disables prepared statements and that breaks `@prisma/adapter-pg`. **That was
+  tested on 2026-10-12 and is not true** — all eight query shapes the app uses
+  passed through it, eight runs each (`npm run db:test-transaction-pooler`).
+  Supabase's pooler supports prepared statements in transaction mode. Production
+  stays on the session pooler because there is no reason to move today, not
+  because the transaction pooler cannot work. See the deployment notes for the
+  one thing that genuinely must not go through it: migrations.
 - Note the project ref (the random string in the URL) so you never confuse it
   with your production project ref (`dsamkhorbythfcjygpxz`)
 
