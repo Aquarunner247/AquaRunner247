@@ -8,6 +8,22 @@ if something here affects how you or your technicians work, it says so.
 
 ---
 
+## October 13, 2026
+
+**A stop can be moved to tomorrow.** Locked gate, dog in the yard, ran out of daylight — on the
+schedule, each stop now has *Tomorrow* next to *Skip*. It moves to the same place on tomorrow's
+route and comes off today's. Skipping says the visit isn't happening; this says it's happening
+later, and until now there was no way to say that.
+
+It won't move a stop that already has readings, chemicals or photos on it. Those belong to today,
+and carrying them onto tomorrow's visit would file them under tomorrow in the compliance log —
+finish that one instead, or skip it.
+
+A moved stop doesn't take tomorrow's regular visit with it. If the property is also due tomorrow,
+you'll see both.
+
+---
+
 ## October 12, 2026
 
 **Service reports say how long the visit took again.** When a stop is closed out hours later — a

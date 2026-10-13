@@ -298,6 +298,8 @@ export function RouteDayView({
   const layerRef = useRef<LayerGroup | null>(null);
   const itemsRef = useRef<DayItem[]>(initialItems);
   const notifiedRef = useRef<Set<string>>(new Set());
+  const [movingVisitId, setMovingVisitId] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState("");
 
   useEffect(() => {
     setItems(initialItems);
@@ -715,6 +717,31 @@ export function RouteDayView({
 
   const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(items, persistOrder, effectiveReadOnly);
 
+  /**
+   * Moves a stop to tomorrow -- the ordinary "cannot do this one today" case that skipping
+   * overstates and leaving open does not express at all.
+   *
+   * Removed from the list on success rather than left showing, because it is no longer part of
+   * this day: leaving it visible is how somebody taps it again and moves it to the day after.
+   */
+  async function moveToTomorrow(visit: RouteStop) {
+    setMovingVisitId(visit.id);
+    setMoveError("");
+    try {
+      const res = await fetch(`/api/visits/${visit.id}/reschedule`, { method: "PATCH" });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { message?: string } | null;
+        setMoveError(data?.message ?? "Couldn't move that stop — try again.");
+        return;
+      }
+      setItems((prev) => prev.filter((i) => !(i.kind === "visit" && i.id === visit.id)));
+    } catch {
+      setMoveError("Couldn't move that stop — try again.");
+    } finally {
+      setMovingVisitId(null);
+    }
+  }
+
   async function toggleSkip(visit: RouteStop) {
     const nextStatus = visit.status === "CANCELLED" ? "SCHEDULED" : "CANCELLED";
     setItems((prev) => prev.map((v) => (v.kind === "visit" && v.id === visit.id ? { ...v, status: nextStatus } : v)));
@@ -866,6 +893,7 @@ export function RouteDayView({
           Some stops don&rsquo;t have map coordinates yet — an admin can geocode addresses from the Routes page.
         </p>
       ) : null}
+      {moveError ? <p className="mb-2 text-sm font-medium text-brand-danger">{moveError}</p> : null}
       {locationState === "denied" ? (
         <p className="mb-2 text-xs text-brand-warn">
           Location access is off, so arrival times won&rsquo;t log automatically — enable location for this site in your browser
@@ -1128,7 +1156,15 @@ export function RouteDayView({
                       {/* RouteDayView is only ever rendered from the Schedule tab (both admin and
                           technician), so the visit page's back-link can safely assume that's
                           where "back" should go -- see VisitPage's `from` searchParam handling. */}
-                      <Link href={`/dashboard/visits/${v.id}?from=schedule`} className="block truncate text-sm font-medium text-brand-ink underline">
+                      {/* Wraps rather than truncates. Adding the Tomorrow button narrowed this column
+                          from 201px to 166px at phone width, which cut "The Alcove — Back Pool (East)"
+                          to "The Alcove — Back Poo…" -- the same complaint extra stops drew on
+                          2026-10-11. The address below still truncates; which body of water this is
+                          matters, the street number does not. */}
+                      <Link
+                        href={`/dashboard/visits/${v.id}?from=schedule`}
+                        className="block break-words text-sm font-medium text-brand-ink underline"
+                      >
                         {v.propertyName} — {v.bodyName}
                       </Link>
                       <p className="truncate text-xs text-brand-muted">{v.address || "No address on file"}</p>
@@ -1168,6 +1204,17 @@ export function RouteDayView({
                         >
                           {isSkipped ? "Unskip" : "Skip"}
                         </button>
+                        {!isSkipped ? (
+                          <button
+                            type="button"
+                            onClick={() => void moveToTomorrow(v)}
+                            disabled={movingVisitId === v.id}
+                            title="Move this stop to tomorrow"
+                            className="app-btn-ghost-sm"
+                          >
+                            {movingVisitId === v.id ? "Moving\u2026" : "Tomorrow"}
+                          </button>
+                        ) : null}
                       </div>
                     ) : (
                       <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} />
