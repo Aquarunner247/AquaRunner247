@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { timeZoneForState } from "@/lib/timezone";
-import { MOVE_REFUSAL_MESSAGE, nextDayAnchor, refusalForMove } from "@/lib/visit-reschedule";
+import { timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { MOVE_REFUSAL_MESSAGE, nextWorkingDayAnchor, refusalForMove } from "@/lib/visit-reschedule";
 
 /**
- * Moves a stop to the next day, for when it genuinely cannot be done today.
+ * Moves a stop to the next day its technician works, for when it genuinely cannot be done today.
  *
  * Until now the only ways out were to leave it (the nightly sweep marks it Pushed, which records
  * that nobody did it but does not reschedule anything) or to skip it (CANCELLED, which says it is
@@ -52,9 +52,59 @@ export async function PATCH(_request: Request, context: { params: Promise<{ id: 
     return NextResponse.json({ error: refusal, message: MOVE_REFUSAL_MESSAGE[refusal] }, { status: 400 });
   }
 
+  /**
+   * The days THIS technician works, from their own active recurring routes.
+   *
+   * Per technician, not per organization, because they differ here: two run Monday to Saturday
+   * while a third runs Friday and Sunday. A Saturday stop should land on Monday for the first two
+   * and on Sunday for the third, and only the assigned technician's own routes say which.
+   *
+   * Falls back to the organization's days when the technician has none (an unassigned visit, or
+   * somebody newly added), and `nextWorkingDayAnchor` falls back again to the plain next day when
+   * even that is empty. A stop that cannot be moved at all is the worst outcome of the three.
+   */
   const timeZone = timeZoneForState(visit.organization.state);
-  const scheduledStart = nextDayAnchor(visit.scheduledStart, timeZone);
-  const scheduledEnd = visit.scheduledEnd ? nextDayAnchor(visit.scheduledEnd, timeZone) : null;
+
+  /**
+   * Live routes only. A route carries a service window (startsOn/endsOn, @db.Date) and
+   * lib/visit-generation.ts honours it, so a route whose window has passed generates nothing and
+   * must not count as a day anybody works. Three expired one-day routes exist in production right
+   * now; without this they would make Friday a working day for the account that owns them.
+   *
+   * Compared against UTC midnight of today's local Y-M-D, not against a raw Date -- startsOn and
+   * endsOn come back as UTC midnight of a calendar date, and comparing them to an instant would be
+   * off by the organization's offset, enough to include or exclude a whole boundary day. Same
+   * reasoning, and the same construction, as visit-generation's own window check.
+   */
+  const todayUtcMidnight = new Date(`${ymdInTimeZone(new Date(), timeZone)}T00:00:00.000Z`);
+  const liveWindow = {
+    active: true,
+    dayOfWeek: { not: null },
+    AND: [
+      { OR: [{ startsOn: null }, { startsOn: { lte: todayUtcMidnight } }] },
+      { OR: [{ endsOn: null }, { endsOn: { gte: todayUtcMidnight } }] },
+    ],
+  };
+
+  const routes = await prisma.recurringRoute.findMany({
+    where: {
+      organizationId: visit.organizationId,
+      ...liveWindow,
+      ...(visit.technicianId ? { technicianId: visit.technicianId } : {}),
+    },
+    select: { dayOfWeek: true },
+  });
+  let workingWeekdays = new Set(routes.map((r) => r.dayOfWeek).filter((d): d is number => d != null));
+  if (workingWeekdays.size === 0 && visit.technicianId) {
+    const orgRoutes = await prisma.recurringRoute.findMany({
+      where: { organizationId: visit.organizationId, ...liveWindow },
+      select: { dayOfWeek: true },
+    });
+    workingWeekdays = new Set(orgRoutes.map((r) => r.dayOfWeek).filter((d): d is number => d != null));
+  }
+
+  const scheduledStart = nextWorkingDayAnchor(visit.scheduledStart, timeZone, workingWeekdays);
+  const scheduledEnd = visit.scheduledEnd ? nextWorkingDayAnchor(visit.scheduledEnd, timeZone, workingWeekdays) : null;
 
   const moved = await prisma.serviceVisit.update({
     where: { id: visit.id },

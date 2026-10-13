@@ -300,6 +300,7 @@ export function RouteDayView({
   const notifiedRef = useRef<Set<string>>(new Set());
   const [movingVisitId, setMovingVisitId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState("");
+  const [movedNotice, setMovedNotice] = useState("");
 
   useEffect(() => {
     setItems(initialItems);
@@ -727,6 +728,7 @@ export function RouteDayView({
   async function moveToTomorrow(visit: RouteStop) {
     setMovingVisitId(visit.id);
     setMoveError("");
+    setMovedNotice("");
     try {
       const res = await fetch(`/api/visits/${visit.id}/reschedule`, { method: "PATCH" });
       if (!res.ok) {
@@ -734,6 +736,17 @@ export function RouteDayView({
         setMoveError(data?.message ?? "Couldn't move that stop — try again.");
         return;
       }
+      // Say WHERE it went. "Tomorrow" is not always tomorrow: it is the next day this technician
+      // works, so a Saturday stop lands on Monday for most of them -- and for somebody with a
+      // single route day it can be a week out. Moving a stop to an unstated date is how it gets
+      // quietly lost.
+      const data = (await res.json().catch(() => null)) as { visit?: { scheduledStart?: string } } | null;
+      const landedOn = data?.visit?.scheduledStart ? new Date(data.visit.scheduledStart) : null;
+      setMovedNotice(
+        landedOn
+          ? `${visit.bodyName ? `${visit.propertyName} — ${visit.bodyName}` : visit.propertyName} moved to ${landedOn.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}`
+          : "Stop moved.",
+      );
       setItems((prev) => prev.filter((i) => !(i.kind === "visit" && i.id === visit.id)));
     } catch {
       setMoveError("Couldn't move that stop — try again.");
@@ -894,6 +907,7 @@ export function RouteDayView({
         </p>
       ) : null}
       {moveError ? <p className="mb-2 text-sm font-medium text-brand-danger">{moveError}</p> : null}
+      {movedNotice ? <p className="mb-2 text-sm font-medium text-brand-ok">{movedNotice}</p> : null}
       {locationState === "denied" ? (
         <p className="mb-2 text-xs text-brand-warn">
           Location access is off, so arrival times won&rsquo;t log automatically — enable location for this site in your browser

@@ -10,10 +10,13 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 13, 2026
 
-**A stop can be moved to tomorrow.** Locked gate, dog in the yard, ran out of daylight — on the
-schedule, each stop now has *Tomorrow* next to *Skip*. It moves to the same place on tomorrow's
-route and comes off today's. Skipping says the visit isn't happening; this says it's happening
-later, and until now there was no way to say that.
+**A stop can be moved to the next working day.** Locked gate, dog in the yard, ran out of daylight —
+on the schedule, each stop now has *Tomorrow* next to *Skip*. Skipping says the visit isn't
+happening; this says it's happening later, and until now there was no way to say that.
+
+It uses the days that technician actually works, from their own routes. A Saturday stop moves to
+Monday for someone who doesn't work Sundays, and to Sunday for someone who does. It tells you the
+date it landed on, because "tomorrow" isn't always tomorrow.
 
 It won't move a stop that already has readings, chemicals or photos on it. Those belong to today,
 and carrying them onto tomorrow's visit would file them under tomorrow in the compliance log —
