@@ -62,6 +62,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       property: {
         select: {
           name: true,
+          // For the per-customer checklist exclusions below.
+          customerId: true,
           // Both contact sets: a residential property uses ownerEmail, a commercial one
           // managerEmail (see propertyContactEmail). Reading only managerEmail meant residential
           // customers silently received no summary at all.
@@ -162,6 +164,39 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
    */
   if (visit.photos.length < 1 && !acknowledgedNoPhoto) {
     return NextResponse.json({ error: "MISSING_REQUIRED_PHOTO" }, { status: 400 });
+  }
+
+  /**
+   * Required checklist items, the same contract readings have: an item an organization marked
+   * required blocks closing the stop.
+   *
+   * Scoped to this property type, so a residential required item cannot block a commercial visit or
+   * the reverse, and honouring the same per-customer exclusions the visit screen does -- an item
+   * excluded for this customer is not shown, so requiring it would be unclosable.
+   */
+  const requiredChecklistItems = await prisma.checklistItemDefinition.findMany({
+    where: {
+      organizationId: visit.organizationId,
+      active: true,
+      required: true,
+      scope: isResidential ? "RESIDENTIAL" : "COMMERCIAL",
+      customerExclusions: visit.property.customerId ? { none: { customerId: visit.property.customerId } } : undefined,
+    },
+    select: { id: true },
+  });
+  if (requiredChecklistItems.length > 0) {
+    const done = new Set(
+      (
+        await prisma.visitChecklistCompletion.findMany({
+          where: { visitId: visit.id, completed: true },
+          select: { checklistItemId: true },
+        })
+      ).map((c) => c.checklistItemId),
+    );
+    const outstanding = requiredChecklistItems.filter((i) => !done.has(i.id));
+    if (outstanding.length > 0) {
+      return NextResponse.json({ error: "MISSING_REQUIRED_CHECKLIST" }, { status: 400 });
+    }
   }
 
   /**

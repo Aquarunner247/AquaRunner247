@@ -61,6 +61,13 @@ enum ScheduleFrequency {
   CUSTOM
 }
 
+/// Which kind of property a checklist item belongs to. Residential and commercial are separate
+/// lists on purpose -- a backyard pool has no pump room to clean, a hotel has no side gate.
+enum ChecklistScope {
+  COMMERCIAL
+  RESIDENTIAL
+}
+
 enum VisitStatus {
   SCHEDULED
   IN_PROGRESS
@@ -1682,6 +1689,22 @@ model ChecklistItemDefinition {
   sortOrder Int     @default(0)
   active    Boolean @default(true)
 
+  /// Defaults to COMMERCIAL so every item that existed before 2026-10-14 keeps behaving exactly as
+  /// it did -- commercial was deliberately left alone when the residential list was added.
+  scope ChecklistScope @default(COMMERCIAL)
+  /// Group heading on the technician's screen ("Weekly Maintenance"). Free text, not an enum: a
+  /// company renaming or adding a grouping should not need a migration.
+  category String?
+  /// Blocks closing the stop until ticked, the same way a required reading does. Off by default --
+  /// stopping a technician finishing is a decision to make deliberately, not to inherit.
+  required Boolean @default(false)
+  /// Work normally charged for on top of the regular service.
+  billable Boolean @default(false)
+  /// What this item adds when done. Snapshotted onto the completion when ticked, so changing the
+  /// price later never rewrites what a past visit charged -- same reason VisitChemicalDose carries
+  /// its own unitCharge.
+  chargeAmount Decimal? @db.Decimal(10, 2)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1722,6 +1745,10 @@ model VisitChecklistCompletion {
   label String @default("")
 
   completed Boolean @default(false)
+
+  /// Snapshot of the item's chargeAmount at the moment it was ticked, for the same reason `label`
+  /// above is snapshotted: history must not change when the definition does.
+  chargeAmount Decimal? @db.Decimal(10, 2)
 
   @@unique([visitId, checklistItemId])
   @@index([visitId])

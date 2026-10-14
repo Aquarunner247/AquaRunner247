@@ -5,6 +5,7 @@ import type { ServiceMessageOption } from "./visit-form";
 import Link from "next/link";
 import { isPushedVisit } from "@/lib/visit-pushed";
 import { createPortal } from "react-dom";
+import { queuedSubmitJson } from "@/lib/client/offline-queue";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
 import { CameraCapture } from "@/app/components/camera-capture";
 import { DosingCard } from "@/app/components/dosing-card";
@@ -72,6 +73,20 @@ function pct(value: number, min: number, max: number) {
 }
 
 type ChemicalProductOption = { id: string; name: string; unit: string };
+type ChecklistItemOption = {
+  id: string;
+  label: string;
+  completed: boolean;
+  /** Group heading. Null groups fall under "Other" rather than vanishing. */
+  category: string | null;
+  /** Blocks completing the stop, like a required reading. */
+  required: boolean;
+  /** Work charged for on top of the service. */
+  billable: boolean;
+  /** Null until the company sets a price; the seed deliberately sets none. */
+  chargeAmount: number | null;
+};
+
 type IssueOption = { id: string; description: string | null; severity: string; createdAt: string };
 type PhotoOption = { id: string; url: string | null; takenAt: string | null };
 
@@ -86,6 +101,7 @@ type Props = {
    * that actually matters, since a dose is usually only noticed as wrong once someone reads the
    * record. */
   canCorrectCompleted: boolean;
+  checklistItems: ChecklistItemOption[];
   /** Set when the nightly sweep closed this stop out. Picking it back up starts it again. */
   initialPushedAt?: string | null;
   requiresFC: boolean;
@@ -127,6 +143,7 @@ export function ResidentialVisitForm({
   visitId,
   visitStatus,
   canCorrectCompleted,
+  checklistItems: initialChecklistItems,
   hasVolume: initialHasVolume,
   requiresFC,
   requiresPH,
@@ -177,6 +194,7 @@ export function ResidentialVisitForm({
    * (pre-existing, separately duplicated) component rather than a shared one. */
   const [pendingDoseHint, setPendingDoseHint] = useState<{ rawAmount: number; dosingUnit: DosingUnit } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [checklistItems, setChecklistItems] = useState<ChecklistItemOption[]>(initialChecklistItems);
   const [completingVisit, setCompletingVisit] = useState(false);
   /** "I did not add chemicals at today's service call" -- the alternative to logging a dose.
    *  Only consulted while the dose list is empty; the server ignores it otherwise. */
@@ -508,6 +526,33 @@ function confirmRemoveDose(
     }
   }
 
+
+  /** Same shape as the commercial form's, including the offline queue: a backyard pool loses signal
+   *  as readily as a pump room. */
+  async function toggleChecklistItem(itemId: string, completed: boolean) {
+    setChecklistItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, completed } : it)));
+    const result = await queuedSubmitJson({
+      url: `/api/visits/${visitId}/checklist`,
+      method: "PATCH",
+      label: "Checklist item",
+      visitId,
+      body: { checklistItemId: itemId, completed },
+    });
+    if (result.status === "queued") {
+      setSaveState("saved");
+      setSaveMsg("Saved offline — will sync");
+      return;
+    }
+    if (result.status === "failed") {
+      setChecklistItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, completed: !completed } : it)));
+      setSaveState("error");
+      setSaveMsg("Checklist save failed");
+    }
+  }
+
+  /** Required items still outstanding -- these block completion the way a missing reading does. */
+  const missingRequiredChecklist = checklistItems.filter((i) => i.required && !i.completed);
+
   async function completeVisit(opts: { acknowledgedNoPhoto?: boolean } = {}) {
     setCompletingVisit(true);
     try {
@@ -549,6 +594,11 @@ function confirmRemoveDose(
         setSaveState("error");
         setSaveMsg("Tap \u201cI\u2019ve arrived\u201d at the top before completing");
         window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      if (data.error === "MISSING_REQUIRED_CHECKLIST") {
+        setSaveState("error");
+        setSaveMsg("Required checklist items are not ticked");
         return;
       }
       if (data.error === "MISSING_CHEMICALS_CONFIRMATION") {
@@ -850,6 +900,67 @@ function confirmRemoveDose(
         </div>
       )}
 
+      {checklistItems.length > 0 ? (
+        <div data-tour="visit-checklist" className="app-card">
+          <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">
+            Service Checklist
+          </h2>
+          {missingRequiredChecklist.length > 0 && !isCompleted ? (
+            <p className="mt-1 text-sm text-brand-warn">
+              {missingRequiredChecklist.length} required {missingRequiredChecklist.length === 1 ? "item" : "items"} left.
+            </p>
+          ) : null}
+          {/* Grouped, because the supplied list is three groups on different rhythms -- daily,
+              weekly, seasonal -- and a flat 21-item list reads as one long wall on a phone.
+              Order comes from sortOrder, so the groups appear in the order they were seeded. */}
+          {[...new Map(checklistItems.map((i) => [i.category ?? "Other", null])).keys()].map((category) => (
+            <div key={category} className="mt-4 first:mt-3">
+              <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-muted">{category}</p>
+              <ul className="mt-2 space-y-2">
+                {checklistItems
+                  .filter((item) => (item.category ?? "Other") === category)
+                  .map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        disabled={inputsLocked}
+                        onClick={() => void toggleChecklistItem(item.id, !item.completed)}
+                        className={`flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm font-medium transition disabled:opacity-60 ${
+                          item.completed
+                            ? "border-brand-primary bg-brand-primary/10 text-brand-ink"
+                            : item.required
+                              ? "border-brand-warn bg-white text-brand-ink hover:bg-brand-foam"
+                              : "border-brand-border bg-white text-brand-ink hover:bg-brand-foam"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
+                            item.completed ? "border-brand-primary bg-brand-primary text-white" : "border-brand-control text-transparent"
+                          }`}
+                        >
+                          ✓
+                        </span>
+                        <span className={`min-w-0 flex-1 ${item.completed ? "line-through decoration-brand-primary/60" : ""}`}>
+                          {item.label}
+                          {item.required ? <span className="text-brand-danger"> *</span> : null}
+                        </span>
+                        {/* Priced work is flagged where the technician taps it, so nobody does a
+                            filter clean without it reaching the office. The amount shows when one
+                            is set; otherwise it just says the work is chargeable. */}
+                        {item.billable ? (
+                          <span className="shrink-0 rounded border border-brand-cta px-1.5 py-0.5 text-xs font-semibold text-brand-cta">
+                            {item.chargeAmount != null ? `$${item.chargeAmount.toFixed(2)}` : "Extra"}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div data-tour="visit-doses" className="app-card" ref={doseSectionRef}>
         <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemical Doses</h2>
         {isCompleted && canAddDose ? (
@@ -1086,6 +1197,7 @@ function confirmRemoveDose(
             isCompleted ||
             notStarted ||
             requiredMissing ||
+            missingRequiredChecklist.length > 0 ||
             hasInvalidReading ||
             photoCount < 1 ||
             completingVisit ||
@@ -1102,6 +1214,11 @@ function confirmRemoveDose(
           <p className="mt-2 text-sm text-brand-danger">Fix the reading(s) marked in red above before completing.</p>
         ) : !isCompleted && (requiredMissing || photoCount < 1) ? (
           <p className="mt-2 text-sm text-brand-warn">Completion requires all required (*) readings and at least one photo.</p>
+        ) : !isCompleted && missingRequiredChecklist.length > 0 ? (
+          <p className="mt-2 text-sm text-brand-warn">
+            Tick the required checklist {missingRequiredChecklist.length === 1 ? "item" : "items"} above before
+            completing: {missingRequiredChecklist.map((i) => i.label).join(", ")}.
+          </p>
         ) : !isCompleted && doses.length === 0 && !noChemicals ? (
           <p className="mt-2 text-sm text-brand-warn">
             Add the chemicals you used above, or tick that you added none, before completing.

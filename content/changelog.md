@@ -10,6 +10,16 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**Residential visits have a checklist.** They had none at all — the screen was built to skip it. It's
+a separate list from the commercial one, in the three groups you work to: Daily & As-Needed, Weekly
+Maintenance, Monthly & Seasonal. Your commercial checklist is untouched.
+
+Two things an admin can set per item. **Required** blocks closing the stop until it's ticked, the
+same way a missing reading does. **Chargeable** marks the work you bill extra for — shock treatment,
+filter deep clean, calcium hardness, stabiliser, salt cell, O-rings — and the technician sees the
+price on the button as they tap it. What it was priced at gets recorded on that visit, so changing
+the price later never rewrites what an old visit charged.
+
 **The gate code reaches the technician.** On a residential visit, *Getting in* now sits at the top of
 the screen with the access notes — gate code, where to park, the dog — and the owner's mobile as a
 number you can tap to call.

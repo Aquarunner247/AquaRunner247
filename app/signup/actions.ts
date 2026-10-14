@@ -8,6 +8,7 @@ import { stripe, mapSubscriptionStatus, priceIdForTier, tierForPriceId, isSelfSe
 import type { OrganizationPlanStatus, PlanTier } from "@/generated/prisma/client";
 import { isValidStateCode } from "@/lib/us-states";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
+import { DEFAULT_RESIDENTIAL_CHECKLIST } from "@/lib/default-residential-checklist";
 
 const TRIAL_DAYS = 14;
 
@@ -422,12 +423,26 @@ export async function completeSignup(formData: FormData) {
           },
         });
         await tx.checklistItemDefinition.createMany({
-          data: DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
-            organizationId: org.id,
-            label,
-            sortOrder: index + 1,
-            active: true,
-          })),
+          // Two lists, seeded together. Commercial items keep the default scope COMMERCIAL;
+          // residential gets its own from lib/default-residential-checklist.ts, so a new
+          // organization does not discover residential is empty on its first backyard stop.
+          data: [
+            ...DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
+              organizationId: org.id,
+              label,
+              sortOrder: index + 1,
+              active: true,
+            })),
+            ...DEFAULT_RESIDENTIAL_CHECKLIST.map((item, index) => ({
+              organizationId: org.id,
+              label: item.label,
+              category: item.category,
+              billable: item.billable,
+              scope: "RESIDENTIAL" as const,
+              sortOrder: index,
+              active: true,
+            })),
+          ],
         });
       });
     }

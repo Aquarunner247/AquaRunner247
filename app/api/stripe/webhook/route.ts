@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { stripe, mapSubscriptionStatus, tierForPriceId, isSelfServePlanTier, planItemOf, type SelfServePlanTier } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
+import { DEFAULT_RESIDENTIAL_CHECKLIST } from "@/lib/default-residential-checklist";
 import { DEFAULT_SERVICE_MESSAGES } from "@/lib/default-service-messages";
 import { runCancellationSafetyExport } from "@/lib/compliance-archive";
 import { sendCancellationScrubWarningEmail, sendCustomerAccessEndedEmail } from "@/lib/email";
@@ -108,12 +109,24 @@ export async function POST(req: Request) {
                     });
                   }
                   await tx.checklistItemDefinition.createMany({
-                    data: DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
-                      organizationId: org.id,
-                      label,
-                      sortOrder: index + 1,
-                      active: true,
-                    })),
+                    // Two lists, seeded together -- see the same block in app/signup/actions.ts.
+                    data: [
+                      ...DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
+                        organizationId: org.id,
+                        label,
+                        sortOrder: index + 1,
+                        active: true,
+                      })),
+                      ...DEFAULT_RESIDENTIAL_CHECKLIST.map((item, index) => ({
+                        organizationId: org.id,
+                        label: item.label,
+                        category: item.category,
+                        billable: item.billable,
+                        scope: "RESIDENTIAL" as const,
+                        sortOrder: index,
+                        active: true,
+                      })),
+                    ],
                   });
                   // Same seeding as the checklist above -- an org with no service messages would
                   // otherwise have nothing for a technician to pick at completion.
@@ -174,12 +187,24 @@ export async function POST(req: Request) {
             },
           });
           await prisma.checklistItemDefinition.createMany({
-            data: DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
-              organizationId: org.id,
-              label,
-              sortOrder: index + 1,
-              active: true,
-            })),
+            // Two lists, seeded together -- see the same block in app/signup/actions.ts.
+            data: [
+              ...DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
+                organizationId: org.id,
+                label,
+                sortOrder: index + 1,
+                active: true,
+              })),
+              ...DEFAULT_RESIDENTIAL_CHECKLIST.map((item, index) => ({
+                organizationId: org.id,
+                label: item.label,
+                category: item.category,
+                billable: item.billable,
+                scope: "RESIDENTIAL" as const,
+                sortOrder: index,
+                active: true,
+              })),
+            ],
           });
           // Same seeding as the checklist above -- an org with no service messages would
           // otherwise have nothing for a technician to pick at completion.

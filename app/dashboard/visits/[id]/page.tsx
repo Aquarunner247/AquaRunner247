@@ -157,25 +157,33 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
 
   const isResidential = visit.property.propertyType === "RESIDENTIAL";
 
-  const checklistItemDefs = isResidential
-    ? []
-    : await prisma.checklistItemDefinition.findMany({
-        where: {
-          organizationId: appUser.organizationId,
-          active: true,
-          // Opt-out per customer -- an item applies unless this customer has excluded it.
-          // property.customerId can be null (no customer linked), in which case nothing
-          // is ever excluded and every active item still shows, matching prior behavior.
-          customerExclusions: visit.property.customerId ? { none: { customerId: visit.property.customerId } } : undefined,
-        },
-        orderBy: { sortOrder: "asc" },
-        select: { id: true, label: true },
-      });
+  // Residential gets its own list as of 2026-10-14 -- it used to get an empty array, which is why a
+  // residential visit had no checklist at all. Commercial items default to scope COMMERCIAL, so
+  // commercial sees exactly what it saw before.
+  const checklistItemDefs = await prisma.checklistItemDefinition.findMany({
+    where: {
+      organizationId: appUser.organizationId,
+      active: true,
+      scope: isResidential ? "RESIDENTIAL" : "COMMERCIAL",
+      // Opt-out per customer -- an item applies unless this customer has excluded it.
+      // property.customerId can be null (no customer linked), in which case nothing
+      // is ever excluded and every active item still shows, matching prior behavior.
+      customerExclusions: visit.property.customerId ? { none: { customerId: visit.property.customerId } } : undefined,
+    },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, label: true, category: true, required: true, billable: true, chargeAmount: true },
+  });
   const completionById = new Map(visit.checklistCompletions.map((c) => [c.checklistItemId, c.completed]));
   const checklistItems = checklistItemDefs.map((item) => ({
     id: item.id,
     label: item.label,
     completed: completionById.get(item.id) ?? false,
+    category: item.category,
+    required: item.required,
+    billable: item.billable,
+    // Decimal does not survive the server/client boundary -- send it as a number, or null when no
+    // price has been set yet (the seed deliberately sets none).
+    chargeAmount: item.chargeAmount != null ? Number(item.chargeAmount) : null,
   }));
 
   const supabaseAdmin = createSupabaseAdminClient();
@@ -349,6 +357,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           visitId={visit.id}
           visitStatus={visit.status}
           canCorrectCompleted={canCorrectCompleted}
+          checklistItems={checklistItems}
           hasVolume={visit.bodyOfWater.volumeGallons != null}
           requiresFC={visit.bodyOfWater.requiresFC}
           requiresPH={visit.bodyOfWater.requiresPH}
