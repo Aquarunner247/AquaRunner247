@@ -8,6 +8,18 @@ if something here affects how you or your technicians work, it says so.
 
 ---
 
+## October 14, 2026
+
+**The gate code reaches the technician.** On a residential visit, *Getting in* now sits at the top of
+the screen with the access notes — gate code, where to park, the dog — and the owner's mobile as a
+number you can tap to call.
+
+It was already being stored; it just only ever appeared on the customer page in the office, which a
+technician can't open. So the one person who needs the gate code was the one person who couldn't
+see it.
+
+---
+
 ## October 13, 2026
 
 **Stops nobody ever started stop nagging forever.** A stop left untouched on a past day stayed

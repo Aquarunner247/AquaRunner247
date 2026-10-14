@@ -70,7 +70,22 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
     include: {
       // `name` for interpolating {{orgName}} into the service messages the technician picks from.
       organization: { select: { state: true, name: true } },
-      property: { select: { name: true, propertyType: true, customerId: true, managerEmail: true, ownerEmail: true } },
+      property: {
+        select: {
+          name: true,
+          propertyType: true,
+          customerId: true,
+          managerEmail: true,
+          ownerEmail: true,
+          // Residential access details. Stored since the property form existed but read only on the
+          // admin customer page until 2026-10-14 -- a page a TECHNICIAN cannot open at all, since it
+          // redirects anything but ADMIN. So the gate code lived where the person at the gate could
+          // never see it.
+          accessNotes: true,
+          ownerName: true,
+          ownerMobilePhone: true,
+        },
+      },
       bodyOfWater: {
         select: {
           id: true,
@@ -303,6 +318,31 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           {visit.bodyOfWater.name} • {formatLocalDate(visit.scheduledStart, timeZoneForState(visit.organization.state), { weekday: "long", year: "numeric" })}
         </p>
       </header>
+
+      {/* Getting in comes before anything else on a backyard pool: a locked gate stops the visit
+          before chemistry is even a question. Residential only -- a commercial property has a
+          manager and a pump room, not a side gate and a dog. */}
+      {isResidential && (visit.property.accessNotes || visit.property.ownerMobilePhone) ? (
+        <div className="mt-4 rounded-lg border-2 border-brand-cta bg-white p-4">
+          <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-cta">Getting in</p>
+          {visit.property.accessNotes ? (
+            <p className="mt-1 whitespace-pre-wrap text-sm font-medium text-brand-ink">{visit.property.accessNotes}</p>
+          ) : null}
+          {visit.property.ownerMobilePhone ? (
+            <p className="mt-2 text-sm text-brand-ink">
+              {visit.property.ownerName ? `${visit.property.ownerName}: ` : "Owner: "}
+              {/* A tel: link, because the moment this is read is the moment somebody is locked out
+                  and needs to call -- not retype a number from a screen. */}
+              <a
+                href={`tel:${visit.property.ownerMobilePhone.replace(/[^0-9+]/g, "")}`}
+                className="inline-flex min-h-[44px] items-center font-semibold text-brand-primary underline"
+              >
+                {visit.property.ownerMobilePhone}
+              </a>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {isResidential ? (
         <ResidentialVisitForm
