@@ -175,9 +175,29 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
     select: {
       id: true,
       label: true,
+      scope: true,
       customerExclusions: { where: { customerId: customer.id }, select: { id: true } },
     },
   });
+
+  /**
+   * Split by scope, because as of 2026-10-14 there are two separate lists and sortOrder restarts in
+   * each -- flat, the residential and commercial items interleave into one unlabelled list of 40-odd
+   * checkboxes where a homeowner appears to be opted out of pump-room tasks.
+   *
+   * Both groups still render in full. updateCustomerChecklist reads an ABSENT checkbox as
+   * "excluded for this customer", so showing only the scope that matches this customer's properties
+   * would silently exclude every item in the other one.
+   */
+  const checklistGroups = (
+    [
+      { scope: "COMMERCIAL", heading: "Commercial properties" },
+      { scope: "RESIDENTIAL", heading: "Residential properties" },
+    ] as const
+  )
+    .map((group) => ({ ...group, items: checklistItems.filter((item) => item.scope === group.scope) }))
+    .filter((group) => group.items.length > 0);
+  const showChecklistHeadings = checklistGroups.length > 1;
 
   const managementCompanies = await prisma.managementCompany.findMany({
     where: { organizationId: appUser.organizationId },
@@ -711,30 +731,50 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
             {sp.checklistSaved === "1" ? <p className="mt-3 text-sm text-brand-ok">Saved.</p> : null}
 
             {isEnded ? (
-              <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
-                {checklistItems.map((item) => (
-                  <label key={item.id} className="flex items-center gap-1.5 text-sm text-brand-muted">
-                    <input type="checkbox" disabled checked={item.customerExclusions.length === 0} className="rounded border-brand-control" />
-                    {item.label}
-                  </label>
+              <div className="mt-3 space-y-3">
+                {checklistGroups.map((group) => (
+                  <div key={group.scope}>
+                    {showChecklistHeadings ? (
+                      <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-muted">
+                        {group.heading}
+                      </p>
+                    ) : null}
+                    <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+                      {group.items.map((item) => (
+                        <label key={item.id} className="flex items-center gap-1.5 text-sm text-brand-muted">
+                          <input type="checkbox" disabled checked={item.customerExclusions.length === 0} className="rounded border-brand-control" />
+                          {item.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : checklistItems.length ? (
               <form action={updateCustomerChecklist} className="mt-3 space-y-2">
                 <input type="hidden" name="customerId" value={customer.id} />
-                <div className="grid gap-1.5 sm:grid-cols-2">
-                  {checklistItems.map((item) => (
-                    <label key={item.id} className="flex items-center gap-1.5 text-sm text-brand-ink">
-                      <input
-                        type="checkbox"
-                        name={`item_${item.id}`}
-                        defaultChecked={item.customerExclusions.length === 0}
-                        className="rounded border-brand-control"
-                      />
-                      {item.label}
-                    </label>
-                  ))}
-                </div>
+                {checklistGroups.map((group) => (
+                  <div key={group.scope}>
+                    {showChecklistHeadings ? (
+                      <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-muted">
+                        {group.heading}
+                      </p>
+                    ) : null}
+                    <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+                      {group.items.map((item) => (
+                        <label key={item.id} className="flex items-center gap-1.5 text-sm text-brand-ink">
+                          <input
+                            type="checkbox"
+                            name={`item_${item.id}`}
+                            defaultChecked={item.customerExclusions.length === 0}
+                            className="rounded border-brand-control"
+                          />
+                          {item.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
                 <button className="rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
                   Save
                 </button>

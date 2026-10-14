@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { execFileSync } from "child_process";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_RESIDENTIAL_CHECKLIST, RESIDENTIAL_CHECKLIST_CATEGORIES } from "../default-residential-checklist";
 
@@ -65,5 +66,44 @@ describe("the residential checklist seed", () => {
 
   it("is idempotent, so re-running the migration cannot duplicate the list", () => {
     expect(sql).toContain("WHERE NOT EXISTS");
+  });
+});
+
+/**
+ * Every place that creates an organization has to seed BOTH checklists.
+ *
+ * Added after exactly that was missed: app/portal/subscribe/actions.ts seeded only the commercial
+ * list, so an org created through the portal upgrade path got no residential checklist at all and
+ * its technicians saw an empty list on every house. The migration covers orgs that already exist
+ * and each signup path covers its own, which means the knowledge is in four files at once.
+ *
+ * Source-level on purpose. These are all inside transactions that create a Stripe customer and an
+ * auth user, so the cheap thing to assert is that the file knows about the list -- which is the
+ * shape of the mistake.
+ */
+describe("every org-creating path seeds the residential checklist", () => {
+  const seedingFiles = [
+    "app/signup/actions.ts",
+    "app/portal/subscribe/actions.ts",
+    "app/api/stripe/webhook/route.ts",
+  ];
+
+  it.each(seedingFiles)("%s seeds it", (file) => {
+    const source = fs.readFileSync(path.join(process.cwd(), file), "utf8");
+    expect(source).toContain("DEFAULT_RESIDENTIAL_CHECKLIST");
+  });
+
+  it("finds no other file creating checklist definitions in bulk", () => {
+    // ':!' excludes this test, which names the call itself and would otherwise match.
+    const found = execFileSync(
+      "git",
+      ["grep", "-l", "checklistItemDefinition.createMany", "--", "app", "lib", ":!lib/__tests__"],
+      { encoding: "utf8" },
+    )
+      .trim()
+      .split("\n")
+      .sort();
+    // Fails when a fifth signup path appears, which is the moment to seed it and add it above.
+    expect(found).toEqual([...seedingFiles].sort());
   });
 });

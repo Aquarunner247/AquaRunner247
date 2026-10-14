@@ -552,6 +552,7 @@ function confirmRemoveDose(
 
   /** Required items still outstanding -- these block completion the way a missing reading does. */
   const missingRequiredChecklist = checklistItems.filter((i) => i.required && !i.completed);
+  const hasRequiredChecklist = checklistItems.some((i) => i.required);
 
   async function completeVisit(opts: { acknowledgedNoPhoto?: boolean } = {}) {
     setCompletingVisit(true);
@@ -910,6 +911,9 @@ function confirmRemoveDose(
               {missingRequiredChecklist.length} required {missingRequiredChecklist.length === 1 ? "item" : "items"} left.
             </p>
           ) : null}
+          {hasRequiredChecklist ? (
+            <p className="mt-1 text-xs text-brand-muted">* must be ticked before this stop can be completed.</p>
+          ) : null}
           {/* Grouped, because the supplied list is three groups on different rhythms -- daily,
               weekly, seasonal -- and a flat 21-item list reads as one long wall on a phone.
               Order comes from sortOrder, so the groups appear in the order they were seeded. */}
@@ -929,7 +933,7 @@ function confirmRemoveDose(
                           item.completed
                             ? "border-brand-primary bg-brand-primary/10 text-brand-ink"
                             : item.required
-                              ? "border-brand-warn bg-white text-brand-ink hover:bg-brand-foam"
+                              ? "border-brand-control bg-white text-brand-ink hover:bg-brand-foam"
                               : "border-brand-border bg-white text-brand-ink hover:bg-brand-foam"
                         }`}
                       >
@@ -948,7 +952,7 @@ function confirmRemoveDose(
                             filter clean without it reaching the office. The amount shows when one
                             is set; otherwise it just says the work is chargeable. */}
                         {item.billable ? (
-                          <span className="shrink-0 rounded border border-brand-cta px-1.5 py-0.5 text-xs font-semibold text-brand-cta">
+                          <span className="app-badge shrink-0">
                             {item.chargeAmount != null ? `$${item.chargeAmount.toFixed(2)}` : "Extra"}
                           </span>
                         ) : null}

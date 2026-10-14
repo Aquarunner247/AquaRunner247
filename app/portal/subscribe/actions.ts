@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { stripe, mapSubscriptionStatus, priceIdForTier } from "@/lib/stripe";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
+import { DEFAULT_RESIDENTIAL_CHECKLIST } from "@/lib/default-residential-checklist";
 import { DEFAULT_SERVICE_MESSAGES } from "@/lib/default-service-messages";
 import { getCustomerUserForAuthUser } from "@/lib/auth/customer-user";
 
@@ -182,12 +183,23 @@ export async function completeCompliancePlan(sessionId: string) {
       });
 
       await tx.checklistItemDefinition.createMany({
-        data: DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
-          organizationId: org.id,
-          label,
-          sortOrder: index + 1,
-          active: true,
-        })),
+        data: [
+          ...DEFAULT_CHECKLIST_ITEMS.map((label, index) => ({
+            organizationId: org.id,
+            label,
+            sortOrder: index + 1,
+            active: true,
+          })),
+          ...DEFAULT_RESIDENTIAL_CHECKLIST.map((item, index) => ({
+            organizationId: org.id,
+            label: item.label,
+            category: item.category,
+            billable: item.billable,
+            scope: "RESIDENTIAL" as const,
+            sortOrder: index,
+            active: true,
+          })),
+        ],
       });
       // Same seeding as the checklist above -- an org with no service messages would
       // otherwise have nothing for a technician to pick at completion.
