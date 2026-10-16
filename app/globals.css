@@ -14,6 +14,12 @@
      --font-display stays the product's own heading face, because 77 headings across 38 dashboard,
      portal and technician files use it -- a condensed italic face on a reading table or a visit form
      costs legibility for nothing, which is the handoff's own argument against setting body copy in it. */
+  /* Height of TechBottomNav's own bar, NOT counting the safe-area inset it pads below itself.
+     NextStopRibbon is fixed to the same bottom edge and has to sit on top of the nav rather than
+     under it, so both reference this one number instead of each guessing. The nav sets it as a
+     min-height, so growing its contents can only ever push this up, never silently shrink it out
+     from under the ribbon. See app/components/tech-bottom-nav.tsx and next-stop-ribbon.tsx. */
+  --tech-nav-h: 60px;
   --font-display: var(--font-satoshi), system-ui, sans-serif;
   --font-marketing: var(--font-display-face), "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
 }

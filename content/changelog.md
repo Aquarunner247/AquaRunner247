@@ -10,6 +10,12 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**The "Directions to next stop" bar actually appears now.** It has been shipping since
+September but no technician could have seen it: the bottom tab bar is pinned to the same edge and
+sits above it, covering 59 of its 77 pixels on a phone. A tap aimed at Directions hit a nav tab
+instead. It only ever looked right on a desktop browser, where that tab bar is hidden. The bar now
+sits on top of the nav rather than under it.
+
 **The technician can see what the pool last read.** Every visit screen now shows the last
 recorded reading for that body of water, and when it was — "Yesterday", "3 weeks ago", with the
 date and the time it was taken. Commercial gets it on both Chemistry and Gauges, so filter

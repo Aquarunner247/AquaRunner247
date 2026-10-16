@@ -48,7 +48,7 @@ export function TechBottomNav({ dateYmd }: { dateYmd: string }) {
         </div>
       ) : null}
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-white/10 bg-brand-ink px-2 pb-[env(safe-area-inset-bottom)] pt-1 md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex min-h-[var(--tech-nav-h)] items-center justify-around border-t border-white/10 bg-brand-ink px-2 pb-[env(safe-area-inset-bottom)] pt-1 md:hidden">
         {items.map((item) => (
           <Link
             key={item.href}

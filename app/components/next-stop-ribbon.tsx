@@ -22,11 +22,32 @@ export type NextStopInfo = {
  * per-platform branching or Capacitor plugin. A stop with no coordinates gets no directions
  * button rather than a link that opens a map of nowhere.
  */
-export function NextStopRibbon({ next }: { next: NextStopInfo | null }) {
+export function NextStopRibbon({
+  next,
+  hasBottomNav = false,
+}: {
+  next: NextStopInfo | null;
+  /** True when TechBottomNav is on screen -- it owns the bottom edge and this has to clear it. */
+  hasBottomNav?: boolean;
+}) {
+  /**
+   * Sits directly ON TOP of TechBottomNav rather than at the bottom of the viewport.
+   *
+   * Both are `fixed` to `bottom-0` and the nav is z-50 against this z-30, so before 2026-10-15 the
+   * nav covered 59px of this ribbon's 77px on a 390px screen -- measured, not guessed. All a
+   * technician ever saw was an 18px sliver, and a tap aimed at "Directions" landed on a nav tab.
+   * The ribbon shipped 2026-09-28, two months after the nav, so it never worked on a phone; it
+   * looked fine only on a desktop browser, where the nav is md:hidden.
+   *
+   * Which is why the offset is mobile-only: on md and up the nav is gone and the bottom edge is
+   * free again.
+   */
+  const position = hasBottomNav
+    ? "bottom-[calc(var(--tech-nav-h)+env(safe-area-inset-bottom))] md:bottom-0"
+    : "bottom-0";
   // Solid fill, not translucent: this sits over content on a phone in direct sun, which is the
   // case DESIGN-SYSTEM's outdoor rule is written for.
-  const shell =
-    "fixed inset-x-0 bottom-0 z-30 border-t border-brand-border bg-white px-4 py-3 shadow-lg";
+  const shell = `fixed inset-x-0 z-30 border-t border-brand-border bg-white px-4 py-3 shadow-lg ${position}`;
 
   if (!next) {
     return (

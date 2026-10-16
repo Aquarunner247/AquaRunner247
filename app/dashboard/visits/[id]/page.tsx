@@ -316,6 +316,9 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   // whose day it is: an admin reviewing a completed visit from the office isn't about to drive
   // anywhere, and a "Directions" button in that context is noise.
   const showsNextStop = visit.status === "COMPLETED" && visit.technicianId === appUser.id;
+  // TechBottomNav renders for technicians only (app/dashboard/layout.tsx), so only they need the
+  // ribbon lifted clear of it -- and only they need the extra bottom padding for two stacked bars.
+  const hasBottomNav = appUser.role === "TECHNICIAN";
   let nextStop: NextStopInfo | null = null;
   if (showsNextStop) {
     const { start: dayStart, end: dayEnd } = localDayBounds(
@@ -409,7 +412,11 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   const originalRecipient = propertyContactEmail(visit.property);
 
   return (
-    <main className={`mx-auto min-h-screen max-w-4xl px-6 py-10 ${showsNextStop ? "pb-32" : ""}`}>
+    <main
+      className={`mx-auto min-h-screen max-w-4xl px-6 py-10 ${
+        showsNextStop ? (hasBottomNav ? "pb-[calc(8rem+var(--tech-nav-h))]" : "pb-32") : ""
+      }`}
+    >
       <div className="mb-6">
         <Link href={backHref} className="text-sm text-brand-primary underline">
           {backLabel}
@@ -561,7 +568,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           </p>
         </section>
       ) : null}
-      {showsNextStop ? <NextStopRibbon next={nextStop} /> : null}
+      {showsNextStop ? <NextStopRibbon next={nextStop} hasBottomNav={hasBottomNav} /> : null}
     </main>
   );
 }
