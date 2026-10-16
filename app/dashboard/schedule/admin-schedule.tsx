@@ -32,7 +32,10 @@ type Props = {
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const TABS = ["day", "week", "month", "map", "list"] as const;
+// "list" was the day tab without the map. The day tab has no map as of 2026-10-16, so the two
+// rendered identically and the tab went rather than stay a duplicate. An old ?tab=list link falls
+// through to "day", which is the screen it was asking for.
+const TABS = ["day", "week", "month", "map"] as const;
 type Tab = (typeof TABS)[number];
 
 // The four stat tiles double as filters -- "all" (Total Jobs) is the unfiltered default.
@@ -623,7 +626,10 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
               readOnly={!selectedTechnicianId || statusFilter !== "all"}
               isToday={isToday}
               dateYmd={selectedYmd}
-              layout={tab === "map" ? "mapOnly" : tab === "list" ? "listOnly" : "both"}
+              // No map on the day tab, same as the technician page. It stays on Map, where the
+              // pins are openable. Arranging a route against a map is the route builder's job
+              // (/dashboard/routes), which is untouched.
+              layout={tab === "map" ? "mapOnly" : "listOnly"}
               // Admin only, as of 2026-10-16. The technician screen deliberately has no Tomorrow:
               // which day a stop belongs on is an office decision.
               allowMoveToTomorrow
