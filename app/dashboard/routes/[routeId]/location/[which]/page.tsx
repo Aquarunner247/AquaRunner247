@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { LocationPicker } from "@/app/components/location-picker";
-import { clearRouteLocation, setRouteLocation } from "@/app/dashboard/routes/actions";
+import { clearRouteLocation, setRouteLocation, setRouteLocationToStop } from "@/app/dashboard/routes/actions";
+import { coalesceCoord } from "@/lib/geocode";
 import { resolveRouteEndpoints } from "@/lib/route-endpoints";
 
 type PageProps = {
@@ -56,6 +57,25 @@ export default async function RouteLocationPage({ params }: PageProps) {
     },
   });
   if (!route) notFound();
+
+  // The route's own stops, offered as anchors. Coordinates resolved the same way the optimizer
+  // resolves them, so choosing one here produces an exact match rather than a near-miss.
+  const routeStops = await prisma.recurringStop.findMany({
+    where: { routeId: route.id },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      id: true,
+      property: { select: { name: true, latitude: true, longitude: true } },
+      bodyOfWater: { select: { name: true, latitude: true, longitude: true } },
+    },
+  });
+  const anchorableStops = routeStops
+    .map((stop) => ({
+      id: stop.id,
+      label: stop.bodyOfWater?.name ? `${stop.property.name} — ${stop.bodyOfWater.name}` : stop.property.name,
+      latitude: coalesceCoord(stop.bodyOfWater?.latitude, stop.property.latitude),
+    }))
+    .filter((stop) => stop.latitude != null);
 
   const dayLabel = route.name?.trim() || (route.dayOfWeek != null ? DAY_NAMES[route.dayOfWeek] : null) || "this route";
   const tech = route.technician?.name ?? route.technician?.email ?? "Unassigned";
@@ -129,6 +149,36 @@ export default async function RouteLocationPage({ params }: PageProps) {
             : `No override — this day uses ${fallbackDescription}.`}
         </p>
       </header>
+
+      {anchorableStops.length > 0 ? (
+        <section className="app-card mt-4">
+          <h2 className="font-display text-base font-semibold text-brand-ink">
+            {isStart ? "Start at" : "Finish at"} one of this day&rsquo;s stops
+          </h2>
+          <p className="mt-1 text-sm text-brand-muted">
+            {isStart
+              ? "Pick the stop this day begins at and it will be serviced first, rather than being somewhere the route merely passes near."
+              : "Pick the stop this day ends at and it will be serviced last. Use the map below instead for a place nobody services — a home or the yard — which the day finishes by driving to."}
+          </p>
+          <form action={setRouteLocationToStop} className="mt-3 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="routeId" value={route.id} />
+            <input type="hidden" name="which" value={which} />
+            <select name="stopId" required defaultValue="" className="app-field-sm min-w-[14rem] flex-1">
+              <option value="" disabled>
+                Choose a stop…
+              </option>
+              {anchorableStops.map((stop) => (
+                <option key={stop.id} value={stop.id}>
+                  {stop.label}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="app-btn-primary-sm min-h-[44px]">
+              Use this stop
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       {hasOverride ? (
         <section className="app-card mt-4">

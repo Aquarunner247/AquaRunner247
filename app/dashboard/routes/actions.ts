@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ScheduleFrequency } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { coalesceCoord } from "@/lib/geocode";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
 import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
@@ -494,6 +495,54 @@ export async function setBodyOfWaterLocation(formData: FormData) {
  * near-identical copies. Clearing falls back to the technician's own default — see
  * lib/route-endpoints.ts, which owns that chain.
  */
+/**
+ * Sets a route's start or finish to one of its own stops.
+ *
+ * The coordinate is taken from the STOP, through the same coalesceCoord(body, property) chain the
+ * optimizer and the map use -- not from the property record. Those two are not interchangeable: a
+ * body of water's own pin sits 200-330m from its property's geocoded address across this org's
+ * data, and Borgata's are 3.8km apart. Anything property-level would land outside the tolerance
+ * that lets splitAnchorCoincidentStops recognise the anchor AS that stop, which is the entire
+ * point of choosing a stop rather than dropping a pin.
+ *
+ * Written as an exact copy of the stop's coordinate, so the match is 0m and cannot drift.
+ */
+export async function setRouteLocationToStop(formData: FormData) {
+  const appUser = await requireAdmin();
+  const routeId = String(formData.get("routeId") ?? "").trim();
+  const which = String(formData.get("which") ?? "").trim();
+  const stopId = String(formData.get("stopId") ?? "").trim();
+  if (!routeId || !stopId || (which !== "start" && which !== "end")) return;
+
+  const stop = await prisma.recurringStop.findFirst({
+    where: { id: stopId, routeId, route: { organizationId: appUser.organizationId } },
+    select: {
+      property: { select: { name: true, latitude: true, longitude: true } },
+      bodyOfWater: { select: { name: true, latitude: true, longitude: true } },
+    },
+  });
+  if (!stop) return;
+
+  const latitude = coalesceCoord(stop.bodyOfWater?.latitude, stop.property.latitude);
+  const longitude = coalesceCoord(stop.bodyOfWater?.longitude, stop.property.longitude);
+  // A stop nobody has geocoded yet cannot anchor anything.
+  if (latitude == null || longitude == null) return;
+
+  const label = stop.bodyOfWater?.name ? `${stop.property.name} — ${stop.bodyOfWater.name}` : stop.property.name;
+
+  await prisma.recurringRoute.update({
+    where: { id: routeId },
+    data:
+      which === "start"
+        ? { startLatitude: latitude, startLongitude: longitude, startAddress: label }
+        : { endLatitude: latitude, endLongitude: longitude, endAddress: label },
+  });
+
+  revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/routes?saved=1");
+}
+
 export async function setRouteLocation(formData: FormData) {
   const appUser = await requireAdmin();
   const routeId = String(formData.get("routeId") ?? "").trim();

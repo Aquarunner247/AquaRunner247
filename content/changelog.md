@@ -10,6 +10,17 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**A route can start or finish AT a stop, not just near one.** Setting a day's finish to a customer
+now means that customer is serviced last. Before, the finish was a bare coordinate the optimizer
+added as an extra point, so a property set as the finish existed twice — once as the real stop and
+once as a phantom beside it. On Rich's Friday that put both OYO pools second and ended the day at
+Paseo Del Prado, 19 km from the finish that had been set.
+
+The start/end screens now let you choose one of that day's stops directly, which is more exact than
+dropping a pin: a pool's own location sits a few hundred metres from its property's street address
+across this data, and picking the stop uses the pool. Setting a home or the yard still works the
+way it did — the day finishes by driving there after the last stop.
+
 **One-off stops can be added from the route planner.** Each route now has "Add a one-off stop to
 a Friday" under its stop list. It lands on one date only and never joins the weekly route, so a
 pool-store run doesn't repeat every week. The date defaults to the next time that route runs

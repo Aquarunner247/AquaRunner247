@@ -13,6 +13,7 @@
  */
 
 import { haversineMiles } from "@/lib/geocode";
+import { splitAnchorCoincidentStops } from "@/lib/anchor-stops";
 import { sameEndpoint } from "@/lib/route-endpoints";
 import { orderByNearestNeighborWithTwoOpt } from "@/lib/route-ordering";
 
@@ -107,10 +108,41 @@ export async function computeOptimizedStopOrder<T extends RoutePoint>(
   points: T[],
   options?: { start?: RoutePoint | null; end?: RoutePoint | null },
 ): Promise<T[]> {
+  const start = options?.start ?? null;
+  const end = options?.end ?? null;
+
+  /**
+   * A stop that IS the start or the finish is pinned as itself, rather than the anchor being added
+   * to the matrix as a second point metres away. splitAnchorCoincidentStops carries the reasoning
+   * and the case that prompted it; an anchor nobody services -- a home, the yard -- matches nothing
+   * and falls through to the ordinary pinned-node handling below.
+   *
+   * Only the stops in between are optimized, between whichever anchor each end now has: the real
+   * stop when there is one, the bare coordinate otherwise. Pinned stops keep their incoming order,
+   * since a hotel's two pools are one arrival and nothing about driving distinguishes them.
+   */
+  const split = splitAnchorCoincidentStops(points, start, end);
+  if (split.leading.length > 0 || split.trailing.length > 0) {
+    const innerStart = split.leading.length > 0 ? split.leading[split.leading.length - 1] : start;
+    const innerEnd = split.trailing.length > 0 ? split.trailing[0] : end;
+    const middle = split.middle.length < 2 ? split.middle : await orderBetweenAnchors(split.middle, innerStart, innerEnd);
+    return [...split.leading, ...middle, ...split.trailing];
+  }
+
+  return orderBetweenAnchors(points, start, end);
+}
+
+/** The anchors-as-extra-nodes implementation. Never sees a stop that sits on one of its anchors --
+ *  computeOptimizedStopOrder pins those out first -- so it cannot produce a phantom closing leg. */
+async function orderBetweenAnchors<T extends RoutePoint>(
+  points: T[],
+  startOption: RoutePoint | null,
+  endOption: RoutePoint | null,
+): Promise<T[]> {
   if (points.length < 2) return points;
 
-  const start = options?.start ?? null;
-  const rawEnd = options?.end ?? null;
+  const start = startOption;
+  const rawEnd = endOption;
   // An end equal to the start is the round trip, not an open path: a duplicate zero-cost node
   // would be slower and would give 2-opt a meaningless pair to shuffle.
   const end = rawEnd && sameEndpoint(start, rawEnd) ? null : rawEnd;
