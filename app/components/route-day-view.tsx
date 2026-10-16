@@ -320,6 +320,7 @@ export function RouteDayView({
   // only makes sense from the technician's own device. This is defense-in-depth so a caller
   // can't accidentally get an interactive combined view by forgetting to pass readOnly.
   const effectiveReadOnly = readOnly || isMultiTech;
+  const [orderError, setOrderError] = useState<string | null>(null);
   const [items, setItems] = useState<DayItem[]>(initialItems);
   const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported" | "unavailable">("idle");
   const mapDivRef = useRef<HTMLDivElement>(null);
@@ -762,16 +763,43 @@ export function RouteDayView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, statusFilter]);
 
-  async function persistOrder(next: DayItem[]) {
+  /**
+   * Preview only -- no save. The save happens once, on commitOrder, when the finger lifts.
+   * See useDragReorder's own note: these were one callback, which fired a PATCH per crossed row.
+   */
+  function previewOrder(next: DayItem[]) {
     setItems(next);
-    await fetch("/api/visits/reorder", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: next.map((v) => ({ kind: v.kind, id: v.id })) }),
-    });
   }
 
-  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(items, persistOrder, effectiveReadOnly);
+  /**
+   * Writes the order the drag landed on.
+   *
+   * A failure is SHOWN rather than swallowed. setItems has already moved the row, so without this
+   * the list sits there looking saved while the server still holds the old order, and the next
+   * refresh silently undoes the drag -- on a phone in the field that reads as the app losing work.
+   * Confirmed happening: Sentry JAVASCRIPT-NEXTJS-E, an unhandled "TypeError: Load failed" from
+   * this fetch on Mobile Safari.
+   */
+  async function commitOrder(next: DayItem[]) {
+    setOrderError(null);
+    try {
+      const response = await fetch("/api/visits/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: next.map((v) => ({ kind: v.kind, id: v.id })) }),
+      });
+      if (!response.ok) throw new Error(String(response.status));
+    } catch {
+      setOrderError("Order not saved — check your connection and move it again.");
+    }
+  }
+
+  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(
+    items,
+    previewOrder,
+    effectiveReadOnly,
+    commitOrder,
+  );
 
   /**
    * Confirmation before moving. Asked for after a stop was moved by accident: Tomorrow sits beside
@@ -1084,6 +1112,11 @@ export function RouteDayView({
           which squeezes the list instead of filling the row. */}
       <div className={`grid gap-4 ${layout === "both" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
         <div className={layout === "mapOnly" ? "hidden" : ""}>
+          {orderError ? (
+            <p role="status" className="mb-2 rounded-lg border border-brand-danger bg-brand-dangerFill px-3 py-2 text-sm text-brand-ink">
+              {orderError}
+            </p>
+          ) : null}
           {showNextStopDirections && nextStop ? (
             <div className="mb-3 rounded-lg border border-brand-border bg-white p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Next stop</p>

@@ -34,6 +34,7 @@ type Props = {
 export function RouteStopsList({ routeId, stops: initialStops, startPoint = null, endPoint = null }: Props) {
   const [stops, setStops] = useState(initialStops);
   const [saving, setSaving] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
   const [optimizing, setOptimizing] = useState(false);
 
   // The server re-sends a fresh `stops` prop after add/remove-stop actions revalidate
@@ -44,21 +45,39 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
     setStops(initialStops);
   }, [initialStops]);
 
-  async function persistOrder(next: RouteStopItem[]) {
+  /** Preview only. The save is commitOrder, once, when the finger lifts -- see useDragReorder. */
+  function previewOrder(next: RouteStopItem[]) {
+    setStops(next);
+  }
+
+  /**
+   * Writes the new order. Also the path "Optimize stop order" takes, which is a single deliberate
+   * save rather than a drag.
+   *
+   * Worth not firing per crossed row here especially: this endpoint also renumbers every future
+   * day the route generates, so a fourteen-step drag meant fourteen whole-day rebuilds racing each
+   * other. A failure is shown rather than swallowed -- the list has already moved, and silently
+   * keeping the old order on the server is how a reorder appears to work and then isn't there.
+   */
+  async function commitOrder(next: RouteStopItem[]) {
     setStops(next);
     setSaving(true);
+    setOrderError(null);
     try {
-      await fetch(`/api/routes/${routeId}/stops/reorder`, {
+      const response = await fetch(`/api/routes/${routeId}/stops/reorder`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stopIds: next.map((s) => s.id) }),
       });
+      if (!response.ok) throw new Error(String(response.status));
+    } catch {
+      setOrderError("Order not saved — check your connection and try again.");
     } finally {
       setSaving(false);
     }
   }
 
-  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(stops, persistOrder);
+  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(stops, previewOrder, false, commitOrder);
 
   /** Reorders the route's default stop sequence (not a single day's actual visits) by real
    * driving duration -- see lib/routing.ts's computeOptimizedStopOrder, which falls back to
@@ -95,7 +114,7 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
       );
       const byId = new Map(ordered.map((s) => [s.id, s]));
       const reordered = grouped.map((g) => byId.get(g.id)!).filter(Boolean);
-      await persistOrder([...reordered, ...withoutCoords]);
+      await commitOrder([...reordered, ...withoutCoords]);
     } finally {
       setOptimizing(false);
     }
@@ -107,6 +126,11 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
 
   return (
     <div className="mt-3">
+      {orderError ? (
+        <p role="status" className="mb-2 rounded-lg border border-brand-danger bg-brand-dangerFill px-3 py-2 text-sm text-brand-ink">
+          {orderError}
+        </p>
+      ) : null}
       <button type="button" onClick={optimizeStops} disabled={saving || optimizing} className="app-btn-secondary-sm mb-2">
         {optimizing ? "Optimizing…" : "Optimize stop order"}
       </button>
