@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { localDayBounds, isoWeekdayOfYmd } from "@/lib/timezone";
+import { resequenceDay, type DaySequenceItem } from "@/lib/day-resequence";
 
 /**
  * Ensures a ServiceVisit exists for every active route stop scheduled to run
@@ -106,5 +107,67 @@ export async function ensureVisitsGeneratedForDate(organizationId: string, ymd: 
         status: "SCHEDULED" as const,
       })),
     });
+
+    /**
+     * Re-space the day once anything was added to one that already existed.
+     *
+     * routeSequence above is the stop's sortOrder, which is only a valid set of positions when the
+     * whole day is being created at once. A stop added to a route AFTER its days were generated
+     * gets inserted later, carrying a sortOrder that whatever is already on that day is very
+     * likely holding -- and routeSequence is one sequence space per technician per day, shared
+     * with errands too.
+     *
+     * Live example on 2026-10-16: San Tropez's three stops joined Rich's Friday after 2026-10-23
+     * was generated, so they were about to land on 2, 3 and 4, already held by Milennium East and
+     * both Playa Vista stops. Six stops, three positions, order decided by a tiebreak.
+     *
+     * resequenceDay returns only what actually moves, so a day generated in one go -- the ordinary
+     * case, where sortOrder already gives distinct positions -- writes nothing.
+     */
+    const affectedTechnicianIds = [
+      ...new Set(missing.map(({ route }) => route.technicianId).filter((id): id is string => id != null)),
+    ];
+    for (const technicianId of affectedTechnicianIds) {
+      const route = routes.find((r) => r.technicianId === technicianId);
+      if (!route) continue;
+
+      const [dayVisits, dayErrands] = await Promise.all([
+        tx.serviceVisit.findMany({
+          where: { technicianId, scheduledStart: { gte: dayStart, lt: dayEnd } },
+          select: { id: true, recurringStopId: true, routeSequence: true, scheduledStart: true, status: true },
+        }),
+        tx.adHocStop.findMany({
+          where: { technicianId, scheduledDate: { gte: dayStart, lt: dayEnd } },
+          select: { id: true, routeSequence: true, createdAt: true },
+        }),
+      ]);
+
+      const stopIds = new Set(route.stops.map((stop) => stop.id));
+      const items: DaySequenceItem[] = [
+        ...dayVisits.map((v) => ({
+          kind: "visit" as const,
+          id: v.id,
+          seq: v.routeSequence,
+          tiebreak: v.scheduledStart.getTime(),
+          moveKey: v.status === "SCHEDULED" && v.recurringStopId != null && stopIds.has(v.recurringStopId) ? v.recurringStopId : null,
+        })),
+        ...dayErrands.map((e) => ({
+          kind: "adhoc" as const,
+          id: e.id,
+          seq: e.routeSequence,
+          tiebreak: e.createdAt.getTime(),
+          moveKey: null,
+        })),
+      ];
+
+      const writes = resequenceDay(items, route.stops.map((stop) => stop.id));
+      for (const write of writes) {
+        if (write.kind === "adhoc") {
+          await tx.adHocStop.update({ where: { id: write.id }, data: { routeSequence: write.index } });
+        } else {
+          await tx.serviceVisit.update({ where: { id: write.id }, data: { routeSequence: write.index } });
+        }
+      }
+    }
   });
 }

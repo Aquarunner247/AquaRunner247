@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { addDaysToYmd, localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
-import { mergeRouteOrderIntoDay } from "@/lib/route-order-merge";
+import { localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { resequenceDay, type DaySequenceItem } from "@/lib/day-resequence";
 
 type ReorderPayload = { stopIds?: string[] };
 
@@ -44,21 +44,24 @@ export async function PATCH(request: Request, context: { params: Promise<{ route
    * The whole day is renumbered, not this route's slice of it -- routeSequence is one sequence
    * space per technician per day, shared with errands and with any visit that arrived from
    * elsewhere. Writing only this route's positions is what left four pairs of Rich's Friday stops
-   * sharing a number. mergeRouteOrderIntoDay decides the placements and guarantees each item a
-   * distinct one; what moves and what stays anchored is documented there.
+   * sharing a number. resequenceDay decides the placements and guarantees each item a distinct
+   * one; what moves and what stays anchored is documented there and in mergeRouteOrderIntoDay.
    *
-   * Strictly after today: a day in progress belongs to the technician working it, and renumbering
-   * it underneath them is not this screen's business.
+   * Today included, as of 2026-10-16 at the operator's request -- reordering a route and finding
+   * today unchanged read as the feature not working. The day in progress is still protected, by
+   * mergeRouteOrderIntoDay rather than by excluding the date: only a still-SCHEDULED stop moves,
+   * so anything arrived at, finished, skipped or moved holds its place and a technician mid-route
+   * does not have the morning rewritten under them.
    */
   const organization = await prisma.organization.findUnique({
     where: { id: appUser.organizationId },
     select: { state: true },
   });
   const timeZone = timeZoneForState(organization?.state);
-  const tomorrowStart = localDayBounds(addDaysToYmd(ymdInTimeZone(new Date(), timeZone), 1), timeZone).start;
+  const todayStart = localDayBounds(ymdInTimeZone(new Date(), timeZone), timeZone).start;
 
   const ourVisits = await prisma.serviceVisit.findMany({
-    where: { recurringStopId: { in: stopIds }, scheduledStart: { gte: tomorrowStart } },
+    where: { recurringStopId: { in: stopIds }, scheduledStart: { gte: todayStart } },
     select: { scheduledStart: true, technicianId: true },
   });
 
@@ -84,9 +87,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ route
     ]);
 
     const newOrder = [...updates].sort((a, b) => a.index - b.index).map(({ id }) => id);
-    const byDay = new Map<string, { kind: "visit" | "adhoc"; id: string; seq: number; tiebreak: number; moveKey: string | null }[]>();
+    const byDay = new Map<string, DaySequenceItem[]>();
 
-    const push = (key: string, row: { kind: "visit" | "adhoc"; id: string; seq: number; tiebreak: number; moveKey: string | null }) => {
+    const push = (key: string, row: DaySequenceItem) => {
       if (!touchedDays.has(key)) return;
       if (!byDay.has(key)) byDay.set(key, []);
       byDay.get(key)!.push(row);
@@ -96,8 +99,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ route
       push(`${v.technicianId ?? "none"}|${ymdInTimeZone(v.scheduledStart, timeZone)}`, {
         kind: "visit",
         id: v.id,
-        // Same ordering the schedule itself reads with (routeSequence asc, then scheduledStart).
-        seq: v.routeSequence ?? Number.MAX_SAFE_INTEGER,
+        seq: v.routeSequence,
         tiebreak: v.scheduledStart.getTime(),
         // Only a still-scheduled stop of THIS route may be moved; see mergeRouteOrderIntoDay.
         moveKey: v.status === "SCHEDULED" && v.recurringStopId != null && stopIds.includes(v.recurringStopId) ? v.recurringStopId : null,
@@ -107,21 +109,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ route
       push(`${e.technicianId ?? "none"}|${ymdInTimeZone(e.scheduledDate, timeZone)}`, {
         kind: "adhoc",
         id: e.id,
-        seq: e.routeSequence ?? Number.MAX_SAFE_INTEGER,
+        seq: e.routeSequence,
         tiebreak: e.createdAt.getTime(),
         moveKey: null,
       });
     }
 
     for (const rows of byDay.values()) {
-      rows.sort((a, b) => a.seq - b.seq || a.tiebreak - b.tiebreak);
-      const kindById = new Map(rows.map((r) => [r.id, r.kind]));
-      const merged = mergeRouteOrderIntoDay(rows.map(({ id, moveKey }) => ({ id, moveKey })), newOrder);
-      merged.forEach((id, index) => {
-        const existing = rows.find((r) => r.id === id);
-        if (existing && existing.seq === index) return; // already in place -- no write
-        (kindById.get(id) === "adhoc" ? errandWrites : visitWrites).push({ id, index });
-      });
+      for (const write of resequenceDay(rows, newOrder)) {
+        (write.kind === "adhoc" ? errandWrites : visitWrites).push({ id: write.id, index: write.index });
+      }
     }
   }
 
