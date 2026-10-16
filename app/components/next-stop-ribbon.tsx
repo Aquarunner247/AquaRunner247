@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { directionsUrl } from "@/lib/directions-url";
 
 export type NextStopInfo = {
   /** Null for an errand, which has no visit page to open. */
@@ -17,10 +18,7 @@ export type NextStopInfo = {
  * is driving directions -- not to navigate back to a list, find the next row, open it, and read an
  * address. That's the whole point of it being a ribbon rather than a line on the schedule page.
  *
- * Directions use the Google Maps universal URL rather than a native scheme: it opens the Google
- * Maps app when installed, Apple Maps' web handoff or the browser otherwise, and needs no
- * per-platform branching or Capacitor plugin. A stop with no coordinates gets no directions
- * button rather than a link that opens a map of nowhere.
+ * Directions come from lib/directions-url.ts, shared with the schedule list and the map pins.
  */
 export function NextStopRibbon({
   next,
@@ -59,10 +57,7 @@ export function NextStopRibbon({
     );
   }
 
-  const canNavigate = next.latitude != null && next.longitude != null;
-  const directionsUrl = canNavigate
-    ? `https://www.google.com/maps/dir/?api=1&destination=${next.latitude},${next.longitude}&travelmode=driving`
-    : null;
+  const href = directionsUrl(next);
 
   return (
     <div className={shell}>
@@ -85,9 +80,9 @@ export function NextStopRibbon({
               Open
             </Link>
           ) : null}
-          {directionsUrl ? (
+          {href ? (
             <a
-              href={directionsUrl}
+              href={href}
               target="_blank"
               rel="noreferrer"
               className="flex min-h-[44px] items-center rounded-lg bg-brand-primary px-4 text-sm font-semibold text-white"

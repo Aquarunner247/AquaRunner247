@@ -59,6 +59,23 @@ describe("orderByNearestNeighborWithTwoOpt", () => {
   });
 });
 
+/**
+ * With no anchors at all, index 0 stays first. This is what the schedule's "Optimize stop order"
+ * relies on for a technician with no start address set -- computeOptimizedStopOrder's `!start &&
+ * !end` branch calls straight through to here, so "optimize from whatever is at the top of the
+ * list" is this guarantee and nothing else. Rodrigo has no start address, so it is the live path.
+ */
+describe("orderByNearestNeighborWithTwoOpt with no options", () => {
+  it("keeps the first point first even when reordering the rest would be cheaper", () => {
+    // 0 sits between 1 and 2, so the cheapest open path is 1 -> 0 -> 2. Index 0 must still lead.
+    const positions = [10, 0, 20, 30];
+    const matrix = positions.map((a) => positions.map((b) => Math.abs(a - b)));
+    const order = orderByNearestNeighborWithTwoOpt(matrix);
+    expect(order[0]).toBe(0);
+    expect([...order].sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+  });
+});
+
 describe("orderByNearestNeighborWithTwoOpt with returnToStart", () => {
   /** Four points on a line: 0 at origin, then 1/2/3 at increasing distance. */
   const lineMatrix = (positions: number[]) =>

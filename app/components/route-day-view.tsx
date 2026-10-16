@@ -13,6 +13,7 @@ import { BRAND_ANCHOR, BRAND_PRIMARY } from "@/app/lib/chart-colors";
 import { coalesceBundleMembers, formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { fetchDrivingRoute, computeOptimizedStopOrder } from "@/lib/routing";
+import { directionsUrl } from "@/lib/directions-url";
 import { sameEndpoint } from "@/lib/route-endpoints";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 import { isPushedVisit } from "@/lib/visit-pushed";
@@ -86,6 +87,13 @@ type Props = {
   /// Which parts of this view to show — used by the Schedule tabs (Day = both, List = list
   /// only, Map = map only). Defaults to "both" for existing call sites.
   layout?: "both" | "listOnly" | "mapOnly";
+  /// Whether a stop can be pushed to tomorrow from this list. Admin only as of 2026-10-16: the
+  /// operator asked for it to come off the technicians' screen. It is an office decision about
+  /// the day's plan, and on a phone it sits one tap from Skip.
+  allowMoveToTomorrow?: boolean;
+  /// Shows "Next stop" with a directions link above the list. The technician's screen wants it --
+  /// it is the thing they actually need from this page -- and the admin's does not.
+  showNextStopDirections?: boolean;
   /// Presence of this prop switches the map/list into "All Technicians" mode: per-technician
   /// marker color/polyline instead of one route, list grouped by technician. Keyed by
   /// RouteStop.technicianId. Omitted entirely for a single technician's route (tech's own
@@ -303,6 +311,8 @@ export function RouteDayView({
   isToday = false,
   dateYmd,
   layout = "both",
+  allowMoveToTomorrow = false,
+  showNextStopDirections = false,
   technicianColors,
   technicianLegend,
   allowGpsAutoArrival = true,
@@ -670,7 +680,36 @@ export function RouteDayView({
           : [`<strong>${escapeHtml(item.propertyName)}</strong>`, escapeHtml(item.bodyName)];
       if (isMultiTech) popupLines.push(escapeHtml(item.technicianLabel ?? "Unassigned"));
 
-      L.marker([latitude, longitude], { icon }).addTo(layerRef.current!).bindPopup(popupLines.join("<br/>"));
+      /**
+       * A pin is a way into the stop, not just a label. Before 2026-10-16 the popup was three
+       * lines of text and nothing else, which is most of why the map read as decoration to the
+       * technicians: they could see where a stop was and still had to go back to the list to do
+       * anything about it.
+       *
+       * Plain <a> in Leaflet's own popup HTML rather than anything React. The classes resolve
+       * because Tailwind scans this file's source, and both are already used elsewhere in the app,
+       * so neither can be purged out from under this string.
+       *
+       * The visit link is a normal in-app navigation; `escapeHtml` still runs over the id because
+       * the rule here is that nothing reaches a popup unescaped, not that cuids happen to be safe.
+       */
+      const actions: string[] = [];
+      if (item.kind === "visit") {
+        actions.push(
+          `<a href="/dashboard/visits/${escapeHtml(item.id)}?from=schedule" class="app-btn-ghost-sm" style="min-height:44px">Open stop</a>`,
+        );
+      }
+      const href = directionsUrl(item);
+      if (href) {
+        actions.push(
+          `<a href="${href}" target="_blank" rel="noreferrer" class="app-btn-primary-sm" style="min-height:44px">Directions</a>`,
+        );
+      }
+      const popupHtml =
+        popupLines.join("<br/>") +
+        (actions.length ? `<div style="display:flex;gap:8px;margin-top:10px;align-items:center">${actions.join("")}</div>` : "");
+
+      L.marker([latitude, longitude], { icon }).addTo(layerRef.current!).bindPopup(popupHtml);
       points.push([latitude, longitude]);
 
       if (isMultiTech) {
@@ -970,6 +1009,22 @@ export function RouteDayView({
     }
   }
 
+  /**
+   * The next stop still to do, in route order. What a technician opens this page for.
+   *
+   * "Still to do" is the same test the rest of this file uses: a visit is done once COMPLETED or
+   * CANCELLED (which covers both skipped and moved), an errand once `completed`. Taken from
+   * `items` rather than `displayedItems`, so a status filter changes what is LISTED without
+   * changing where the day actually goes next.
+   *
+   * Never in multi-technician mode -- "next" has no meaning across four people's days at once.
+   */
+  const nextStop = isMultiTech
+    ? null
+    : (items.find((i) => (i.kind === "visit" ? i.status !== "COMPLETED" && i.status !== "CANCELLED" : !i.completed)) ??
+      null);
+  const nextStopHref = nextStop ? directionsUrl(nextStop) : null;
+
   // Ad-hoc items never carry coordinates -- excluded here so their absence never triggers
   // the "some stops don't have map coordinates yet" warning below.
   // An extra stop with NO property (a pool-store run) is deliberately not counted: it has no
@@ -1082,8 +1137,42 @@ export function RouteDayView({
       {locationState === "watching" ? (
         <p className="mb-2 text-xs text-brand-muted">Location on — arrival time logs automatically when you reach a stop.</p>
       ) : null}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Two columns only when both halves are actually rendering. With one side hidden the
+          md:grid-cols-2 left the visible half at 50% width with dead space beside it -- which the
+          technician day tab would now hit on every tablet, since its map came off on 2026-10-16.
+          grid-cols-1 is explicit: a bare `grid` gets one implicit auto column sized to min-content,
+          which squeezes the list instead of filling the row. */}
+      <div className={`grid gap-4 ${layout === "both" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
         <div className={layout === "mapOnly" ? "hidden" : ""}>
+          {showNextStopDirections && nextStop ? (
+            <div className="mb-3 rounded-lg border border-brand-border bg-white p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Next stop</p>
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-semibold text-brand-ink">
+                    {nextStop.kind === "visit" ? `${nextStop.propertyName} — ${nextStop.bodyName}` : nextStop.description}
+                  </p>
+                  {nextStop.kind === "visit" && nextStop.address ? (
+                    <p className="truncate text-xs text-brand-muted">{nextStop.address}</p>
+                  ) : null}
+                </div>
+                {nextStopHref ? (
+                  <a
+                    href={nextStopHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-h-[44px] shrink-0 items-center rounded-lg bg-brand-primary px-4 text-sm font-semibold text-white"
+                  >
+                    Directions
+                  </a>
+                ) : (
+                  // Says why rather than going quiet: an un-geocoded stop is fixable, and a missing
+                  // button with no explanation reads as the feature being broken again.
+                  <span className="shrink-0 text-xs text-brand-muted">No map pin yet</span>
+                )}
+              </div>
+            </div>
+          ) : null}
           {!effectiveReadOnly ? (
             <button
               type="button"
@@ -1242,7 +1331,8 @@ export function RouteDayView({
                           {/* Card level, not per venue. A gate nobody can open means the whole
                               walk-up moves, and the member rows below are already tight enough that
                               another button there would start truncating the venue name. */}
-                          {!effectiveReadOnly &&
+                          {allowMoveToTomorrow &&
+                          !effectiveReadOnly &&
                           members.some((m) => m.status !== "COMPLETED" && m.status !== "CANCELLED") ? (
                             <button
                               type="button"
@@ -1420,7 +1510,7 @@ export function RouteDayView({
                             {isSkipped ? "Unskip" : "Skip"}
                           </button>
                         ) : null}
-                        {!isSkipped && !isMoved ? (
+                        {allowMoveToTomorrow && !isSkipped && !isMoved ? (
                           <button
                             type="button"
                             onClick={() => setPendingMove({ label: stopLabel(v), count: 1, run: () => moveToTomorrow(v) })}

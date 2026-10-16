@@ -624,6 +624,9 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
               isToday={isToday}
               dateYmd={selectedYmd}
               layout={tab === "map" ? "mapOnly" : tab === "list" ? "listOnly" : "both"}
+              // Admin only, as of 2026-10-16. The technician screen deliberately has no Tomorrow:
+              // which day a stop belongs on is an office decision.
+              allowMoveToTomorrow
               technicianColors={selectedTechnicianId ? undefined : technicianColorsRecord}
               technicianLegend={selectedTechnicianId ? undefined : technicianLegend}
               allowGpsAutoArrival={false}

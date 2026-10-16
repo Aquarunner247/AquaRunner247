@@ -18,7 +18,10 @@ type PageProps = {
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const TABS = ["day", "week", "map", "list"] as const;
+// "list" was this page's day tab without the map. The day tab has no map as of 2026-10-16, so
+// the two rendered identically and the tab was removed rather than left as a duplicate. An old
+// ?tab=list link falls through to "day", which is now the same screen it used to ask for.
+const TABS = ["day", "week", "map"] as const;
 type Tab = (typeof TABS)[number];
 
 // The four stat tiles double as filters -- "all" (Total Jobs) is the unfiltered default.
@@ -367,7 +370,12 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               readOnly={isPastDay || statusFilter !== "all"}
               isToday={isToday}
               dateYmd={selectedYmd}
-              layout={tab === "map" ? "mapOnly" : tab === "list" ? "listOnly" : "both"}
+              // No map on the day tab. The technicians' own verdict on it was that it did
+              // nothing for them -- they need the next address, not an overview of the day -- and
+              // it pushed the list they do use below the fold. It stays one tap away on Map,
+              // where the pins are now openable.
+              layout={tab === "map" ? "mapOnly" : "listOnly"}
+              showNextStopDirections
               startPoint={dayEndpoints.start}
               endPoint={dayEndpoints.end}
             />

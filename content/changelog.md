@@ -10,6 +10,17 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**The technician's schedule is a list with directions on it, not a map.** The day tab no longer
+draws the route map — the techs' verdict was that it did nothing for them and it pushed the list
+they actually use below the fold. The map is still there on its own tab, and its pins are now
+openable: tap one and you get the stop with **Open stop** and **Directions** on it. The day tab
+instead leads with the next stop still to do and a Directions button for it, so getting to the
+next address is one tap from the top of the screen rather than something you find by finishing a
+stop first.
+
+**Moving a stop to tomorrow is admin-only now.** It's an office call about the day's plan, and on
+a phone it sat one tap from Skip.
+
 **The "Directions to next stop" bar actually appears now.** It has been shipping since
 September but no technician could have seen it: the bottom tab bar is pinned to the same edge and
 sits above it, covering 59 of its 77 pixels on a phone. A tap aimed at Directions hit a nav tab
