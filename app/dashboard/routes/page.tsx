@@ -5,6 +5,9 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
 import { timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 import { coalesceCoord } from "@/lib/geocode";
+import { nextOccurrenceYmd } from "@/lib/service-weekdays";
+import { addAdHocStop } from "@/app/dashboard/actions";
+import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
 import { WaveProgress } from "@/app/components/wave-progress";
@@ -139,6 +142,13 @@ export default async function RoutesPage({ searchParams }: PageProps) {
   // Resolved once per route: the override -> technician default -> none chain lives in
   // lib/route-endpoints.ts, and "Optimize stop order" and the per-route summary below read it
   // from here rather than re-deriving it.
+  // For the one-off stop form below. Name only -- it is a picker, not a listing.
+  const propertyOptions = await prisma.property.findMany({
+    where: { organizationId: appUser.organizationId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+
   const routeEndpoints = new Map(
     routes.map((route) => [route.id, resolveRouteEndpoints({ route, technician: route.technician })]),
   );
@@ -169,7 +179,8 @@ export default async function RoutesPage({ searchParams }: PageProps) {
     where: { id: appUser.organizationId },
     select: { state: true },
   });
-  const todayUtcMidnight = new Date(`${ymdInTimeZone(new Date(), timeZoneForState(org?.state))}T00:00:00.000Z`);
+  const todayYmd = ymdInTimeZone(new Date(), timeZoneForState(org?.state));
+  const todayUtcMidnight = new Date(`${todayYmd}T00:00:00.000Z`);
 
   const scheduledBodyIdsByDay = new Map<number, Set<string>>();
   for (const route of routes) {
@@ -623,6 +634,51 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                 startPoint={routeEndpoints.get(route.id)?.start ?? null}
                 endPoint={routeEndpoints.get(route.id)?.end ?? null}
               />
+
+              {/* A one-off stop, added where the day is being planned.
+                  Deliberately NOT a route stop. The stops above are the weekly template -- adding
+                  an errand to it would put a pool-store run on every Friday forever. This writes
+                  an AdHocStop, which carries a date and no recurrence, so it lands on one day and
+                  one day only. Same action the schedule's own form posts to.
+                  The date defaults to the next time this route actually runs, which is today when
+                  today is that weekday, and is editable for any other occurrence. */}
+              <details className="mt-4 border-t border-brand-border/70 pt-3">
+                <summary className="cursor-pointer text-sm font-semibold text-brand-ink">
+                  Add a one-off stop to a {DAY_NAMES[route.dayOfWeek ?? 0]}
+                </summary>
+                <p className="mt-1 text-xs text-brand-muted">
+                  For one date only — it won&rsquo;t join the weekly route above. It appears at the end of that
+                  day&rsquo;s schedule, where it can be dragged into place.
+                </p>
+                <form action={addAdHocStop} className="mt-3 flex flex-wrap items-end gap-2">
+                  <AdHocStopDateField
+                    defaultYmd={nextOccurrenceYmd(todayYmd, route.dayOfWeek ?? 1)}
+                  />
+                  <input type="hidden" name="technicianId" value={route.technicianId ?? ""} />
+                  <input
+                    name="description"
+                    required
+                    placeholder="e.g. Pool store, drop off filter…"
+                    className="app-field-sm min-w-[12rem] flex-1"
+                  />
+                  <select name="propertyId" defaultValue="" className="app-field-sm">
+                    <option value="">No property</option>
+                    {propertyOptions.map((property) => (
+                      <option key={property.id} value={property.id}>
+                        {property.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="submit" className="app-btn-primary-sm min-h-[44px]">
+                    Add stop
+                  </button>
+                </form>
+                {route.technicianId == null ? (
+                  <p className="mt-2 text-xs text-brand-muted">
+                    This route has no technician assigned, so the stop will be added unassigned.
+                  </p>
+                ) : null}
+              </details>
             </div>
             );
           })}

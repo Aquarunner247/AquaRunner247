@@ -135,6 +135,8 @@ export async function addAdHocStop(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/schedule");
+  // One-off stops can be added from the route planner too, as of 2026-10-16.
+  revalidatePath("/dashboard/routes");
 }
 
 /**

@@ -1,3 +1,5 @@
+import { addDaysToYmd, isoWeekdayOfYmd } from "@/lib/timezone";
+
 /**
  * Service schedule: pick any subset of weekdays with size 1–7.
  * Weekday convention: ISO 8601 — 1 = Monday … 7 = Sunday.
@@ -13,6 +15,20 @@ export const WEEKDAY_LABELS: Record<number, string> = {
 };
 
 export const ALL_ISO_WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+
+/**
+ * The next date a weekly route actually runs, as "YYYY-MM-DD".
+ *
+ * Today counts when today is that weekday. A route page says "Friday", not a date, so adding a
+ * one-off stop to it has to resolve to one -- and on a Friday, "Rich's Friday" means today, which
+ * is also what the schedule's own date field would default to. Every later day resolves forward.
+ *
+ * Callers pass today's ymd in the ORG's timezone, never the server's; see ymdInTimeZone.
+ */
+export function nextOccurrenceYmd(todayYmd: string, isoWeekday: number): string {
+  const delta = (isoWeekday - isoWeekdayOfYmd(todayYmd) + 7) % 7;
+  return addDaysToYmd(todayYmd, delta);
+}
 
 export type ServiceWeekdayValidation =
   | { ok: true; weekdays: number[] }

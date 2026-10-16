@@ -10,6 +10,11 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**One-off stops can be added from the route planner.** Each route now has "Add a one-off stop to
+a Friday" under its stop list. It lands on one date only and never joins the weekly route, so a
+pool-store run doesn't repeat every week. The date defaults to the next time that route runs
+(today, when today is that day) and the technician comes from the route.
+
 **One place decides stop order: the route.** The schedule's own "Optimize stop order" is gone —
 reorder a route in Routes and every future day of it follows automatically, and drag is there for
 a one-off change on the day. Before this, the two optimized separately and disagreed, because a
