@@ -11,6 +11,7 @@ import { VisitVolumeCalculator } from "@/app/components/volume-calculator";
 import { uploadVisitPhoto } from "@/lib/client/upload-visit-photo";
 import { getBestEffortLocation } from "@/lib/client/get-geolocation";
 import { queuedSubmitJson } from "@/lib/client/offline-queue";
+import { LastReadingStrip, type PreviousReading } from "@/app/components/last-reading-strip";
 import { useOfflineSync } from "@/lib/client/use-offline-sync";
 import { PhotoThumbnail } from "@/app/components/photo-thumbnail";
 import { convertToBillingUnit } from "@/lib/dosing-units";
@@ -114,6 +115,7 @@ type Props = {
   /** Set when the nightly sweep closed this stop out. Picking it back up starts it again. */
   initialPushedAt?: string | null;
   readingFields: ReadingFieldSpec[];
+  previousReading: PreviousReading | null;
   chemicalProducts: ChemicalProductOption[];
   checklistItems: ChecklistItemOption[];
   initialIssues: IssueOption[];
@@ -206,7 +208,7 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume: initialHasVolume, readingFields, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt,
+export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume: initialHasVolume, readingFields, previousReading, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt,
   initialPushedAt = null, initialDosing, serviceMessages }: Props) {
   const [hasVolume, setHasVolume] = useState(initialHasVolume);
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
@@ -1143,6 +1145,7 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
         <>
           <div data-tour="visit-chemistry" className="app-card">
             <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
+            <LastReadingStrip previous={previousReading} fields={chemistryFields} />
             <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
             <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional</p>
             <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
@@ -1181,6 +1184,7 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
       {equipmentFields.length > 0 ? (
         <div className="app-card">
           <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Gauges</h2>
+          <LastReadingStrip previous={previousReading} fields={equipmentFields} />
           <div className="mt-3 space-y-3">{equipmentFields.map(renderSlider)}</div>
         </div>
       ) : null}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { isPushedVisit } from "@/lib/visit-pushed";
 import { createPortal } from "react-dom";
 import { queuedSubmitJson } from "@/lib/client/offline-queue";
+import { LastReadingStrip, type PreviousReading } from "@/app/components/last-reading-strip";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
 import { CameraCapture } from "@/app/components/camera-capture";
 import { DosingCard } from "@/app/components/dosing-card";
@@ -102,6 +103,7 @@ type Props = {
    * record. */
   canCorrectCompleted: boolean;
   checklistItems: ChecklistItemOption[];
+  previousReading: PreviousReading | null;
   /** Set when the nightly sweep closed this stop out. Picking it back up starts it again. */
   initialPushedAt?: string | null;
   requiresFC: boolean;
@@ -144,6 +146,7 @@ export function ResidentialVisitForm({
   visitStatus,
   canCorrectCompleted,
   checklistItems: initialChecklistItems,
+  previousReading,
   hasVolume: initialHasVolume,
   requiresFC,
   requiresPH,
@@ -869,6 +872,7 @@ function confirmRemoveDose(
       {chemistryFields.some((f) => f.required) || chemistryFields.length > 0 ? (
         <div data-tour="visit-chemistry" className="app-card">
           <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
+          <LastReadingStrip previous={previousReading} fields={chemistryFields} />
           <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
         </div>
       ) : null}

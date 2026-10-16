@@ -10,6 +10,16 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**The technician can see what the pool last read.** Every visit screen now shows the last
+recorded reading for that body of water, and when it was — "Yesterday", "3 weeks ago", with the
+date and the time it was taken. Commercial gets it on both Chemistry and Gauges, so filter
+pressure can be read against last visit's.
+
+It counts imported logbook rows and readings a property logged itself, and says so, because those
+weren't taken with your test kit. It skips blank visits and visits where the only thing written
+down was a field that screen doesn't show — on Cornerstone's Office Pool that's the difference
+between showing nothing and showing the pH 7.4 / FC 3.0 from the day before.
+
 **Residential visits have a checklist.** They had none at all — the screen was built to skip it. It's
 a separate list from the commercial one, in the three groups you work to: Daily & As-Needed, Weekly
 Maintenance, Monthly & Seasonal. Your commercial checklist is untouched.

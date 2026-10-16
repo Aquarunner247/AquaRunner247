@@ -14,6 +14,7 @@ import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } fro
 import { getSavedDosingRecommendation } from "@/lib/dosing-calculator";
 import type { VisitWaterReading } from "@/generated/prisma/client";
 import { formatLocalDate, formatLocalDateTime, localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { describeRecency, readingProvenance, readingTakenAt } from "@/lib/last-reading";
 import { propertyContactEmail } from "@/lib/property-contact";
 import { resendServiceSummaryEmail } from "./actions";
 
@@ -156,6 +157,105 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   const dosing = await getSavedDosingRecommendation(visit.id);
 
   const isResidential = visit.property.propertyType === "RESIDENTIAL";
+
+
+  /**
+   * The last reading anyone recorded for this body of water, for the technician to compare today's
+   * numbers against. Nothing on this screen showed it before -- a tech standing at the pool had no
+   * idea whether the pH they just read was a change or a repeat of last week.
+   *
+   * Scoped to the BODY, not the property. Borgata's gym pool and its clubhouse pool are different
+   * water, and a property-wide stop (bodyOfWaterId null) only compares against other property-wide
+   * stops for the same reason.
+   *
+   * Imported logbook rows and readings the property logged through the portal both count: they are
+   * real recorded readings and are exactly what makes this useful on a body serviced before the app
+   * existed. Where they came from is shown, since they were not taken with this company's test kit.
+   *
+   * Ordered by scheduledStart because that is the one timestamp every row has -- an imported row has
+   * no completedAt and no capturedAt. It is a day anchor, not a clock time, which is fine for
+   * ordering by service day and is why readingTakenAt refuses to render its time of day.
+   */
+  /**
+   * Which reading columns this visit's form will actually put on screen. Residential renders its
+   * own fixed four (chemistryFieldsFor in residential-visit-form.tsx); commercial renders whatever
+   * the state's ruleset derived above, chemistry and gauges together.
+   */
+  const relevantReadingKeys: readonly string[] = isResidential
+    ? ["freeChlorinePpm", "ph", "alkalinityPpm", "cyanuricAcidPpm"]
+    : readingFields.map((field) => field.key);
+
+  /**
+   * The last reading anyone recorded for this body of water, for the technician to compare today's
+   * numbers against. Nothing on this screen carried it before: a tech standing at the pool could not
+   * tell whether the pH they just measured was a change or last week's number again.
+   *
+   * Scoped to the BODY, not the property. Borgata's gym pool and its clubhouse pool are different
+   * water, and a property-wide stop (bodyOfWaterId null) compares only against other property-wide
+   * stops for the same reason.
+   *
+   * Imported logbook rows and readings a property logged through the portal both count -- they are
+   * real recorded readings, and they are what makes this useful at all on a body serviced long
+   * before the app existed. Where the reading came from is shown, since it was not taken with this
+   * company's test kit.
+   *
+   * Ordered by scheduledStart because it is the one timestamp every row has: an imported row has no
+   * completedAt and no capturedAt. It is a day anchor rather than a clock time, which is right for
+   * ordering by service day and is why readingTakenAt refuses to render its time of day.
+   */
+  const previousReadingRow =
+    relevantReadingKeys.length === 0
+      ? null
+      : await prisma.visitWaterReading.findFirst({
+          where: {
+            visit: {
+              id: { not: visit.id },
+              propertyId: visit.propertyId,
+              bodyOfWaterId: visit.bodyOfWaterId,
+              scheduledStart: { lte: visit.scheduledStart },
+            },
+            // Skip rows holding nothing FOR THE FIELDS THIS FORM SHOWS. A VisitWaterReading is
+            // created alongside its visit and stays all-null until someone types a number, so the
+            // most recent row is routinely empty -- and a row can also carry only a field this form
+            // never displays. Both were real on production on 2026-10-15: Tailgate Beach Club's
+            // newest rows were blank, and Cornerstone's Office Pool had one holding nothing but a
+            // calcium hardness of 500, which no log sheet here shows. Either would answer "what did
+            // it last read?" with silence, on bodies with two years of readings behind them.
+            OR: relevantReadingKeys.map((field) => ({ [field]: { not: null } })),
+          },
+          orderBy: [{ visit: { scheduledStart: "desc" } }, { createdAt: "desc" }],
+          include: {
+            visit: {
+              select: {
+                scheduledStart: true,
+                completedAt: true,
+                logOnlyRecord: true,
+                loggedByCustomerUserId: true,
+                technician: { select: { name: true } },
+              },
+            },
+          },
+        });
+
+  const previousReading = previousReadingRow
+    ? (() => {
+        const timeZone = timeZoneForState(visit.organization.state);
+        const { at, hasTimeOfDay } = readingTakenAt({
+          capturedAt: previousReadingRow.capturedAt,
+          completedAt: previousReadingRow.visit.completedAt,
+          scheduledStart: previousReadingRow.visit.scheduledStart,
+        });
+        const recency = describeRecency(at, hasTimeOfDay, new Date(), timeZone);
+        return {
+          values: serializeReading(previousReadingRow),
+          relative: recency.relative,
+          absolute: recency.absolute,
+          daysAgo: recency.daysAgo,
+          provenance: readingProvenance(previousReadingRow.visit),
+          technicianName: previousReadingRow.visit.technician?.name ?? null,
+        };
+      })()
+    : null;
 
   // Residential gets its own list as of 2026-10-14 -- it used to get an empty array, which is why a
   // residential visit had no checklist at all. Commercial items default to scope COMMERCIAL, so
@@ -372,6 +472,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
             createdAt: i.createdAt.toISOString(),
           }))}
           initialReading={serializeReading(visit.reading)}
+          previousReading={previousReading}
           initialPhotoCount={visit.photos.length}
           initialPhotos={photosWithUrls}
           initialDoses={visit.doses.map((d) => ({
@@ -392,6 +493,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           canCorrectCompleted={canCorrectCompleted}
           hasVolume={visit.bodyOfWater.volumeGallons != null}
           readingFields={readingFields}
+          previousReading={previousReading}
           chemicalProducts={chemicalProducts}
           checklistItems={checklistItems}
           initialIssues={visit.issues.map((i) => ({
