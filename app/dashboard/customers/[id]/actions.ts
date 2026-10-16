@@ -418,14 +418,36 @@ export async function updateCustomerChecklist(formData: FormData) {
   });
   if (!customer) return;
 
+  /**
+   * Reconcile ONLY the items the form actually showed.
+   *
+   * An absent checkbox means "excluded", so the set this decides over has to be the set that was
+   * on screen. The page sends it, because the page is what narrows the lists -- a customer with
+   * only commercial properties is not shown the residential list, and reading those 21 absent
+   * checkboxes as 21 exclusions would be inventing decisions. Equally, wiping and rebuilding ALL
+   * exclusions would drop the hidden list's in the other direction.
+   *
+   * Falls back to every active item when the field is missing, which is what an older cached form
+   * posts and is exactly the behaviour it was written against.
+   */
+  const renderedRaw = String(formData.get("renderedItemIds") ?? "").trim();
+  const renderedIds = renderedRaw ? renderedRaw.split(",").map((id) => id.trim()).filter(Boolean) : null;
+
   const items = await prisma.checklistItemDefinition.findMany({
-    where: { organizationId: appUser.organizationId, active: true },
+    where: {
+      organizationId: appUser.organizationId,
+      active: true,
+      ...(renderedIds ? { id: { in: renderedIds } } : {}),
+    },
     select: { id: true },
   });
-  const excludedItemIds = items.filter((item) => formData.get(`item_${item.id}`) == null).map((item) => item.id);
+  const decidedIds = items.map((item) => item.id);
+  const excludedItemIds = decidedIds.filter((id) => formData.get(`item_${id}`) == null);
 
   await prisma.$transaction([
-    prisma.customerChecklistExclusion.deleteMany({ where: { customerId } }),
+    prisma.customerChecklistExclusion.deleteMany({
+      where: { customerId, ...(renderedIds ? { checklistItemId: { in: decidedIds } } : {}) },
+    }),
     ...(excludedItemIds.length
       ? [
           prisma.customerChecklistExclusion.createMany({

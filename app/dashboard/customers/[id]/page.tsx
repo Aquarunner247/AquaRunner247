@@ -181,23 +181,35 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   });
 
   /**
-   * Split by scope, because as of 2026-10-14 there are two separate lists and sortOrder restarts in
-   * each -- flat, the residential and commercial items interleave into one unlabelled list of 40-odd
-   * checkboxes where a homeowner appears to be opted out of pump-room tasks.
+   * Only the lists this customer could actually use.
    *
-   * Both groups still render in full. updateCustomerChecklist reads an ABSENT checkbox as
-   * "excluded for this customer", so showing only the scope that matches this customer's properties
-   * would silently exclude every item in the other one.
+   * There are two separate lists as of 2026-10-14, and sortOrder restarts in each, so they are
+   * grouped rather than interleaved into one unlabelled run of 40-odd checkboxes. But a customer
+   * with nothing but commercial properties has no use for the residential list at all -- on an
+   * all-commercial org that meant 21 irrelevant checkboxes on every customer page, which is how
+   * this was reported on 2026-10-16.
+   *
+   * Scoped to the property types this customer actually has. A customer with no properties yet
+   * gets both, since there is nothing to narrow by and a blank section would be worse.
    */
+  const customerScopes = new Set(customer.properties.map((property) => property.propertyType));
   const checklistGroups = (
     [
       { scope: "COMMERCIAL", heading: "Commercial properties" },
       { scope: "RESIDENTIAL", heading: "Residential properties" },
     ] as const
   )
+    .filter((group) => customerScopes.size === 0 || customerScopes.has(group.scope))
     .map((group) => ({ ...group, items: checklistItems.filter((item) => item.scope === group.scope) }))
     .filter((group) => group.items.length > 0);
   const showChecklistHeadings = checklistGroups.length > 1;
+  /**
+   * Exactly which items this form is deciding for. updateCustomerChecklist reads an ABSENT
+   * checkbox as "excluded", so without being told what was on screen it would read every item in a
+   * hidden list as a decision nobody made. Submitting the rendered ids makes the form reconcile
+   * only itself and leave the other list's exclusions untouched.
+   */
+  const renderedChecklistItemIds = checklistGroups.flatMap((group) => group.items.map((item) => item.id));
 
   const managementCompanies = await prisma.managementCompany.findMany({
     where: { organizationId: appUser.organizationId },
@@ -452,6 +464,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               <>
                 <form action={updateCustomerAndPrimaryProperty} className="mt-3 space-y-2">
                   <input type="hidden" name="customerId" value={customer.id} />
+                <input type="hidden" name="renderedItemIds" value={renderedChecklistItemIds.join(",")} />
                   {primaryProperty ? <input type="hidden" name="propertyId" value={primaryProperty.id} /> : null}
                   <NameInput
                     name="name"
