@@ -137,8 +137,8 @@ export default async function RoutesPage({ searchParams }: PageProps) {
   });
 
   // Resolved once per route: the override -> technician default -> none chain lives in
-  // lib/route-endpoints.ts, and both "Optimize stop order" buttons and the per-route summary
-  // below read it from here rather than re-deriving it.
+  // lib/route-endpoints.ts, and "Optimize stop order" and the per-route summary below read it
+  // from here rather than re-deriving it.
   const routeEndpoints = new Map(
     routes.map((route) => [route.id, resolveRouteEndpoints({ route, technician: route.technician })]),
   );

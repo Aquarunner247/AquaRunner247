@@ -130,7 +130,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     await ensureVisitsGeneratedForDate(appUser.organizationId, selectedYmd, tz);
   }
 
-  // Where this technician's day begins and finishes, for the map and "Optimize stop order".
+  // Where this technician's day begins and finishes, for the map's start/end pins and the
+  // driving line. Not for optimizing: that happens in the route builder now, not here.
   // Resolved against the ROUTE that runs on the selected weekday, so a Thursday override applies
   // on Thursdays only; with no route or no override it falls back to their own defaults, and with
   // neither it's null and the day simply starts at its first stop. See lib/route-endpoints.ts.

@@ -10,9 +10,9 @@ import type { BackgroundGeolocationPlugin } from "@capacitor-community/backgroun
 import { PushNotifications } from "@capacitor/push-notifications";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_ANCHOR, BRAND_PRIMARY } from "@/app/lib/chart-colors";
-import { coalesceBundleMembers, formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
+import { formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
 import { useDragReorder } from "@/lib/client/use-drag-reorder";
-import { fetchDrivingRoute, computeOptimizedStopOrder } from "@/lib/routing";
+import { fetchDrivingRoute } from "@/lib/routing";
 import { directionsUrl } from "@/lib/directions-url";
 import { sameEndpoint } from "@/lib/route-endpoints";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
@@ -52,8 +52,9 @@ export type RouteStop = {
 };
 
 /// An "extra stop" (AdHocStop) — an errand, not a real chemistry-reading service visit.
-/// It shares the day's sequence with visits, and now appears on the map, in the driving line,
-/// and in "Optimize stop order"'s distance calculation (when it has coordinates).
+/// It shares the day's sequence with visits and appears on the map and in the driving line
+/// (when it has coordinates). Ordering it is drag-only, like everything else here -- this view
+/// lost its own "Optimize stop order" on 2026-10-16; the route builder's is the one that remains.
 ///
 /// GPS auto-arrival is the one thing it is still deliberately excluded from: arrival stamping
 /// writes to a ServiceVisit, and an errand has no reading to arrive for.
@@ -64,8 +65,9 @@ export type AdHocItem = {
   propertyName: string | null;
   /// From the attached property, when there is one. An ad-hoc stop's property is optional
   /// (a "pool store run" has none) and a property may not be geocoded yet, so either can be
-  /// null -- those get no marker and no vertex in the line, and are appended last by
-  /// "Optimize stop order", but still appear in the list at their real position.
+  /// null -- those get no marker and no vertex in the line, but still appear in the list at
+  /// their real position. The route builder's optimizer appends its own coordinate-less stops
+  /// last; nothing on this screen reorders anything automatically.
   latitude: number | null;
   longitude: number | null;
   technicianId?: string | null;
@@ -128,14 +130,6 @@ type Props = {
   /// the route-override -> technician-default chain; this component never derives it.
   endPoint?: { latitude: number; longitude: number; label?: string | null } | null;
 };
-
-type PlacedDayItem = DayItem & { latitude: number; longitude: number };
-
-/// Narrows either union member to one that can go on a map or into a cost matrix. Both kinds
-/// carry nullable coordinates, so this is the single place that distinction is made.
-function hasCoords(item: DayItem): item is PlacedDayItem {
-  return item.latitude != null && item.longitude != null;
-}
 
 /// An ad-hoc item has no "in progress" state -- it never matches that filter. "completed"/
 /// "pending" map onto its own completed flag.
@@ -327,8 +321,6 @@ export function RouteDayView({
   // can't accidentally get an interactive combined view by forgetting to pass readOnly.
   const effectiveReadOnly = readOnly || isMultiTech;
   const [items, setItems] = useState<DayItem[]>(initialItems);
-  const [saving, setSaving] = useState(false);
-  const [optimizing, setOptimizing] = useState(false);
   const [locationState, setLocationState] = useState<"idle" | "watching" | "denied" | "unsupported" | "unavailable">("idle");
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -772,16 +764,11 @@ export function RouteDayView({
 
   async function persistOrder(next: DayItem[]) {
     setItems(next);
-    setSaving(true);
-    try {
-      await fetch("/api/visits/reorder", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: next.map((v) => ({ kind: v.kind, id: v.id })) }),
-      });
-    } finally {
-      setSaving(false);
-    }
+    await fetch("/api/visits/reorder", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: next.map((v) => ({ kind: v.kind, id: v.id })) }),
+    });
   }
 
   const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(items, persistOrder, effectiveReadOnly);
@@ -961,53 +948,6 @@ export function RouteDayView({
     });
   }
 
-  /**
-   * Real driving duration via lib/routing.ts's computeOptimizedStopOrder, falling back to
-   * straight-line distance if OSRM's table service is unreachable.
-   *
-   * Extra stops with coordinates are now part of the distance calculation, not appended after
-   * it: an errand is a real place the technician drives to, so leaving it out produced an
-   * "optimized" order that ignored a stop on the route. Ones WITHOUT coordinates still go on
-   * the end, the same treatment coordinate-less visits get -- there's nothing to optimize
-   * against.
-   *
-   * Two consequences worth knowing. computeOptimizedStopOrder pins index 0, so if the day's
-   * first stop is an errand it stays first (defensible -- a supply-house run often is the first
-   * stop -- but it is a change). And errands now count toward fetchDrivingDurationMatrix's
-   * 50-point ceiling, so a very dense day falls back to straight-line slightly sooner.
-   *
-   * coalesceBundleMembers runs over the result because the cost function cannot see bundles: two
-   * bodies at one property are metres apart, so when two PROPERTIES are also close the interleaved
-   * order (pool A, pool B, spa A, spa B) costs the same as the grouped one and nothing prefers
-   * grouping. That is what left Pacific Harbors and Paseo Del Prado each split across the other.
-   */
-  async function optimizeRoute() {
-    const placed = items.filter(hasCoords);
-    const unplacedVisits = items.filter((i) => i.kind === "visit" && !hasCoords(i));
-    const unplacedErrands = items.filter((i) => i.kind === "adhoc" && !hasCoords(i));
-    // Still 2, just over both kinds now. computeOptimizedStopOrder already no-ops below 2, so
-    // this only avoids a pointless spinner and network round trip -- what actually changed is
-    // that a day of one visit plus several geocoded errands now optimizes instead of bailing.
-    if (placed.length < 2) return;
-
-    setOptimizing(true);
-    try {
-      const ordered = await computeOptimizedStopOrder(placed, { start: startPoint, end: endPoint });
-      const grouped = coalesceBundleMembers(
-        ordered.map((i) => ({
-          ...i,
-          propertyId: i.kind === "adhoc" ? null : i.propertyId,
-          bodyType: i.kind === "adhoc" ? null : i.bodyType,
-        })),
-      );
-      // Map back to the original items by id -- coalesce only reorders, never rewrites.
-      const byId = new Map(ordered.map((i) => [i.id, i]));
-      const reordered = grouped.map((g) => byId.get(g.id)!).filter(Boolean);
-      await persistOrder([...reordered, ...unplacedVisits, ...unplacedErrands]);
-    } finally {
-      setOptimizing(false);
-    }
-  }
 
   /**
    * The next stop still to do, in route order. What a technician opens this page for.
@@ -1172,17 +1112,6 @@ export function RouteDayView({
                 )}
               </div>
             </div>
-          ) : null}
-          {!effectiveReadOnly ? (
-            <button
-              type="button"
-              data-tour="schedule-optimize-route"
-              onClick={optimizeRoute}
-              disabled={saving || optimizing}
-              className="app-btn-primary-sm mb-2"
-            >
-              {optimizing ? "Optimizing…" : "Optimize stop order"}
-            </button>
           ) : null}
           <ul className="space-y-2">
             {displayedItems.map((item) => {

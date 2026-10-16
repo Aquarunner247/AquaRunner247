@@ -10,6 +10,17 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**One place decides stop order: the route.** The schedule's own "Optimize stop order" is gone —
+reorder a route in Routes and every future day of it follows automatically, and drag is there for
+a one-off change on the day. Before this, the two optimized separately and disagreed, because a
+day's schedule often isn't the same set of stops as the route (a Friday carrying an extra property
+is a different problem to solve than the route is).
+
+Days with extra work on them come along too. The whole day gets rebuilt rather than just the
+route's share of it, so nothing ends up sharing a position, and an extra stop stays with whichever
+route stop it currently sits behind. Anything already arrived at, finished, skipped or moved keeps
+its place — a stop serviced first thing doesn't get shuffled into the afternoon.
+
 **The technician's schedule is a list with directions on it, not a map.** The day tab no longer
 draws the route map — the techs' verdict was that it did nothing for them and it pushed the list
 they actually use below the fold. The map is still there on its own tab, and its pins are now
