@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
+import { localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 
 type ReorderPayload = { stopIds?: string[] };
 
@@ -29,7 +30,44 @@ export async function PATCH(request: Request, context: { params: Promise<{ route
     .map((id, index) => ({ id, index }))
     .sort((a, b) => a.id.localeCompare(b.id));
 
-  await prisma.$transaction(updates.map(({ id, index }) => prisma.recurringStop.update({ where: { id }, data: { sortOrder: index } })));
+  /**
+   * Days already generated have to follow, or this screen quietly stops being the source of truth.
+   *
+   * visit-generation copies sortOrder into ServiceVisit.routeSequence ONCE, when it first creates
+   * the day's visits (lib/visit-generation.ts). A day is generated the first time anybody opens
+   * the schedule for it, which for a recurring route is usually well before the day arrives -- so
+   * by the time a route is reordered here, next week's visits already exist carrying the old
+   * order, and nothing afterwards ever revisited them. Reported 2026-10-16 on Rich's Friday:
+   * eleven stops reordered in the builder, all eleven still in the previous order on the schedule
+   * for both that day and the following Friday.
+   *
+   * Scoped deliberately:
+   *
+   *   - Today and later only. A past day is a record of what happened in the order it happened.
+   *   - SCHEDULED only. A stop someone has arrived at, finished, skipped or moved is no longer
+   *     waiting to be ordered, and renumbering it would rewrite the day under a technician who is
+   *     working it. On today's route that means the untouched stops re-order and the ones already
+   *     dealt with keep their place.
+   *
+   * In the same transaction as the sortOrder writes, and over the same id-sorted list, so the two
+   * can never disagree and the lock-ordering argument above still holds.
+   */
+  const organization = await prisma.organization.findUnique({
+    where: { id: appUser.organizationId },
+    select: { state: true },
+  });
+  const timeZone = timeZoneForState(organization?.state);
+  const { start: todayStart } = localDayBounds(ymdInTimeZone(new Date(), timeZone), timeZone);
+
+  await prisma.$transaction(
+    updates.flatMap(({ id, index }) => [
+      prisma.recurringStop.update({ where: { id }, data: { sortOrder: index } }),
+      prisma.serviceVisit.updateMany({
+        where: { recurringStopId: id, status: "SCHEDULED", scheduledStart: { gte: todayStart } },
+        data: { routeSequence: index },
+      }),
+    ]),
+  );
 
   return NextResponse.json({ ok: true });
 }
