@@ -650,7 +650,7 @@ export function RouteDayView({
         ? "×"
         : isMultiTech
           ? getTechnicianInitial(item.technicianLabel)
-          : String((trueIndexById.get(item.id) ?? 0) + 1);
+          : String((serviceIndexById.get(item.id) ?? 0) + 1);
 
       const icon = L.divIcon({
         className: "",
@@ -703,6 +703,11 @@ export function RouteDayView({
         (actions.length ? `<div style="display:flex;gap:8px;margin-top:10px;align-items:center">${actions.join("")}</div>` : "");
 
       L.marker([latitude, longitude], { icon }).addTo(layerRef.current!).bindPopup(popupHtml);
+
+      // A skipped stop still gets its "×" so the technician can see it is there and why the line
+      // passes it by -- but it is not a place anyone is driving to, so it contributes no vertex.
+      // The line joins its neighbours directly, which is the route actually being driven.
+      if (isSkipped) continue;
       points.push([latitude, longitude]);
 
       if (isMultiTech) {
@@ -794,7 +799,7 @@ export function RouteDayView({
     }
   }
 
-  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(
+  const { isDragging, setItemRef, dragHandleProps } = useDragReorder(
     items,
     previewOrder,
     effectiveReadOnly,
@@ -1011,6 +1016,21 @@ export function RouteDayView({
   const displayedItems = statusFilter === "all" ? items : items.filter((i) => matchesStatusFilter(i, statusFilter));
   const trueIndexById = new Map(items.map((i, idx) => [i.id, idx]));
 
+  /**
+   * Position in the day's DRIVING order, which is not the same as position in the day.
+   *
+   * A skipped or moved stop is not being driven to, so it is left out of the line on the map and
+   * takes no number, and the stops after it close the gap rather than carrying a hole. Both are
+   * CANCELLED; "Skip" and the moved arrow already stand in for a number in the list, so nothing
+   * loses its label by not having one here.
+   *
+   * Separate from trueIndexById on purpose: that is the real position in `items` and is what the
+   * drag hook must be given, since it splices against the full array. Only what a person reads --
+   * the badge and the marker glyph -- uses this one.
+   */
+  const routedItems = items.filter((i) => !(i.kind === "visit" && i.status === "CANCELLED"));
+  const serviceIndexById = new Map(routedItems.map((i, idx) => [i.id, idx]));
+
   // Bundle stops that are one walk-up: same property, adjacent in route order, within
   // BUNDLE_RADIUS_METERS of each other's pins, AND a different kind of water from the rest of the
   // bundle. See lib/stop-grouping.ts for why this measures distance rather than matching names, how
@@ -1167,7 +1187,7 @@ export function RouteDayView({
                     <li
                       ref={setItemRef(idx)}
                       data-tour={idx === 0 ? "schedule-first-stop" : undefined}
-                      className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-brand-border bg-white p-2 ${draggingIndex === idx ? "opacity-60" : ""}`}
+                      className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-brand-border bg-white p-2 ${isDragging(idx) ? "opacity-60" : ""}`}
                     >
                       {!effectiveReadOnly ? (
                         <span
@@ -1235,12 +1255,29 @@ export function RouteDayView({
                 const members = visibleBundleIds
                   .map((id) => itemById.get(id))
                   .filter((m): m is DayItem & { kind: "visit" } => m?.kind === "visit");
-                const positions = members.map((m) => (trueIndexById.get(m.id) ?? 0) + 1);
+                // Driving-order positions, and only of members actually being serviced -- a skipped
+                // body inside a bundle should not widen the card's "3-5" to "3-6".
+                const positions = members
+                  .filter((m) => m.status !== "CANCELLED")
+                  .map((m) => (serviceIndexById.get(m.id) ?? 0) + 1);
                 // Earliest arrival among the members: one walk-up, one arrival.
                 const arrivedAt = members
                   .map((m) => m.startedAt)
                   .filter((t): t is string => Boolean(t))
                   .sort()[0];
+                /**
+                 * A block drag splices a contiguous run out of `items`, so it is only offered when
+                 * the visible members really are contiguous there. They normally are -- bundling
+                 * requires adjacency -- but a status filter can hide a member from the middle,
+                 * which would make a run of three "members" span four positions and drag a stop
+                 * nobody can see. In that case the per-member grips still work.
+                 */
+                const memberIndexes = members.map((m) => trueIndexById.get(m.id) ?? 0).sort((a, b) => a - b);
+                const bundleStartIdx = memberIndexes[0];
+                const bundleIsContiguous =
+                  memberIndexes.length > 1 && memberIndexes[memberIndexes.length - 1] - bundleStartIdx + 1 === memberIndexes.length;
+                const bundleHandle = bundleIsContiguous ? dragHandleProps(bundleStartIdx, memberIndexes.length) : null;
+
                 const fullMemberIds = groupById.get(bundleId)?.memberIds ?? visibleBundleIds;
                 const captureParams = new URLSearchParams();
                 if (dateYmd) captureParams.set("date", dateYmd);
@@ -1263,6 +1300,16 @@ export function RouteDayView({
                       className="rounded border border-brand-border bg-white p-2"
                     >
                       <div className="flex items-start gap-3">
+                        {!effectiveReadOnly && bundleHandle ? (
+                          <span
+                            {...bundleHandle}
+                            aria-label={`Drag to reorder all ${members.length} stops at ${v.propertyName}`}
+                            title="Drag to move this whole walk-up"
+                            className="flex h-11 w-11 shrink-0 cursor-grab select-none items-center justify-center text-lg text-brand-muted active:cursor-grabbing"
+                          >
+                            ⠿
+                          </span>
+                        ) : null}
                         <span
                           className={`flex h-7 shrink-0 items-center justify-center rounded-full px-2 text-xs font-bold text-white ${
                             isMultiTech ? "" : "bg-brand-primary"
@@ -1327,7 +1374,7 @@ export function RouteDayView({
                             <li
                               key={m.id}
                               ref={setItemRef(mIdx)}
-                              className={`flex items-center gap-2 py-1 ${draggingIndex === mIdx ? "opacity-60" : ""}`}
+                              className={`flex items-center gap-2 py-1 ${isDragging(mIdx) ? "opacity-60" : ""}`}
                             >
                               {!effectiveReadOnly ? (
                                 <span
@@ -1391,7 +1438,7 @@ export function RouteDayView({
                         : isMoved
                           ? "border-brand-border bg-brand-surface"
                           : "border-brand-border bg-white"
-                    } ${draggingIndex === idx ? "opacity-60" : ""}`}
+                    } ${isDragging(idx) ? "opacity-60" : ""}`}
                   >
                     {!effectiveReadOnly ? (
                       <span
@@ -1413,7 +1460,7 @@ export function RouteDayView({
                           : undefined
                       }
                     >
-                      {isSkipped ? "Skip" : isMoved ? "\u2192" : idx + 1}
+                      {isSkipped ? "Skip" : isMoved ? "\u2192" : (serviceIndexById.get(v.id) ?? 0) + 1}
                     </span>
                     <div className="min-w-0 flex-1">
                       {/* RouteDayView is only ever rendered from the Schedule tab (both admin and

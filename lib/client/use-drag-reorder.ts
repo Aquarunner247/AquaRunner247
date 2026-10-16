@@ -19,6 +19,11 @@ import { useRef, useState } from "react";
  * "TypeError: Load failed" (Sentry JAVASCRIPT-NEXTJS-E, Mobile Safari 26.6.1), and the ones that
  * did land raced -- the last write to arrive was not necessarily the order the finger ended on.
  *
+ * `dragHandleProps(index, blockSize)` drags a CONTIGUOUS RUN as one. A bundled walk-up -- a
+ * property's pool and spa, one arrival -- is a single thing to a technician, so dragging it a
+ * body at a time was busywork that also broke the bundle apart on the way. Members keep their own
+ * grips for deliberately pulling one body out; the card's grip moves the run.
+ *
  * Usage: put `dragHandleProps(index)` on a small grip element (never on a row that also
  * contains a link/button -- a native <a> under `draggable` conflicts with drag-start on
  * mouse, and a grip keeps drag and tap/click targets from overlapping either way), and
@@ -34,6 +39,8 @@ export function useDragReorder<T>(
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
   const fromIndexRef = useRef<number | null>(null);
+  const blockSizeRef = useRef(1);
+  const [draggingSize, setDraggingSize] = useState(1);
   const orderRef = useRef(items);
   orderRef.current = items;
   /** Whether this drag actually moved anything, so letting go without moving saves nothing. */
@@ -47,6 +54,8 @@ export function useDragReorder<T>(
 
   function endDrag() {
     const moved = movedRef.current;
+    blockSizeRef.current = 1;
+    setDraggingSize(1);
     fromIndexRef.current = null;
     movedRef.current = false;
     setDraggingIndex(null);
@@ -55,7 +64,7 @@ export function useDragReorder<T>(
     if (moved) onCommit?.(orderRef.current);
   }
 
-  function dragHandleProps(index: number) {
+  function dragHandleProps(index: number, blockSize: number = 1) {
     return {
       // Inline style, not a Tailwind class -- this hook lives under lib/, which isn't in
       // tailwind.config.ts's `content` glob (app/, components/, pages/ only), so a
@@ -68,8 +77,10 @@ export function useDragReorder<T>(
         e.preventDefault();
         e.currentTarget.setPointerCapture(e.pointerId);
         fromIndexRef.current = index;
+        blockSizeRef.current = Math.max(1, blockSize);
         movedRef.current = false;
         setDraggingIndex(index);
+        setDraggingSize(Math.max(1, blockSize));
       },
       onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
         if (fromIndexRef.current == null) return;
@@ -85,20 +96,32 @@ export function useDragReorder<T>(
           }
         }
         const from = fromIndexRef.current;
-        if (overIndex != null && overIndex !== from) {
-          const next = [...orderRef.current];
-          const [moved] = next.splice(from, 1);
-          next.splice(overIndex, 0, moved);
-          fromIndexRef.current = overIndex;
-          movedRef.current = true;
-          setDraggingIndex(overIndex);
-          onReorder(next);
-        }
+        const size = blockSizeRef.current;
+        // Hovering within the run being dragged is not a move -- without this, a two-row bundle
+        // would thrash between its own two rows as the finger crosses them.
+        if (overIndex == null || (overIndex >= from && overIndex < from + size)) return;
+
+        const next = [...orderRef.current];
+        const block = next.splice(from, size);
+        // Dragging DOWN, the rows above the target have already shifted up by `size`, and the
+        // run belongs after the row being hovered -- hence the +1. Dragging up needs neither.
+        const insertAt = overIndex < from ? overIndex : overIndex - size + 1;
+        next.splice(insertAt, 0, ...block);
+
+        fromIndexRef.current = insertAt;
+        movedRef.current = true;
+        setDraggingIndex(insertAt);
+        onReorder(next);
       },
       onPointerUp: endDrag,
       onPointerCancel: endDrag,
     };
   }
 
-  return { draggingIndex, setItemRef, dragHandleProps };
+  /** True for every row of the run currently being dragged, not just its first. */
+  function isDragging(index: number) {
+    return draggingIndex != null && index >= draggingIndex && index < draggingIndex + draggingSize;
+  }
+
+  return { draggingIndex, isDragging, setItemRef, dragHandleProps };
 }

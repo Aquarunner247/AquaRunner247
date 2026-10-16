@@ -10,6 +10,15 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**A bundled walk-up drags as one.** A property's pool and spa are one arrival, so the card has its
+own grip that moves every stop in it together. Each body keeps its own grip for deliberately
+pulling one out of the bundle.
+
+**Skipped stops drop out of the day's directions.** The map no longer routes through a stop that
+was skipped — the line joins its neighbours directly, and the numbering closes up so the order
+reads 1, 2, 3 over the stops actually being serviced. The skipped stop still shows on the map with
+its ×, so it's clear why the route passes it by.
+
 **A route can start or finish AT a stop, not just near one.** Setting a day's finish to a customer
 now means that customer is serviced last. Before, the finish was a bare coordinate the optimizer
 added as an extra point, so a property set as the finish existed twice — once as the real stop and

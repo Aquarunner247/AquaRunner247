@@ -106,6 +106,50 @@ describe("useDragReorder", () => {
     expect(onCommit).toHaveBeenCalledTimes(1);
   });
 
+  describe("dragging a bundle as one run", () => {
+    /** A property's pool and spa are one walk-up, so the card's grip moves both. */
+    it("moves the whole run down together", () => {
+      const { view, onReorder, onCommit, drag } = setup(["p1", "p2", "b", "c"]);
+      // Grip on the run starting at 0, two rows long.
+      act(() => view.result.current.dragHandleProps(0, 2).onPointerDown(pointer(10)));
+      drag(0, 130); // over row 3 ("c")
+      act(() => view.result.current.dragHandleProps(2, 2).onPointerUp());
+      expect(onReorder.mock.calls.at(-1)![0]).toEqual(["b", "c", "p1", "p2"]);
+      expect(onCommit).toHaveBeenCalledTimes(1);
+    });
+
+    it("moves the whole run up together", () => {
+      const { view, onReorder, drag } = setup(["a", "b", "p1", "p2"]);
+      act(() => view.result.current.dragHandleProps(2, 2).onPointerDown(pointer(90)));
+      drag(2, 10); // over row 0
+      expect(onReorder.mock.calls.at(-1)![0]).toEqual(["p1", "p2", "a", "b"]);
+    });
+
+    /** Without this the run thrashes as the finger crosses its own second row. */
+    it("ignores a hover inside the run being dragged", () => {
+      const { view, onReorder } = setup(["p1", "p2", "b"]);
+      act(() => view.result.current.dragHandleProps(0, 2).onPointerDown(pointer(10)));
+      act(() => view.result.current.dragHandleProps(0, 2).onPointerMove(pointer(50))); // row 1, inside the run
+      expect(onReorder).not.toHaveBeenCalled();
+    });
+
+    it("keeps the run's members adjacent and in their own order", () => {
+      const { view, onReorder, drag } = setup(["a", "p1", "p2", "b", "c"]);
+      act(() => view.result.current.dragHandleProps(1, 2).onPointerDown(pointer(50)));
+      drag(1, 170); // over row 4
+      const out = onReorder.mock.calls.at(-1)![0];
+      expect(out.indexOf("p2")).toBe(out.indexOf("p1") + 1);
+      expect(out).toEqual(["a", "b", "c", "p1", "p2"]);
+    });
+
+    it("still drags a single row when no run size is given", () => {
+      const { view, onReorder, drag } = setup(["p1", "p2", "b"]);
+      act(() => view.result.current.dragHandleProps(0).onPointerDown(pointer(10)));
+      drag(0, 50);
+      expect(onReorder.mock.calls.at(-1)![0]).toEqual(["p2", "p1", "b"]);
+    });
+  });
+
   it("ignores a drag entirely when disabled", () => {
     const { view, onReorder, onCommit } = setup(["a", "b"], true);
     act(() => view.result.current.dragHandleProps(0).onPointerDown(pointer(10)));
