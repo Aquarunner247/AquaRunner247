@@ -14,8 +14,11 @@
  * itself half of another walk-up it splits two at once.
  *
  * What it does:
- *   - Renumbers each route's stops 0..N-1, keeping their current order (sortOrder, then createdAt).
- *     Order is preserved; only the gaps and duplicates go.
+ *   - Gathers each route's declared walk-ups together, then renumbers 0..N-1. Two walk-ups can be
+ *     INTERLEAVED without any collision at all -- Rodrigo's Thursday runs Borgata Gym Spa, both
+ *     Clarkson venues, then Borgata Gym Pool -- and a bundle has to be contiguous, so that alone
+ *     stops it being one card. coalesceBundleMembers does the gathering: it only ever moves a stop
+ *     to just after one it already shares a walk-up with, so the route's plan is untouched.
  *   - For each technician-day from today forward that is out of step, rebuilds routeSequence from
  *     the route's order via resequenceDay -- the same function the reorder endpoint uses, with the
  *     same rules about what may move (a still-SCHEDULED stop of that route) and what is pinned
@@ -28,6 +31,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { resequenceDay, type DaySequenceItem } from "@/lib/day-resequence";
+import { coalesceBundleMembers } from "@/lib/stop-grouping";
 import { localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 
 async function main() {
@@ -38,22 +42,49 @@ async function main() {
   const routes = await prisma.recurringRoute.findMany({
     include: {
       technician: { select: { id: true, name: true } },
-      stops: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, sortOrder: true } },
+      stops: {
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        sortOrder: true,
+        propertyId: true,
+        bodyOfWater: { select: { type: true, serviceGroup: true } },
+      },
+    },
       organization: { select: { state: true } },
     },
   });
 
   let templateWrites = 0;
+  /** The order each route SHOULD be in, kept so pass 2 resequences days against the repaired plan. */
+  const repairedOrderByRoute = new Map<string, string[]>();
+
   for (const route of routes) {
-    const needed = route.stops.filter((stop, index) => stop.sortOrder !== index);
+    const gathered = coalesceBundleMembers(
+      route.stops.map((stop) => ({
+        id: stop.id,
+        propertyId: stop.propertyId,
+        latitude: null,
+        longitude: null,
+        bodyType: stop.bodyOfWater?.type ?? null,
+        serviceGroup: stop.bodyOfWater?.serviceGroup ?? null,
+      })),
+    );
+    repairedOrderByRoute.set(route.id, gathered.map((stop) => stop.id));
+
+    const positionNow = new Map(route.stops.map((stop) => [stop.id, stop.sortOrder]));
+    const needed = gathered.filter((stop, index) => positionNow.get(stop.id) !== index);
     if (needed.length === 0) continue;
+
+    const movedByGathering = gathered.some((stop, index) => route.stops[index]?.id !== stop.id);
     console.log(
-      `route ${route.name} (${route.technician?.name ?? "unassigned"}): renumbering ${needed.length} of ${route.stops.length} stops`,
+      `route ${route.name} (${route.technician?.name ?? "unassigned"}): ${needed.length} of ${route.stops.length} stops` +
+        (movedByGathering ? " — walk-ups gathered" : " — renumbered only"),
     );
     templateWrites += needed.length;
     if (apply) {
-      for (const [index, stop] of route.stops.entries()) {
-        if (stop.sortOrder === index) continue;
+      for (const [index, stop] of gathered.entries()) {
+        if (positionNow.get(stop.id) === index) continue;
         await prisma.recurringStop.update({ where: { id: stop.id }, data: { sortOrder: index } });
       }
     }
@@ -69,8 +100,8 @@ async function main() {
     const timeZone = timeZoneForState(route.organization.state);
     const todayStart = localDayBounds(ymdInTimeZone(now, timeZone), timeZone).start;
 
-    // Re-read in the order the repair above intends, so a dry run reports the end state.
-    const stopIdsInOrder = route.stops.map((stop) => stop.id);
+    // The repaired order from pass 1, so a dry run reports the end state rather than the old one.
+    const stopIdsInOrder = repairedOrderByRoute.get(route.id) ?? route.stops.map((stop) => stop.id);
 
     const visits = await prisma.serviceVisit.findMany({
       where: { recurringStopId: { in: stopIdsInOrder }, scheduledStart: { gte: todayStart } },
