@@ -339,7 +339,24 @@ export async function addRouteStop(formData: FormData) {
     if (alreadyScheduledThatDay) return;
   }
 
-  const stopCount = await prisma.recurringStop.count({ where: { routeId: route.id } });
+  /**
+   * One past the highest position in use, NOT the number of stops.
+   *
+   * Those differ the moment a stop is removed: a route of eleven stops numbered 0-10 that loses
+   * one still ends at 10, so a count-based position hands the next stop 10 again and two stops
+   * share a place. routeSequence/sortOrder is an ordering, and two things cannot be in the same
+   * position -- which order they come out in is then decided by a tiebreak nobody chose.
+   *
+   * Found 2026-10-19 on Rodrigo's Wednesday, where The Alcove's Front Pool and Mountains Edge's
+   * Spa both sat at 9. The visible symptom was neither property bundling: Mountains Edge's spa
+   * landed between The Alcove's two front venues, so neither pair was contiguous and a bundle has
+   * to be. Rich's Tuesday and Saturday had the same collision.
+   */
+  const highest = await prisma.recurringStop.aggregate({
+    where: { routeId: route.id },
+    _max: { sortOrder: true },
+  });
+  const nextSortOrder = (highest._max.sortOrder ?? -1) + 1;
   const etaOffsetMinutes = Number(etaOffsetRaw);
 
   await prisma.recurringStop.create({
@@ -347,7 +364,7 @@ export async function addRouteStop(formData: FormData) {
       routeId: route.id,
       propertyId: body.propertyId,
       bodyOfWaterId: body.id,
-      sortOrder: stopCount,
+      sortOrder: nextSortOrder,
       etaOffsetMinutes: Number.isFinite(etaOffsetMinutes) ? etaOffsetMinutes : 0,
     },
   });
