@@ -24,18 +24,25 @@
  *     same rules about what may move (a still-SCHEDULED stop of that route) and what is pinned
  *     (anything arrived at, finished, skipped, moved, or not on the route, plus every errand).
  *
+ * TODAY IS LEFT ALONE unless --include-today is passed. The rules already pin anything arrived at
+ * or finished, but a technician mid-route is reading their list as it is, and reordering what is
+ * left under them is worth opting into rather than getting by default. Tomorrow's run fixes the
+ * same day's template anyway.
+ *
  * DRY RUN BY DEFAULT. Pass --apply to write.
  *
- *   npx tsx scripts/repair-stop-order.ts
+ *   npx tsx scripts/repair-stop-order.ts                    # future days only, prints everything
+ *   npx tsx scripts/repair-stop-order.ts --include-today
  *   npx tsx scripts/repair-stop-order.ts --apply
  */
 import { prisma } from "@/lib/prisma";
 import { resequenceDay, type DaySequenceItem } from "@/lib/day-resequence";
 import { coalesceBundleMembers } from "@/lib/stop-grouping";
-import { localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { addDaysToYmd, localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 
 async function main() {
   const apply = process.argv.includes("--apply");
+  const includeToday = process.argv.includes("--include-today");
   console.log(apply ? "APPLYING\n" : "DRY RUN — nothing will be written. Pass --apply to write.\n");
 
   // ---- 1. route templates ----
@@ -48,12 +55,22 @@ async function main() {
         id: true,
         sortOrder: true,
         propertyId: true,
-        bodyOfWater: { select: { type: true, serviceGroup: true } },
+        property: { select: { name: true } },
+        bodyOfWater: { select: { name: true, type: true, serviceGroup: true } },
       },
     },
       organization: { select: { state: true } },
     },
   });
+
+  const nameById = new Map(
+    routes.flatMap((route) =>
+      route.stops.map((stop) => [
+        stop.id,
+        `${stop.property.name.split(" ")[0]}/${stop.bodyOfWater?.name ?? "property"}${stop.bodyOfWater?.serviceGroup ? `[${stop.bodyOfWater.serviceGroup}]` : ""}`,
+      ]),
+    ),
+  );
 
   let templateWrites = 0;
   /** The order each route SHOULD be in, kept so pass 2 resequences days against the repaired plan. */
@@ -79,8 +96,15 @@ async function main() {
     const movedByGathering = gathered.some((stop, index) => route.stops[index]?.id !== stop.id);
     console.log(
       `route ${route.name} (${route.technician?.name ?? "unassigned"}): ${needed.length} of ${route.stops.length} stops` +
-        (movedByGathering ? " — walk-ups gathered" : " — renumbered only"),
+        (movedByGathering ? " — WALK-UPS GATHERED" : " — renumbered only, order unchanged"),
     );
+    // A count alone cannot distinguish "every position shifted by one because of a gap" from "the
+    // route was reshuffled". When anything genuinely moves, show the before and after.
+    if (movedByGathering) {
+      const label = (id: string) => nameById.get(id) ?? id;
+      console.log(`    before: ${route.stops.map((stop) => label(stop.id)).join(" | ")}`);
+      console.log(`    after : ${gathered.map((stop) => label(stop.id)).join(" | ")}`);
+    }
     templateWrites += needed.length;
     if (apply) {
       for (const [index, stop] of gathered.entries()) {
@@ -98,7 +122,9 @@ async function main() {
   for (const route of routes) {
     if (!route.technicianId || route.stops.length === 0) continue;
     const timeZone = timeZoneForState(route.organization.state);
-    const todayStart = localDayBounds(ymdInTimeZone(now, timeZone), timeZone).start;
+    const todayYmd = ymdInTimeZone(now, timeZone);
+    const fromYmd = includeToday ? todayYmd : addDaysToYmd(todayYmd, 1);
+    const todayStart = localDayBounds(fromYmd, timeZone).start;
 
     // The repaired order from pass 1, so a dry run reports the end state rather than the old one.
     const stopIdsInOrder = repairedOrderByRoute.get(route.id) ?? route.stops.map((stop) => stop.id);
@@ -161,6 +187,7 @@ async function main() {
   }
 
   console.log(`\n${dayWrites} day positions ${apply ? "rewritten" : "would be rewritten"}.`);
+  if (!includeToday) console.log("Today was skipped. Pass --include-today to reorder a day in progress.");
   if (!apply) console.log("\nNothing was written. Re-run with --apply once this looks right.");
 }
 
