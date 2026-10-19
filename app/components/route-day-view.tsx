@@ -36,7 +36,8 @@ export type RouteStop = {
   bodyType: string | null;
   /// BodyOfWater.serviceGroup -- what decides bundling as of 2026-10-19. Two stops are one card
   /// when they share this AND the property AND are adjacent in route order. Null = its own stop.
-  serviceGroup?: string | null;
+  /// Required, so a caller cannot leave it off and get every stop silently reading as ungrouped.
+  serviceGroup: string | null;
   address: string;
   scheduledStart: string;
   startedAt: string | null;
@@ -1045,7 +1046,7 @@ export function RouteDayView({
       i.kind === "adhoc"
         ? // An errand can't be a member and ends any open run -- the bodies either side of it
           // were not serviced on one walk-up.
-          { id: i.id, propertyId: null, latitude: i.latitude, longitude: i.longitude, bodyType: null }
+          { id: i.id, propertyId: null, latitude: i.latitude, longitude: i.longitude, bodyType: null, serviceGroup: null }
         : {
             id: i.id,
             propertyId: i.propertyId,
@@ -1097,7 +1098,7 @@ export function RouteDayView({
     const displayedWalkUps = groupNearbyStops(
       displayedItems.map((i) =>
         i.kind === "adhoc"
-          ? { id: i.id, propertyId: null, latitude: i.latitude, longitude: i.longitude, bodyType: null }
+          ? { id: i.id, propertyId: null, latitude: i.latitude, longitude: i.longitude, bodyType: null, serviceGroup: null }
           : {
               id: i.id,
               propertyId: i.propertyId,

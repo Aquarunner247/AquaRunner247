@@ -273,6 +273,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           propertyName: c.visit.property.name,
           bodyName: c.visit.bodyOfWater.name,
           bodyType: c.visit.bodyOfWater.type,
+          serviceGroup: c.visit.bodyOfWater.serviceGroup,
           address: [c.visit.property.addressLine1, c.visit.property.city, c.visit.property.region].filter(Boolean).join(", "),
           scheduledStart: c.visit.scheduledStart.toISOString(),
           startedAt: c.visit.startedAt ? c.visit.startedAt.toISOString() : null,
@@ -286,6 +287,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           description: c.stop.description,
           completed: c.stop.completed,
           propertyName: c.stop.property?.name ?? null,
+          // An errand is never part of a walk-up, and breaks one it sits inside.
+          serviceGroup: null,
           latitude: c.stop.property?.latitude != null ? Number(c.stop.property.latitude) : null,
           longitude: c.stop.property?.longitude != null ? Number(c.stop.property.longitude) : null,
         },

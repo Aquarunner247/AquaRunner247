@@ -15,7 +15,8 @@ export type RouteStopItem = {
   bodyName: string | null;
   /** BodyOfWater.type. Labels a bundled card's members; no longer decides bundling. */
   bodyType: string | null;
-  /** BodyOfWater.serviceGroup -- venues declared one walk-up. See lib/stop-grouping.ts. */
+  /** BodyOfWater.serviceGroup -- venues declared one walk-up. Required for the same reason it is
+   *  on GroupableStop: omitting it reads as "ungrouped" and silently un-does the bundling. */
   serviceGroup: string | null;
   etaOffsetMinutes: number;
   latitude: number | null;
@@ -109,6 +110,9 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
           id: s.id,
           propertyId: s.propertyId,
           bodyType: s.bodyType,
+          // Without this the optimizer's output is never un-interleaved: coalesce sees every stop
+          // as ungrouped and gathers nothing, so a walk-up the operator declared comes back split.
+          serviceGroup: s.serviceGroup,
           latitude: s.latitude,
           longitude: s.longitude,
         })),

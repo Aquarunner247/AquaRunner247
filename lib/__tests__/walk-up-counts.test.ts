@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { countFinishedWalkUps, countWalkUps, type CountableStop } from "@/lib/stop-grouping";
 
 function stop(id: string, over: Partial<CountableStop> = {}): CountableStop {
-  return { id, propertyId: "p1", latitude: null, longitude: null, bodyType: "POOL", status: "SCHEDULED", ...over };
+  return { id, propertyId: "p1", latitude: null, longitude: null, bodyType: "POOL", serviceGroup: null, status: "SCHEDULED", ...over };
 }
 
 /** Rich's Friday shape: eleven venues, two of them declared walk-ups of two. */

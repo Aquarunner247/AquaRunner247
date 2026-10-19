@@ -50,8 +50,14 @@ export type GroupableStop = {
   /**
    * BodyOfWater.serviceGroup. Null means this stop is its own bundle, always. Two stops bundle
    * only by sharing this, which is why nothing here measures a distance any more.
+   *
+   * Required, not optional. Optional is how route-stops-list's optimize quietly stopped
+   * un-interleaving on 2026-10-19: it mapped stops into coalesceBundleMembers without this field,
+   * every stop read as ungrouped, nothing was gathered, and a declared walk-up came back split
+   * with no error anywhere. Same reasoning as bodyType above -- a caller must not be able to omit
+   * the field that decides the answer.
    */
-  serviceGroup?: string | null;
+  serviceGroup: string | null;
   /** Multi-technician mode only; a change here always starts a new group. */
   technicianId?: string | null;
   /** True for a stop that neither joins a bundle nor breaks one -- a skipped visit. Preserves

@@ -31,6 +31,7 @@ function stop(id: string, overrides: Partial<GroupableStop> = {}): GroupableStop
     latitude: BASE.latitude,
     longitude: BASE.longitude,
     bodyType: "POOL",
+    serviceGroup: null,
     ...overrides,
   };
 }
@@ -136,7 +137,7 @@ describe("groupNearbyStops — rules", () => {
   it("an errand breaks a run and joins nothing", () => {
     const stops = [
       stop("a", { serviceGroup: "Main" }),
-      { id: "errand", propertyId: null, latitude: null, longitude: null, bodyType: null },
+      { id: "errand", propertyId: null, latitude: null, longitude: null, bodyType: null, serviceGroup: null },
       spa("b", { serviceGroup: "Main" }),
     ];
     expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a"], ["b"]]);
