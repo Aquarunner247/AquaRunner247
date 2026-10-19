@@ -1088,16 +1088,44 @@ export function RouteDayView({
   // Ad-hoc items never appear here in practice -- isMultiTech callers never include one
   // (see this module's DayItem doc comment) -- but technicianId/technicianLabel are common
   // to both union members, so this reads safely either way.
+  // Counted in walk-ups, like every other stop count -- see countWalkUps. A technician heading
+  // saying "11 stops" above nine cards was the same mismatch, per technician.
   const technicianGroupStarts = new Map<string, { label: string; color: string; count: number }>();
   if (isMultiTech) {
+    // Grouped over what is DISPLAYED, so the heading counts the cards actually beneath it when a
+    // status filter is on, rather than the whole day.
+    const displayedWalkUps = groupNearbyStops(
+      displayedItems.map((i) =>
+        i.kind === "adhoc"
+          ? { id: i.id, propertyId: null, latitude: i.latitude, longitude: i.longitude, bodyType: null }
+          : {
+              id: i.id,
+              propertyId: i.propertyId,
+              latitude: i.latitude,
+              longitude: i.longitude,
+              bodyType: i.bodyType,
+              serviceGroup: i.serviceGroup,
+              technicianId: i.technicianId,
+            },
+      ),
+    );
+    const technicianOfItem = new Map(displayedItems.map((i) => [i.id, i]));
+
     let prevTechId: string | null | undefined = undefined;
     let current: { label: string; color: string; count: number } | null = null;
-    for (const v of displayedItems) {
-      if (v.technicianId !== prevTechId) {
-        current = { label: v.technicianLabel ?? "Unassigned", color: technicianColors?.[v.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR, count: 0 };
-        technicianGroupStarts.set(v.id, current);
-        prevTechId = v.technicianId;
+    for (const group of displayedWalkUps) {
+      const lead = technicianOfItem.get(group.memberIds[0]);
+      if (!lead) continue;
+      if (lead.technicianId !== prevTechId) {
+        current = {
+          label: lead.technicianLabel ?? "Unassigned",
+          color: technicianColors?.[lead.technicianId ?? ""] ?? UNASSIGNED_TECHNICIAN_COLOR,
+          count: 0,
+        };
+        technicianGroupStarts.set(lead.id, current);
+        prevTechId = lead.technicianId;
       }
+      // One walk-up, one stop -- a bundled card counts once, not once per venue.
       if (current) current.count++;
     }
   }

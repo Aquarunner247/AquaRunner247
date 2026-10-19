@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
+import { countFinishedWalkUps, countWalkUps } from "@/lib/stop-grouping";
 import { RouteDayView, type DayItem } from "@/app/components/route-day-view";
 import { TechnicianFilterSelect } from "@/app/components/technician-filter-select";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
@@ -363,9 +364,26 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
       : prisma.property.findMany({ where: { organizationId: appUser.organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
+  /**
+   * Counted in WALK-UPS, not venues: a pool and spa serviced on one arrival are one stop, so the
+   * headline agrees with the cards under it. `completed` follows the same unit -- a walk-up is done
+   * once every venue in it is -- which is why the bar can sit at 4 of 9 while five visits are
+   * finished. See countFinishedWalkUps for why a skipped venue still settles its walk-up.
+   */
+  const countableStops = routeStops.map((v) => ({
+    id: v.id,
+    propertyId: v.propertyId,
+    // Bundling is declared now, so nothing here needs coordinates.
+    latitude: null,
+    longitude: null,
+    bodyType: v.bodyType,
+    serviceGroup: v.serviceGroup,
+    technicianId: v.technicianId,
+    status: v.status,
+  }));
   const stats = {
-    total: routeStops.length,
-    completed: routeStops.filter((v) => v.status === "COMPLETED").length,
+    total: countWalkUps(countableStops),
+    completed: countFinishedWalkUps(countableStops),
     inProgress: routeStops.filter((v) => v.status === "IN_PROGRESS").length,
     pending: routeStops.filter((v) => v.status === "SCHEDULED").length,
     skipped: routeStops.filter((v) => v.status === "CANCELLED").length,

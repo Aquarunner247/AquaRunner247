@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
+import { countFinishedWalkUps, countWalkUps } from "@/lib/stop-grouping";
 import { RouteDayView } from "@/app/components/route-day-view";
 import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
 import { WEEKDAY_LABELS } from "@/lib/service-weekdays";
@@ -224,9 +225,26 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   // regardless of which filter is currently active (same convention as an inbox's unread
   // badge not changing depending on which folder is open). Ad-hoc stops (errands, not
   // chemistry jobs) were never part of these counts and still aren't.
+  /**
+   * Counted in WALK-UPS, not venues: a pool and spa serviced on one arrival are one stop, so the
+   * headline agrees with the cards under it. `completed` follows the same unit -- a walk-up is done
+   * once every venue in it is -- which is why the bar can sit at 4 of 9 while five visits are
+   * finished. See countFinishedWalkUps for why a skipped venue still settles its walk-up.
+   */
+  const countableStops = routeStops.map((v) => ({
+    id: v.id,
+    propertyId: v.propertyId,
+    // Bundling is declared now, so nothing here needs coordinates.
+    latitude: null,
+    longitude: null,
+    bodyType: v.bodyType,
+    serviceGroup: v.serviceGroup,
+    // Every stop here belongs to the one technician whose day this is.
+    status: v.status,
+  }));
   const stats = {
-    total: routeStops.length,
-    completed: routeStops.filter((v) => v.status === "COMPLETED").length,
+    total: countWalkUps(countableStops),
+    completed: countFinishedWalkUps(countableStops),
     inProgress: routeStops.filter((v) => v.status === "IN_PROGRESS").length,
     pending: routeStops.filter((v) => v.status === "SCHEDULED").length,
     skipped: routeStops.filter((v) => v.status === "CANCELLED").length,

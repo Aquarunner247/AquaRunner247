@@ -5,6 +5,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
 import { timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 import { coalesceCoord } from "@/lib/geocode";
+import { countWalkUps } from "@/lib/stop-grouping";
 import { nextOccurrenceYmd } from "@/lib/service-weekdays";
 import { addAdHocStop } from "@/app/dashboard/actions";
 import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
@@ -148,6 +149,27 @@ export default async function RoutesPage({ searchParams }: PageProps) {
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
+
+  /**
+   * Stops per route, counted in WALK-UPS. A property's pool and spa serviced on one arrival are one
+   * stop, so this matches the cards in the list below and stops a route reading as over capacity
+   * for venues the technician never drives between.
+   */
+  const walkUpCountByRoute = new Map(
+    routes.map((route) => [
+      route.id,
+      countWalkUps(
+        route.stops.map((stop) => ({
+          id: stop.id,
+          propertyId: stop.propertyId,
+          latitude: null,
+          longitude: null,
+          bodyType: stop.bodyOfWater?.type ?? null,
+          serviceGroup: stop.bodyOfWater?.serviceGroup ?? null,
+        })),
+      ),
+    ]),
+  );
 
   const routeEndpoints = new Map(
     routes.map((route) => [route.id, resolveRouteEndpoints({ route, technician: route.technician })]),
@@ -394,7 +416,7 @@ export default async function RoutesPage({ searchParams }: PageProps) {
             dayOfWeek: route.dayOfWeek,
             frequency: route.frequency,
             technicianLabel: route.technician ? (route.technician.name ?? route.technician.email) : null,
-            stopCount: route.stops.length,
+            stopCount: walkUpCountByRoute.get(route.id) ?? route.stops.length,
             maxCapacity: route.maxCapacity,
             windowLabel: describeWindow(route.startsOn, route.endsOn),
             outsideWindow:
@@ -455,7 +477,7 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                     />
                   </form>
                   <span className="app-badge" title="Stop count used for Smart Route Placement suggestions">
-                    {route.stops.length}
+                    {walkUpCountByRoute.get(route.id) ?? route.stops.length}
                     {route.maxCapacity != null ? `/${route.maxCapacity}` : ""} stops
                   </span>
                   <form
@@ -550,10 +572,10 @@ export default async function RoutesPage({ searchParams }: PageProps) {
               {route.maxCapacity != null ? (
                 <div className="mt-3">
                   <WaveProgress
-                    percent={(route.stops.length / route.maxCapacity) * 100}
+                    percent={((walkUpCountByRoute.get(route.id) ?? route.stops.length) / route.maxCapacity) * 100}
                     label="Route capacity"
-                    sublabel={`${route.stops.length}/${route.maxCapacity} stops`}
-                    tone={route.stops.length > route.maxCapacity ? "coral" : "teal"}
+                    sublabel={`${walkUpCountByRoute.get(route.id) ?? route.stops.length}/${route.maxCapacity} stops`}
+                    tone={(walkUpCountByRoute.get(route.id) ?? route.stops.length) > route.maxCapacity ? "coral" : "teal"}
                   />
                 </div>
               ) : null}

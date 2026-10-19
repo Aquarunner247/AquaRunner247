@@ -185,3 +185,40 @@ export function coalesceBundleMembers<T extends GroupableStop>(stops: T[], _radi
   return out;
 }
 
+
+/** A stop as the day counters see it: enough to group it, plus how it ended. */
+export type CountableStop = GroupableStop & { status?: string };
+
+/**
+ * How many STOPS a day or a route really is, counting a declared walk-up once.
+ *
+ * A pool and its spa serviced on one arrival are one place to drive to, so a day of eleven venues
+ * across nine walk-ups is nine stops. Counting venues made every number on the screen disagree with
+ * the cards beneath it, and overstated a route's size against its capacity.
+ *
+ * Deliberately NOT used for pay or for overdue alerts. Pay is earned per visit -- two bodies is two
+ * sets of readings whether or not they share a gate -- and an unfinished visit needs attention on
+ * its own, not folded into a sibling that happens to be done.
+ */
+export function countWalkUps(stops: CountableStop[]): number {
+  return groupNearbyStops(stops).length;
+}
+
+/**
+ * Walk-ups nobody has to go back to.
+ *
+ * A walk-up counts as finished only once EVERY one of its venues is, because that is when the
+ * technician actually leaves -- the same rule resolveSummaryBundle already uses to decide a
+ * bundled customer email is ready. A skipped venue counts as finished alongside a completed one:
+ * the stop is settled either way, and a progress bar that can never reach the end because one spa
+ * was skipped is worse than one that says the day is done.
+ */
+export function countFinishedWalkUps(stops: CountableStop[]): number {
+  const byId = new Map(stops.map((stop) => [stop.id, stop]));
+  return groupNearbyStops(stops).filter((group) =>
+    group.memberIds.every((id) => {
+      const status = byId.get(id)?.status;
+      return status === "COMPLETED" || status === "CANCELLED";
+    }),
+  ).length;
+}

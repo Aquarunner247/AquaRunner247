@@ -10,6 +10,16 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**Stop counts count walk-ups.** A day of eleven venues across nine walk-ups now reads as nine
+stops, everywhere it's counted — the schedule headline, the progress bar, the route cards, route
+capacity and the week view. The progress bar follows the same unit: a walk-up counts as done once
+every venue in it is, so it no longer jumps forward when only the pool of a pool-and-spa pair is
+finished.
+
+Two counts deliberately still count venues. Pay is earned per visit — two bodies is two sets of
+readings whether or not they share a gate — and an overdue stop needs attention on its own rather
+than being folded into a sibling that happens to be done.
+
 **You decide which venues are one stop, not the app.** A venue now has a "Serviced together as"
 field. Give two venues the same name there and they're one stop on the schedule and one card on
 the route — each still keeping its own readings, photos and completion. Leave it blank and the
