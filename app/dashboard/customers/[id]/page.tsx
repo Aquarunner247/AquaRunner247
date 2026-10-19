@@ -1402,6 +1402,29 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       placeholder="Max occupancy"
                       className="app-field-sm"
                     />
+                    {/* Which walk-up this venue joins. Venues sharing a name here are one stop on
+                        the schedule and one card on the route, each keeping its own readings and
+                        photos. Blank means its own stop. Existing groups at this property are
+                        suggested so a second venue joins one by picking it. */}
+                    <input
+                      name="serviceGroup"
+                      list={`service-groups-${property.id}`}
+                      placeholder="Serviced with… (optional)"
+                      className="app-field-sm"
+                    />
+                    <datalist id={`service-groups-${property.id}`}>
+                      {[
+                        ...new Set(
+                          property.bodiesOfWater
+                            .map((b) => b.serviceGroup)
+                            .filter((group): group is string => group != null),
+                        ),
+                      ]
+                        .sort()
+                        .map((group) => (
+                          <option key={group} value={group} />
+                        ))}
+                    </datalist>
                   </div>
                   {property.propertyType === "RESIDENTIAL" ? <FilterTypeFields /> : null}
                   <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">

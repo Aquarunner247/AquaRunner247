@@ -8,6 +8,7 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { resolveManagementCompanyId } from "@/lib/management-companies";
 import { geocodeAddress, buildFullAddress, readAutocompleteCoords } from "@/lib/geocode";
 import { sendAlertToCustomer } from "@/lib/customer-alerts";
+import { normalizeServiceGroup } from "@/lib/service-group-name";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -201,6 +202,8 @@ export async function createBodyOfWater(formData: FormData) {
   const typeRaw = String(formData.get("type") ?? "POOL").trim();
   const volumeRaw = String(formData.get("volumeGallons") ?? "").trim();
   const occupancyRaw = String(formData.get("maximumOccupancy") ?? "").trim();
+  // Which walk-up this body belongs to; blank means it is its own stop.
+  const serviceGroup = normalizeServiceGroup(formData.get("serviceGroup") as string | null);
   if (!propertyId || !name) return;
 
   const property = await prisma.property.findFirst({
@@ -243,6 +246,7 @@ export async function createBodyOfWater(formData: FormData) {
       type,
       volumeGallons: Number.isFinite(volume) ? volume : null,
       maximumOccupancy: Number.isFinite(occupancy) ? occupancy : null,
+      serviceGroup,
       ...residentialFields,
     },
   });

@@ -64,6 +64,21 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
 
   if (!body) notFound();
 
+  // Other walk-ups already named at this property, offered as suggestions so a second venue joins
+  // an existing group by picking it rather than by retyping it slightly differently.
+  const siblingServiceGroups = [
+    ...new Set(
+      (
+        await prisma.bodyOfWater.findMany({
+          where: { propertyId: body.propertyId, id: { not: body.id }, serviceGroup: { not: null } },
+          select: { serviceGroup: true },
+        })
+      )
+        .map((sibling) => sibling.serviceGroup)
+        .filter((group): group is string => group != null),
+    ),
+  ].sort();
+
   // Once the customer relationship has ended, this whole page becomes view-only -- every
   // add/edit/delete form below is hidden (server actions are independently guarded too,
   // see customers/[id]/actions.ts). Navigation in/out of this page stays unaffected.
@@ -170,6 +185,33 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
         <form action={updateBodyOfWater} className="mt-3 space-y-2">
           <input type="hidden" name="bodyId" value={body.id} />
           <input type="hidden" name="customerId" value={customerId} />
+          {/* Which walk-up this venue belongs to. Venues sharing a name here are ONE stop on the
+              schedule and one card on the route, while keeping their own readings, photos and
+              completion. Free text with the property's existing groups suggested, because a name
+              the company already uses ("Clubhouse", "Gym") is the one it will recognise later. */}
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+              Serviced together as
+            </span>
+            <input
+              name="serviceGroup"
+              defaultValue={body.serviceGroup ?? ""}
+              list="service-groups-at-property"
+              placeholder="Its own stop"
+              disabled={isEnded}
+              className="app-field-sm mt-1 w-full max-w-xs"
+            />
+            <datalist id="service-groups-at-property">
+              {siblingServiceGroups.map((group) => (
+                <option key={group} value={group} />
+              ))}
+            </datalist>
+            <span className="mt-1 block text-xs text-brand-muted">
+              {siblingServiceGroups.length > 0
+                ? `Leave blank for its own stop. Others here: ${siblingServiceGroups.join(", ")}.`
+                : "Leave blank for its own stop. Give two venues the same name to service them as one."}
+            </span>
+          </label>
           <div className="grid gap-2 md:grid-cols-4">
             <input
               name="name"

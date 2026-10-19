@@ -29,3 +29,15 @@ export function serviceGroupName(memberNames: string[], index: number, totalGrou
   if (label) return label;
   return totalGroupsAtProperty > 1 ? `Walk-up ${index + 1}` : "Main";
 }
+
+/**
+ * What a form's "serviced together as" field means once typed.
+ *
+ * Blank, or only whitespace, is NOT a group -- it means this body is its own stop. Collapsed so
+ * that "Clubhouse" and "Clubhouse " are the same walk-up rather than two that merely look alike,
+ * which is the whole failure mode of a free-text key.
+ */
+export function normalizeServiceGroup(raw: string | null | undefined): string | null {
+  const collapsed = String(raw ?? "").trim().replace(/\s+/g, " ");
+  return collapsed === "" ? null : collapsed;
+}

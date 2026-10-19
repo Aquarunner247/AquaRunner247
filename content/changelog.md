@@ -10,6 +10,19 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**You decide which venues are one stop, not the app.** A venue now has a "Serviced together as"
+field. Give two venues the same name there and they're one stop on the schedule and one card on
+the route — each still keeping its own readings, photos and completion. Leave it blank and the
+venue is its own stop.
+
+This replaces the app guessing from how close the pins were and whether the venues were a pool and
+a spa. That guess read your properties almost perfectly, but it decided something you could see by
+means you couldn't: nudging a pin could split a card with nothing to show for it, and OYO's two
+pools — one arrival, 16 m apart — could never be one stop because both are pools. Now they can, if
+you say so.
+
+The routes page shows walk-ups as one card too, which it never did before.
+
 **A bundled walk-up drags as one.** A property's pool and spa are one arrival, so the card has its
 own grip that moves every stop in it together. Each body keeps its own grip for deliberately
 pulling one out of the bundle.

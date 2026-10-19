@@ -627,6 +627,7 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                   propertyName: stop.property.name,
                   bodyName: stop.bodyOfWater?.name ?? null,
                   bodyType: stop.bodyOfWater?.type ?? null,
+                  serviceGroup: stop.bodyOfWater?.serviceGroup ?? null,
                   etaOffsetMinutes: stop.etaOffsetMinutes,
                   latitude: coalesceCoord(stop.bodyOfWater?.latitude, stop.property.latitude),
                   longitude: coalesceCoord(stop.bodyOfWater?.longitude, stop.property.longitude),

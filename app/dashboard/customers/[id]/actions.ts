@@ -23,6 +23,7 @@ import { calculateGallons, type VolumeShapeKey } from "@/lib/volume-calculator";
 import { createPayRateRow } from "@/lib/technician-pay";
 import { routeStillRunsFilter } from "@/lib/route-projection";
 import { timeZoneForState, ymdInTimeZone, localDayBounds } from "@/lib/timezone";
+import { normalizeServiceGroup } from "@/lib/service-group-name";
 
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
@@ -336,6 +337,8 @@ export async function updateBodyOfWater(formData: FormData) {
   const typeRaw = String(formData.get("type") ?? "").trim();
   const volumeRaw = String(formData.get("volumeGallons") ?? "").trim();
   const occupancyRaw = String(formData.get("maximumOccupancy") ?? "").trim();
+  // Which walk-up this body belongs to. Blank clears it, making this body its own stop again.
+  const serviceGroup = normalizeServiceGroup(formData.get("serviceGroup") as string | null);
   if (!bodyId || !customerId || !name) return;
 
   const body = await prisma.bodyOfWater.findFirst({
@@ -392,6 +395,7 @@ export async function updateBodyOfWater(formData: FormData) {
       volumeGallons: newVolumeGallons,
       maximumOccupancy: Number.isFinite(occupancy) ? occupancy : null,
       chlorineFeedMechanism,
+      serviceGroup,
       ...residentialFields,
       ...commercialFields,
     },

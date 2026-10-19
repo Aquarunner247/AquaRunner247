@@ -5,7 +5,7 @@ import { useDragReorder } from "@/lib/client/use-drag-reorder";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { RouteBuilderMap } from "@/app/components/route-builder-map";
 import { computeOptimizedStopOrder } from "@/lib/routing";
-import { coalesceBundleMembers } from "@/lib/stop-grouping";
+import { coalesceBundleMembers, formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
 import { removeRouteStop } from "./actions";
 
 export type RouteStopItem = {
@@ -13,9 +13,10 @@ export type RouteStopItem = {
   propertyId: string;
   propertyName: string;
   bodyName: string | null;
-  /** BodyOfWater.type. Only used to keep a bundle's members adjacent after optimizing -- see
-   *  coalesceBundleMembers, and lib/stop-grouping.ts for why a bundle holds one of each kind. */
+  /** BodyOfWater.type. Labels a bundled card's members; no longer decides bundling. */
   bodyType: string | null;
+  /** BodyOfWater.serviceGroup -- venues declared one walk-up. See lib/stop-grouping.ts. */
+  serviceGroup: string | null;
   etaOffsetMinutes: number;
   latitude: number | null;
   longitude: number | null;
@@ -77,7 +78,7 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
     }
   }
 
-  const { draggingIndex, setItemRef, dragHandleProps } = useDragReorder(stops, previewOrder, false, commitOrder);
+  const { isDragging, setItemRef, dragHandleProps } = useDragReorder(stops, previewOrder, false, commitOrder);
 
   /** Reorders the route's default stop sequence (not a single day's actual visits) by real
    * driving duration -- see lib/routing.ts's computeOptimizedStopOrder, which falls back to
@@ -124,6 +125,21 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
     return <p className="text-sm text-brand-muted">No stops yet.</p>;
   }
 
+  // Declared walk-ups, drawn as one card each. Same function the schedule uses, so the two screens
+  // cannot disagree about what a bundle is.
+  const stopGroups = groupNearbyStops(
+    stops.map((stop) => ({
+      id: stop.id,
+      propertyId: stop.propertyId,
+      latitude: stop.latitude,
+      longitude: stop.longitude,
+      bodyType: stop.bodyType,
+      serviceGroup: stop.serviceGroup,
+    })),
+  );
+  const stopById = new Map(stops.map((stop) => [stop.id, stop]));
+  const indexById = new Map(stops.map((stop, index) => [stop.id, index]));
+
   return (
     <div className="mt-3">
       {orderError ? (
@@ -136,39 +152,112 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
       </button>
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_360px]">
         <ol className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
-          {stops.map((stop, idx) => {
-            const handleProps = dragHandleProps(idx);
+          {stopGroups.map((group) => {
+            const members = group.memberIds.map((id) => stopById.get(id)!).filter(Boolean);
+            const first = members[0];
+            const startIdx = indexById.get(first.id) ?? 0;
+            const positions = members.map((m) => (indexById.get(m.id) ?? 0) + 1);
+
+            // One venue: the plain row it has always been. A card wrapping a single stop is
+            // chrome with nothing in it.
+            if (members.length === 1) {
+              const handleProps = dragHandleProps(startIdx);
+              return (
+                <li
+                  key={first.id}
+                  ref={setItemRef(startIdx)}
+                  className={`app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm ${
+                    isDragging(startIdx) ? "opacity-60" : ""
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      {...handleProps}
+                      aria-label={`Drag to reorder ${first.propertyName}`}
+                      title="Drag to reorder"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-brand-muted cursor-grab select-none active:cursor-grabbing"
+                    >
+                      ⠿
+                    </span>
+                    <span className="min-w-0 truncate">
+                      <span className="font-semibold text-brand-primaryHover">{startIdx + 1}.</span> {first.propertyName} —{" "}
+                      {first.bodyName ?? "Property-level"}
+                      {first.etaOffsetMinutes ? ` · +${first.etaOffsetMinutes} min` : ""}
+                    </span>
+                  </span>
+                  <form action={removeRouteStop}>
+                    <input type="hidden" name="stopId" value={first.id} />
+                    <ConfirmSubmitButton
+                      label="Remove"
+                      confirmMessage="Remove this stop from the route?"
+                      className="app-btn-ghost-sm"
+                    />
+                  </form>
+                </li>
+              );
+            }
+
+            // A declared walk-up: one card, one position, with each venue keeping its own row --
+            // its own readings, photos and completion all still belong to the venue, not the card.
             return (
-              <li
-                key={stop.id}
-                ref={setItemRef(idx)}
-                className={`app-card-inset flex flex-wrap items-center justify-between gap-2 text-sm ${
-                  draggingIndex === idx ? "opacity-60" : ""
-                }`}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span
-                    {...handleProps}
-                    aria-label={`Drag to reorder ${stop.propertyName}`}
-                    title="Drag to reorder"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-brand-muted cursor-grab select-none active:cursor-grabbing"
-                  >
-                    ⠿
+              <li key={group.groupId} className="app-card-inset text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-2">
+                    {/* The card's grip moves the whole run; each venue keeps its own below. */}
+                    <span
+                      {...dragHandleProps(startIdx, members.length)}
+                      aria-label={`Drag to reorder all ${members.length} venues at ${first.propertyName}`}
+                      title="Drag to move this whole walk-up"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-brand-muted cursor-grab select-none active:cursor-grabbing"
+                    >
+                      ⠿
+                    </span>
+                    <span className="min-w-0 truncate">
+                      <span className="font-semibold text-brand-primaryHover">{formatSequenceRange(positions)}.</span>{" "}
+                      {first.propertyName}
+                      {first.serviceGroup ? <span className="text-brand-muted"> · {first.serviceGroup}</span> : null}
+                    </span>
                   </span>
-                  <span className="min-w-0 truncate">
-                    <span className="font-semibold text-brand-primaryHover">{idx + 1}.</span> {stop.propertyName} —{" "}
-                    {stop.bodyName ?? "Property-level"}
-                    {stop.etaOffsetMinutes ? ` · +${stop.etaOffsetMinutes} min` : ""}
-                  </span>
-                </span>
-                <form action={removeRouteStop}>
-                  <input type="hidden" name="stopId" value={stop.id} />
-                  <ConfirmSubmitButton
-                    label="Remove"
-                    confirmMessage="Remove this stop from the route?"
-                    className="app-btn-ghost-sm"
-                  />
-                </form>
+                  <span className="app-badge shrink-0">{members.length} venues</span>
+                </div>
+
+                {/* Each venue registers its OWN drag index, so a stop can still be dropped between
+                    two members and a venue can be pulled out of the walk-up deliberately. */}
+                <ul className="mt-2 divide-y divide-brand-border border-t border-brand-border">
+                  {members.map((member) => {
+                    const mIdx = indexById.get(member.id) ?? 0;
+                    return (
+                      <li
+                        key={member.id}
+                        ref={setItemRef(mIdx)}
+                        className={`flex items-center justify-between gap-2 py-1 ${isDragging(mIdx) ? "opacity-60" : ""}`}
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span
+                            {...dragHandleProps(mIdx)}
+                            aria-label={`Drag ${member.bodyName ?? member.propertyName} out of this walk-up`}
+                            title="Drag this venue on its own"
+                            className="flex h-11 w-7 shrink-0 items-center justify-center text-brand-muted cursor-grab select-none active:cursor-grabbing"
+                          >
+                            ⠿
+                          </span>
+                          <span className="min-w-0 truncate text-brand-ink">
+                            {member.bodyName ?? "Property-level"}
+                            {member.etaOffsetMinutes ? ` · +${member.etaOffsetMinutes} min` : ""}
+                          </span>
+                        </span>
+                        <form action={removeRouteStop}>
+                          <input type="hidden" name="stopId" value={member.id} />
+                          <ConfirmSubmitButton
+                            label="Remove"
+                            confirmMessage="Remove this stop from the route?"
+                            className="app-btn-ghost-sm"
+                          />
+                        </form>
+                      </li>
+                    );
+                  })}
+                </ul>
               </li>
             );
           })}
