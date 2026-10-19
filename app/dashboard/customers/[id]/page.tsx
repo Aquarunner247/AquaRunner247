@@ -291,20 +291,26 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       ? "rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white"
       : "rounded px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-surface";
 
-  // Smart Route Placement — shown once, right after createCustomer redirects here with
-  // ?suggestRoute=1. Reuses the already-computed schedule maps above instead of a new
-  // query. If the flag is present but a precondition fails, still explain why rather than
-  // silently showing nothing (the redirect explicitly promised a suggestion).
-  const wantsRouteSuggestion = sp.suggestRoute === "1";
-  const unassignedBody = wantsRouteSuggestion
-    ? primaryProperty?.bodiesOfWater.find((b) => !scheduleByBodyId.has(b.id) && !scheduleByPropertyId.has(primaryProperty.id))
-    : undefined;
-  const suggestionUnavailableReason = !wantsRouteSuggestion
-    ? null
-    : !primaryProperty || primaryProperty.latitude == null || primaryProperty.longitude == null
-      ? "Address couldn't be geocoded — assign a route manually from the Routes page."
-      : !unassignedBody
-        ? "Add an aquatic venue below, then assign a route manually from the Routes page."
+  /**
+   * Smart Route Placement, shown whenever this customer has a venue on no route at all.
+   *
+   * It used to render only while the URL carried ?suggestRoute=1, which only createCustomer's
+   * redirect ever set -- so it existed for exactly one page render. Adding the customer first and
+   * the venue second (which the page itself invites, with Add aquatic venue below) meant the one
+   * render said "add a venue" and the panel could never come back. Reported 2026-10-19 as the
+   * panel not appearing at all, which from the outside it doesn't.
+   *
+   * A venue on no route is an unfinished job rather than a notification, so it is shown while it
+   * is true and goes away by being dealt with -- no flag to lose, nothing to dismiss.
+   */
+  const unassignedBody = primaryProperty?.bodiesOfWater.find(
+    (b) => !scheduleByBodyId.has(b.id) && !scheduleByPropertyId.has(primaryProperty.id),
+  );
+  const suggestionUnavailableReason =
+    !unassignedBody || !primaryProperty
+      ? null
+      : primaryProperty.latitude == null || primaryProperty.longitude == null
+        ? "This address couldn't be geocoded, so no route can be suggested — assign one from the Routes page."
         : null;
 
   return (
@@ -330,17 +336,17 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         </div>
       ) : null}
 
-      {wantsRouteSuggestion ? (
-        primaryProperty && unassignedBody ? (
+      {primaryProperty && unassignedBody && !customer.relationshipEndedAt ? (
+        suggestionUnavailableReason ? (
+          <div className="mt-6 rounded-lg border border-brand-warn/30 bg-brand-warnFill p-4 text-sm text-brand-warn">
+            {suggestionUnavailableReason}
+          </div>
+        ) : (
           <RouteSuggestionPanel
             customerId={customer.id}
             propertyId={primaryProperty.id}
             bodyOfWaterId={unassignedBody.id}
           />
-        ) : (
-          <div className="mt-6 rounded-lg border border-brand-warn/30 bg-brand-warnFill p-4 text-sm text-brand-warn">
-            {suggestionUnavailableReason}
-          </div>
         )
       ) : null}
 

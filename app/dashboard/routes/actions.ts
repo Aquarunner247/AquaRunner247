@@ -8,7 +8,7 @@ import { coalesceCoord } from "@/lib/geocode";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { geocodeAddress, buildFullAddress } from "@/lib/geocode";
 import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compliance";
-import { timeZoneForState } from "@/lib/timezone";
+import { localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 import { serviceWindowExclusionBounds } from "@/lib/route-service-window";
 
 async function requireAdmin() {
@@ -524,6 +524,68 @@ export async function setBodyOfWaterLocation(formData: FormData) {
  *
  * Written as an exact copy of the stop's coordinate, so the match is 0m and cannot drift.
  */
+/**
+ * Moves a stop to another route -- another technician, another weekday, or both.
+ *
+ * An update rather than a delete and a re-add, which is what this replaced. Deleting loses the
+ * stop's own identity: its id is what already-generated ServiceVisits point at through
+ * recurringStopId, so removing it orphans every future day's visit for that venue and the re-add
+ * makes a stop nothing is linked to. The venue's history is on the visits either way, but the link
+ * between the plan and the days is not, and that link is what every ordering and bundling decision
+ * reads.
+ *
+ * Lands at the end of the target route. Where in the day it belongs is a judgement about driving,
+ * so it is left to a drag or to Optimize rather than guessed at here.
+ *
+ * Future visits for this stop are deleted, not moved: they sit on the OLD route's weekday, and a
+ * Tuesday visit has no meaning once the stop is on Thursday. Generation recreates them on the
+ * right days the next time those days are opened. Deliberately only SCHEDULED ones from today
+ * forward -- anything arrived at, finished or skipped is a record of what happened and stays.
+ */
+export async function moveRouteStop(formData: FormData) {
+  const appUser = await requireAdmin();
+  const stopId = String(formData.get("stopId") ?? "").trim();
+  const targetRouteId = String(formData.get("targetRouteId") ?? "").trim();
+  if (!stopId || !targetRouteId) return;
+
+  const [stop, target] = await Promise.all([
+    prisma.recurringStop.findFirst({
+      where: { id: stopId, route: { organizationId: appUser.organizationId } },
+      select: { id: true, routeId: true },
+    }),
+    prisma.recurringRoute.findFirst({
+      where: { id: targetRouteId, organizationId: appUser.organizationId },
+      select: { id: true, organizationId: true },
+    }),
+  ]);
+  if (!stop || !target || stop.routeId === target.id) return;
+
+  const highest = await prisma.recurringStop.aggregate({
+    where: { routeId: target.id },
+    _max: { sortOrder: true },
+  });
+
+  const org = await prisma.organization.findUnique({
+    where: { id: appUser.organizationId },
+    select: { state: true },
+  });
+  const timeZone = timeZoneForState(org?.state);
+  const todayStart = localDayBounds(ymdInTimeZone(new Date(), timeZone), timeZone).start;
+
+  await prisma.$transaction([
+    prisma.recurringStop.update({
+      where: { id: stop.id },
+      data: { routeId: target.id, sortOrder: (highest._max.sortOrder ?? -1) + 1 },
+    }),
+    prisma.serviceVisit.deleteMany({
+      where: { recurringStopId: stop.id, status: "SCHEDULED", scheduledStart: { gte: todayStart } },
+    }),
+  ]);
+
+  revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard/schedule");
+}
+
 export async function setRouteLocationToStop(formData: FormData) {
   const appUser = await requireAdmin();
   const routeId = String(formData.get("routeId") ?? "").trim();

@@ -6,7 +6,7 @@ import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { RouteBuilderMap } from "@/app/components/route-builder-map";
 import { computeOptimizedStopOrder } from "@/lib/routing";
 import { coalesceBundleMembers, formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
-import { removeRouteStop } from "./actions";
+import { moveRouteStop, removeRouteStop } from "./actions";
 
 export type RouteStopItem = {
   id: string;
@@ -23,9 +23,14 @@ export type RouteStopItem = {
   longitude: number | null;
 };
 
+/** Another route this stop could move to, labelled the way the routes list labels it. */
+export type MoveTarget = { id: string; label: string };
+
 type Props = {
   routeId: string;
   stops: RouteStopItem[];
+  /** Every OTHER route, so a stop can change technician or weekday without being recreated. */
+  moveTargets?: MoveTarget[];
   /** Where this route's day begins and finishes, already resolved through the route override ->
    *  technician default -> none chain by lib/route-endpoints.ts. Both null reproduces the
    *  original behavior, where the first stop was simply pinned in place. */
@@ -33,7 +38,7 @@ type Props = {
   endPoint?: { latitude: number; longitude: number } | null;
 };
 
-export function RouteStopsList({ routeId, stops: initialStops, startPoint = null, endPoint = null }: Props) {
+export function RouteStopsList({ routeId, stops: initialStops, moveTargets = [], startPoint = null, endPoint = null }: Props) {
   const [stops, setStops] = useState(initialStops);
   const [saving, setSaving] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
@@ -125,6 +130,36 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
     }
   }
 
+  /**
+   * Moving a stop to another technician or weekday, without deleting and re-adding it -- which
+   * used to be the only way, and which orphans every generated visit that points at the stop.
+   * Submits on change: there is no second decision to confirm once a destination is chosen.
+   */
+  function moveControl(stopId: string, label: string) {
+    if (moveTargets.length === 0) return null;
+    return (
+      <form action={moveRouteStop} className="shrink-0">
+        <input type="hidden" name="stopId" value={stopId} />
+        <select
+          name="targetRouteId"
+          defaultValue=""
+          aria-label={`Move ${label} to another route`}
+          onChange={(event) => event.currentTarget.form?.requestSubmit()}
+          className="app-field-sm max-w-[9rem]"
+        >
+          <option value="" disabled>
+            Move to…
+          </option>
+          {moveTargets.map((target) => (
+            <option key={target.id} value={target.id}>
+              {target.label}
+            </option>
+          ))}
+        </select>
+      </form>
+    );
+  }
+
   if (stops.length === 0) {
     return <p className="text-sm text-brand-muted">No stops yet.</p>;
   }
@@ -189,14 +224,17 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
                       {first.etaOffsetMinutes ? ` · +${first.etaOffsetMinutes} min` : ""}
                     </span>
                   </span>
-                  <form action={removeRouteStop}>
-                    <input type="hidden" name="stopId" value={first.id} />
-                    <ConfirmSubmitButton
-                      label="Remove"
-                      confirmMessage="Remove this stop from the route?"
-                      className="app-btn-ghost-sm"
-                    />
-                  </form>
+                  <span className="flex shrink-0 items-center gap-2">
+                    {moveControl(first.id, `${first.propertyName} ${first.bodyName ?? ""}`.trim())}
+                    <form action={removeRouteStop}>
+                      <input type="hidden" name="stopId" value={first.id} />
+                      <ConfirmSubmitButton
+                        label="Remove"
+                        confirmMessage="Remove this stop from the route?"
+                        className="app-btn-ghost-sm"
+                      />
+                    </form>
+                  </span>
                 </li>
               );
             }
@@ -250,14 +288,17 @@ export function RouteStopsList({ routeId, stops: initialStops, startPoint = null
                             {member.etaOffsetMinutes ? ` · +${member.etaOffsetMinutes} min` : ""}
                           </span>
                         </span>
-                        <form action={removeRouteStop}>
-                          <input type="hidden" name="stopId" value={member.id} />
-                          <ConfirmSubmitButton
-                            label="Remove"
-                            confirmMessage="Remove this stop from the route?"
-                            className="app-btn-ghost-sm"
-                          />
-                        </form>
+                        <span className="flex shrink-0 items-center gap-2">
+                          {moveControl(member.id, `${member.propertyName} ${member.bodyName ?? ""}`.trim())}
+                          <form action={removeRouteStop}>
+                            <input type="hidden" name="stopId" value={member.id} />
+                            <ConfirmSubmitButton
+                              label="Remove"
+                              confirmMessage="Remove this stop from the route?"
+                              className="app-btn-ghost-sm"
+                            />
+                          </form>
+                        </span>
                       </li>
                     );
                   })}

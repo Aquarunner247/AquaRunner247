@@ -10,6 +10,15 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**Move a stop to another technician or day.** Each stop on a route has a "Move to…" picker, so
+changing who services a venue — or which day — no longer means removing it and adding it back. The
+venue keeps its place in the system, and the days rebuild themselves on the new route.
+
+**Route placement stays available.** The suggestion panel used to exist for a single page render
+right after a customer was added — add the venue afterwards, as the page invites you to, and it
+was gone for good. It now shows whenever a venue is on no route at all, and goes away by being
+dealt with.
+
 **Stop counts count walk-ups.** A day of eleven venues across nine walk-ups now reads as nine
 stops, everywhere it's counted — the schedule headline, the progress bar, the route cards, route
 capacity and the week view. The progress bar follows the same unit: a walk-up counts as done once

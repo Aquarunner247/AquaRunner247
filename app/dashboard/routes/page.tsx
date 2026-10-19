@@ -643,6 +643,15 @@ export default async function RoutesPage({ searchParams }: PageProps) {
 
               <RouteStopsList
                 routeId={route.id}
+                // Every other route, so a stop can change technician or weekday in place.
+                moveTargets={routes
+                  .filter((other) => other.id !== route.id)
+                  .map((other) => ({
+                    id: other.id,
+                    label: `${DAY_NAMES[other.dayOfWeek ?? 0]} · ${
+                      other.technician ? (other.technician.name ?? other.technician.email) : "Unassigned"
+                    }`,
+                  }))}
                 stops={route.stops.map((stop) => ({
                   id: stop.id,
                   propertyId: stop.propertyId,
