@@ -1,17 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { resolveSummaryBundle, type BundleCandidate } from "@/lib/service-summary-bundle";
 
-/** Real measured separations from this customer's pins: a pool and its spa sit 6-19m apart, while
- *  a front and back deck are 87m+. */
+/**
+ * Bundling is DECLARED as of 2026-10-19, so a case says which bodies are one walk-up instead of
+ * placing pins and letting distance decide. Coordinates stay on the fixture because
+ * BundleCandidate still carries them, but nothing reads them now.
+ */
 const BASE = { latitude: 36.1699, longitude: -115.1398 };
-function north(meters: number) {
-  return { latitude: BASE.latitude + meters / 111_320, longitude: BASE.longitude };
+
+/** Shorthand for "this body is part of the walk-up called `name`". */
+function group(name: string) {
+  return { serviceGroup: name };
 }
 
 function visit(id: string, overrides: Partial<BundleCandidate> = {}): BundleCandidate {
   return {
     visitId: id,
     bodyType: "POOL",
+    // Its own stop and its own email, unless a case declares a group.
+    serviceGroup: null,
     latitude: BASE.latitude,
     longitude: BASE.longitude,
     status: "COMPLETED",
@@ -33,7 +40,7 @@ describe("resolveSummaryBundle", () => {
 
   /** The behaviour asked for: completing the pool sends nothing while the spa is outstanding. */
   it("waits while a sibling body is still outstanding", () => {
-    const candidates = [visit("pool"), spa("spa", { ...north(7), status: "SCHEDULED" })];
+    const candidates = [visit("pool", group("Main")), spa("spa", { ...group("Main"), status: "SCHEDULED" })];
     const d = resolveSummaryBundle("pool", candidates);
     expect(d.memberIds).toEqual(["pool", "spa"]);
     expect(d.readyToSend).toBe(false);
@@ -41,7 +48,7 @@ describe("resolveSummaryBundle", () => {
   });
 
   it("sends once the last member of the bundle finishes", () => {
-    const candidates = [visit("pool"), spa("spa", { ...north(7) })];
+    const candidates = [visit("pool", group("Main")), spa("spa", group("Main"))];
     const d = resolveSummaryBundle("spa", candidates);
     expect(d.readyToSend).toBe(true);
     expect(d.completedIds).toEqual(["pool", "spa"]);
@@ -49,7 +56,7 @@ describe("resolveSummaryBundle", () => {
   });
 
   it("counts a skipped member as finished, and names it", () => {
-    const candidates = [visit("pool"), spa("spa", { ...north(7), status: "CANCELLED" })];
+    const candidates = [visit("pool", group("Main")), spa("spa", { ...group("Main"), status: "CANCELLED" })];
     const d = resolveSummaryBundle("pool", candidates);
     expect(d.readyToSend).toBe(true);
     expect(d.completedIds).toEqual(["pool"]);
@@ -57,7 +64,7 @@ describe("resolveSummaryBundle", () => {
   });
 
   it("sends nothing when every member was skipped", () => {
-    const candidates = [visit("pool", { status: "CANCELLED" }), spa("spa", { ...north(7), status: "CANCELLED" })];
+    const candidates = [visit("pool", { ...group("Main"), status: "CANCELLED" }), spa("spa", { ...group("Main"), status: "CANCELLED" })];
     const d = resolveSummaryBundle("pool", candidates);
     expect(d.readyToSend).toBe(false);
     expect(d.reason).toBe("nothing-completed");
@@ -65,7 +72,7 @@ describe("resolveSummaryBundle", () => {
 
   /** The duplicate guard. Two completions landing together must not both send. */
   it("refuses once any member has already been emailed", () => {
-    const candidates = [visit("pool", { summaryEmailSentAt: new Date() }), spa("spa", { ...north(7) })];
+    const candidates = [visit("pool", { ...group("Main"), summaryEmailSentAt: new Date() }), spa("spa", group("Main"))];
     const d = resolveSummaryBundle("spa", candidates);
     expect(d.readyToSend).toBe(false);
     expect(d.reason).toBe("already-sent");
@@ -74,10 +81,10 @@ describe("resolveSummaryBundle", () => {
   it("keeps a front and back deck as separate emails", () => {
     // The Alcove: back pool/spa and front pool/spa, the two decks 136m apart.
     const candidates = [
-      visit("backPool"),
-      spa("backSpa", { ...north(12.3) }),
-      visit("frontPool", { ...north(136) }),
-      spa("frontSpa", { ...north(136 + 6.5) }),
+      visit("backPool", group("Back")),
+      spa("backSpa", group("Back")),
+      visit("frontPool", group("Front")),
+      spa("frontSpa", group("Front")),
     ];
     expect(resolveSummaryBundle("backPool", candidates).memberIds).toEqual(["backPool", "backSpa"]);
     expect(resolveSummaryBundle("frontSpa", candidates).memberIds).toEqual(["frontPool", "frontSpa"]);
@@ -89,7 +96,7 @@ describe("resolveSummaryBundle", () => {
    * the reason the bodies were split in the first place is undone.
    */
   it("keeps two pools of the same kind as separate emails even at 16m", () => {
-    const candidates = [visit("pool1"), visit("pool2", { ...north(16) })];
+    const candidates = [visit("pool1"), visit("pool2")];
     expect(resolveSummaryBundle("pool1", candidates).memberIds).toEqual(["pool1"]);
     expect(resolveSummaryBundle("pool2", candidates).memberIds).toEqual(["pool2"]);
     expect(resolveSummaryBundle("pool1", candidates).readyToSend).toBe(true);
@@ -97,7 +104,7 @@ describe("resolveSummaryBundle", () => {
 
   it("bundles a pool with a wading pool, which is a different kind", () => {
     // Playa Vista: POOL + OTHER, 17.4m apart.
-    const candidates = [visit("pool"), visit("wading", { bodyType: "OTHER", ...north(17.4) })];
+    const candidates = [visit("pool", group("Main")), visit("wading", { bodyType: "OTHER", ...group("Main") })];
     expect(resolveSummaryBundle("pool", candidates).memberIds).toEqual(["pool", "wading"]);
   });
 
@@ -122,7 +129,7 @@ describe("resolveSummaryBundle", () => {
      * because sending is triggered by a completion that never comes.
      */
     it("sends what exists instead of waiting on an unfinished body", () => {
-      const candidates = [visit("pool"), spa("spa", { ...north(7), status: "IN_PROGRESS" })];
+      const candidates = [visit("pool", group("Main")), spa("spa", { ...group("Main"), status: "IN_PROGRESS" })];
       expect(resolveSummaryBundle("pool", candidates).readyToSend).toBe(false);
 
       const forced = resolveSummaryBundle("pool", candidates, { force: true });
@@ -134,7 +141,7 @@ describe("resolveSummaryBundle", () => {
     });
 
     it("reports nothing when forcing a bundle where nothing was serviced", () => {
-      const candidates = [visit("pool", { status: "IN_PROGRESS" }), spa("spa", { ...north(7), status: "SCHEDULED" })];
+      const candidates = [visit("pool", { ...group("Main"), status: "IN_PROGRESS" }), spa("spa", { ...group("Main"), status: "SCHEDULED" })];
       const forced = resolveSummaryBundle("pool", candidates, { force: true });
       expect(forced.readyToSend).toBe(false);
       expect(forced.reason).toBe("nothing-completed");
@@ -143,22 +150,22 @@ describe("resolveSummaryBundle", () => {
     it("still refuses a bundle already emailed", () => {
       const candidates = [
         visit("pool", { summaryEmailSentAt: new Date() }),
-        spa("spa", { ...north(7), status: "IN_PROGRESS" }),
+        spa("spa", { ...group("Main"), status: "IN_PROGRESS" }),
       ];
       expect(resolveSummaryBundle("pool", candidates, { force: true }).reason).toBe("already-sent");
     });
 
     it("leaves incompleteIds empty when nothing is outstanding", () => {
-      const candidates = [visit("pool"), spa("spa", { ...north(7) })];
+      const candidates = [visit("pool", group("Main")), spa("spa", group("Main"))];
       expect(resolveSummaryBundle("pool", candidates, { force: true }).incompleteIds).toEqual([]);
     });
   });
 
   it("handles a three-body bundle, sending only after the third finishes", () => {
     const withStatus = (s: string) => [
-      visit("pool"),
-      spa("spa", { ...north(6) }),
-      visit("wading", { bodyType: "OTHER", ...north(10), status: s }),
+      visit("pool", group("Main")),
+      spa("spa", group("Main")),
+      visit("wading", { bodyType: "OTHER", ...group("Main"), status: s }),
     ];
     expect(resolveSummaryBundle("pool", withStatus("IN_PROGRESS")).readyToSend).toBe(false);
     const done = resolveSummaryBundle("wading", withStatus("COMPLETED"));

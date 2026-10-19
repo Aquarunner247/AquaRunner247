@@ -139,13 +139,14 @@ export async function sendBundledServiceSummary(
       id: true,
       status: true,
       summaryEmailSentAt: true,
-      bodyOfWater: { select: { name: true, type: true, latitude: true, longitude: true } },
+      bodyOfWater: { select: { name: true, type: true, serviceGroup: true, latitude: true, longitude: true } },
     },
   });
 
   const toCandidate = (c: (typeof candidates)[number]): BundleCandidate => ({
     visitId: c.id,
     bodyType: c.bodyOfWater?.type ?? null,
+    serviceGroup: c.bodyOfWater?.serviceGroup ?? null,
     latitude: c.bodyOfWater?.latitude != null ? Number(c.bodyOfWater.latitude) : null,
     longitude: c.bodyOfWater?.longitude != null ? Number(c.bodyOfWater.longitude) : null,
     status: c.status,
@@ -314,7 +315,7 @@ export async function resendServiceSummary(visitId: string, recipients: string[]
       id: true,
       status: true,
       summaryEmailSentAt: true,
-      bodyOfWater: { select: { name: true, type: true, latitude: true, longitude: true } },
+      bodyOfWater: { select: { name: true, type: true, serviceGroup: true, latitude: true, longitude: true } },
     },
   });
 
@@ -325,6 +326,7 @@ export async function resendServiceSummary(visitId: string, recipients: string[]
     candidates.map((c) => ({
       visitId: c.id,
       bodyType: c.bodyOfWater?.type ?? null,
+      serviceGroup: c.bodyOfWater?.serviceGroup ?? null,
       latitude: c.bodyOfWater?.latitude != null ? Number(c.bodyOfWater.latitude) : null,
       longitude: c.bodyOfWater?.longitude != null ? Number(c.bodyOfWater.longitude) : null,
       status: c.status,

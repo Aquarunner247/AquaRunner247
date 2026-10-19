@@ -5,20 +5,21 @@
  * Pure and Prisma-free so the rules are testable, same as lib/route-ordering.ts and
  * lib/route-projection.ts. The component keeps only the DOM-shaped work.
  *
- * Two conditions, and a stop needs both: close enough to have been serviced on one walk-up, AND a
- * different KIND of water from everything already in the bundle.
+ * DECLARED, not inferred, as of 2026-10-19. Two stops are one bundle when they are contiguous in
+ * route order, at the same property, with the same technician, and share a non-null serviceGroup.
+ * A body with no group is its own stop, always.
  *
- * Distance is measured, never inferred from names. Names were the obvious first idea and they get
- * real cases wrong: "Clubhouse Pool" and "Gym (NE) Pool" at Borgata are 88m apart in different
- * buildings, while a pool and its spa are typically under 20m. No name rule distinguishes those;
- * coordinates do.
+ * What this replaces: bundling by pin distance (within 40m) and differing body type. That read
+ * this org's thirteen multi-body properties correctly in all but one case, so it was not wrong so
+ * much as unanswerable -- it decided something visible by means nobody could see. Nudging a pin a
+ * few metres could merge or split a card with no edit to show for it, a property whose pin was
+ * badly geocoded bundled nothing, and OYO's two pools -- one arrival, 16m apart, both POOL --
+ * could never bundle at all, because the type rule existed to stop two lookalike pools being
+ * confused in photos. Declaring it keeps that protection where it belongs: as the operator's
+ * decision about one specific property, not a rule applied to every property at once.
  *
- * The type condition came from the field, not from design. OYO's "Pool 1 (North)" and
- * "Pool 2 (South)" are 16m apart on one deck, so distance alone bundled them -- and they turned out
- * to be where photos got misfiled over and over, because two similar pools 16m apart are genuinely
- * hard to tell apart in a photo, in a list, and from a GPS fix. A pool and a spa never have that
- * problem. So a bundle now holds at most one body of each type, which keeps every member of a card
- * distinguishable by the thing a technician can actually see.
+ * metersBetween stays exported: the distance is still what the backfill reasons about, and the
+ * route map still measures.
  */
 import { haversineMiles } from "@/lib/geocode";
 
@@ -42,12 +43,15 @@ export type GroupableStop = {
   latitude: number | null;
   longitude: number | null;
   /**
-   * BodyOfWater.type ("POOL", "SPA", "OTHER", ...). Required rather than optional so a caller
-   * cannot omit it and silently get the old any-two-bodies-bundle behaviour back. Null means the
-   * kind is unknown, which neither joins a bundle nor accepts one -- an unlabelled card is the
-   * exact ambiguity this prevents.
+   * BodyOfWater.type ("POOL", "SPA", "OTHER", ...). No longer decides bundling -- kept because the
+   * card still labels its members by kind, and the backfill reasons about it.
    */
   bodyType: string | null;
+  /**
+   * BodyOfWater.serviceGroup. Null means this stop is its own bundle, always. Two stops bundle
+   * only by sharing this, which is why nothing here measures a distance any more.
+   */
+  serviceGroup?: string | null;
   /** Multi-technician mode only; a change here always starts a new group. */
   technicianId?: string | null;
   /** True for a stop that neither joins a bundle nor breaks one -- a skipped visit. Preserves
@@ -70,30 +74,25 @@ export function metersBetween(
 }
 
 /**
- * Contiguous runs of stops at the same property, same technician, within `radiusMeters` of the
- * run's FIRST member.
+ * Contiguous runs of stops at the same property, same technician, sharing a declared serviceGroup.
  *
- * Measured against the first member rather than the previous one deliberately: chaining
- * neighbour-to-neighbour would let a string of 30m hops bundle two ends of a property that are
- * 150m apart, which is exactly the "front and back read as one place" problem this fixes.
+ * Contiguity is still required. A bundle is one card at one position in the day, so its members
+ * have to be adjacent in route order for that position to mean anything; two stops of the same
+ * group with another property's stop between them are two visits to the same place, and the card
+ * should say so by not existing.
  *
- * A stop with no coordinates at all (its venue isn't pinned AND its property isn't geocoded)
- * can't be measured, so it gets its own group rather than being assumed nearby.
+ * A stop with no serviceGroup gets its own group, as does an errand -- which, as before, also
+ * BREAKS a run: bodies either side of a supply-house run were not serviced on one walk-up.
+ *
+ * `radiusMeters` is accepted and ignored, so existing callers keep compiling while the parameter
+ * is removed from them; it will go once they have.
  */
-export function groupNearbyStops(stops: GroupableStop[], radiusMeters = BUNDLE_RADIUS_METERS): StopGroup[] {
+export function groupNearbyStops(stops: GroupableStop[], _radiusMeters = BUNDLE_RADIUS_METERS): StopGroup[] {
   const groups: StopGroup[] = [];
   let counter = 0;
-  // Assigned only in this loop -- a helper closure that reassigned `current` would defeat
-  // TypeScript's narrowing of it below.
   let current: StopGroup | null = null;
-  let anchor: { latitude: number; longitude: number } | null = null;
-  let anchorTechnicianId: string | null | undefined;
-  /** Types already in the open run. A bundle holds at most one body of each kind. */
-  let typesInRun = new Set<string>();
-  /** True once the run contains a body whose kind is unknown. Such a run accepts nothing further:
-   *  an unknown kind cannot be shown to differ from anything, so pairing it would produce exactly
-   *  the card whose members can't be told apart. */
-  let runKindUnknown = false;
+  let runGroup: string | null = null;
+  let runTechnicianId: string | null | undefined;
 
   for (const stop of stops) {
     if (stop.ignored) continue;
@@ -101,39 +100,27 @@ export function groupNearbyStops(stops: GroupableStop[], radiusMeters = BUNDLE_R
     if (stop.propertyId == null) {
       // An errand: not a member, and it ends whatever run was open.
       current = null;
-      anchor = null;
-      typesInRun = new Set();
-      runKindUnknown = false;
+      runGroup = null;
       continue;
     }
 
-    const coords =
-      stop.latitude != null && stop.longitude != null ? { latitude: stop.latitude, longitude: stop.longitude } : null;
-
+    const group = stop.serviceGroup?.trim() || null;
     const joins =
       current !== null &&
+      group !== null &&
+      runGroup === group &&
       current.propertyId === stop.propertyId &&
-      anchorTechnicianId === stop.technicianId &&
-      anchor !== null &&
-      coords !== null &&
-      metersBetween(anchor, coords) <= radiusMeters &&
-      // One body of each kind per bundle, and an unknown kind on either side never pairs.
-      !runKindUnknown &&
-      stop.bodyType != null &&
-      !typesInRun.has(stop.bodyType);
+      runTechnicianId === stop.technicianId;
 
     if (joins && current !== null) {
       current.memberIds.push(stop.id);
-      if (stop.bodyType != null) typesInRun.add(stop.bodyType);
       continue;
     }
 
     current = { groupId: `g${counter++}`, propertyId: stop.propertyId, memberIds: [stop.id] };
     groups.push(current);
-    anchor = coords;
-    anchorTechnicianId = stop.technicianId;
-    typesInRun = new Set(stop.bodyType != null ? [stop.bodyType] : []);
-    runKindUnknown = stop.bodyType == null;
+    runGroup = group;
+    runTechnicianId = stop.technicianId;
   }
 
   return groups;
@@ -159,14 +146,12 @@ export function formatSequenceRange(positions: number[]): string {
  * Pacific Harbors and Paseo Del Prado came out as spa, spa, pool, pool, so neither property's pair
  * was contiguous and neither could be shown as one card.
  *
- * Only ever moves a stop to just after a stop it would BUNDLE with, so the move is bounded by
- * radiusMeters -- at most a few metres of walking, never a re-route. Stable otherwise: the relative
- * order of the groups themselves is exactly what came in, so the optimizer's decisions stand.
+ * Only ever moves a stop to just after one it shares a serviceGroup with, which the operator has
+ * declared to be the same walk-up -- so the move is by definition within one arrival, never a
+ * re-route. Stable otherwise: the relative order of the groups themselves is exactly what came in,
+ * so the optimizer's decisions stand.
  */
-export function coalesceBundleMembers<T extends GroupableStop>(
-  stops: T[],
-  radiusMeters = BUNDLE_RADIUS_METERS,
-): T[] {
+export function coalesceBundleMembers<T extends GroupableStop>(stops: T[], _radiusMeters = BUNDLE_RADIUS_METERS): T[] {
   const out: T[] = [];
   const taken = new Set<number>();
 
@@ -176,12 +161,10 @@ export function coalesceBundleMembers<T extends GroupableStop>(
     out.push(anchor);
     taken.add(i);
 
-    // An anchor that can't bundle at all (an errand, or no pin) takes nothing with it.
-    if (anchor.propertyId == null || anchor.latitude == null || anchor.longitude == null) continue;
-    if (anchor.ignored || anchor.bodyType == null) continue;
-
-    const anchorCoords = { latitude: anchor.latitude, longitude: anchor.longitude };
-    const typesTaken = new Set<string>([anchor.bodyType]);
+    // An anchor that cannot bundle at all -- an errand, a skipped stop, or a body nobody grouped
+    // -- takes nothing with it.
+    const anchorGroup = anchor.serviceGroup?.trim() || null;
+    if (anchor.propertyId == null || anchor.ignored || anchorGroup == null) continue;
 
     for (let j = i + 1; j < stops.length; j++) {
       if (taken.has(j)) continue;
@@ -190,21 +173,15 @@ export function coalesceBundleMembers<T extends GroupableStop>(
         candidate.propertyId !== anchor.propertyId ||
         candidate.technicianId !== anchor.technicianId ||
         candidate.ignored ||
-        candidate.bodyType == null ||
-        typesTaken.has(candidate.bodyType) ||
-        candidate.latitude == null ||
-        candidate.longitude == null
+        (candidate.serviceGroup?.trim() || null) !== anchorGroup
       ) {
-        continue;
-      }
-      if (metersBetween(anchorCoords, { latitude: candidate.latitude, longitude: candidate.longitude }) > radiusMeters) {
         continue;
       }
       out.push(candidate);
       taken.add(j);
-      typesTaken.add(candidate.bodyType);
     }
   }
 
   return out;
 }
+

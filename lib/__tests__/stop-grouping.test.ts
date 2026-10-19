@@ -21,8 +21,9 @@ function north(meters: number) {
   return { latitude: BASE.latitude + meters / 111_320, longitude: BASE.longitude };
 }
 
-/** Defaults to a POOL, so existing cases keep their meaning; pass bodyType to vary the kind. A
- *  bundle holds at most one body of each kind, so a pair that should group needs two kinds. */
+/** Defaults to a POOL with NO serviceGroup -- i.e. its own stop. Pass `serviceGroup` to declare
+ *  two bodies one walk-up. bodyType no longer decides anything and is kept because cards label
+ *  their members by kind. */
 function stop(id: string, overrides: Partial<GroupableStop> = {}): GroupableStop {
   return {
     id,
@@ -50,158 +51,161 @@ describe("metersBetween", () => {
 });
 
 describe("groupNearbyStops — the customer's real shapes", () => {
-  it("bundles a pool and spa on one deck (6.4m, Fifty101)", () => {
-    const groups = groupNearbyStops([stop("pool"), spa("spa", { ...north(6.4) })]);
-    expect(groups).toHaveLength(1);
-    expect(groups[0].memberIds).toEqual(["pool", "spa"]);
+  /**
+   * The same thirteen multi-body properties the distance rule was tuned against, now expressed as
+   * declarations. The point of each case is unchanged; what decides it is.
+   */
+  it("bundles a pool and spa declared one walk-up (Fifty101)", () => {
+    const stops = [stop("pool", { serviceGroup: "Main" }), spa("spa", { serviceGroup: "Main" })];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["pool", "spa"]]);
   });
 
-  it("bundles the widest real together-pair (19.2m, Ritiro)", () => {
-    const groups = groupNearbyStops([stop("pool"), spa("spa", { ...north(19.2) })]);
-    expect(groups).toHaveLength(1);
+  /** 19.2m apart -- the widest real together-pair. Distance is no longer consulted at all. */
+  it("bundles a pair however far apart, once declared (Ritiro)", () => {
+    const stops = [
+      stop("pool", { serviceGroup: "Main", ...BASE }),
+      spa("spa", { serviceGroup: "Main", ...north(19.2) }),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["pool", "spa"]]);
   });
 
-  it("keeps two pools on one deck separate (16m, OYO), close as they are", () => {
-    // "Pool 1 (North)" and "Pool 2 (South)" are 16m apart on one deck, so distance alone bundled
-    // them -- and that is where photos kept being misfiled, because two similar pools are hard to
-    // tell apart in a photo. Proximity is not enough; the kinds have to differ too.
-    const groups = groupNearbyStops([stop("pool1"), stop("pool2", { ...north(16) })]);
-    expect(groups.map((g) => g.memberIds)).toEqual([["pool1"], ["pool2"]]);
+  /**
+   * OYO: two pools 16m apart on one deck, one arrival. The distance rule could never bundle these
+   * because both are POOL -- a blanket guard against confusing lookalike pools in photos. Declared,
+   * the operator can say this specific pair is one stop.
+   */
+  it("bundles two pools of the same kind when declared (OYO)", () => {
+    const stops = [
+      stop("north", { serviceGroup: "Pool deck", ...BASE }),
+      stop("south", { serviceGroup: "Pool deck", ...north(16) }),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["north", "south"]]);
   });
 
-  it("splits the closest real apart-pair (87.6m, Borgata clubhouse vs gym)", () => {
-    const groups = groupNearbyStops([stop("clubhouse"), stop("gym", { ...north(87.6) })]);
-    expect(groups).toHaveLength(2);
+  /** And two lookalike pools NOT declared stay apart, which is the protection kept deliberate. */
+  it("keeps two pools apart when nobody declared them together", () => {
+    const stops = [stop("north", { ...BASE }), stop("south", { ...north(16) })];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["north"], ["south"]]);
   });
 
-  it("splits a front and back deck (135.8m, The Alcove)", () => {
-    const groups = groupNearbyStops([stop("back"), stop("front", { ...north(135.8) })]);
-    expect(groups).toHaveLength(2);
-  });
-
+  /** Borgata: four venues, two walk-ups 88m apart. One property, two groups. */
   it("makes two pairs out of Borgata's four venues", () => {
-    const groups = groupNearbyStops([
-      spa("gymSpa"),
-      stop("gymPool", { ...north(10.1) }),
-      spa("clubSpa", { ...north(87.6) }),
-      stop("clubPool", { ...north(87.6 + 12.1) }),
-    ]);
-    expect(groups.map((g) => g.memberIds)).toEqual([
-      ["gymSpa", "gymPool"],
-      ["clubSpa", "clubPool"],
+    const stops = [
+      stop("clubPool", { serviceGroup: "Clubhouse" }),
+      spa("clubSpa", { serviceGroup: "Clubhouse" }),
+      stop("gymPool", { serviceGroup: "Gym" }),
+      spa("gymSpa", { serviceGroup: "Gym" }),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([
+      ["clubPool", "clubSpa"],
+      ["gymPool", "gymSpa"],
     ]);
   });
 
+  /** Zoom: three pools spread across the property, none declared together. */
   it("leaves Zoom's three pools separate", () => {
-    const groups = groupNearbyStops([
-      stop("south"),
-      stop("garden", { ...north(135.6) }),
-      stop("north", { ...north(135.6 + 142.7) }),
-    ]);
-    expect(groups).toHaveLength(3);
+    const stops = [stop("north"), stop("garden"), stop("south")];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["north"], ["garden"], ["south"]]);
+  });
+
+  /** Cornerstone: a declared office pair, plus a third pool on its own. */
+  it("bundles only what is declared, leaving the rest alone (Cornerstone)", () => {
+    const stops = [
+      stop("officePool", { serviceGroup: "Office" }),
+      spa("officeSpa", { serviceGroup: "Office" }),
+      stop("pool2"),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["officePool", "officeSpa"], ["pool2"]]);
   });
 });
 
 describe("groupNearbyStops — rules", () => {
-  it("measures from the group's first member, so 30m hops can't chain across a property", () => {
-    const groups = groupNearbyStops([stop("a"), spa("b", { ...north(30) }), stop("c", { ...north(60) })]);
-    // b joins a (30m). c is 60m from the ANCHOR a, so it starts a new group even though it is
-    // only 30m from b.
-    expect(groups.map((g) => g.memberIds)).toEqual([["a", "b"], ["c"]]);
-  });
-
-  it("never bundles across different properties", () => {
-    const groups = groupNearbyStops([stop("a"), stop("b", { propertyId: "p2" })]);
-    expect(groups).toHaveLength(2);
+  it("never bundles across different properties, even with the same group name", () => {
+    const stops = [stop("a", { serviceGroup: "Main" }), spa("b", { propertyId: "p2", serviceGroup: "Main" })];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a"], ["b"]]);
   });
 
   it("starts a new group when the technician changes", () => {
-    const groups = groupNearbyStops([stop("a", { technicianId: "t1" }), stop("b", { technicianId: "t2" })]);
-    expect(groups).toHaveLength(2);
+    const stops = [
+      stop("a", { serviceGroup: "Main", technicianId: "t1" }),
+      spa("b", { serviceGroup: "Main", technicianId: "t2" }),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a"], ["b"]]);
   });
 
   it("an errand breaks a run and joins nothing", () => {
-    const groups = groupNearbyStops([
-      stop("pool"),
-      stop("errand", { propertyId: null }),
-      spa("spa", { ...north(6) }),
-    ]);
-    expect(groups.map((g) => g.memberIds)).toEqual([["pool"], ["spa"]]);
+    const stops = [
+      stop("a", { serviceGroup: "Main" }),
+      { id: "errand", propertyId: null, latitude: null, longitude: null, bodyType: null },
+      spa("b", { serviceGroup: "Main" }),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a"], ["b"]]);
   });
 
   it("a skipped stop between two members keeps them together", () => {
-    const groups = groupNearbyStops([
-      stop("pool"),
-      stop("skipped", { ignored: true }),
-      spa("spa", { ...north(6) }),
-    ]);
-    expect(groups).toHaveLength(1);
-    expect(groups[0].memberIds).toEqual(["pool", "spa"]);
+    const stops = [
+      stop("a", { serviceGroup: "Main" }),
+      stop("skipped", { serviceGroup: "Main", ignored: true }),
+      spa("b", { serviceGroup: "Main" }),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a", "b"]]);
   });
 
   it("excludes a skipped stop from membership entirely", () => {
-    const groups = groupNearbyStops([stop("pool"), stop("skipped", { ignored: true })]);
-    expect(groups[0].memberIds).toEqual(["pool"]);
+    const stops = [stop("a", { serviceGroup: "Main" }), spa("skipped", { serviceGroup: "Main", ignored: true })];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a"]]);
   });
 
-  it("gives an unmeasurable stop its own group rather than assuming it is nearby", () => {
-    const groups = groupNearbyStops([stop("a"), stop("nocoords", { latitude: null, longitude: null })]);
-    expect(groups).toHaveLength(2);
+  /** Contiguity still matters: a card is one position in the day. */
+  it("splits the same group visited twice with another property between", () => {
+    const stops = [
+      stop("a", { serviceGroup: "Main" }),
+      stop("other", { propertyId: "p2" }),
+      spa("b", { serviceGroup: "Main" }),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a"], ["other"], ["b"]]);
   });
 
-  it("splits the same property visited twice with other stops between", () => {
-    const groups = groupNearbyStops([
-      stop("frontA"),
-      stop("elsewhere", { propertyId: "p2" }),
-      stop("frontB", { ...north(5) }),
-    ]);
-    expect(groups.map((g) => g.memberIds)).toEqual([["frontA"], ["elsewhere"], ["frontB"]]);
+  it("gives an ungrouped body its own group, however close it sits", () => {
+    const stops = [stop("a", { serviceGroup: "Main" }), spa("loner")];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a"], ["loner"]]);
+  });
+
+  /** Whitespace is not a group. An empty-ish value must not bundle every blank body together. */
+  it("treats a blank group as no group", () => {
+    const stops = [stop("a", { serviceGroup: "   " }), spa("b", { serviceGroup: "" })];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a"], ["b"]]);
+  });
+
+  it("bundles three bodies of any kinds when all three are declared together", () => {
+    const stops = [
+      stop("a", { serviceGroup: "Main" }),
+      spa("b", { serviceGroup: "Main" }),
+      stop("c", { serviceGroup: "Main", bodyType: "OTHER" }),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a", "b", "c"]]);
+  });
+
+  it("does not bundle different groups at one property", () => {
+    const stops = [stop("a", { serviceGroup: "Front" }), spa("b", { serviceGroup: "Back" })];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a"], ["b"]]);
   });
 
   it("returns a single-member group for a lone stop", () => {
-    expect(groupNearbyStops([stop("only")])).toEqual([{ groupId: "g0", propertyId: "p1", memberIds: ["only"] }]);
+    expect(groupNearbyStops([stop("only")]).map((g) => g.memberIds)).toEqual([["only"]]);
   });
 
   it("returns nothing for no stops", () => {
     expect(groupNearbyStops([])).toEqual([]);
   });
 
-  it("honours a custom radius", () => {
-    const pair = [stop("a"), spa("b", { ...north(50) })];
-    expect(groupNearbyStops(pair, 60)).toHaveLength(1);
-    expect(groupNearbyStops(pair, 10)).toHaveLength(2);
-  });
-
-  it("uses a 40m default", () => {
-    expect(BUNDLE_RADIUS_METERS).toBe(40);
-  });
-
-  it("allows at most one body of each kind in a bundle", () => {
-    // A pool with two spas beside it: the first spa joins, the second starts its own group rather
-    // than sharing a card with a body a technician could confuse it for.
-    const groups = groupNearbyStops([stop("pool"), spa("spa1", { ...north(5) }), spa("spa2", { ...north(8) })]);
-    expect(groups.map((g) => g.memberIds)).toEqual([["pool", "spa1"], ["spa2"]]);
-  });
-
-  it("still bundles a third body when its kind is new", () => {
-    const groups = groupNearbyStops([
-      stop("pool"),
-      spa("spa", { ...north(5) }),
-      stop("wading", { bodyType: "OTHER", ...north(8) }),
-    ]);
-    expect(groups.map((g) => g.memberIds)).toEqual([["pool", "spa", "wading"]]);
-  });
-
-  it("bundles Playa Vista's pool with its wading pool, which are different kinds", () => {
-    // POOL + OTHER, 17.4m apart -- a real pair that must keep bundling under the kind rule.
-    const groups = groupNearbyStops([stop("pool"), stop("wading", { bodyType: "OTHER", ...north(17.4) })]);
-    expect(groups).toHaveLength(1);
-  });
-
-  it("gives a body of unknown kind its own group", () => {
-    // An unlabelled card is the ambiguity this rule exists to prevent, so null never bundles.
-    expect(groupNearbyStops([stop("pool"), stop("mystery", { bodyType: null, ...north(5) })])).toHaveLength(2);
-    expect(groupNearbyStops([stop("mystery", { bodyType: null }), spa("spa", { ...north(5) })])).toHaveLength(2);
+  /** Coordinates are irrelevant now -- an unpinned body still bundles if it was declared. */
+  it("bundles a body with no coordinates at all, once declared", () => {
+    const stops = [
+      stop("a", { serviceGroup: "Main" }),
+      spa("b", { serviceGroup: "Main", latitude: null, longitude: null }),
+    ];
+    expect(groupNearbyStops(stops).map((g) => g.memberIds)).toEqual([["a", "b"]]);
   });
 });
 
@@ -234,11 +238,11 @@ describe("coalesceBundleMembers", () => {
    * order cost the same as the grouped one, so nothing preferred grouping and neither pair could be
    * drawn as one card.
    */
-  it("un-interleaves two nearby properties without reordering the properties", () => {
-    const pacificSpa = spa("pacificSpa", { propertyId: "pacific" });
-    const paseoSpa = spa("paseoSpa", { propertyId: "paseo", ...north(200) });
-    const pacificPool = stop("pacificPool", { propertyId: "pacific", ...north(6.9) });
-    const paseoPool = stop("paseoPool", { propertyId: "paseo", ...north(200 + 7.9) });
+  it("un-interleaves two declared walk-ups without reordering the properties", () => {
+    const pacificSpa = spa("pacificSpa", { propertyId: "pacific", serviceGroup: "Main" });
+    const paseoSpa = spa("paseoSpa", { propertyId: "paseo", serviceGroup: "Main" });
+    const pacificPool = stop("pacificPool", { propertyId: "pacific", serviceGroup: "Main" });
+    const paseoPool = stop("paseoPool", { propertyId: "paseo", serviceGroup: "Main" });
 
     const result = coalesceBundleMembers([pacificSpa, paseoSpa, pacificPool, paseoPool]);
 
@@ -252,49 +256,57 @@ describe("coalesceBundleMembers", () => {
   });
 
   it("leaves an already-grouped sequence exactly as it was", () => {
-    const input = [stop("pool"), spa("spa", { ...north(7) }), stop("other", { propertyId: "p2", ...north(300) })];
+    const input = [
+      stop("pool", { serviceGroup: "Main" }),
+      spa("spa", { serviceGroup: "Main" }),
+      stop("other", { propertyId: "p2" }),
+    ];
     expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["pool", "spa", "other"]);
   });
 
-  it("does not pull in a body too far away to be one walk-up", () => {
-    // The Alcove's front and back decks, 136m apart: the optimizer's order stands.
+  /** The Alcove's front and back decks: declared as two walk-ups, so neither collects the other. */
+  it("does not pull in a body from a different group at the same property", () => {
     const input = [
-      stop("backPool"),
-      stop("frontPool", { ...north(136) }),
-      spa("backSpa", { ...north(12.3) }),
+      stop("backPool", { serviceGroup: "Back" }),
+      stop("frontPool", { serviceGroup: "Front" }),
+      spa("backSpa", { serviceGroup: "Back" }),
     ];
     expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["backPool", "backSpa", "frontPool"]);
   });
 
-  it("does not pull in a second body of the same kind", () => {
-    // OYO's two pools: close, but they must stay separate rows.
-    const input = [stop("pool1"), stop("elsewhere", { propertyId: "p2", ...north(300) }), stop("pool2", { ...north(16) })];
+  /** OYO's two pools, left undeclared: an ungrouped body collects nothing and is collected by nothing. */
+  it("does not pull in an ungrouped body", () => {
+    const input = [stop("pool1"), stop("elsewhere", { propertyId: "p2" }), stop("pool2")];
     expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["pool1", "elsewhere", "pool2"]);
   });
 
   it("never moves an errand, and an errand never collects anything", () => {
     const input = [
-      stop("errand", { propertyId: null }),
-      stop("pool"),
-      stop("other", { propertyId: "p2", ...north(300) }),
-      spa("spa", { ...north(7) }),
+      stop("errand", { propertyId: null, serviceGroup: null }),
+      stop("pool", { serviceGroup: "Main" }),
+      stop("other", { propertyId: "p2" }),
+      spa("spa", { serviceGroup: "Main" }),
     ];
     expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["errand", "pool", "spa", "other"]);
   });
 
   it("leaves a skipped stop where it is", () => {
-    const input = [stop("pool"), stop("skipped", { ignored: true, ...north(5) }), spa("spa", { ...north(7) })];
+    const input = [
+      stop("pool", { serviceGroup: "Main" }),
+      stop("skipped", { serviceGroup: "Main", ignored: true }),
+      spa("spa", { serviceGroup: "Main" }),
+    ];
     // The skipped stop is not a bundle member, so it is not gathered; pool still collects the spa.
     expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["pool", "spa", "skipped"]);
   });
 
   it("keeps different technicians apart", () => {
     const input = [
-      stop("poolA", { technicianId: "t1" }),
-      stop("poolB", { technicianId: "t2", ...north(300), propertyId: "p2" }),
-      spa("spaA", { technicianId: "t2", ...north(7) }),
+      stop("poolA", { technicianId: "t1", serviceGroup: "Main" }),
+      stop("poolB", { technicianId: "t2", propertyId: "p2" }),
+      spa("spaA", { technicianId: "t2", serviceGroup: "Main" }),
     ];
-    // spaA is at the same property as poolA but assigned elsewhere, so it isn't gathered.
+    // spaA is at the same property and group as poolA but assigned elsewhere, so it isn't gathered.
     expect(coalesceBundleMembers(input).map((s) => s.id)).toEqual(["poolA", "poolB", "spaA"]);
   });
 

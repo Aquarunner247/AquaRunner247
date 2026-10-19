@@ -308,7 +308,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             // A property with a front pool and a back pool is two places to drive to, and one
             // property coordinate can't say that. Falls back to the property when a body isn't
             // pinned, so this is a no-op for anything unpinned.
-            bodyOfWater: { select: { name: true, type: true, latitude: true, longitude: true } },
+            bodyOfWater: { select: { name: true, type: true, serviceGroup: true, latitude: true, longitude: true } },
             technician: { select: { id: true, name: true, email: true } },
           },
         });
@@ -322,6 +322,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     propertyName: v.property.name,
     bodyName: v.bodyOfWater.name,
     bodyType: v.bodyOfWater.type,
+    serviceGroup: v.bodyOfWater.serviceGroup,
     address: [v.property.addressLine1, v.property.city, v.property.region].filter(Boolean).join(", "),
     scheduledStart: v.scheduledStart.toISOString(),
     startedAt: v.startedAt ? v.startedAt.toISOString() : null,

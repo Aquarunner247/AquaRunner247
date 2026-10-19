@@ -7,7 +7,7 @@
  * out.
  *
  * Built on lib/stop-grouping.ts so there is exactly one definition of "one walk-up" in the app, the
- * same one the schedule uses to draw a bundled card: same property, within BUNDLE_RADIUS_METERS, and
+ * same one the schedule uses to draw a bundled card: same property and the same declared
  * at most one body of each kind.
  *
  * Route-order adjacency is NOT required here, unlike the card. The card needs it because it renders
@@ -22,8 +22,13 @@ import { groupNearbyStops, type GroupableStop } from "@/lib/stop-grouping";
 /** What the resolver needs about each of a property's visits on one day, in route order. */
 export type BundleCandidate = {
   visitId: string;
-  /** BodyOfWater.type -- decides whether two nearby bodies can share a card and an email. */
+  /** BodyOfWater.type. No longer decides bundling; kept because callers already carry it. */
   bodyType: string | null;
+  /**
+   * BodyOfWater.serviceGroup -- what decides whether two bodies share a card and an email, as of
+   * 2026-10-19. Null means this body is its own visit and its own summary.
+   */
+  serviceGroup: string | null;
   latitude: number | null;
   longitude: number | null;
   /** ServiceVisit.status. COMPLETED and CANCELLED both count as finished; anything else is still
@@ -88,6 +93,7 @@ export function resolveSummaryBundle(
     latitude: c.latitude,
     longitude: c.longitude,
     bodyType: c.bodyType,
+    serviceGroup: c.serviceGroup,
   }));
 
   const groups = groupNearbyStops(groupable);

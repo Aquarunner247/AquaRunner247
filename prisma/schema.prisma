@@ -969,6 +969,22 @@ model BodyOfWater {
   name String
   type BodyOfWaterType @default(POOL)
 
+  /// Bodies of water serviced on ONE walk-up, as declared rather than inferred.
+  ///
+  /// Scoped to the property: two bodies are one stop when they share a non-null serviceGroup AND
+  /// belong to the same property. Null means this body is its own stop, always.
+  ///
+  /// Free text so a company can name the occasion the way it thinks of it ("Clubhouse", "Gym",
+  /// "Pool deck"), and so a property can hold several -- Borgata has a clubhouse pair and a gym
+  /// pair 88m apart, which one boolean on the property could never express.
+  ///
+  /// Replaces inferring bundles from pin distance and body type (2026-10-19). That inference read
+  /// this org's real properties correctly in all but one case, but it decided a visible thing
+  /// invisibly: moving a pin a few metres could merge or split a card, and OYO's two pools -- one
+  /// arrival, 16m apart -- could never bundle because they are both POOL. Declared, the operator
+  /// says what a walk-up is and nothing else gets a vote.
+  serviceGroup String?
+
   /// This body of water's own pin, dropped on satellite imagery — distinct from the parent
   /// Property's single coordinate, which every body on the property shares. A property with a
   /// front pool and a back pool is two places a technician drives to, and the property-level

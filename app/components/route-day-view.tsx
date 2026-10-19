@@ -32,9 +32,11 @@ export type RouteStop = {
   propertyId: string;
   propertyName: string;
   bodyName: string;
-  /// BodyOfWater.type. Used only for bundling: a card holds at most one body of each kind, so two
-  /// similar pools on one deck stay separate rows. See lib/stop-grouping.ts.
+  /// BodyOfWater.type. Labels a card's members by kind; no longer decides bundling.
   bodyType: string | null;
+  /// BodyOfWater.serviceGroup -- what decides bundling as of 2026-10-19. Two stops are one card
+  /// when they share this AND the property AND are adjacent in route order. Null = its own stop.
+  serviceGroup?: string | null;
   address: string;
   scheduledStart: string;
   startedAt: string | null;
@@ -1050,6 +1052,7 @@ export function RouteDayView({
             latitude: i.latitude,
             longitude: i.longitude,
             bodyType: i.bodyType,
+            serviceGroup: i.serviceGroup,
             technicianId: i.technicianId,
             // A skipped visit neither joins a bundle nor breaks one.
             ignored: i.status === "CANCELLED",
