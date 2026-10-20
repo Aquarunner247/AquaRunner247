@@ -11,6 +11,24 @@ import { getOrganizationRuleset, requiresMultipleDailyVisits } from "@/lib/compl
 import { localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
 import { serviceWindowExclusionBounds } from "@/lib/route-service-window";
 
+/**
+ * Where to send the admin back to, preserving whatever they had the list filtered to.
+ *
+ * Every one of these actions used to redirect to a bare /dashboard/routes, which silently threw
+ * away a technician or weekday filter -- filter to Rodrigo, change one thing, and you are looking
+ * at all thirteen routes again, hunting for where you were.
+ *
+ * The form carries the path it came from. Validated rather than trusted: a redirect target from a
+ * form field is an open-redirect if it is allowed to point anywhere, so anything that is not a
+ * routes-page path falls back to the plain one.
+ */
+function backToRoutes(formData: FormData, extraQuery?: string): string {
+  const raw = String(formData.get("back") ?? "").trim();
+  const safe = raw.startsWith("/dashboard/routes") && !raw.startsWith("//") ? raw : "/dashboard/routes";
+  if (!extraQuery) return safe;
+  return safe.includes("?") ? `${safe}&${extraQuery}` : `${safe}?${extraQuery}`;
+}
+
 async function requireAdmin() {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
@@ -461,7 +479,7 @@ export async function setPropertyLocation(formData: FormData) {
 
   revalidatePath("/dashboard/routes");
   if (property.customerId) revalidatePath(`/dashboard/customers/${property.customerId}`);
-  redirect("/dashboard/routes");
+  redirect(backToRoutes(formData));
 }
 
 /**
@@ -619,7 +637,7 @@ export async function setRouteLocationToStop(formData: FormData) {
 
   revalidatePath("/dashboard/routes");
   revalidatePath("/dashboard/schedule");
-  redirect("/dashboard/routes?saved=1");
+  redirect(backToRoutes(formData, "saved=1"));
 }
 
 export async function setRouteLocation(formData: FormData) {
@@ -650,7 +668,7 @@ export async function setRouteLocation(formData: FormData) {
 
   revalidatePath("/dashboard/routes");
   revalidatePath("/dashboard/schedule");
-  redirect("/dashboard/routes?saved=1");
+  redirect(backToRoutes(formData, "saved=1"));
 }
 
 /** Drops the override, so this route uses the technician's own default again. */
@@ -710,7 +728,7 @@ export async function saveRouteLocationAsTechnicianDefault(formData: FormData) {
   revalidatePath("/dashboard/routes");
   revalidatePath("/dashboard/users");
   revalidatePath("/dashboard/schedule");
-  redirect("/dashboard/routes?saved=1");
+  redirect(backToRoutes(formData, "saved=1"));
 }
 
 export async function clearRouteLocation(formData: FormData) {
@@ -735,5 +753,5 @@ export async function clearRouteLocation(formData: FormData) {
 
   revalidatePath("/dashboard/routes");
   revalidatePath("/dashboard/schedule");
-  redirect("/dashboard/routes?saved=1");
+  redirect(backToRoutes(formData, "saved=1"));
 }

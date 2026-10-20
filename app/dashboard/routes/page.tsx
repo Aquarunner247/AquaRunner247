@@ -211,6 +211,16 @@ export default async function RoutesPage({ searchParams }: PageProps) {
     where: { id: appUser.organizationId },
     select: { state: true },
   });
+  /**
+   * This page as the admin currently has it -- technician filter, day filter, view. Carried into
+   * every form so the action can send them back to the list they were on rather than the full one.
+   */
+  const backParams = new URLSearchParams();
+  if (sp.tech) backParams.set("tech", sp.tech);
+  if (sp.day) backParams.set("day", sp.day);
+  if (sp.view) backParams.set("view", sp.view);
+  const backTo = backParams.toString() ? `/dashboard/routes?${backParams}` : "/dashboard/routes";
+
   const todayYmd = ymdInTimeZone(new Date(), timeZoneForState(org?.state));
   const todayUtcMidnight = new Date(`${todayYmd}T00:00:00.000Z`);
 
@@ -627,6 +637,7 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                           <form action={clearRouteLocation} className="shrink-0">
                             <input type="hidden" name="routeId" value={route.id} />
                             <input type="hidden" name="which" value={which} />
+                            <input type="hidden" name="back" value={backTo} />
                             <button type="submit" className="app-btn-ghost-sm min-h-[44px]">
                               Use {route.technician.name ?? route.technician.email}&rsquo;s own
                             </button>
@@ -635,6 +646,7 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                           <form action={saveRouteLocationAsTechnicianDefault} className="shrink-0">
                             <input type="hidden" name="routeId" value={route.id} />
                             <input type="hidden" name="which" value={which} />
+                            <input type="hidden" name="back" value={backTo} />
                             <button
                               type="submit"
                               title={`Use this on every one of ${route.technician.name ?? route.technician.email}'s days, not just this one`}
@@ -647,7 +659,7 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                       ) : null}
 
                       <Link
-                        href={`/dashboard/routes/${route.id}/location/${which}`}
+                        href={`/dashboard/routes/${route.id}/location/${which}?back=${encodeURIComponent(backTo)}`}
                         className="app-btn-ghost-sm min-h-[44px] shrink-0"
                       >
                         {overridden ? `Change ${which}` : `Set ${which}`}

@@ -9,6 +9,8 @@ import { resolveRouteEndpoints } from "@/lib/route-endpoints";
 
 type PageProps = {
   params: Promise<{ routeId: string; which: string }>;
+  /** The filtered routes list to return to, carried from the link that opened this page. */
+  searchParams?: Promise<{ back?: string }>;
 };
 
 /// Only when there's nothing else to centre on -- the valley this org services.
@@ -20,12 +22,13 @@ const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "
  * One page for all four combinations of (start | end). A route's override is an occasional
  * thing, so four near-identical pages would be four places to keep in sync for no gain.
  */
-export default async function RouteLocationPage({ params }: PageProps) {
+export default async function RouteLocationPage({ params, searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
   if (!appUser) redirect("/login");
   if (appUser.role !== "ADMIN") redirect("/dashboard");
 
   const { routeId, which: whichRaw } = await params;
+  const backTo = (await searchParams)?.back ?? "";
   if (whichRaw !== "start" && whichRaw !== "end") notFound();
   const which = whichRaw;
   const isStart = which === "start";
@@ -236,6 +239,7 @@ export default async function RouteLocationPage({ params }: PageProps) {
           <form action={setRouteLocationToStop} className="mt-3 flex flex-wrap items-center gap-2">
             <input type="hidden" name="routeId" value={route.id} />
             <input type="hidden" name="which" value={which} />
+            <input type="hidden" name="back" value={backTo} />
             <select name="stopId" required defaultValue="" className="app-field-sm min-w-[14rem] flex-1">
               <option value="" disabled>
                 Choose a stop…
@@ -271,6 +275,7 @@ export default async function RouteLocationPage({ params }: PageProps) {
                       <input type="hidden" name="latitude" value={place.latitude} />
                       <input type="hidden" name="longitude" value={place.longitude} />
                       <input type="hidden" name="label" value={place.label} />
+                      <input type="hidden" name="back" value={backTo} />
                       <button type="submit" className="app-btn-primary-sm min-h-[44px]">
                         {place.label}
                       </button>
@@ -300,6 +305,7 @@ export default async function RouteLocationPage({ params }: PageProps) {
                       <input type="hidden" name="latitude" value={place.latitude} />
                       <input type="hidden" name="longitude" value={place.longitude} />
                       <input type="hidden" name="label" value={place.label} />
+                      <input type="hidden" name="back" value={backTo} />
                       <button type="submit" className="app-btn-ghost-sm min-h-[44px]">
                         {place.label}
                       </button>
@@ -323,6 +329,7 @@ export default async function RouteLocationPage({ params }: PageProps) {
           <form action={clearRouteLocation} className="mt-3">
             <input type="hidden" name="routeId" value={route.id} />
             <input type="hidden" name="which" value={which} />
+            <input type="hidden" name="back" value={backTo} />
             <button type="submit" className="app-btn-secondary-sm">
               Use {tech}&rsquo;s default instead
             </button>
@@ -333,7 +340,7 @@ export default async function RouteLocationPage({ params }: PageProps) {
       <section className="mt-4">
         <LocationPicker
           action={setRouteLocation}
-          hiddenFields={{ routeId: route.id, which }}
+          hiddenFields={{ routeId: route.id, which, back: backTo }}
           initialLatitude={center.latitude}
           initialLongitude={center.longitude}
           initialZoom={zoom}
