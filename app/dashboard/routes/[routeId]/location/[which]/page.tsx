@@ -109,21 +109,36 @@ export default async function RouteLocationPage({ params }: PageProps) {
     }),
   ]);
 
-  const savedPlaces: { key: string; label: string; latitude: number; longitude: number }[] = [];
+  type SavedPlace = { key: string; label: string; latitude: number; longitude: number; own: boolean };
+  const savedPlaces: SavedPlace[] = [];
   const seenPlace = new Set<string>();
-  const addPlace = (lat: unknown, lng: unknown, label: string | null, who: string) => {
+  const addPlace = (lat: unknown, lng: unknown, label: string | null, who: string, own = false) => {
     if (lat == null || lng == null) return;
     const latitude = Number(lat);
     const longitude = Number(lng);
     const key = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
     if (seenPlace.has(key)) return;
     seenPlace.add(key);
-    savedPlaces.push({ key, label: label?.trim() ? `${label.trim()} · ${who}` : who, latitude, longitude });
+    savedPlaces.push({ key, label: label?.trim() ? `${label.trim()} · ${who}` : who, latitude, longitude, own });
   };
 
-  // Technicians first: their own home or yard is what gets re-entered most.
+  /**
+   * THIS route's technician first, and separated out.
+   *
+   * "Any of Rich's days should offer his house" -- and it did, but buried among every other
+   * technician's and every other day's, which is not the same as being offered. The person whose
+   * day this is has one obvious answer, so it gets its own group above the rest rather than a
+   * position in a list that grows with the roster.
+   */
+  const ownTechnicianName = route.technician?.name ?? route.technician?.email ?? null;
+  const own = technicians.find((t) => (t.name ?? t.email) === ownTechnicianName);
+  if (own) {
+    addPlace(own.startLatitude, own.startLongitude, own.startAddress, `${ownTechnicianName}'s start`, true);
+    addPlace(own.endLatitude, own.endLongitude, own.endAddress, `${ownTechnicianName}'s finish`, true);
+  }
   for (const t of technicians) {
     const who = t.name ?? t.email;
+    if (who === ownTechnicianName) continue;
     addPlace(t.startLatitude, t.startLongitude, t.startAddress, `${who}'s start`);
     addPlace(t.endLatitude, t.endLongitude, t.endAddress, `${who}'s finish`);
   }
@@ -132,6 +147,8 @@ export default async function RouteLocationPage({ params }: PageProps) {
     addPlace(r.startLatitude, r.startLongitude, r.startAddress, `${who} start`);
     addPlace(r.endLatitude, r.endLongitude, r.endAddress, `${who} finish`);
   }
+  const ownPlaces = savedPlaces.filter((place) => place.own);
+  const otherPlaces = savedPlaces.filter((place) => !place.own);
 
   const dayLabel = route.name?.trim() || (route.dayOfWeek != null ? DAY_NAMES[route.dayOfWeek] : null) || "this route";
   const tech = route.technician?.name ?? route.technician?.email ?? "Unassigned";
@@ -239,26 +256,59 @@ export default async function RouteLocationPage({ params }: PageProps) {
       {savedPlaces.length > 0 ? (
         <section className="app-card mt-4">
           <h2 className="font-display text-base font-semibold text-brand-ink">Use a place you already have</h2>
-          <p className="mt-1 text-sm text-brand-muted">
-            Somewhere this company already starts or finishes — a technician&rsquo;s own home, or another
-            day&rsquo;s start point. One tap, no address to re-enter.
-          </p>
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {savedPlaces.map((place) => (
-              <li key={place.key}>
-                <form action={setRouteLocation}>
-                  <input type="hidden" name="routeId" value={route.id} />
-                  <input type="hidden" name="which" value={which} />
-                  <input type="hidden" name="latitude" value={place.latitude} />
-                  <input type="hidden" name="longitude" value={place.longitude} />
-                  <input type="hidden" name="label" value={place.label} />
-                  <button type="submit" className="app-btn-ghost-sm min-h-[44px]">
-                    {place.label}
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
+
+          {ownPlaces.length > 0 ? (
+            <>
+              <p className="mt-1 text-sm text-brand-ink">
+                {tech} runs this day — their own start and finish, one tap, nothing to re-enter.
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {ownPlaces.map((place) => (
+                  <li key={place.key}>
+                    <form action={setRouteLocation}>
+                      <input type="hidden" name="routeId" value={route.id} />
+                      <input type="hidden" name="which" value={which} />
+                      <input type="hidden" name="latitude" value={place.latitude} />
+                      <input type="hidden" name="longitude" value={place.longitude} />
+                      <input type="hidden" name="label" value={place.label} />
+                      <button type="submit" className="app-btn-primary-sm min-h-[44px]">
+                        {place.label}
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : route.technician ? (
+            <p className="mt-1 text-sm text-brand-muted">
+              {tech} has no start point of their own yet — setting one on their user record makes it
+              available on every one of their days.
+            </p>
+          ) : null}
+
+          {otherPlaces.length > 0 ? (
+            <>
+              <p className={`text-sm text-brand-muted ${ownPlaces.length > 0 ? "mt-4" : "mt-1"}`}>
+                Anywhere else this company already starts or finishes.
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {otherPlaces.map((place) => (
+                  <li key={place.key}>
+                    <form action={setRouteLocation}>
+                      <input type="hidden" name="routeId" value={route.id} />
+                      <input type="hidden" name="which" value={which} />
+                      <input type="hidden" name="latitude" value={place.latitude} />
+                      <input type="hidden" name="longitude" value={place.longitude} />
+                      <input type="hidden" name="label" value={place.label} />
+                      <button type="submit" className="app-btn-ghost-sm min-h-[44px]">
+                        {place.label}
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
         </section>
       ) : null}
 
