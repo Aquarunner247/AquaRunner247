@@ -77,6 +77,62 @@ export default async function RouteLocationPage({ params }: PageProps) {
     }))
     .filter((stop) => stop.latitude != null);
 
+  /**
+   * Places this organization already uses as a start or finish, offered as one-click options.
+   *
+   * Setting a route's start or end meant dropping a pin on satellite imagery every time, even for
+   * the technician's own home -- an address already stored on their user record, and the exact
+   * thing being re-entered. Reported 2026-10-19 as having to enter the same tech home address each
+   * time.
+   *
+   * Derived rather than stored: a saved place IS an address already in use, on a technician or on
+   * another route, so there is no new list to curate and nothing goes stale. Deduped on
+   * coordinates rounded to ~10cm, because the same place reached two ways (a technician default
+   * and a route override copied from it) is one entry, not two identical ones.
+   */
+  const [technicians, otherRoutes] = await Promise.all([
+    prisma.user.findMany({
+      where: { organizationId: appUser.organizationId, active: true },
+      select: {
+        name: true, email: true,
+        startLatitude: true, startLongitude: true, startAddress: true,
+        endLatitude: true, endLongitude: true, endAddress: true,
+      },
+    }),
+    prisma.recurringRoute.findMany({
+      where: { organizationId: appUser.organizationId },
+      select: {
+        name: true, dayOfWeek: true,
+        startLatitude: true, startLongitude: true, startAddress: true,
+        endLatitude: true, endLongitude: true, endAddress: true,
+      },
+    }),
+  ]);
+
+  const savedPlaces: { key: string; label: string; latitude: number; longitude: number }[] = [];
+  const seenPlace = new Set<string>();
+  const addPlace = (lat: unknown, lng: unknown, label: string | null, who: string) => {
+    if (lat == null || lng == null) return;
+    const latitude = Number(lat);
+    const longitude = Number(lng);
+    const key = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+    if (seenPlace.has(key)) return;
+    seenPlace.add(key);
+    savedPlaces.push({ key, label: label?.trim() ? `${label.trim()} · ${who}` : who, latitude, longitude });
+  };
+
+  // Technicians first: their own home or yard is what gets re-entered most.
+  for (const t of technicians) {
+    const who = t.name ?? t.email;
+    addPlace(t.startLatitude, t.startLongitude, t.startAddress, `${who}'s start`);
+    addPlace(t.endLatitude, t.endLongitude, t.endAddress, `${who}'s finish`);
+  }
+  for (const r of otherRoutes) {
+    const who = `${r.name?.trim() || (r.dayOfWeek != null ? DAY_NAMES[r.dayOfWeek] : "a route")}`;
+    addPlace(r.startLatitude, r.startLongitude, r.startAddress, `${who} start`);
+    addPlace(r.endLatitude, r.endLongitude, r.endAddress, `${who} finish`);
+  }
+
   const dayLabel = route.name?.trim() || (route.dayOfWeek != null ? DAY_NAMES[route.dayOfWeek] : null) || "this route";
   const tech = route.technician?.name ?? route.technician?.email ?? "Unassigned";
 
@@ -177,6 +233,32 @@ export default async function RouteLocationPage({ params }: PageProps) {
               Use this stop
             </button>
           </form>
+        </section>
+      ) : null}
+
+      {savedPlaces.length > 0 ? (
+        <section className="app-card mt-4">
+          <h2 className="font-display text-base font-semibold text-brand-ink">Use a place you already have</h2>
+          <p className="mt-1 text-sm text-brand-muted">
+            Somewhere this company already starts or finishes — a technician&rsquo;s own home, or another
+            day&rsquo;s start point. One tap, no address to re-enter.
+          </p>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {savedPlaces.map((place) => (
+              <li key={place.key}>
+                <form action={setRouteLocation}>
+                  <input type="hidden" name="routeId" value={route.id} />
+                  <input type="hidden" name="which" value={which} />
+                  <input type="hidden" name="latitude" value={place.latitude} />
+                  <input type="hidden" name="longitude" value={place.longitude} />
+                  <input type="hidden" name="label" value={place.label} />
+                  <button type="submit" className="app-btn-ghost-sm min-h-[44px]">
+                    {place.label}
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

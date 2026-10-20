@@ -10,6 +10,12 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**Pick a start or finish you already have.** Setting where a day begins or ends used to mean
+dropping a pin on satellite imagery every time — including for a technician's own home, an address
+already on file. The start/end screen now lists the places this company already starts and
+finishes at: each technician's own start and finish, and every other day's. One tap, nothing to
+re-enter.
+
 **Move a stop to another technician or day.** Each stop on a route has a "Move to…" picker, so
 changing who services a venue — or which day — no longer means removing it and adding it back. The
 venue keeps its place in the system, and the days rebuild themselves on the new route.
