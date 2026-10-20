@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
-import { resequenceDay, type DaySequenceItem } from "@/lib/day-resequence";
 
 type ReorderPayload = { stopIds?: string[] };
 
@@ -32,102 +30,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ route
     .sort((a, b) => a.id.localeCompare(b.id));
 
   /**
-   * The days already generated follow the route, since as of 2026-10-16 the schedule has no
-   * Optimize of its own -- reordering here is how a day's order gets set, and drag is the only
-   * manual adjustment left.
+   * Only the route is written here.
    *
-   * visit-generation copies sortOrder into ServiceVisit.routeSequence once, when it first creates
-   * a day's visits. A day is generated the first time anyone opens the schedule for it, which for
-   * a recurring route is well before the day arrives, so by the time the route is reordered those
-   * rows already exist carrying the old order and nothing revisited them.
+   * This used to also renumber every generated day, which is where two of this week's bugs lived:
+   * writing one route's positions onto a day that holds other work collided with it, and the rule
+   * about which days qualified kept needing exceptions. Days now re-derive from the route when
+   * they are next viewed (alignDaysToRoutes in lib/visit-generation.ts), so there is one place
+   * that decides a day's order instead of two that had to agree.
    *
-   * The whole day is renumbered, not this route's slice of it -- routeSequence is one sequence
-   * space per technician per day, shared with errands and with any visit that arrived from
-   * elsewhere. Writing only this route's positions is what left four pairs of Rich's Friday stops
-   * sharing a number. resequenceDay decides the placements and guarantees each item a distinct
-   * one; what moves and what stays anchored is documented there and in mergeRouteOrderIntoDay.
-   *
-   * Today included, as of 2026-10-16 at the operator's request -- reordering a route and finding
-   * today unchanged read as the feature not working. The day in progress is still protected, by
-   * mergeRouteOrderIntoDay rather than by excluding the date: only a still-SCHEDULED stop moves,
-   * so anything arrived at, finished, skipped or moved holds its place and a technician mid-route
-   * does not have the morning rewritten under them.
+   * The cost is that a day already open elsewhere shows the old order until it reloads, which is
+   * true of every other change on that screen too.
    */
-  const organization = await prisma.organization.findUnique({
-    where: { id: appUser.organizationId },
-    select: { state: true },
-  });
-  const timeZone = timeZoneForState(organization?.state);
-  const todayStart = localDayBounds(ymdInTimeZone(new Date(), timeZone), timeZone).start;
-
-  const ourVisits = await prisma.serviceVisit.findMany({
-    where: { recurringStopId: { in: stopIds }, scheduledStart: { gte: todayStart } },
-    select: { scheduledStart: true, technicianId: true },
-  });
-
-  const visitWrites: { id: string; index: number }[] = [];
-  const errandWrites: { id: string; index: number }[] = [];
-
-  if (ourVisits.length > 0) {
-    const technicianIds = [...new Set(ourVisits.map((v) => v.technicianId).filter((id): id is string => id != null))];
-    const windowStart = new Date(Math.min(...ourVisits.map((v) => v.scheduledStart.getTime())));
-    const windowEnd = new Date(Math.max(...ourVisits.map((v) => v.scheduledStart.getTime())) + 86_400_000);
-    const touchedDays = new Set(ourVisits.map((v) => `${v.technicianId ?? "none"}|${ymdInTimeZone(v.scheduledStart, timeZone)}`));
-
-    // Every item on those technicians' affected days, both tables, so the day is rebuilt whole.
-    const [dayVisits, dayErrands] = await Promise.all([
-      prisma.serviceVisit.findMany({
-        where: { technicianId: { in: technicianIds }, scheduledStart: { gte: windowStart, lt: windowEnd } },
-        select: { id: true, recurringStopId: true, routeSequence: true, scheduledStart: true, technicianId: true, status: true },
-      }),
-      prisma.adHocStop.findMany({
-        where: { technicianId: { in: technicianIds }, scheduledDate: { gte: windowStart, lt: windowEnd } },
-        select: { id: true, routeSequence: true, scheduledDate: true, technicianId: true, createdAt: true },
-      }),
-    ]);
-
-    const newOrder = [...updates].sort((a, b) => a.index - b.index).map(({ id }) => id);
-    const byDay = new Map<string, DaySequenceItem[]>();
-
-    const push = (key: string, row: DaySequenceItem) => {
-      if (!touchedDays.has(key)) return;
-      if (!byDay.has(key)) byDay.set(key, []);
-      byDay.get(key)!.push(row);
-    };
-
-    for (const v of dayVisits) {
-      push(`${v.technicianId ?? "none"}|${ymdInTimeZone(v.scheduledStart, timeZone)}`, {
-        kind: "visit",
-        id: v.id,
-        seq: v.routeSequence,
-        tiebreak: v.scheduledStart.getTime(),
-        // Only a still-scheduled stop of THIS route may be moved; see mergeRouteOrderIntoDay.
-        moveKey: v.status === "SCHEDULED" && v.recurringStopId != null && stopIds.includes(v.recurringStopId) ? v.recurringStopId : null,
-      });
-    }
-    for (const e of dayErrands) {
-      push(`${e.technicianId ?? "none"}|${ymdInTimeZone(e.scheduledDate, timeZone)}`, {
-        kind: "adhoc",
-        id: e.id,
-        seq: e.routeSequence,
-        tiebreak: e.createdAt.getTime(),
-        moveKey: null,
-      });
-    }
-
-    for (const rows of byDay.values()) {
-      for (const write of resequenceDay(rows, newOrder)) {
-        (write.kind === "adhoc" ? errandWrites : visitWrites).push({ id: write.id, index: write.index });
-      }
-    }
-  }
-
-  await prisma.$transaction([
-    ...updates.map(({ id, index }) => prisma.recurringStop.update({ where: { id }, data: { sortOrder: index } })),
-    // Sorted by id for the same lock-ordering reason as the stop updates above.
-    ...visitWrites.sort((a, b) => a.id.localeCompare(b.id)).map(({ id, index }) => prisma.serviceVisit.update({ where: { id }, data: { routeSequence: index } })),
-    ...errandWrites.sort((a, b) => a.id.localeCompare(b.id)).map(({ id, index }) => prisma.adHocStop.update({ where: { id }, data: { routeSequence: index } })),
-  ]);
+  await prisma.$transaction(
+    updates.map(({ id, index }) => prisma.recurringStop.update({ where: { id }, data: { sortOrder: index } })),
+  );
 
   return NextResponse.json({ ok: true });
 }
