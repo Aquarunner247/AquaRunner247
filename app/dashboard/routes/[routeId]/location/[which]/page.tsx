@@ -112,7 +112,14 @@ export default async function RouteLocationPage({ params, searchParams }: PagePr
     }),
   ]);
 
-  type SavedPlace = { key: string; label: string; latitude: number; longitude: number; own: boolean };
+  /**
+   * `label` is what the BUTTON reads -- "Rigo's House · Tuesday start" -- and `address` is what
+   * gets stored if it is chosen. They were the same field until 2026-10-20, so picking a saved
+   * place wrote the button's caption into the address: Rodrigo's own home ended up saved as
+   * "Rigo's House · Tuesday start", a sentence about where the suggestion came from rather than a
+   * name for the place.
+   */
+  type SavedPlace = { key: string; label: string; address: string; latitude: number; longitude: number; own: boolean };
   const savedPlaces: SavedPlace[] = [];
   const seenPlace = new Set<string>();
   const addPlace = (lat: unknown, lng: unknown, label: string | null, who: string, own = false) => {
@@ -122,7 +129,16 @@ export default async function RouteLocationPage({ params, searchParams }: PagePr
     const key = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
     if (seenPlace.has(key)) return;
     seenPlace.add(key);
-    savedPlaces.push({ key, label: label?.trim() ? `${label.trim()} · ${who}` : who, latitude, longitude, own });
+    const name = label?.trim();
+    savedPlaces.push({
+      key,
+      label: name ? `${name} · ${who}` : who,
+      // Stored as the place's own name, never the caption explaining where it was offered from.
+      address: name || who,
+      latitude,
+      longitude,
+      own,
+    });
   };
 
   /**
@@ -274,7 +290,7 @@ export default async function RouteLocationPage({ params, searchParams }: PagePr
                       <input type="hidden" name="which" value={which} />
                       <input type="hidden" name="latitude" value={place.latitude} />
                       <input type="hidden" name="longitude" value={place.longitude} />
-                      <input type="hidden" name="label" value={place.label} />
+                      <input type="hidden" name="label" value={place.address} />
                       <input type="hidden" name="back" value={backTo} />
                       <button type="submit" className="app-btn-primary-sm min-h-[44px]">
                         {place.label}
@@ -304,7 +320,7 @@ export default async function RouteLocationPage({ params, searchParams }: PagePr
                       <input type="hidden" name="which" value={which} />
                       <input type="hidden" name="latitude" value={place.latitude} />
                       <input type="hidden" name="longitude" value={place.longitude} />
-                      <input type="hidden" name="label" value={place.label} />
+                      <input type="hidden" name="label" value={place.address} />
                       <input type="hidden" name="back" value={backTo} />
                       <button type="submit" className="app-btn-ghost-sm min-h-[44px]">
                         {place.label}
