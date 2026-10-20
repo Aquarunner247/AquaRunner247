@@ -582,30 +582,39 @@ export default async function RoutesPage({ searchParams }: PageProps) {
 
               {/* Where this day begins and ends, and whether that comes from the route or the
                   technician. Stated rather than left implicit, because "Optimize stop order"
-                  below silently depends on it. */}
-              <div className="app-card-inset mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                  below silently depends on it.
+
+                  Readable rather than tucked away: this was text-xs inside a quiet inset, and the
+                  operator could not find it at all when looking for somewhere to pick a
+                  technician's home -- "where is it supposed to be?". The link is now a button with
+                  a 44px target and a label that says what it does, rather than "set for this day"
+                  in link-sized text among a dense card. */}
+              <div className="app-card-inset mt-3 space-y-2">
                 {(["start", "end"] as const).map((which) => {
                   const resolved = routeEndpoints.get(route.id);
                   const point = which === "start" ? resolved?.start : resolved?.end;
                   const overridden =
                     which === "start" ? route.startLatitude != null : route.endLatitude != null;
                   return (
-                    <span key={which} className="flex items-center gap-1.5">
-                      <span className="font-semibold uppercase tracking-wide text-brand-icon">
+                    <div key={which} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                      <span className="w-14 shrink-0 text-xs font-semibold uppercase tracking-wide text-brand-muted">
                         {which === "start" ? "Starts" : "Ends"}
                       </span>
-                      <span className="text-brand-ink">
+                      <span className="min-w-0 flex-1 truncate text-brand-ink">
                         {point
                           ? point.label || "a set point"
                           : which === "start"
-                            ? "first stop"
-                            : "back at the start"}
+                            ? "whichever stop is first"
+                            : "back where the day started"}
                       </span>
-                      {overridden ? <span className="app-pill-attention">this day only</span> : null}
-                      <Link href={`/dashboard/routes/${route.id}/location/${which}`} className="app-link">
-                        {overridden ? "change" : "set for this day"}
+                      {overridden ? <span className="app-pill-attention shrink-0">this day only</span> : null}
+                      <Link
+                        href={`/dashboard/routes/${route.id}/location/${which}`}
+                        className="app-btn-ghost-sm min-h-[44px] shrink-0"
+                      >
+                        {overridden ? `Change ${which}` : `Set ${which}`}
                       </Link>
-                    </span>
+                    </div>
                   );
                 })}
               </div>
