@@ -24,6 +24,8 @@ import {
   updateRouteTechnician,
   updateRouteCapacity,
   updateRouteWindow,
+  clearRouteLocation,
+  saveRouteLocationAsTechnicianDefault,
   duplicateRoute,
 } from "./actions";
 
@@ -32,6 +34,14 @@ const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "
 /** startsOn/endsOn are @db.Date, so they come back as UTC midnight of the calendar date
  * that was stored. Both formatting and comparison therefore happen in UTC -- rendering
  * them in the org's zone would show the previous day for any zone behind UTC. */
+/** Whether this technician already has a start/end point of their own to fall back to. */
+function techHasOwn(
+  technician: { startLatitude: unknown; endLatitude: unknown },
+  which: "start" | "end",
+): boolean {
+  return (which === "start" ? technician.startLatitude : technician.endLatitude) != null;
+}
+
 function ymdFromDateColumn(date: Date | null): string {
   return date ? date.toISOString().slice(0, 10) : "";
 }
@@ -608,6 +618,34 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                             : "back where the day started"}
                       </span>
                       {overridden ? <span className="app-pill-attention shrink-0">this day only</span> : null}
+
+                      {/* One tap, here on the card, for the two things actually wanted most often.
+                          Which one shows depends on whether this technician has a point of their
+                          own yet -- the whole re-entry problem is that Rodrigo did not. */}
+                      {overridden && route.technician ? (
+                        techHasOwn(route.technician, which) ? (
+                          <form action={clearRouteLocation} className="shrink-0">
+                            <input type="hidden" name="routeId" value={route.id} />
+                            <input type="hidden" name="which" value={which} />
+                            <button type="submit" className="app-btn-ghost-sm min-h-[44px]">
+                              Use {route.technician.name ?? route.technician.email}&rsquo;s own
+                            </button>
+                          </form>
+                        ) : (
+                          <form action={saveRouteLocationAsTechnicianDefault} className="shrink-0">
+                            <input type="hidden" name="routeId" value={route.id} />
+                            <input type="hidden" name="which" value={which} />
+                            <button
+                              type="submit"
+                              title={`Use this on every one of ${route.technician.name ?? route.technician.email}'s days, not just this one`}
+                              className="app-btn-ghost-sm min-h-[44px]"
+                            >
+                              Save as {route.technician.name ?? route.technician.email}&rsquo;s {which}
+                            </button>
+                          </form>
+                        )
+                      ) : null}
+
                       <Link
                         href={`/dashboard/routes/${route.id}/location/${which}`}
                         className="app-btn-ghost-sm min-h-[44px] shrink-0"

@@ -10,6 +10,13 @@ if something here affects how you or your technicians work, it says so.
 
 ## October 14, 2026
 
+**A technician's home, set once, on every one of their days.** Each route card now shows where
+that day starts and ends as a readable line with a proper button — and when a day overrides the
+technician's own point, one tap either goes back to their own, or saves this day's address as
+their default so every other day inherits it. That second one is for the case that caused this:
+a technician with no home on file has it typed in per day, which is how the same address ended up
+on three of Rodrigo's days under three different spellings.
+
 **Pick a start or finish you already have.** Setting where a day begins or ends used to mean
 dropping a pin on satellite imagery every time — including for a technician's own home, an address
 already on file. The start/end screen now lists the places this company already starts and

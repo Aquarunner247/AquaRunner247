@@ -654,6 +654,65 @@ export async function setRouteLocation(formData: FormData) {
 }
 
 /** Drops the override, so this route uses the technician's own default again. */
+/**
+ * Promotes a route's start or end to the technician's OWN default.
+ *
+ * The problem this ends: a technician with no start point of their own has their home typed in as
+ * a per-day override, once per day they work. Rodrigo had three -- "Rigo's House", "Rodrigos
+ * House" and "Rodrigo Home" -- the same address, three spellings, on three of his six days,
+ * because there was nothing for the other days to fall back to.
+ *
+ * Saving it on the user record makes every one of their days inherit it, including days that do
+ * not exist yet. The per-day override is then cleared here too: leaving it would keep a second
+ * copy of the same coordinates that stops tracking the default if it ever changes, which is the
+ * duplication this is removing.
+ */
+export async function saveRouteLocationAsTechnicianDefault(formData: FormData) {
+  const appUser = await requireAdmin();
+  const routeId = String(formData.get("routeId") ?? "").trim();
+  const which = String(formData.get("which") ?? "").trim();
+  if (!routeId || (which !== "start" && which !== "end")) return;
+
+  const route = await prisma.recurringRoute.findFirst({
+    where: { id: routeId, organizationId: appUser.organizationId },
+    select: {
+      id: true,
+      technicianId: true,
+      startLatitude: true, startLongitude: true, startAddress: true,
+      endLatitude: true, endLongitude: true, endAddress: true,
+    },
+  });
+  if (!route?.technicianId) return;
+
+  const latitude = which === "start" ? route.startLatitude : route.endLatitude;
+  const longitude = which === "start" ? route.startLongitude : route.endLongitude;
+  const label = which === "start" ? route.startAddress : route.endAddress;
+  // Nothing to promote: this day has no override of its own.
+  if (latitude == null || longitude == null) return;
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: route.technicianId },
+      data:
+        which === "start"
+          ? { startLatitude: latitude, startLongitude: longitude, startAddress: label }
+          : { endLatitude: latitude, endLongitude: longitude, endAddress: label },
+    }),
+    prisma.recurringRoute.update({
+      where: { id: route.id },
+      data:
+        which === "start"
+          ? { startLatitude: null, startLongitude: null, startAddress: null }
+          : { endLatitude: null, endLongitude: null, endAddress: null },
+    }),
+  ]);
+
+  revalidatePath("/dashboard/routes");
+  revalidatePath("/dashboard/users");
+  revalidatePath("/dashboard/schedule");
+  redirect("/dashboard/routes?saved=1");
+}
+
 export async function clearRouteLocation(formData: FormData) {
   const appUser = await requireAdmin();
   const routeId = String(formData.get("routeId") ?? "").trim();
