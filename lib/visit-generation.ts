@@ -112,6 +112,8 @@ export async function ensureVisitsGeneratedForDate(organizationId: string, ymd: 
     });
   });
 
+  await retractVisitsNoLongerOnThisDay(organizationId, dayStart, dayEnd, isoWeekday, localDayBounds(todayYmd, timeZone).start);
+
   // Every view, not just the one that created something: this is what keeps the schedule a
   // mirror of the route rather than a copy taken once. It writes only what differs.
   await alignDaysToRoutes(routes, dayStart, dayEnd, localDayBounds(todayYmd, timeZone).start);
@@ -207,4 +209,49 @@ async function alignDaysToRoutes(
       }
     }
   }
+}
+
+/**
+ * Removes stops from a day whose route no longer runs that weekday.
+ *
+ * Generation only ever ADDED. It created a visit for every stop whose route ran that weekday and
+ * then forgot about it, so a visit already made for a Wednesday survived its route becoming a
+ * Thursday one -- the stop appeared on both days, every week that had been generated in advance,
+ * with nothing on either screen explaining why.
+ *
+ * Found 2026-10-21: Paseo Del Prado is serviced Tuesday, Thursday and Saturday, and was appearing
+ * on Wednesdays and Fridays as well. Its visits pointed at stops belonging to the Thursday and
+ * Saturday routes, so they were being drawn a day early for weeks. The customer was emailed a
+ * service summary for several of them.
+ *
+ * Only SCHEDULED visits, and only today or later. A visit someone arrived at, finished or skipped
+ * is a record of what happened -- the work was really done, whatever day the row claims -- and
+ * deleting it would erase a reading, a photo, and a summary the customer has already had. Those
+ * stay, and age out of view on their own.
+ *
+ * Deliberately NOT scoped to the routes loaded above: those are the routes that DO run today, and
+ * the whole point is to find visits belonging to routes that do not.
+ */
+async function retractVisitsNoLongerOnThisDay(
+  organizationId: string,
+  dayStart: Date,
+  dayEnd: Date,
+  isoWeekday: number,
+  todayStart: Date,
+) {
+  if (dayStart < todayStart) return;
+
+  const stranded = await prisma.serviceVisit.findMany({
+    where: {
+      organizationId,
+      status: "SCHEDULED",
+      scheduledStart: { gte: dayStart, lt: dayEnd },
+      recurringStopId: { not: null },
+      recurringStop: { route: { dayOfWeek: { not: isoWeekday } } },
+    },
+    select: { id: true },
+  });
+  if (stranded.length === 0) return;
+
+  await prisma.serviceVisit.deleteMany({ where: { id: { in: stranded.map((visit) => visit.id) } } });
 }
