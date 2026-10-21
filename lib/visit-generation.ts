@@ -129,11 +129,17 @@ export async function ensureVisitsGeneratedForDate(organizationId: string, ymd: 
  * It runs on every schedule view because ensureVisitsGeneratedForDate does, and it writes only the
  * positions that actually differ -- a day already in step costs nothing but the read.
  *
- * A DAY THAT HAS BEEN STARTED IS LEFT ALONE. Once a technician has arrived anywhere on it, the day
- * is theirs: they are reading the list as it stands, and having it reorder under them because the
+ * A DAY BEING WORKED IS LEFT ALONE. Once a technician has arrived somewhere ON THAT DAY, the day is
+ * theirs: they are reading the list as it stands, and having it reorder under them because the
  * office changed a route at 10am is worse than it being briefly out of date. Before the first
  * arrival a reorder still lands, which is what the operator asked for when a route change did not
  * reach that same day.
+ *
+ * "On that day" is the correction, and it matters: the first version froze a day if ANY visit on
+ * it had ever been started, at any time. Technicians here work ahead -- Rich started two of
+ * Wednesday's stops on Tuesday morning -- so Wednesday was frozen before Wednesday began and never
+ * aligned at all, leaving the order it was generated with eight days earlier. Nobody could have
+ * seen why: the day simply did not match its route, and nothing had gone wrong that day.
  *
  * Past days are never touched. They are a record of the order things happened in.
  *
@@ -165,8 +171,12 @@ async function alignDaysToRoutes(
     ]);
     if (dayVisits.length === 0) continue;
 
-    // Somebody is working this day. It is theirs now.
-    if (dayVisits.some((visit) => visit.startedAt != null)) continue;
+    // Somebody is working this day, today. A stop started on an earlier day -- a technician
+    // getting ahead -- is not that, and must not freeze a day before it begins.
+    const startedThisDay = dayVisits.some(
+      (visit) => visit.startedAt != null && visit.startedAt >= dayStart && visit.startedAt < dayEnd,
+    );
+    if (startedThisDay) continue;
 
     const stopIds = new Set(route.stops.map((stop) => stop.id));
     const items: DaySequenceItem[] = [
