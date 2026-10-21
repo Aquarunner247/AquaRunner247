@@ -129,6 +129,15 @@ export function SiteFooter() {
             <Link href="/privacy" className="transition-colors hover:text-white">
               Privacy Policy
             </Link>
+            {/* Both routed 2026-10-21. The DPA's Section 6.2 commits to maintaining a
+                sub-processor list at a published URL, so it has to be reachable from here
+                rather than only from inside the documents that reference it. */}
+            <Link href="/dpa" className="transition-colors hover:text-white">
+              Data Processing
+            </Link>
+            <Link href="/subprocessors" className="transition-colors hover:text-white">
+              Sub-processors
+            </Link>
           </p>
         </div>
       </div>
