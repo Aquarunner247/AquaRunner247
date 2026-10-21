@@ -200,6 +200,17 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     geofenceMeters: v.property.geofenceMeters,
   }));
 
+  /**
+   * Venues an unscheduled SERVICE call can be recorded against -- a callout to a pool that is not
+   * on today's route, where chemicals and readings still have to go somewhere. An errand (no
+   * venue) cannot hold any of that; see addAdHocStop.
+   */
+  const adHocVenues = await prisma.bodyOfWater.findMany({
+    where: { property: { organizationId: appUser.organizationId } },
+    orderBy: [{ property: { name: "asc" } }, { name: "asc" }],
+    select: { id: true, name: true, property: { select: { name: true } } },
+  });
+
   const [adHocStops, adHocProperties] = await Promise.all([
     tab === "week"
       ? Promise.resolve([])
@@ -413,10 +424,17 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                   <AdHocStopDateField defaultYmd={selectedYmd} />
                   <input
                     name="description"
-                    required
-                    placeholder="e.g. Pool store, drop off filter…"
+                    placeholder="e.g. Pool store, or why you were called out"
                     className="app-field-sm min-w-[180px] flex-1"
                   />
+                  <select name="bodyOfWaterId" defaultValue="" className="app-field-sm">
+                    <option value="">Errand — no venue</option>
+                    {adHocVenues.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.property.name} — {v.name}
+                      </option>
+                    ))}
+                  </select>
                   <select name="propertyId" defaultValue="" className="app-field-sm">
                     <option value="">No property</option>
                     {adHocProperties.map((p) => (

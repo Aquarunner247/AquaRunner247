@@ -75,6 +75,12 @@ dropping a pin: a pool's own location sits a few hundred metres from its propert
 across this data, and picking the stop uses the pool. Setting a home or the yard still works the
 way it did — the day finishes by driving there after the last stop.
 
+**An extra stop can now be a real service call.** Adding an extra stop lets you pick a venue, and
+when you do it creates an actual visit — readings, chemicals, photos, the customer's summary, the
+compliance log. Before, an extra stop was always an errand with nowhere to record any of that, so
+a callout to a pool that wasn't on the route had no home. Leave the venue as "Errand — no venue"
+and it behaves exactly as it did.
+
 **One-off stops can be added from the route planner.** Each route now has "Add a one-off stop to
 a Friday" under its stop list. It lands on one date only and never joins the weekly route, so a
 pool-store run doesn't repeat every week. The date defaults to the next time that route runs

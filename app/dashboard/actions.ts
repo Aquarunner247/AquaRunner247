@@ -46,7 +46,10 @@ export async function addAdHocStop(formData: FormData) {
   if (!appUser) redirect("/login");
 
   const description = String(formData.get("description") ?? "").trim();
-  if (!description) return;
+  const bodyOfWaterId = String(formData.get("bodyOfWaterId") ?? "").trim();
+  // An errand is only its description, so it needs one. A service call is identified by the venue,
+  // and its description is an optional note about why it happened.
+  if (!description && !bodyOfWaterId) return;
 
   // The form posts the org-local day being viewed as "YYYY-MM-DD". It has to be resolved
   // through localDayBounds in the ORG's zone -- the same conversion every read of these rows
@@ -119,6 +122,50 @@ export async function addAdHocStop(formData: FormData) {
       }),
     ]);
     routeSequence = Math.max(maxVisitSeq._max.routeSequence ?? -1, maxAdHocSeq._max.routeSequence ?? -1) + 1;
+  }
+
+  /**
+   * An extra stop is either an ERRAND or an unscheduled SERVICE CALL, and they are different rows.
+   *
+   * An AdHocStop has no body of water, so it can hold no readings, no chemical doses and no
+   * photos -- right for a supply-house run, useless for "I was called out to a pool that isn't on
+   * today's route and put 2 gallons in it". That work has to be a ServiceVisit or there is nowhere
+   * for the chemicals to go, and nothing reaches the compliance log or the customer's summary.
+   *
+   * Detached from any recurring stop (recurringStopId null), the same shape move-to-tomorrow
+   * already creates: it is a one-off at this venue on this day, and must not suppress or stand in
+   * for whatever that venue's own route generates.
+   *
+   * The description becomes techNotes, since a ServiceVisit has no description of its own and the
+   * reason for an unscheduled call is worth keeping next to the work.
+   */
+  if (bodyOfWaterId) {
+    const body = await prisma.bodyOfWater.findFirst({
+      where: { id: bodyOfWaterId, property: { organizationId: appUser.organizationId } },
+      select: { id: true, propertyId: true },
+    });
+    if (!body) return;
+
+    await prisma.serviceVisit.create({
+      data: {
+        organizationId: appUser.organizationId,
+        propertyId: body.propertyId,
+        bodyOfWaterId: body.id,
+        technicianId,
+        recurringStopId: null,
+        // AdHocStop allows a null position; ServiceVisit does not model one.
+        routeSequence: routeSequence ?? undefined,
+        // Local midnight for the chosen day, exactly as visit generation computes it.
+        scheduledStart: dayStart,
+        status: "SCHEDULED",
+        techNotes: description || null,
+      },
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/dashboard/routes");
+    return;
   }
 
   await prisma.adHocStop.create({

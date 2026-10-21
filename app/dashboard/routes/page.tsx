@@ -154,6 +154,17 @@ export default async function RoutesPage({ searchParams }: PageProps) {
   // lib/route-endpoints.ts, and "Optimize stop order" and the per-route summary below read it
   // from here rather than re-deriving it.
   // For the one-off stop form below. Name only -- it is a picker, not a listing.
+  /**
+   * Venues an unscheduled SERVICE call can be recorded against -- a callout to a pool that is not
+   * on that day's route, where chemicals and readings still have to go somewhere. An errand (no
+   * venue) can hold none of that; see addAdHocStop.
+   */
+  const adHocVenues = await prisma.bodyOfWater.findMany({
+    where: { property: { organizationId: appUser.organizationId } },
+    orderBy: [{ property: { name: "asc" } }, { name: "asc" }],
+    select: { id: true, name: true, property: { select: { name: true } } },
+  });
+
   const propertyOptions = await prisma.property.findMany({
     where: { organizationId: appUser.organizationId },
     orderBy: { name: "asc" },
@@ -748,10 +759,17 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                   <input type="hidden" name="technicianId" value={route.technicianId ?? ""} />
                   <input
                     name="description"
-                    required
-                    placeholder="e.g. Pool store, drop off filter…"
+                    placeholder="e.g. Pool store, or why you were called out"
                     className="app-field-sm min-w-[12rem] flex-1"
                   />
+                  <select name="bodyOfWaterId" defaultValue="" className="app-field-sm">
+                    <option value="">Errand — no venue</option>
+                    {adHocVenues.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.property.name} — {v.name}
+                      </option>
+                    ))}
+                  </select>
                   <select name="propertyId" defaultValue="" className="app-field-sm">
                     <option value="">No property</option>
                     {propertyOptions.map((property) => (
