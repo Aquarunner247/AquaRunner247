@@ -11,8 +11,14 @@ import { timeZoneForState } from "@/lib/timezone";
 
 /** How long an org gets, after cancellation, to export its own data before the scrub
  * cron (app/api/cron/scrub-canceled-orgs/route.ts) permanently deletes everything not
- * on the compliance-retained allowlist. */
-const SCRUB_GRACE_PERIOD_MS = 48 * 60 * 60 * 1000;
+ * on the compliance-retained allowlist.
+ *
+ * 30 days, not 48 hours, because three separate customer-facing documents promise
+ * exactly this window -- Terms of Service 17.4, Privacy Policy 13, and DPA 9.1 ("Customer
+ * Personal Data will remain available for export for 30 days after termination"). The DPA
+ * is executed per-customer, so a shorter window here is a contract breach, not just a
+ * surprise. Change this and those three documents together or not at all. */
+const SCRUB_GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const runtime = "nodejs";
 

@@ -5,9 +5,10 @@ import { runOrgScrub } from "@/lib/org-scrub";
 export const runtime = "nodejs";
 
 /**
- * Runs daily (see vercel.ts). Scrubs every org whose 48h post-cancellation grace period
- * (set by the customer.subscription.deleted webhook handler) has elapsed and hasn't
- * been scrubbed yet.
+ * Runs daily (see vercel.ts). Scrubs every org whose 30-day post-cancellation grace period
+ * (SCRUB_GRACE_PERIOD_MS, set by the customer.subscription.deleted webhook handler) has
+ * elapsed and hasn't been scrubbed yet. That window is a contractual commitment in three
+ * documents -- see the constant's comment before shortening it.
  *
  * Ships dry-run by default -- per this project's standing rule that anything deleting
  * production data defaults to a dry run until explicitly told to apply. Set
