@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TermsNotice } from "@/app/components/legal/terms-notice";
 import { redirect } from "next/navigation";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
@@ -162,6 +163,10 @@ export default async function SignupCompletePage({ searchParams }: PageProps) {
             className="rounded-md border border-brand-control px-3 py-2 text-base text-brand-ink shadow-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
           />
         </label>
+        {/* The account is created by THIS submit, so the notice has to be here too -- the
+            /signup form's notice covered taking the card, not forming the agreement. The
+            timestamp written in completeSignup is the record of this click. */}
+        <TermsNotice action="creating your account" />
         <button
           type="submit"
           className="rounded-md bg-brand-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-ink"

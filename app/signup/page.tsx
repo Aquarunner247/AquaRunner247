@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TermsNotice } from "@/app/components/legal/terms-notice";
 import { redirect } from "next/navigation";
 import { signUp } from "./actions";
 import { isSelfServePlanTier, type SelfServePlanTier } from "@/lib/stripe";
@@ -126,9 +127,11 @@ export default async function SignupPage({ searchParams }: PageProps) {
           </fieldset>
         )}
         <p className="text-xs text-brand-muted">
-
           You&rsquo;ll set a password after your card is confirmed on the next step.
         </p>
+        {/* Immediately above the button, so the notice and the act of assent are the same
+            moment. Moving it elsewhere on the page is what makes an agreement browsewrap. */}
+        <TermsNotice action="starting your trial" />
         <button
           type="submit"
           className="rounded-md bg-brand-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-ink"

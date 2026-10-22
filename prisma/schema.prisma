@@ -168,8 +168,28 @@ model Organization {
   /// Where the automatic full pre-scrub safety export landed in Vercel Blob, set once by
   /// the cancellation webhook (see runCancellationSafetyExport) -- kept here rather than
   /// only on an OrganizationScrubRun row because the export happens at cancellation time,
-  /// separate from (and up to 48h before) the scrub attempt itself.
+  /// separate from (and 30 days before) the scrub attempt itself.
   dataScrubSafetyExportBlobPath String?
+
+  /// When this organization accepted the Terms of Service, EULA and Privacy Policy, and which
+  /// version it accepted. Written server-side at account creation, never from a submitted field.
+  ///
+  /// This is the record that makes the agreement enforceable. Until 2026-10-22 nothing in the
+  /// product presented the Terms at all -- they were reachable only from the marketing footer,
+  /// which is browsewrap, and browsewrap is what courts decline to enforce when the clause in
+  /// question is an arbitration agreement, a class-action waiver or a liability cap. Terms of
+  /// Service Section 23 picks Nevada law and Clark County venue, so the Ninth Circuit's standard
+  /// applies: conspicuous notice AND an unambiguous act of assent. The notice is on the signup
+  /// and account-creation forms; these two columns are the act.
+  ///
+  /// Null on every account created before that date. That is the honest state -- those
+  /// organizations were never shown the Terms -- and it must not be backfilled with a guess.
+  /// Re-acceptance on a material change is a separate flow that does not exist yet.
+  termsAcceptedAt      DateTime?
+  /// The TERMS_VERSION constant in lib/terms-acceptance.ts, which is the documents' own
+  /// effective date. Stored rather than derived so a later revision cannot rewrite what an
+  /// organization actually agreed to.
+  termsAcceptedVersion String?
 
   /// Captured at signup — USPS 2-letter code ("NV", "CA", ...). Null for accounts that
   /// predate multi-state support and haven't been backfilled yet.
@@ -1707,19 +1727,19 @@ model ChecklistItemDefinition {
 
   /// Defaults to COMMERCIAL so every item that existed before 2026-10-14 keeps behaving exactly as
   /// it did -- commercial was deliberately left alone when the residential list was added.
-  scope ChecklistScope @default(COMMERCIAL)
+  scope        ChecklistScope @default(COMMERCIAL)
   /// Group heading on the technician's screen ("Weekly Maintenance"). Free text, not an enum: a
   /// company renaming or adding a grouping should not need a migration.
-  category String?
+  category     String?
   /// Blocks closing the stop until ticked, the same way a required reading does. Off by default --
   /// stopping a technician finishing is a decision to make deliberately, not to inherit.
-  required Boolean @default(false)
+  required     Boolean        @default(false)
   /// Work normally charged for on top of the regular service.
-  billable Boolean @default(false)
+  billable     Boolean        @default(false)
   /// What this item adds when done. Snapshotted onto the completion when ticked, so changing the
   /// price later never rewrites what a past visit charged -- same reason VisitChemicalDose carries
   /// its own unitCharge.
-  chargeAmount Decimal? @db.Decimal(10, 2)
+  chargeAmount Decimal?       @db.Decimal(10, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

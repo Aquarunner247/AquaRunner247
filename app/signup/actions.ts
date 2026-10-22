@@ -9,6 +9,7 @@ import type { OrganizationPlanStatus, PlanTier } from "@/generated/prisma/client
 import { isValidStateCode } from "@/lib/us-states";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
 import { DEFAULT_RESIDENTIAL_CHECKLIST } from "@/lib/default-residential-checklist";
+import { termsAcceptanceFields } from "@/lib/terms-acceptance";
 
 const TRIAL_DAYS = 14;
 
@@ -389,6 +390,10 @@ export async function completeSignup(formData: FormData) {
           hasCommercialPools,
           complianceRulesetId: stateRuleset?.id ?? null,
           ...(planTier ? { planTier } : {}),
+          // The webhook's safety-net create made the row, but nobody had accepted anything
+          // at that point -- this submit is the first time a person saw the notice and
+          // acted on it, so it is the acceptance for this org too.
+          ...termsAcceptanceFields(),
         },
       });
       await prisma.user.create({
@@ -401,6 +406,9 @@ export async function completeSignup(formData: FormData) {
             name: businessName,
             businessName,
             businessPhone: phone,
+            // Server-side clock at the moment the account is created, never a resubmitted
+            // field -- the whole value of this record is that the user cannot author it.
+            ...termsAcceptanceFields(),
             planStatus,
             planTier,
             stripeCustomerId,
