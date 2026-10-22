@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import { OpenAIRealtimeWS } from "openai/realtime/ws";
 import { finalizeCallTicket } from "@/lib/phone-agent-ticket";
 import { answerRealtimeTool } from "@/lib/phone-agent-status";
-import { WEEKDAY_KEYS, type BusinessHours } from "@/lib/phone-agent";
+import { WEEKDAY_KEYS, RECORDING_NOTICE, NOTICE_VOICE, type BusinessHours } from "@/lib/phone-agent";
 import type { RealtimeFunctionTool } from "openai/resources/realtime/realtime";
 import type { OrgPhoneAgentSettings, PhoneAgentCall, PhoneAgentIssueType, PhoneAgentRouteReason } from "@/generated/prisma/client";
 
@@ -266,6 +266,12 @@ export function openaiSipUri(conferenceName: string): string {
  */
 export function conversationalAiTwiml(conferenceName: string, statusCallbackUrl: string): string {
   const response = new VoiceResponse();
+  // Spoken by Twilio, not by the model. The conference records from the start and the
+  // caller's audio is streamed to OpenAI's Realtime endpoint, so the notice has to land
+  // before the join -- and it has to be deterministic. Putting it in
+  // buildRealtimeInstructions would make all-party recording consent depend on an LLM
+  // choosing to say it, which is not a basis to rely on. See RECORDING_NOTICE.
+  response.say({ voice: NOTICE_VOICE }, RECORDING_NOTICE);
   const dial = response.dial();
   dial.conference(
     {

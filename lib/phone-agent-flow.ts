@@ -1,6 +1,6 @@
 import twilio from "twilio";
 import { prisma } from "@/lib/prisma";
-import { resolveRouteReason } from "@/lib/phone-agent";
+import { resolveRouteReason, RECORDING_NOTICE } from "@/lib/phone-agent";
 import { matchCallerToProperty, normalizePhone, type PhoneMatch } from "@/lib/phone-match";
 import type { OrgPhoneAgentSettings, PhoneAgentRouteReason } from "@/generated/prisma/client";
 import type VoiceResponseNamespace from "twilio/lib/twiml/VoiceResponse";
@@ -40,6 +40,8 @@ async function findPropertyByCallerNumber(organizationId: string, callerNumber: 
  * one, since there's no way to audition these from code. If this doesn't land right on a
  * test call, swap the name here and call again; it's the only thing that needs to change. */
 const AGENT_VOICE = "Google.en-US-Chirp3-HD-Kore" as const;
+/** Keep in step with NOTICE_VOICE in lib/phone-agent.ts -- the recording notice is spoken
+ * by that module's voice and reads as a different speaker if the two drift apart. */
 /** Full speed (100%) reads as more natural than a sped-up voice -- the previous 110%
  * (carried over from Dialogflow's own voice picker, which has no effect on what callers
  * actually hear) tended to sound rushed rather than efficient. +3dB volume kept as-is;
@@ -169,6 +171,9 @@ export function phoneTreeTwiml(
   const greeting = configuredGreeting ?? defaultGreeting;
 
   const response = new VoiceResponse();
+  // Outside the <Gather> deliberately: a <Say> nested in a Gather plays while the gather is
+  // already listening, so the notice would overlap the capture it is meant to precede.
+  say(response, RECORDING_NOTICE);
   const gather = response.gather({
     input: ["speech", "dtmf"],
     numDigits: 1,

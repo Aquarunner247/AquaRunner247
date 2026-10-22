@@ -2,6 +2,31 @@ import type { OrgPhoneAgentSettings } from "@/generated/prisma/client";
 
 export const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
+/**
+ * Spoken to every caller before anything is recorded, transcribed, or streamed to a model.
+ *
+ * Not optional and not configurable per organization. Nevada -- where this is operated --
+ * requires the consent of all parties to record a telephone conversation under NRS 200.620,
+ * and California's CIPA s.632.7 is all-party too, with per-call statutory damages. A caller
+ * to a pool company is usually a consumer, which is the end of that exposure where class
+ * actions actually get filed. The Privacy Policy discloses recording, but a caller never
+ * reads the Privacy Policy, so this notice is the only place consent is actually obtained:
+ * the caller hears it first and consents by staying on the line.
+ *
+ * Keep it BEFORE the first <Gather>, <Record> or conference join on every path. Speech sent
+ * to a <Gather input=["speech"]> is already capture, so placing this after the greeting but
+ * before the gather is not good enough -- it has to lead. Lives here, rather than beside the
+ * TwiML builders in phone-agent-flow.ts, because the conversational-AI path needs it too and
+ * this is the module both already share.
+ */
+export const RECORDING_NOTICE =
+  "Just so you know, this call is recorded and transcribed so we can take care of your request. If you'd rather not be recorded, please hang up now and call back during business hours.";
+
+/** The Twilio TTS voice for RECORDING_NOTICE. Mirrors phone-agent-flow.ts's AGENT_VOICE so
+ * the notice and the greeting that follows it are the same voice rather than two. */
+export const NOTICE_VOICE = "Google.en-US-Chirp3-HD-Kore" as const;
+
+
 /** OrgPhoneAgentSettings.businessHours shape: {"mon": "08:00-17:00", ...}, 24h time,
  * keyed by WEEKDAY_KEYS. A missing or null key means closed that day. Only decides the
  * AFTER_HOURS vs BUSY_OVERFLOW framing/copy shown to the caller -- never gates whether
