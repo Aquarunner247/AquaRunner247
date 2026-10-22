@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { timeZoneForState, ymdInTimeZone, localDayBounds } from "@/lib/timezone";
+import { nextRouteSequenceForDay } from "@/lib/day-sequence";
 import { MOVE_REFUSAL_MESSAGE, nextWorkingDayAnchor, refusalForMove } from "@/lib/visit-reschedule";
 
 /**
@@ -12,9 +13,13 @@ import { MOVE_REFUSAL_MESSAGE, nextWorkingDayAnchor, refusalForMove } from "@/li
  * not happening at all). Neither covers the ordinary case: locked gate, dog in the yard, ran out of
  * daylight -- come back tomorrow.
  *
- * Same visit row, moved. Not a cancel-and-recreate: the row carries the body of water, the
- * technician and the route position already, and keeping it means the stop has one history rather
- * than a cancelled ghost beside a new one.
+ * Same visit row, moved. Not a cancel-and-recreate: the row carries the body of water and the
+ * technician already, and keeping it means the stop has one history rather than a cancelled ghost
+ * beside a new one.
+ *
+ * The route position does NOT carry across. `routeSequence` is scoped to one technician's one
+ * day, so the source day's number is meaningless on the target day and actively harmful there --
+ * see lib/day-sequence.ts for the collision it caused on 2026-10-22.
  */
 export async function PATCH(_request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
@@ -121,13 +126,32 @@ export async function PATCH(_request: Request, context: { params: Promise<{ id: 
    * that the stop was scheduled and did not happen, which is what the schedule now shows as Moved.
    */
   const moved = await prisma.$transaction(async (tx) => {
+    /**
+     * A position at the END of the target day, never the source day's number.
+     *
+     * Read inside the transaction so it cannot race another move onto the same day. An
+     * unassigned visit has no day list to join, so it keeps no position at all.
+     */
+    const { start: targetDayStart, end: targetDayEnd } = localDayBounds(
+      ymdInTimeZone(scheduledStart, timeZone),
+      timeZone,
+    );
+    const routeSequence = visit.technicianId
+      ? await nextRouteSequenceForDay(tx, {
+          organizationId: visit.organizationId,
+          technicianId: visit.technicianId,
+          dayStart: targetDayStart,
+          dayEnd: targetDayEnd,
+        })
+      : undefined;
+
     const created = await tx.serviceVisit.create({
       data: {
         organizationId: visit.organizationId,
         propertyId: visit.propertyId,
         bodyOfWaterId: visit.bodyOfWaterId,
         technicianId: visit.technicianId,
-        routeSequence: visit.routeSequence,
+        routeSequence,
         scheduledStart,
         scheduledEnd,
         status: "SCHEDULED",

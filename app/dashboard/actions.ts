@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { timeZoneForState, ymdInTimeZone, localDayBounds } from "@/lib/timezone";
+import { nextRouteSequenceForDay } from "@/lib/day-sequence";
 
 export async function signOut() {
   const supabase = await createClient();
@@ -105,23 +106,22 @@ export async function addAdHocStop(formData: FormData) {
   // leaving it unsequenced, so it shows up in the list immediately and is draggable from
   // there. Left null when unassigned: there's no single day's list for it to belong to yet
   // (see AdHocStop.routeSequence's own doc comment).
+  // dayStart/dayEnd come from localDayBounds above (org zone, end exclusive). This used to
+  // bracket the day with .setHours() on the server's own clock, which is the same
+  // wrong-zone window as the bug fixed above -- it counted a day 7h offset from the one
+  // the stop was being added to.
+  //
+  // Shared with the move-to-next-working-day path via lib/day-sequence.ts: both are "a stop
+  // joins a day it was not generated onto", and they computed the position differently until
+  // the reschedule route's copy-the-old-number version collided two walk-ups on 2026-10-22.
   let routeSequence: number | null = null;
   if (technicianId) {
-    // dayStart/dayEnd come from localDayBounds above (org zone, end exclusive). This used to
-    // bracket the day with .setHours() on the server's own clock, which is the same
-    // wrong-zone window as the bug fixed above -- it counted a day 7h offset from the one
-    // the stop was being added to.
-    const [maxVisitSeq, maxAdHocSeq] = await Promise.all([
-      prisma.serviceVisit.aggregate({
-        where: { organizationId: appUser.organizationId, technicianId, scheduledStart: { gte: dayStart, lt: dayEnd } },
-        _max: { routeSequence: true },
-      }),
-      prisma.adHocStop.aggregate({
-        where: { organizationId: appUser.organizationId, technicianId, scheduledDate: { gte: dayStart, lt: dayEnd } },
-        _max: { routeSequence: true },
-      }),
-    ]);
-    routeSequence = Math.max(maxVisitSeq._max.routeSequence ?? -1, maxAdHocSeq._max.routeSequence ?? -1) + 1;
+    routeSequence = await nextRouteSequenceForDay(prisma, {
+      organizationId: appUser.organizationId,
+      technicianId,
+      dayStart,
+      dayEnd,
+    });
   }
 
   /**
