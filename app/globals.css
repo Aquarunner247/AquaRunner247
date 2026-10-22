@@ -255,4 +255,54 @@
   .app-tour-spotlight {
     box-shadow: 0 0 0 9999px color-mix(in srgb, theme("colors.brand.ink") 55%, transparent);
   }
+
+  /* Legal documents (/terms, /privacy, /dpa, /subprocessors, /eula, /licenses).
+     `.legal-prose` was already on the article in LegalDocument but nothing defined it, so
+     the elements markdown produces that the component's inline [&_x] rules don't cover --
+     tables and h3 -- rendered as browser defaults. The DPA's sub-processor annex and the
+     Privacy Policy's retention table are the content that makes this matter: a four-column
+     table with no styling is unreadable, and at phone width it pushes the whole page into
+     horizontal scroll, which DESIGN-SYSTEM.md rules out.
+
+     Here rather than appended to that component's className for the reason rule 5 gives:
+     these are shared element styles, and the inline string is already long enough that a
+     table's worth of rules would bury the ones that are there. */
+  .legal-prose h3 {
+    @apply mb-2 mt-7 text-base font-semibold text-brand-ink;
+  }
+
+  /* The wrapper is what scrolls, not the page. Tailwind's preflight leaves tables
+     `border-collapse: collapse` with no borders; both are set explicitly so a change to
+     preflight can't silently flatten these. */
+  .legal-prose .legal-table-scroll {
+    @apply my-5 -mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0;
+  }
+
+  .legal-prose table {
+    @apply w-full min-w-[34rem] border-collapse text-left text-sm;
+  }
+
+  .legal-prose thead th {
+    @apply border-b border-brand-border bg-brand-foam px-3 py-2 align-bottom font-semibold text-brand-ink;
+  }
+
+  .legal-prose tbody td {
+    @apply border-b border-brand-border/60 px-3 py-2 align-top leading-relaxed text-brand-ink;
+  }
+
+  /* Zebra on the raised fill, not on muted text over foam -- 13px-ish table text has to
+     stay on white or brand-surface to survive direct sun (DESIGN-SYSTEM.md, outdoor
+     legibility). */
+  .legal-prose tbody tr:nth-child(even) td {
+    @apply bg-brand-surface;
+  }
+
+  .legal-prose tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .legal-prose td code,
+  .legal-prose th code {
+    @apply whitespace-nowrap;
+  }
 }

@@ -3,7 +3,18 @@ import { isMarketingRoute } from "../marketing-routes";
 
 describe("isMarketingRoute", () => {
   it("covers every page the marketing site actually has", () => {
-    for (const path of ["/", "/pricing", "/features", "/for-property-managers", "/privacy", "/terms"]) {
+    for (const path of [
+      "/",
+      "/pricing",
+      "/features",
+      "/for-property-managers",
+      "/privacy",
+      "/terms",
+      "/dpa",
+      "/subprocessors",
+      "/eula",
+      "/licenses",
+    ]) {
       expect(isMarketingRoute(path), path).toBe(true);
     }
   });

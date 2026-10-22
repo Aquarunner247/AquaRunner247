@@ -14,8 +14,15 @@ const MARKETING_PATHS = [
   "/pricing",
   "/features",
   "/for-property-managers",
+  // Every legal page is part of the marketing site for nav purposes. /dpa and /subprocessors
+  // were routed on 2026-10-21 and missed here, which reintroduced the navy rail this file
+  // exists to prevent; /eula and /licenses landed with them on 2026-10-22.
   "/privacy",
   "/terms",
+  "/dpa",
+  "/subprocessors",
+  "/eula",
+  "/licenses",
 ] as const;
 
 export function isMarketingRoute(pathname: string): boolean {

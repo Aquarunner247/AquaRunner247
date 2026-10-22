@@ -122,7 +122,9 @@ export function SiteFooter() {
 
         <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 font-sans text-xs text-brand-mutedOnDark">
           <p>&copy; {new Date().getFullYear()} AquaRunner 24/7. Built in Las Vegas, Nevada.</p>
-          <p className="flex gap-4">
+          {/* flex-wrap, not a plain row: six legal links overflow 390px without it, and an
+              overflowing footer puts horizontal scroll on every page it appears on. */}
+          <p className="flex flex-wrap gap-x-4 gap-y-2">
             <Link href="/terms" className="transition-colors hover:text-white">
               Terms of Service
             </Link>
@@ -137,6 +139,14 @@ export function SiteFooter() {
             </Link>
             <Link href="/subprocessors" className="transition-colors hover:text-white">
               Sub-processors
+            </Link>
+            {/* Routed 2026-10-22. EULA Section 9 cites /licenses and ToS Section 11 cites
+                /eula, so both have to be reachable rather than only cross-referenced. */}
+            <Link href="/eula" className="transition-colors hover:text-white">
+              License Agreement
+            </Link>
+            <Link href="/licenses" className="transition-colors hover:text-white">
+              Open-source
             </Link>
           </p>
         </div>
