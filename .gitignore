@@ -66,3 +66,7 @@ prisma/*.db-journal
 # state, never meant to be shared across branches or machines.
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# LibreOffice/OpenOffice lock files, created while a document in content/legal/source/ or a
+# generated .md is open in an editor. Transient, per-machine, never belong in the repo.
+.~lock.*#
