@@ -17,5 +17,11 @@ export const config: VercelConfig = {
     // is 7am Pacific in summer and 6am in winter, so it is waiting at the start of the day rather than
     // arriving in the middle of one. See app/api/cron/send-task-digest/route.ts.
     { path: "/api/cron/send-task-digest", schedule: "0 14 * * *" },
+
+    // Daily -- emails any org whose free trial ends within TRIAL_REMINDER_LEAD_DAYS, once each.
+    // Terms of Service 4.7 and EULA 5.4 both promise this email. 15:00 UTC is 8am Pacific in
+    // summer and 7am in winter: a decision about a charge should arrive at the start of a working
+    // day. See app/api/cron/send-trial-reminders/route.ts.
+    { path: "/api/cron/send-trial-reminders", schedule: "0 15 * * *" },
   ],
 };

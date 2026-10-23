@@ -185,6 +185,14 @@ model Organization {
   /// Null on every account created before that date. That is the honest state -- those
   /// organizations were never shown the Terms -- and it must not be backfilled with a guess.
   /// Re-acceptance on a material change is a separate flow that does not exist yet.
+  /// When the "your trial ends soon" email went out, so the daily cron sends it exactly once.
+  /// Null means not yet sent -- including for every organization that trialed before this
+  /// existed, which is why the cron also requires trialEndsAt to still be in the future.
+  ///
+  /// Terms of Service 4.7 and EULA 5.4 both promise this email. They said so before anything
+  /// sent it, which is the reason it exists.
+  trialReminderSentAt DateTime?
+
   termsAcceptedAt      DateTime?
   /// The TERMS_VERSION constant in lib/terms-acceptance.ts, which is the documents' own
   /// effective date. Stored rather than derived so a later revision cannot rewrite what an

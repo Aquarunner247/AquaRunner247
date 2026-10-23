@@ -471,6 +471,104 @@ export async function sendPhoneAgentTicketEmail(input: PhoneAgentTicketEmailInpu
   }
 }
 
+type TrialEndingEmailInput = {
+  to: string;
+  organizationName: string;
+  trialEndsAt: Date;
+  daysLeft: number;
+  /** IANA zone -- see ServiceSummaryEmailInput.timeZone's doc comment for why this is
+   * required rather than defaulting. */
+  timeZone: string;
+  /** What Stripe will actually charge, already formatted ("$99.00"), and how often. Read from
+   * the live subscription rather than a hardcoded tier label so the figure in the email is the
+   * figure on the card -- a reminder that names the wrong amount is worse than none. Null when
+   * the amount could not be read, in which case the email says so instead of guessing. */
+  amountLabel: string | null;
+  planLabel: string;
+  billingUrl: string;
+};
+
+/**
+ * The "your free trial ends in N days" email.
+ *
+ * Promised by Terms of Service 4.7 and EULA 5.4, which said it was sent long before anything
+ * sent it. A 14-day trial takes a card at signup and converts silently, so this is the only
+ * warning before a charge appears.
+ *
+ * Says the three things such a notice has to say to be worth sending: when the trial ends, what
+ * will be charged, and how to stop it. The cancel route is the same Billing page the
+ * cancellation flow uses, not a support address -- "email us to cancel" is the pattern
+ * automatic-renewal statutes were written to stamp out.
+ *
+ * One call per recipient, same convention as sendCancellationScrubWarningEmail.
+ */
+export async function sendTrialEndingEmail(input: TrialEndingEmailInput): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
+  }
+  const resend = new Resend(apiKey);
+  const fromAddress = resolveFromAddress();
+
+  const endsStr = input.trialEndsAt.toLocaleString(undefined, {
+    timeZone: input.timeZone,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const dayWord = input.daysLeft === 1 ? "day" : "days";
+  const orgName = escapeEmailHtml(input.organizationName);
+  const planLabel = escapeEmailHtml(input.planLabel);
+  const chargeSentence = input.amountLabel
+    ? `On that date your subscription continues automatically and the payment method on file is charged <strong>${escapeEmailHtml(input.amountLabel)}</strong> for ${planLabel}.`
+    : `On that date your subscription continues automatically and the payment method on file is charged at the current rate for ${planLabel}.`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
+      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Trial ending in ${input.daysLeft} ${dayWord}</p>
+        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${orgName}</h1>
+      </div>
+      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size:14px; margin:0 0 12px;">
+          Your free trial of AquaRunner 24/7 Pro ends on <strong>${endsStr}</strong>.
+        </p>
+        <p style="font-size:14px; margin:0 0 16px;">
+          ${chargeSentence}
+        </p>
+        <p style="font-size:14px; margin:0 0 20px;">
+          If you do not want to continue, cancel before that date from your Billing page and you
+          will not be charged. Cancelling keeps your access through the end of the trial.
+        </p>
+        <p style="margin:0 0 16px;">
+          <a href="${input.billingUrl}" style="display:inline-block; background:#0A6E7C; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+            Manage or cancel
+          </a>
+        </p>
+        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+          This is an automated notice from AquaRunner 24/7 Pro. Questions? Reply to this email or
+          contact support@aquarunner247.com.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: fromAddress,
+      to: input.to,
+      subject: `Your AquaRunner trial ends in ${input.daysLeft} ${dayWord}`,
+      html,
+    });
+    if (result.error) {
+      return { ok: false, error: result.error.message };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
+  }
+}
+
 type CancellationScrubWarningEmailInput = {
   to: string;
   organizationName: string;
