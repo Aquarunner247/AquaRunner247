@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { openBillingPortal } from "@/app/billing/actions";
+import { openBillingPortal, deleteAccount } from "@/app/billing/actions";
+import { confirmationLabel, RETAINED_AFTER_DELETION } from "@/lib/account-deletion-confirm";
 
 const ERROR_MESSAGES: Record<string, string> = {
   "no-customer": "No billing account on file yet.",
   "portal-error": "Couldn't open the billing portal right now. Please try again.",
+  "delete-name-mismatch": "That didn't match your business name exactly, so nothing was deleted.",
+  "delete-failed": "Couldn't delete the account. Nothing was removed — please try again or contact support@aquarunner247.com.",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -30,7 +33,15 @@ export async function BillingView({ organizationId, error }: { organizationId: s
 
   const organization = await prisma.organization.findUnique({
     where: { id: organizationId },
-    select: { planStatus: true, planTier: true, trialEndsAt: true, currentPeriodEnd: true, stripeCustomerId: true },
+    select: {
+      planStatus: true,
+      planTier: true,
+      trialEndsAt: true,
+      currentPeriodEnd: true,
+      stripeCustomerId: true,
+      name: true,
+      businessName: true,
+    },
   });
 
   return (
@@ -114,6 +125,48 @@ export async function BillingView({ organizationId, error }: { organizationId: s
           </a>
         </form>
       </section>
+
+      {/* Last on the page, directly under the export tool, so the way to keep your data is the
+          thing you read first. Required by App Store Guideline 5.1.1(v): an app that offers
+          account creation has to offer deletion from inside the app. */}
+      {organization ? (
+        <section className="app-card mt-6 border-brand-danger/40">
+          <h2 className="font-display text-base font-semibold text-brand-danger">Delete this account</h2>
+          <p className="mt-1 text-sm text-brand-ink">
+            Deleting closes your organization&rsquo;s account, removes every staff login, and deletes
+            your service data: visits, chemistry readings, chemical doses, checklists, photos,
+            documents, routes, and phone-agent records. Nobody will be able to sign in again. Any active subscription is cancelled. <strong>This happens immediately and cannot
+            be undone.</strong> Export your data first if you want a copy.
+          </p>
+          <p className="mt-3 text-sm text-brand-muted">
+            Health-department compliance records are kept: {RETAINED_AFTER_DELETION}. Those stay
+            reachable through the QR-code log pages posted at each body of water, because that record
+            belongs to the pool rather than to whoever services it. Our{" "}
+            <Link href="/privacy" className="app-link">
+              Privacy Policy
+            </Link>{" "}
+            describes exactly what is kept.
+          </p>
+          <form action={deleteAccount} className="mt-4">
+            <label className="block text-sm text-brand-ink">
+              Type <strong>{confirmationLabel(organization)}</strong> to confirm
+              <input
+                type="text"
+                name="confirmName"
+                required
+                autoComplete="off"
+                className="app-field-sm mt-1 block w-full max-w-sm px-3"
+              />
+            </label>
+            <button
+              type="submit"
+              className="mt-3 inline-flex min-h-[44px] items-center rounded-md bg-brand-danger px-4 text-sm font-semibold text-white hover:bg-brand-danger/90"
+            >
+              Permanently delete this account
+            </button>
+          </form>
+        </section>
+      ) : null}
     </main>
   );
 }

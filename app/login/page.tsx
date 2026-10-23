@@ -5,7 +5,7 @@ import { resolvePostLoginPath } from "@/lib/auth/post-login-path";
 import { LoginForm } from "./login-form";
 
 type PageProps = {
-  searchParams: Promise<{ error?: string; reset?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string; deleted?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: PageProps) {
@@ -27,6 +27,14 @@ export default async function LoginPage({ searchParams }: PageProps) {
         ) : null}
         {params.reset === "success" ? (
           <p className="mt-3 text-sm text-brand-ok">Password updated — sign in with your new password.</p>
+        ) : null}
+        {/* Where deleteAccount lands. Somebody who just deleted their business account should
+            be told it worked, rather than being dropped on a sign-in box with no explanation. */}
+        {params.deleted === "1" ? (
+          <p className="mt-3 text-sm text-brand-ink">
+            Your account has been deleted. Health-department compliance logs remain available at each
+            pool&rsquo;s QR code; everything else has been removed.
+          </p>
         ) : null}
       </div>
       <LoginForm />
