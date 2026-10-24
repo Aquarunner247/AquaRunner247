@@ -83,3 +83,30 @@ describe("DESIGN-SYSTEM.md type section", () => {
     expect(DOC).toMatch(/not\*\* mapped onto the `font-mono` utility/);
   });
 });
+
+describe("CLAUDE.md's design section", () => {
+  const CLAUDE = fs.readFileSync(path.join(process.cwd(), "CLAUDE.md"), "utf8");
+  /** Hex literals CLAUDE.md states as brand values, excluding fenced/ignored contexts. */
+  const quoted = [...CLAUDE.matchAll(/`(#[0-9A-Fa-f]{6})`/g)].map((m) => m[1].toUpperCase());
+  const palette = new Set(Object.values(COLOR).map((v) => v.toUpperCase()));
+
+  it("quotes only hexes the palette actually contains", () => {
+    // CLAUDE.md told every agent that brand-accent was #F99486 at 2.2:1 on white for as long
+    // as the repalette had been shipped. It is the file that overrides default behaviour, so
+    // a wrong value here propagates further than one in any component.
+    //
+    // The retired-teal hexes named in the email caveat are deliberately exempt: that passage
+    // exists precisely to say those values are stale and live only in mail templates.
+    const RETIRED_BY_DESIGN = new Set(["#06333B", "#0A6E7C", "#F99486"]);
+    const wrong = quoted.filter((h) => !palette.has(h) && !RETIRED_BY_DESIGN.has(h));
+    expect(wrong, `CLAUDE.md names hexes not in COLOR: ${wrong.join(", ")}`).toEqual([]);
+  });
+
+  it("still points at the file the palette actually lives in", () => {
+    expect(CLAUDE).toContain("lib/design-tokens.ts");
+  });
+
+  it("does not claim the retired aliases still resolve", () => {
+    expect(CLAUDE).not.toMatch(/`brand-teal`[^.]*still resolve/);
+  });
+});

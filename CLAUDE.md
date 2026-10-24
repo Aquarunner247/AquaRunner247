@@ -10,27 +10,39 @@ agent and human working here follows the same document so that cannot happen aga
 
 The short version, so it is impossible to miss:
 
-- **One palette**, in `tailwind.config.ts` under `theme.extend.colors.brand`. Need a color
-  that isn't there? Add it there. **Never inline a hex** in `className`, inline `style`, or
-  a CSS module.
-- **Cool teal = the product** (dashboard, technician screens, inspector record, portal).
-  **Warm clay = marketing** plus the single "act now" accent inside the product.
-- **`brand-accent` (`#F99486`) is dark-background only.** It is 2.2:1 on white. Never text
-  on light, never a fill behind white text.
+- **One palette**, in `lib/design-tokens.ts` under `COLOR`. Need a color that isn't there?
+  Add it there — `tailwind.config.ts` imports from it rather than restating it. **Never
+  inline a hex** in `className`, inline `style`, or a CSS module. Email markup is the one
+  place literal hex is unavoidable — mail clients strip CSS variables — but note those
+  templates still carry the **retired teal** values (`#06333B`, `#0A6E7C`, `#F99486`) and
+  have never been repaletted. Match the surrounding email when editing one; repaletting them
+  is a deliberate design change, not a cleanup.
+- **Cool navy + pool blue = the product** (dashboard, technician screens, inspector record,
+  portal). **Warm coral = marketing** plus the single "act now" accent inside the product.
+- **Coral (`brand-cta` / `brand-accent`, both `#F2685A`) is never small text on light.** It
+  is 3.0:1 on white and 2.8:1 on cream — a fill, an eyebrow, or a highlight on dark, not body
+  text on light.
+- **A coral fill is labelled `text-brand-ctaText` (or `text-brand-ink`, the same hex), never
+  `text-white`.** White on coral is 3.0:1 and fails AA; navy on it is 4.8:1. That is the
+  whole reason `brand-ctaText` exists.
 - **Status colors are reserved.** `ok`/`warn`/`danger` mean a water-reading result. Never
   use `cta` or `accent` to signal a chemical value, and never restyle a status chip to match
   a brand color. A failed chlorine reading must not compete visually with a marketing button.
+  The one sanctioned non-reading use is `brand-danger` for a destructive action.
 - **Never use `slate-*`, `gray-*`, `zinc-*`, `emerald-*`, `rose-*`, `amber-*`, `sky-*`,
   `blue-*`.** Use `brand-ink`, `brand-muted`, `brand-foam`, `brand-border`, status tokens.
 - **Reach for the `.app-*` classes in `globals.css` first.** Cards, fields, buttons, links,
   badges, pills, and tabs are already defined on tokens. Needing to restyle one inline means
   the shared class should change instead.
-- **Legacy aliases** (`brand-navy`, `brand-teal`, `brand-coral`, `brand-blue`, `brand-sky`,
-  `brand-mist`, `brand-alert`) still resolve so old screens compile. **Do not use them in
-  new code.**
-- **Type is fixed**: Satoshi for both `font-display` and `font-sans` (differentiated by
-  weight), IBM Plex Mono (`.app-metric` for readings, permit numbers, timestamps, route
-  IDs). Add no families.
+- **The old teal palette is gone.** `brand-navy`, `brand-teal`, `brand-coral`, `brand-blue`,
+  `brand-sky` and `brand-alert` are not in `COLOR` and resolve to **nothing** — a class using
+  one renders unstyled rather than the wrong color. Nothing references them. (`brand-mist`
+  survives, but as a real token: the icon-chip fill.)
+- **Type is fixed**, four families each with one job: `font-display` is Satoshi (product
+  headings), `font-sans` is Inter (anything read rather than looked at), `font-marketing` is
+  Roboto Condensed (**landing pages only** — condensed, heavy, uppercase italic), and
+  `.app-metric` is IBM Plex Mono (readings, permit numbers, timestamps, route IDs). Note
+  `font-mono` is **not** mapped to IBM Plex Mono — use `.app-metric`. Add no families.
 - **Outdoor legibility is a functional requirement, not polish.** Technicians use this on
   phones in direct Nevada sun. Text at or below 14px sits on `white` or `brand-surface`,
   never `brand-muted` on `brand-foam`. Touch targets 44px minimum. Prefer solid fills over
