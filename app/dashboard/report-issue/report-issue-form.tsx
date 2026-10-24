@@ -103,7 +103,7 @@ export function ReportIssueForm({ visits }: { visits: VisitOption[] }) {
       <button
         type="submit"
         disabled={submitting || !description.trim()}
-        className="w-full rounded bg-brand-cta px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+        className="w-full rounded bg-brand-cta px-4 py-2.5 text-sm font-semibold text-brand-ctaText disabled:opacity-50"
       >
         {submitting ? "Submitting…" : "Report issue"}
       </button>
