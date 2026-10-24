@@ -21,12 +21,14 @@
  * (lib/mail/send-welcome-email.ts) and the client-side settings preview.
  */
 
+import { COLOR } from "@/lib/design-tokens";
+
 export interface WelcomeEmailData {
   orgName: string;
   customerFirstName: string;
   activationUrl: string; // the Supabase recovery/password-set link -- https only
   logoUrl?: string | null;
-  primaryColor?: string | null; // validated hex, e.g. "#0A6E7C" -- button fill, links
+  primaryColor?: string | null; // validated hex, e.g. "#1974AD" -- button fill, links
   headerColor?: string | null; // validated hex -- background band behind the logo
   supportEmail?: string | null;
   supportPhone?: string | null;
@@ -61,9 +63,9 @@ export interface WelcomeEmailData {
   portalLoginUrl?: string | null;
 }
 
-// Falls back to this app's own brand.primary token (tailwind.config.ts) when an org
-// hasn't set one -- "primary action, links, focus," 5.9:1 contrast on white.
-const DEFAULT_PRIMARY_COLOR = "#0A6E7C";
+// Falls back to this app's own brand.primary token (lib/design-tokens.ts) when an org
+// hasn't set one -- "primary action, links, focus," 5.1:1 contrast on white.
+const DEFAULT_PRIMARY_COLOR: string = COLOR.primary;
 // Unset headerColor renders a plain white band -- today's unchanged look.
 const DEFAULT_HEADER_COLOR = "#ffffff";
 /**

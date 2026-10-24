@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderTaskDigestEmail } from "@/lib/mail/task-digest-email";
+import { COLOR } from "@/lib/design-tokens";
 
 const group = (name: string, tasks: { title: string; dueLabel: string; overdue: boolean }[]) => ({
   customerName: name,
@@ -70,8 +71,11 @@ describe("renderTaskDigestEmail body", () => {
   });
 
   it("marks an overdue line in the danger colour and a normal one in muted", () => {
-    expect(rendered.html).toContain("#A32E22"); // brand.danger -- overdue
-    expect(rendered.html).toContain("#55696C"); // brand.muted  -- everything else
+    // Asserted through the tokens rather than as literals, so a repalette moves this test with
+    // the palette instead of failing it. It failed exactly that way when the emails moved off
+    // the retired teal, with #55696C hardcoded here.
+    expect(rendered.html).toContain(COLOR.danger); // overdue
+    expect(rendered.html).toContain(COLOR.muted); // everything else
   });
 
   it("links each customer to its own page", () => {

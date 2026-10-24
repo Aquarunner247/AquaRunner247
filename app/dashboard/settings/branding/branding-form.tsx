@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { renderWelcomeEmail } from "@/lib/mail/welcome-email";
+import { COLOR } from "@/lib/design-tokens";
 
 export type BrandingFormValue = {
   logoUrl: string;
@@ -22,7 +23,11 @@ type Actions = {
   updateServiceSummaryCcEmail: (formData: FormData) => void;
 };
 
-const DEFAULT_PRIMARY_COLOR = "#0A6E7C";
+// The swatch shown before an org picks its own. Must stay equal to
+// DEFAULT_EMAIL_PRIMARY_COLOR in lib/mail/email-branding.ts, or the picker previews a colour
+// the org's emails do not actually use -- which is what happened when the emails were
+// repaletted and this was left on the retired teal.
+const DEFAULT_PRIMARY_COLOR: string = COLOR.primary;
 const DEFAULT_HEADER_COLOR = "#ffffff";
 
 export function BrandingForm({

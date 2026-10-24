@@ -12,11 +12,12 @@ The short version, so it is impossible to miss:
 
 - **One palette**, in `lib/design-tokens.ts` under `COLOR`. Need a color that isn't there?
   Add it there — `tailwind.config.ts` imports from it rather than restating it. **Never
-  inline a hex** in `className`, inline `style`, or a CSS module. Email markup is the one
-  place literal hex is unavoidable — mail clients strip CSS variables — but note those
-  templates still carry the **retired teal** values (`#06333B`, `#0A6E7C`, `#F99486`) and
-  have never been repaletted. Match the surrounding email when editing one; repaletting them
-  is a deliberate design change, not a cleanup.
+  inline a hex** in `className`, inline `style`, or a CSS module. Email markup cannot use a
+  Tailwind class — mail clients strip CSS variables — so the templates import `COLOR` and
+  interpolate it: write `${COLOR.ink}` inside a **template literal**, never a raw hex, and
+  never inside a normal double-quoted string (there it renders as the literal characters
+  `${COLOR.ink}`). `lib/__tests__/email-palette.test.ts` renders every sender and catches
+  both mistakes. The neutral greys in `EMAIL_COLOR` are deliberately separate — leave them.
 - **Cool navy + pool blue = the product** (dashboard, technician screens, inspector record,
   portal). **Warm coral = marketing** plus the single "act now" accent inside the product.
 - **Coral (`brand-cta` / `brand-accent`, both `#F2685A`) is never small text on light.** It

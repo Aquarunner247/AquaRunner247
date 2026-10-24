@@ -1,4 +1,5 @@
 import "server-only";
+import { COLOR } from "@/lib/design-tokens";
 
 /**
  * Shared branding chrome for customer-facing emails.
@@ -14,8 +15,8 @@ import "server-only";
  * platform's own identity.
  */
 
-export const DEFAULT_EMAIL_PRIMARY_COLOR = "#0A6E7C";
-export const DEFAULT_EMAIL_HEADER_COLOR = "#06333B";
+export const DEFAULT_EMAIL_PRIMARY_COLOR: string = COLOR.primary;
+export const DEFAULT_EMAIL_HEADER_COLOR: string = COLOR.ink;
 
 export type EmailBrandingInput = {
   /** The organization's own name -- replaces the platform name in the footer when branded. */

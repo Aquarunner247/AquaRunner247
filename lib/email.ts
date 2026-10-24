@@ -3,6 +3,7 @@ import { escapeEmailHtml, resolveEmailBranding, type EmailBrandingInput } from "
 import { resolveFromAddress } from "@/lib/mail/from-address";
 import { renderTaskDigestEmail, type TaskDigestInput } from "@/lib/mail/task-digest-email";
 import { onSiteLabel } from "@/lib/mail/on-site-duration";
+import { COLOR } from "@/lib/design-tokens";
 
 /**
  * Notifies the site owner of a new waitlist signup. Best-effort — the WaitlistSignup
@@ -24,7 +25,7 @@ export async function sendWaitlistNotificationEmail(signupEmail: string): Promis
       from: fromAddress,
       to: notifyTo,
       subject: `New waitlist signup — ${signupEmail}`,
-      html: `<p style="font-family: Arial, sans-serif; font-size:14px; color:#06333B;">New waitlist signup: <strong>${signupEmail}</strong></p>`,
+      html: `<p style="font-family: Arial, sans-serif; font-size:14px; color:${COLOR.ink};">New waitlist signup: <strong>${signupEmail}</strong></p>`,
     });
     if (result.error) {
       return { ok: false, error: result.error.message };
@@ -154,10 +155,10 @@ function fmtTime(d: Date, timeZone: string): string {
  * present, so the row of blocks stays evenly spaced regardless of which ones render. */
 function infoBlock(label: string, value: string, sub?: string): string {
   return `
-    <td style="padding:12px 16px; border-right:1px solid #0F4750; vertical-align:top;">
-      <p style="margin:0; font-size:10px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#9CC3C6;">${label}</p>
+    <td style="padding:12px 16px; border-right:1px solid ${COLOR.anchor}; vertical-align:top;">
+      <p style="margin:0; font-size:10px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:${COLOR.mutedOnDark};">${label}</p>
       <p style="margin:2px 0 0; font-size:15px; font-weight:bold; color:white;">${value}</p>
-      ${sub ? `<p style="margin:1px 0 0; font-size:11px; color:#9CC3C6;">${sub}</p>` : ""}
+      ${sub ? `<p style="margin:1px 0 0; font-size:11px; color:${COLOR.mutedOnDark};">${sub}</p>` : ""}
     </td>`;
 }
 
@@ -166,8 +167,8 @@ function infoBlock(label: string, value: string, sub?: string): string {
  * sequence of distinct records rather than one running paragraph. */
 function section(label: string, contentHtml: string, first = false): string {
   return `
-    <div style="${first ? "" : "border-top:1px solid #E3EDEE; "}padding:16px 0;">
-      <p style="margin:0 0 8px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#55696C;">${label}</p>
+    <div style="${first ? "" : `border-top:1px solid ${COLOR.border}; `}padding:16px 0;">
+      <p style="margin:0 0 8px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:${COLOR.muted};">${label}</p>
       ${contentHtml}
     </div>`;
 }
@@ -176,8 +177,8 @@ function section(label: string, contentHtml: string, first = false): string {
  *  already names it in the header, and repeating it there would read as a mistake. */
 function bodyHeading(name: string): string {
   return `
-    <div style="border-top:2px solid #0A6E7C; margin-top:16px; padding-top:12px;">
-      <p style="margin:0; font-size:16px; font-weight:bold; color:#0A6E7C;">${escapeEmailHtml(name)}</p>
+    <div style="border-top:2px solid ${COLOR.primary}; margin-top:16px; padding-top:12px;">
+      <p style="margin:0; font-size:16px; font-weight:bold; color:${COLOR.primary};">${escapeEmailHtml(name)}</p>
     </div>`;
 }
 
@@ -202,7 +203,7 @@ function renderBody(body: ServiceSummaryBody, timeZone: string, showHeading: boo
       ${showHeading ? bodyHeading(body.bodyOfWaterName) : ""}
       ${section(
         body.outcome === "skipped" ? "Not serviced this visit" : "Not completed this visit",
-        `<p style="font-size:14px; margin:0; color:#55696C;">${
+        `<p style="font-size:14px; margin:0; color:${COLOR.muted};">${
           body.serviceMessage ? escapeEmailHtml(body.serviceMessage) : fallback
         }</p>`,
         firstSection,
@@ -222,7 +223,7 @@ function renderBody(body: ServiceSummaryBody, timeZone: string, showHeading: boo
   ]
     .map(
       ([label, value]) =>
-        `<tr><td style="padding:5px 0; font-size:14px; color:#55696C;">${label}</td><td style="padding:5px 0; font-size:14px; font-weight:bold; text-align:right;">${value}</td></tr>`,
+        `<tr><td style="padding:5px 0; font-size:14px; color:${COLOR.muted};">${label}</td><td style="padding:5px 0; font-size:14px; font-weight:bold; text-align:right;">${value}</td></tr>`,
     )
     .join("");
 
@@ -230,7 +231,7 @@ function renderBody(body: ServiceSummaryBody, timeZone: string, showHeading: boo
     ${showHeading ? bodyHeading(body.bodyOfWaterName) : ""}
     ${
       showMessage && body.serviceMessage
-        ? `<p style="margin:16px 0 0; font-size:15px; line-height:1.5; color:#06333B;">${escapeEmailHtml(body.serviceMessage)}</p>`
+        ? `<p style="margin:16px 0 0; font-size:15px; line-height:1.5; color:${COLOR.ink};">${escapeEmailHtml(body.serviceMessage)}</p>`
         : ""
     }
     ${section("Water chemistry readings", `<table style="width:100%; border-collapse:collapse;">${readingRows}</table>`, firstSection)}
@@ -267,10 +268,10 @@ function renderBody(body: ServiceSummaryBody, timeZone: string, showHeading: boo
             body.photos
               .map(
                 (photo) =>
-                  `<img src="${photo.url}" alt="Service visit photo" style="display:block; width:100%; max-width:512px; border-radius:8px; margin:0 0 6px; border:1px solid #C4D9DA;" />` +
+                  `<img src="${photo.url}" alt="Service visit photo" style="display:block; width:100%; max-width:512px; border-radius:8px; margin:0 0 6px; border:1px solid ${COLOR.border};" />` +
                   // Under each photo rather than one link for all of them, so it is clear which image
                   // a link saves when there are several.
-                  `<p style="font-size:13px; margin:0 0 14px;"><a href="${photo.downloadUrl}" style="color:#0A6E7C;">Save this photo</a></p>`,
+                  `<p style="font-size:13px; margin:0 0 14px;"><a href="${photo.downloadUrl}" style="color:${COLOR.primary};">Save this photo</a></p>`,
               )
               .join(""),
           )
@@ -325,7 +326,7 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
     ),
   ]
     .filter((b): b is string => b != null)
-    .map((b, i, arr) => (i === arr.length - 1 ? b.replace("border-right:1px solid #0F4750; ", "") : b))
+    .map((b, i, arr) => (i === arr.length - 1 ? b.replace(`border-right:1px solid ${COLOR.anchor}; `, "") : b))
     .join("");
 
   // The bodies' names as the header and subject say them: "Pool & Spa", or a comma list at three.
@@ -347,24 +348,24 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
   const bodiesHtml = input.bodies.map((body) => renderBody(body, input.timeZone, multi, sharedMessage == null)).join("");
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
       <div style="background:${brand.headerColor}; padding: 20px 24px 0; border-radius: 8px 8px 0 0;">
         ${brand.logoBlock}
-        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Service Summary</p>
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Service Summary</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 2px;">${escapeEmailHtml(input.propertyName)} — ${escapeEmailHtml(bodyLabel)}</h1>
-        ${input.address ? `<p style="color:#9CC3C6; font-size:13px; margin:0 0 2px;">${escapeEmailHtml(input.address)}</p>` : ""}
-        <p style="color:#9CC3C6; font-size:13px; margin:0 0 16px;">${dateStr}</p>
+        ${input.address ? `<p style="color:${COLOR.mutedOnDark}; font-size:13px; margin:0 0 2px;">${escapeEmailHtml(input.address)}</p>` : ""}
+        <p style="color:${COLOR.mutedOnDark}; font-size:13px; margin:0 0 16px;">${dateStr}</p>
         <table style="width:100%; border-collapse:collapse; table-layout:fixed;"><tr>${infoBlocks}</tr></table>
       </div>
-      <div style="border:1px solid #C4D9DA; border-top:none; padding: 0 24px; border-radius: 0 0 8px 8px;">
+      <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 0 24px; border-radius: 0 0 8px 8px;">
         ${
           sharedMessage
-            ? `<p style="margin:16px 0 0; font-size:15px; line-height:1.5; color:#06333B;">${escapeEmailHtml(sharedMessage)}</p>`
+            ? `<p style="margin:16px 0 0; font-size:15px; line-height:1.5; color:${COLOR.ink};">${escapeEmailHtml(sharedMessage)}</p>`
             : ""
         }
         ${bodiesHtml}
 
-        <p style="font-size:12px; color:#55696C; margin:16px 0 0; border-top:1px solid #C4D9DA; padding:12px 0 20px;">
+        <p style="font-size:12px; color:${COLOR.muted}; margin:16px 0 0; border-top:1px solid ${COLOR.border}; padding:12px 0 20px;">
           ${brand.footerAttribution}
         </p>
       </div>
@@ -422,19 +423,19 @@ export async function sendPhoneAgentTicketEmail(input: PhoneAgentTicketEmailInpu
   const urgencyLabel = input.urgency ?? "—";
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
-      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">New Phone Agent Ticket — ${routedLabel}</p>
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
+      <div style="background:${COLOR.ink}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">New Phone Agent Ticket — ${routedLabel}</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.callerName ?? "Unknown caller"} — ${input.callerNumber}</h1>
-        <p style="color:#9CC3C6; font-size:13px; margin:6px 0 0;">${input.organizationName}</p>
+        <p style="color:${COLOR.mutedOnDark}; font-size:13px; margin:6px 0 0;">${input.organizationName}</p>
       </div>
-      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+      <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
         <table style="width:100%; border-collapse:collapse; font-size:14px; margin-bottom:16px;">
-          <tr><td style="padding:4px 0; color:#55696C;">Urgency</td><td style="text-align:right;">${urgencyLabel}</td></tr>
-          <tr><td style="padding:4px 0; color:#55696C;">Issue type</td><td style="text-align:right;">${input.issueType ?? "—"}</td></tr>
-          <tr><td style="padding:4px 0; color:#55696C;">Property address</td><td style="text-align:right;">${input.propertyAddress ?? "—"}</td></tr>
-          <tr><td style="padding:4px 0; color:#55696C;">Callback number</td><td style="text-align:right;">${input.callerCallbackNumber ?? input.callerNumber}</td></tr>
-          <tr><td style="padding:4px 0; color:#55696C;">Requested callback time</td><td style="text-align:right;">${input.requestedCallbackTime ?? "—"}</td></tr>
+          <tr><td style="padding:4px 0; color:${COLOR.muted};">Urgency</td><td style="text-align:right;">${urgencyLabel}</td></tr>
+          <tr><td style="padding:4px 0; color:${COLOR.muted};">Issue type</td><td style="text-align:right;">${input.issueType ?? "—"}</td></tr>
+          <tr><td style="padding:4px 0; color:${COLOR.muted};">Property address</td><td style="text-align:right;">${input.propertyAddress ?? "—"}</td></tr>
+          <tr><td style="padding:4px 0; color:${COLOR.muted};">Callback number</td><td style="text-align:right;">${input.callerCallbackNumber ?? input.callerNumber}</td></tr>
+          <tr><td style="padding:4px 0; color:${COLOR.muted};">Requested callback time</td><td style="text-align:right;">${input.requestedCallbackTime ?? "—"}</td></tr>
         </table>
 
         <p style="font-size:13px; font-weight:bold; margin:0 0 4px;">Summary</p>
@@ -442,13 +443,13 @@ export async function sendPhoneAgentTicketEmail(input: PhoneAgentTicketEmailInpu
 
         ${
           input.recordingUrl
-            ? `<p style="font-size:13px; margin:0 0 16px;"><a href="${input.recordingUrl}" style="color:#0A6E7C;">Listen to the recording</a></p>`
+            ? `<p style="font-size:13px; margin:0 0 16px;"><a href="${input.recordingUrl}" style="color:${COLOR.primary};">Listen to the recording</a></p>`
             : ""
         }
 
-        <p style="font-size:13px; margin:0 0 16px;"><a href="${input.dashboardUrl}" style="color:#0A6E7C;">View in AquaRunner</a></p>
+        <p style="font-size:13px; margin:0 0 16px;"><a href="${input.dashboardUrl}" style="color:${COLOR.primary};">View in AquaRunner</a></p>
 
-        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+        <p style="font-size:12px; color:${COLOR.muted}; margin-top:20px; border-top:1px solid ${COLOR.border}; padding-top:12px;">
           This is an automated ticket from AquaRunner 24/7 Pro's phone agent.
         </p>
       </div>
@@ -524,12 +525,12 @@ export async function sendTrialEndingEmail(input: TrialEndingEmailInput): Promis
     : `On that date your subscription continues automatically and the payment method on file is charged at the current rate for ${planLabel}.`;
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
-      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Trial ending in ${input.daysLeft} ${dayWord}</p>
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
+      <div style="background:${COLOR.ink}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Trial ending in ${input.daysLeft} ${dayWord}</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${orgName}</h1>
       </div>
-      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+      <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
         <p style="font-size:14px; margin:0 0 12px;">
           Your free trial of AquaRunner 24/7 Pro ends on <strong>${endsStr}</strong>.
         </p>
@@ -541,11 +542,11 @@ export async function sendTrialEndingEmail(input: TrialEndingEmailInput): Promis
           will not be charged. Cancelling keeps your access through the end of the trial.
         </p>
         <p style="margin:0 0 16px;">
-          <a href="${input.billingUrl}" style="display:inline-block; background:#0A6E7C; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+          <a href="${input.billingUrl}" style="display:inline-block; background:${COLOR.primary}; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
             Manage or cancel
           </a>
         </p>
-        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+        <p style="font-size:12px; color:${COLOR.muted}; margin-top:20px; border-top:1px solid ${COLOR.border}; padding-top:12px;">
           This is an automated notice from AquaRunner 24/7 Pro. Questions? Reply to this email or
           contact support@aquarunner247.com.
         </p>
@@ -601,12 +602,12 @@ export async function sendCancellationScrubWarningEmail(input: CancellationScrub
   });
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
-      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Action needed — subscription ended</p>
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
+      <div style="background:${COLOR.ink}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Action needed — subscription ended</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.organizationName}</h1>
       </div>
-      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+      <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
         <p style="font-size:14px; margin:0 0 12px;">
           Your AquaRunner 24/7 Pro subscription has ended. Unless you reactivate first, your account's data — visits,
           chemistry readings, chemical doses, checklists, photos, and everything else not required for ongoing
@@ -622,11 +623,11 @@ export async function sendCancellationScrubWarningEmail(input: CancellationScrub
           reactivating.
         </p>
         <p style="margin:0 0 16px;">
-          <a href="${input.billingUrl}" style="display:inline-block; background:#0A6E7C; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+          <a href="${input.billingUrl}" style="display:inline-block; background:${COLOR.primary}; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
             Export my data
           </a>
         </p>
-        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+        <p style="font-size:12px; color:${COLOR.muted}; margin-top:20px; border-top:1px solid ${COLOR.border}; padding-top:12px;">
           This is an automated notice from AquaRunner 24/7 Pro.
         </p>
       </div>
@@ -679,17 +680,17 @@ export async function sendCustomerAlertEmail(input: CustomerAlertEmailInput): Pr
   const brand = resolveEmailBranding(input.branding ?? null);
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
       <div style="background:${brand.headerColor}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
         ${brand.logoBlock}
-        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Update from ${brand.orgName}</p>
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Update from ${brand.orgName}</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.subject}</h1>
       </div>
-      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
-        <p style="font-size:14px; margin:0 0 12px; color:#55696C;">Hi ${input.customerName},</p>
+      <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size:14px; margin:0 0 12px; color:${COLOR.muted};">Hi ${input.customerName},</p>
         <p style="font-size:14px; margin:0 0 16px; white-space:pre-wrap;">${input.message}</p>
 
-        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+        <p style="font-size:12px; color:${COLOR.muted}; margin-top:20px; border-top:1px solid ${COLOR.border}; padding-top:12px;">
           Sign in to your customer portal to see this and other updates.
         </p>
       </div>
@@ -768,22 +769,22 @@ export async function sendPortalActivationEmail(input: PortalActivationEmailInpu
     : `signed in to the customer portal for ${escapeEmailHtml(input.customerName)}`;
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
-      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Account activated</p>
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
+      <div style="background:${COLOR.ink}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Account activated</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${escapeEmailHtml(input.customerName)}</h1>
       </div>
-      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+      <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
         <p style="font-size:14px; margin:0 0 16px;">
           <strong>${escapeEmailHtml(input.personName)}</strong> (${escapeEmailHtml(input.personEmail)}) has ${what}
           for the first time, so the welcome email reached them and they have set their own password.
         </p>
         <p style="margin:0 0 16px;">
-          <a href="${escapeEmailHtml(input.customerUrl)}" style="display:inline-block; background:#0A6E7C; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+          <a href="${escapeEmailHtml(input.customerUrl)}" style="display:inline-block; background:${COLOR.primary}; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
             Open ${escapeEmailHtml(input.customerName)}
           </a>
         </p>
-        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+        <p style="font-size:12px; color:${COLOR.muted}; margin-top:20px; border-top:1px solid ${COLOR.border}; padding-top:12px;">
           Sent once per login, the first time it is used. An automated notice from AquaRunner 24/7 Pro
           to ${escapeEmailHtml(input.organizationName)}.
         </p>
@@ -854,12 +855,12 @@ export async function sendCustomerAccessEndedEmail(input: CustomerAccessEndedEma
   const resend = new Resend(apiKey);
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #06333B;">
-      <div style="background:#06333B; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:#F99486; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Your portal access has changed</p>
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
+      <div style="background:${COLOR.ink}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Your portal access has changed</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${input.organizationName}</h1>
       </div>
-      <div style="border:1px solid #C4D9DA; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+      <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
         <p style="font-size:14px; margin:0 0 12px;">Hi ${input.customerName},</p>
         <p style="font-size:14px; margin:0 0 16px;">
           Your access to view your pool compliance records through ${input.organizationName} has ended. Your
@@ -871,11 +872,11 @@ export async function sendCustomerAccessEndedEmail(input: CustomerAccessEndedEma
           readings yourself, on your own account.
         </p>
         <p style="margin:0 0 16px;">
-          <a href="${input.subscribeUrl}" style="display:inline-block; background:#0A6E7C; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+          <a href="${input.subscribeUrl}" style="display:inline-block; background:${COLOR.primary}; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
             Subscribe to keep my records
           </a>
         </p>
-        <p style="font-size:12px; color:#55696C; margin-top:20px; border-top:1px solid #C4D9DA; padding-top:12px;">
+        <p style="font-size:12px; color:${COLOR.muted}; margin-top:20px; border-top:1px solid ${COLOR.border}; padding-top:12px;">
           This is an automated notice from AquaRunner 24/7 Pro.
         </p>
       </div>

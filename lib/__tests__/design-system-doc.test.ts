@@ -95,10 +95,9 @@ describe("CLAUDE.md's design section", () => {
     // as the repalette had been shipped. It is the file that overrides default behaviour, so
     // a wrong value here propagates further than one in any component.
     //
-    // The retired-teal hexes named in the email caveat are deliberately exempt: that passage
-    // exists precisely to say those values are stale and live only in mail templates.
-    const RETIRED_BY_DESIGN = new Set(["#06333B", "#0A6E7C", "#F99486"]);
-    const wrong = quoted.filter((h) => !palette.has(h) && !RETIRED_BY_DESIGN.has(h));
+    // No exemptions any more: the email templates were repaletted too, so CLAUDE.md no longer
+    // needs to name the retired teal values as a caveat, and nothing in it should.
+    const wrong = quoted.filter((h) => !palette.has(h));
     expect(wrong, `CLAUDE.md names hexes not in COLOR: ${wrong.join(", ")}`).toEqual([]);
   });
 

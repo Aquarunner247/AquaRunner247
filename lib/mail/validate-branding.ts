@@ -58,7 +58,7 @@ function contrastAgainstWhite(hex: string): number {
 
 function validateHexColor(value: string, label: string): string {
   if (!HEX_COLOR_RE.test(value)) {
-    throw new BrandingValidationError(`${label} must be a 6-digit hex value like "#0A6E7C".`);
+    throw new BrandingValidationError(`${label} must be a 6-digit hex value like "#1974AD".`);
   }
   if (contrastAgainstWhite(value) < MIN_CONTRAST_ON_WHITE) {
     throw new BrandingValidationError(`${label} is too light to read against white text -- pick something darker.`);
