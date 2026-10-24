@@ -3,7 +3,7 @@ import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
 import { PortalLoginForm } from "./login-form";
 
 type PageProps = {
-  searchParams?: Promise<{ error?: string; reset?: string }>;
+  searchParams?: Promise<{ error?: string; reset?: string; deleted?: string }>;
 };
 
 export default async function PortalLoginPage({ searchParams }: PageProps) {
@@ -31,6 +31,14 @@ export default async function PortalLoginPage({ searchParams }: PageProps) {
         ) : null}
         {params.reset === "success" ? (
           <p className="mt-3 text-sm text-brand-ok">Password updated — sign in with your new password.</p>
+        ) : null}
+        {/* Where deletePortalAccountAction lands. Confirming it worked matters more than usual
+            here: the next thing they see is a sign-in box for the thing they just deleted. */}
+        {params.deleted === "1" ? (
+          <p className="mt-3 text-sm text-brand-ink">
+            Your login has been deleted. Your pool service company still holds your service records
+            — contact them directly about those.
+          </p>
         ) : null}
       </div>
       <PortalLoginForm />

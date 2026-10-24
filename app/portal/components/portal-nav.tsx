@@ -122,6 +122,20 @@ export function PortalNav({
             returnTo={isMaintenance ? "/portal/log" : "/portal"}
             className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-brand-border hover:bg-white/5 hover:text-white"
           />
+          {/* Down here with Sign out rather than in the nav list above: it is not somewhere
+              anyone visits to read their pool's records, but it has to be reachable, because
+              deleting the login lives on it. Shown to maintenance logins too -- that is a
+              login like any other and its holder can delete it. */}
+          <Link
+            href="/portal/account"
+            className={`mt-1 flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium ${
+              isActive(pathname, "/portal/account")
+                ? "bg-white/10 text-white"
+                : "text-brand-border hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            Your account
+          </Link>
           <button
             type="button"
             onClick={() => void onSignOut()}

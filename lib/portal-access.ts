@@ -11,12 +11,20 @@ import type { CustomerUserRole } from "@/generated/prisma/enums";
 /** The daily chemistry log -- a maintenance person's whole reason for having a login. */
 export const PORTAL_LOG_PATH = "/portal/log";
 
+/** Where any login manages and can delete itself. Reachable by every role -- see below. */
+export const PORTAL_ACCOUNT_PATH = "/portal/account";
+
 /**
  * Paths a MAINTENANCE login may open: the log, and the chemical safety data sheets they need while
  * handling those chemicals. Everything else in the portal -- service history, documents, alerts,
  * compliance summaries -- is the customer's own business, not their contractor's.
+ *
+ * Plus their own account page. A maintenance person holds a login like anyone else, and App Store
+ * Guideline 5.1.1(v) does not carve out the less important accounts -- whoever has a login can
+ * delete it. The page shows them nothing about the customer's pool beyond the company's name,
+ * which they already know, since they work there.
  */
-const MAINTENANCE_PATHS = [PORTAL_LOG_PATH, "/portal/chemicals"] as const;
+const MAINTENANCE_PATHS = [PORTAL_LOG_PATH, "/portal/chemicals", PORTAL_ACCOUNT_PATH] as const;
 
 export function canLogReadings(role: CustomerUserRole): boolean {
   return role === "MAINTENANCE";

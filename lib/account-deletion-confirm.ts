@@ -1,6 +1,12 @@
 /**
- * The confirmation gate for deleting an organization account, and the sentence describing what
- * survives it.
+ * The confirmation gates for the two kinds of account deletion, and the sentences describing
+ * what survives each.
+ *
+ * An ORGANIZATION account is the pool company's: deleting it ends the subscription and scrubs
+ * the business's data. A PORTAL account is one End Customer's login to that company's portal:
+ * deleting it removes the login and nothing else, because the service records behind it belong
+ * to the pool company, not to the person reading them. Confusing the two would let a customer
+ * erase a business's compliance history.
  *
  * Its own module, with no database, Stripe or Supabase imports, for the reason
  * lib/marketing-routes.ts gives: lib/supabase/admin.ts is `server-only`, which vitest refuses
@@ -37,4 +43,26 @@ export function confirmationMatches(typed: string, organizationName: string | nu
  */
 export function confirmationLabel(org: { businessName: string | null; name: string }): string {
   return org.businessName ?? org.name;
+}
+
+/** What a portal deletion does NOT touch, in the words the UI uses. */
+export const RETAINED_AFTER_PORTAL_DELETION =
+  "service history, chemistry readings, inspection records, and documents";
+
+/**
+ * Whether what an End Customer typed matches the email their portal login uses.
+ *
+ * Email rather than a name, because the login IS an email and it is the one string they can be
+ * sure of. Trimmed and lower-cased: addresses are case-insensitive in practice and
+ * CustomerUser.email is stored lower-cased anyway, so comparing case-sensitively would reject
+ * somebody typing their own address with a capital letter.
+ *
+ * Fails closed on a blank stored email for the same reason the organization gate does -- an
+ * empty box must never match.
+ */
+export function emailConfirmationMatches(typed: string, accountEmail: string | null): boolean {
+  const normalize = (value: string) => value.trim().toLowerCase();
+  const target = normalize(accountEmail ?? "");
+  if (target.length === 0) return false;
+  return normalize(typed) === target;
 }

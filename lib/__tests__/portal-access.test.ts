@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { canLogReadings, canOpenPortalPath, portalHomePath, PORTAL_LOG_PATH } from "@/lib/portal-access";
+import {
+  canLogReadings,
+  canOpenPortalPath,
+  portalHomePath,
+  PORTAL_LOG_PATH,
+  PORTAL_ACCOUNT_PATH,
+} from "@/lib/portal-access";
 
 describe("portal access for a maintenance login", () => {
   it("may log readings, where a customer login may not", () => {
@@ -37,5 +43,25 @@ describe("portal access for a maintenance login", () => {
     for (const path of ["/portal", "/portal/documents", "/portal/log", "/portal/anything"]) {
       expect(canOpenPortalPath("CUSTOMER", path)).toBe(true);
     }
+  });
+});
+
+describe("the account page", () => {
+  it("is reachable by every role, including maintenance", () => {
+    // Whoever holds a login can delete it. The portal nav shows this link to maintenance
+    // logins too, and a nav that links a page the guard refuses is a dead end.
+    expect(canOpenPortalPath("MAINTENANCE", PORTAL_ACCOUNT_PATH)).toBe(true);
+    expect(canOpenPortalPath("CUSTOMER", PORTAL_ACCOUNT_PATH)).toBe(true);
+  });
+
+  it("does not open the rest of the portal to a maintenance login", () => {
+    // Allowing the account page must not widen anything else.
+    for (const path of ["/portal", "/portal/documents", "/portal/alerts", "/portal/compliance"]) {
+      expect(canOpenPortalPath("MAINTENANCE", path), path).toBe(false);
+    }
+  });
+
+  it("is not matched by a lookalike path", () => {
+    expect(canOpenPortalPath("MAINTENANCE", "/portal/account-settings")).toBe(false);
   });
 });
