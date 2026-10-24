@@ -44,7 +44,7 @@ export default async function PortalDocumentsPage() {
               >
                 <span>
                   {doc.url ? (
-                    <a href={doc.url} target="_blank" rel="noreferrer" className="font-medium text-[var(--portal-primary,#0A6E7C)] underline">
+                    <a href={doc.url} target="_blank" rel="noreferrer" className="font-medium text-[var(--portal-primary)] underline">
                       {doc.label}
                     </a>
                   ) : (
@@ -78,7 +78,7 @@ export default async function PortalDocumentsPage() {
             className="app-field-sm"
           />
           <input type="file" name="file" required className="text-sm" />
-          <button className="rounded bg-[var(--portal-primary,#0A6E7C)] px-3 py-1.5 text-sm font-medium text-white" type="submit">
+          <button className="rounded bg-[var(--portal-primary)] px-3 py-1.5 text-sm font-medium text-white" type="submit">
             Upload
           </button>
         </form>

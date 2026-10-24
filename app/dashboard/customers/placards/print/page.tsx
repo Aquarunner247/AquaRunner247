@@ -40,7 +40,7 @@ export default async function BatchPlacardPrintPage({ searchParams }: PageProps)
   );
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-8 bg-brand-surface px-4 py-10 print:min-h-0 print:max-w-none print:gap-0 print:bg-white print:py-0">
+    <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center gap-8 bg-brand-surface px-4 py-10 print:min-h-0 print:max-w-none print:gap-0 print:bg-white print:py-0">
       <div className="print:hidden">
         <PlacardPrintButton />
         <p className="mt-2 text-center text-sm text-brand-muted">

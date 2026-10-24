@@ -51,7 +51,7 @@ export function OnboardingCallBanner({ show }: { show: boolean }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-warmBorder bg-brand-warmFoam px-4 py-2.5 text-sm text-brand-ink">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-warmBorder bg-brand-warmFoam px-4 py-2.5 text-sm text-brand-ink print:hidden">
       {confirming ? (
         <>
           <p className="font-semibold">

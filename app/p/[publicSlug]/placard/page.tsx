@@ -40,7 +40,7 @@ export default async function BodyOfWaterPlacardPage({ params }: PageProps) {
   const qrDataUrl = await generateQrDataUrl(publicUrl);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-6 bg-brand-surface px-4 py-10 print:min-h-0 print:gap-0 print:bg-white print:py-0">
+    <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center gap-6 bg-brand-surface px-4 py-10 print:min-h-0 print:gap-0 print:bg-white print:py-0">
       <PlacardCard propertyName={body.property.name} bodyName={body.name} qrDataUrl={qrDataUrl} />
       <PlacardPrintButton />
     </main>

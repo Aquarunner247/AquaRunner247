@@ -53,9 +53,10 @@ export default async function PortalAppLayout({ children }: { children: React.Re
   const branded = org ? hasWhiteLabelBranding(org) : false;
 
   // Scoped CSS custom properties, read by portal-nav.tsx and the portal pages' own
-  // brand-primary buttons via bg-[var(--portal-primary,<fallback>)] -- unset falls through
-  // to the fallback hex baked into each of those classes (this app's own brand.primary/
-  // brand.ink tokens), so an org with no customization renders pixel-identical to today.
+  // brand-primary buttons via bg-[var(--portal-primary)]. The DEFAULTS live on :root in
+  // app/globals.css, sourced from the brand tokens -- they used to be fallback hexes baked
+  // into each className, which is how the portal stayed on the retired teal for the whole
+  // life of the repalette. Setting them here only overrides, per organization.
   // Deliberately not a tailwind.config.ts change -- this stays confined to portal-specific
   // files, not a rewrite of the whole app's color system (the staff dashboard is unaffected).
   const brandingStyle: React.CSSProperties = {

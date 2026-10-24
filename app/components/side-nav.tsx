@@ -82,7 +82,7 @@ export function SideNav({ isLoggedIn, role, userName, orgName }: SideNavProps) {
 
   if (!isLoggedIn) {
     return (
-      <div className="flex items-center justify-between border-b border-white/10 bg-brand-ink px-4 py-3 md:sticky md:top-0 md:z-30 md:h-screen md:w-16 md:flex-col md:justify-start md:gap-6 md:border-b-0 md:border-r md:py-6">
+      <div className="flex items-center justify-between border-b border-white/10 bg-brand-ink px-4 py-3 print:hidden md:sticky md:top-0 md:z-30 md:h-screen md:w-16 md:flex-col md:justify-start md:gap-6 md:border-b-0 md:border-r md:py-6">
         <Link href="/" className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-white md:hidden">
           AquaRunner <span className="text-brand-border">24/7</span> Pro
         </Link>

@@ -3,8 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --foreground: #06333b;   /* brand.ink */
-  --background: #f4f8f8;   /* brand.surface */
+  /* Sourced from the tokens rather than copied, so a repalette carries the <body> defaults
+     with it -- these were still the retired teal long after the palette moved to navy. */
+  --foreground: theme("colors.brand.ink");
+  --background: theme("colors.brand.surface");
+  /* Portal white-label chrome. Defaults live here so the portal's own classes can say
+     `var(--portal-primary)` with no fallback hex baked into a className, and so an org that
+     has customized nothing still renders in the current palette. app/portal/(app)/layout.tsx
+     overrides these per organization when its tier includes white-labelling. */
+  --portal-primary: theme("colors.brand.primary");
+  --portal-header: theme("colors.brand.ink");
   /* --font-body, --font-display-face and --font-mono are set by next/font on <html> in
      app/layout.tsx; --font-satoshi is the previous face, kept loaded until the product screens
      have been through the redesign so nothing loses its typeface mid-way.
