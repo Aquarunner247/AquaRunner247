@@ -1527,6 +1527,17 @@ model ServiceVisit {
   /// not rescheduled -- no new visit is created.
   pushedAt DateTime?
 
+  /// When the org was emailed that this stop was started and left unfinished, so the hourly
+  /// sweep alerts once rather than every hour until somebody acts.
+  ///
+  /// Distinct from pushedAt, which the NIGHTLY sweep stamps after the scheduled day is over --
+  /// by then it is a record, not a prompt. This fires while the technician could still go back.
+  /// Measured against production 2026-10-25: a visit that gets finished runs 44 minutes at the
+  /// median and 3.6 hours at the 90th percentile, while the 68 started-and-never-finished visits
+  /// since September sat open for weeks. The two populations barely overlap, which is what makes
+  /// a simple elapsed-time rule work here instead of GPS departure detection.
+  abandonedAlertSentAt DateTime?
+
   /// Set when this visit was moved to another day (app/api/visits/[id]/reschedule).
   ///
   /// The original row STAYS on its original day rather than being relocated. Two reasons, and the

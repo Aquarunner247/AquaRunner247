@@ -1,0 +1,11 @@
+-- "Arrived and left without finishing" alerts.
+--
+-- One nullable column, the idempotency marker for an hourly sweep: set once the org has been
+-- told, so a stop that stays open does not generate an email every hour.
+--
+-- Distinct from pushedAt, which the nightly sweep stamps once the scheduled day is over. That
+-- is a record after the fact; this fires while somebody could still go back.
+--
+-- Every existing row gets NULL. The sweep additionally requires pushedAt to be null, so the
+-- backlog of already-abandoned visits does not all alert at once on the first run.
+ALTER TABLE "ServiceVisit" ADD COLUMN "abandonedAlertSentAt" TIMESTAMP(3);

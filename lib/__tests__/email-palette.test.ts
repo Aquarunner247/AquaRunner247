@@ -124,6 +124,20 @@ beforeAll(async () => {
         }),
     },
     {
+      name: "abandoned stop",
+      run: () =>
+        m.sendAbandonedStopEmail({
+          to: ["ops@example.com"],
+          organizationName: "Lindley's Pool & Spa Service",
+          technicianName: "Rich",
+          propertyName: "Paseo Del Prado",
+          bodyName: "Main Pool",
+          openFor: "4 hours",
+          arrivedAtLabel: "at 2:40 PM",
+          visitUrl: "https://aquarunner247.com/dashboard/visits/abc",
+        }),
+    },
+    {
       name: "cancellation scrub warning",
       run: () =>
         m.sendCancellationScrubWarningEmail({

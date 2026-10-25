@@ -23,5 +23,12 @@ export const config: VercelConfig = {
     // summer and 7am in winter: a decision about a charge should arrive at the start of a working
     // day. See app/api/cron/send-trial-reminders/route.ts.
     { path: "/api/cron/send-trial-reminders", schedule: "0 15 * * *" },
+
+    // HOURLY, unlike the rest -- this is the only one whose value is being timely. Alerts an org
+    // when a stop was started and never finished, while the technician could still go back; the
+    // four-hour threshold in lib/abandoned-stop.ts does the filtering, so running hourly only
+    // decides how soon after crossing it the mail goes out. One alert per stop, ever.
+    // See app/api/cron/alert-abandoned-stops/route.ts.
+    { path: "/api/cron/alert-abandoned-stops", schedule: "0 * * * *" },
   ],
 };

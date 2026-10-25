@@ -570,6 +570,95 @@ export async function sendTrialEndingEmail(input: TrialEndingEmailInput): Promis
   }
 }
 
+type AbandonedStopEmailInput = {
+  to: string[];
+  organizationName: string;
+  technicianName: string;
+  propertyName: string;
+  bodyName: string | null;
+  /** Already formatted ("4 hours"), from lib/abandoned-stop.ts. */
+  openFor: string;
+  arrivedAtLabel: string;
+  visitUrl: string;
+};
+
+/**
+ * "This stop was started and never finished."
+ *
+ * Operational, not customer-facing: it goes to whoever runs the day, while the technician could
+ * still turn around. The nightly Pushed sweep says the same thing tomorrow, when it is a record
+ * rather than something anyone can act on.
+ *
+ * Deliberately states what it does NOT know. The app sees that a stop was opened and never
+ * closed; it does not see why, and a technician who finished the work and forgot to tap
+ * Complete looks identical to one who left. Saying "left without finishing" as fact would put
+ * the app in the middle of a conversation between an operator and their employee on evidence it
+ * does not have.
+ */
+export async function sendAbandonedStopEmail(input: AbandonedStopEmailInput): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY not set \u2014 email not sent." };
+  }
+  if (input.to.length === 0) {
+    return { ok: false, error: "No recipient \u2014 organization has no support address or admin users." };
+  }
+  const resend = new Resend(apiKey);
+  const fromAddress = resolveFromAddress();
+
+  const where = input.bodyName
+    ? `${escapeEmailHtml(input.propertyName)} \u2014 ${escapeEmailHtml(input.bodyName)}`
+    : escapeEmailHtml(input.propertyName);
+  const tech = escapeEmailHtml(input.technicianName);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
+      <div style="background:${COLOR.ink}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Stop still open after ${escapeEmailHtml(input.openFor)}</p>
+        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${where}</h1>
+        <p style="color:${COLOR.mutedOnDark}; font-size:13px; margin:6px 0 0;">${escapeEmailHtml(input.organizationName)}</p>
+      </div>
+      <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size:14px; margin:0 0 12px;">
+          <strong>${tech}</strong> arrived at this stop ${escapeEmailHtml(input.arrivedAtLabel)} and it has not been
+          marked complete since.
+        </p>
+        <p style="font-size:14px; margin:0 0 16px;">
+          That usually means one of two things: the stop was left unfinished, or the work is done and
+          nobody tapped Complete. The app cannot tell which \u2014 worth a quick check either way, because an
+          open stop also blocks ${tech} from starting at another property.
+        </p>
+        <p style="margin:0 0 16px;">
+          <a href="${input.visitUrl}" style="display:inline-block; background:${COLOR.primary}; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+            Open this stop
+          </a>
+        </p>
+        <p style="font-size:12px; color:${COLOR.muted}; margin-top:20px; border-top:1px solid ${COLOR.border}; padding-top:12px;">
+          One notice per stop. If it is still open tonight it will show as Pushed on tomorrow's schedule.
+        </p>
+      </div>
+    </div>
+  `;
+
+  let anySent = false;
+  let lastError: string | undefined;
+  for (const to of input.to) {
+    try {
+      const result = await resend.emails.send({
+        from: fromAddress,
+        to,
+        subject: `${where} \u2014 still open after ${input.openFor}`,
+        html,
+      });
+      if (result.error) lastError = result.error.message;
+      else anySent = true;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Unknown email error";
+    }
+  }
+  return anySent ? { ok: true } : { ok: false, error: lastError ?? "No recipient accepted the message." };
+}
+
 type CancellationScrubWarningEmailInput = {
   to: string;
   organizationName: string;
