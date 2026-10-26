@@ -1,7 +1,7 @@
 # AquaRunner247 Privacy Policy
 
-**Effective Date:** October 22, 2026  
-**Last Updated:** October 22, 2026
+**Effective Date:** October 25, 2026  
+**Last Updated:** October 25, 2026
 
 ## Contents
 
@@ -32,7 +32,7 @@
 
 ## 1. Introduction and Scope
 
-AquaRunner247 (“**AquaRunner247**,” “**we**,” “**us**,” or “**our**”) provides software and related services for pool service and maintenance businesses. Our services include route management, residential and commercial pool records, state-specific inspection checklists, chemical logs, QR-code access to pool records, geolocation-based arrival tracking, photo-based visit documentation, dosage calculations, document scanning, customer and inspector portals, and related support (collectively, the “**Services**”).
+AquaRunner247 (“**AquaRunner247**,” “**we**,” “**us**,” or “**our**”) provides software and related services for pool service and maintenance businesses. Our services include route management, residential and commercial pool records, state-specific inspection checklists, chemical logs, QR-code access to pool records, geolocation-based arrival and departure tracking, photo-based visit documentation, dosage calculations, document scanning, customer and inspector portals, and related support (collectively, the “**Services**”).
 
 This Privacy Policy explains how we collect, use, disclose, and otherwise process Personal Information through our website at **aquarunner247.com**, our mobile application, portals, communications, and other Services.
 
@@ -77,7 +77,7 @@ The information we collect depends on how you interact with us and how a Custome
 | Identifiers and contact details | Name, business name, email address, telephone number, username, account identifiers, and mailing or business address |
 | Account and business information | Role, employer, permissions, subscription details, service-area information, and account settings |
 | Billing and transaction information | Plan, invoices, payment status, and transaction history. Payment card and bank details may be collected directly by a payment processor rather than stored by us |
-| Location information | Property addresses, route information, and technician device location. While a technician has an unfinished route open in the mobile app, the app reads device location continuously — including while the app is in the background or the phone is locked, if background location permission is granted — so that it can detect arrival at a stop. **Only the single position fix that records an arrival is sent to us and stored**; the intervening positions are evaluated on the device and discarded, and tracking stops once the day's stops are complete. We do not build or retain a continuous location trail for a technician |
+| Location information | Property addresses, route information, and technician device location. While a technician has an unfinished route open in the mobile app, the app reads device location continuously — including while the app is in the background or the phone is locked, if background location permission is granted — so that it can detect arrival at a stop, and that the technician has left a stop that was not finished. **Only the single position fix that records an arrival is sent to us and stored**; a departure is sent to us as a time only, with no position attached to it. The intervening positions are evaluated on the device and discarded, and tracking stops once the day's stops are complete. We do not build or retain a continuous location trail for a technician |
 | Pool and service records | Water chemistry readings, dosage records, inspection checklists, compliance records, service notes, equipment details (including make, model, and serial numbers extracted from uploaded inspection reports), and visit histories |
 | Photos, documents, and other files | Photos taken during service visits (including geotagged and timestamped photos), uploaded inspection reports and their extracted data, and other content submitted by a Customer or End User |
 | Call recordings and transcripts | Where a Customer configures a phone number for the Services, inbound calls may be handled, recorded, and transcribed; we collect the caller’s phone number, call audio recordings, call transcripts, and any information the caller provides during the call |
@@ -107,7 +107,7 @@ We may use Personal Information to:
 
 - Create, maintain, authenticate, and administer accounts and subscriptions.
 - Provide, operate, and support the Services, including route planning, pool records, inspection workflows, QR-code access, customer and inspector portals, offline synchronization, and automated email reports.
-- Record arrivals, readings, dosages, photos, inspections, and other visit information at a Customer’s direction.
+- Record arrivals, departures, readings, dosages, photos, inspections, and other visit information at a Customer’s direction.
 - Generate calculations, summaries, document extractions, alerts, and other outputs. The Services may use automated processing to identify data, extract equipment details from uploaded documents, flag blurry images, or perform other operational tasks.
 - Process billing, prevent fraud, maintain security, troubleshoot issues, and enforce our agreements.
 - Communicate about accounts, service changes, support, product updates, and, where permitted, marketing.
@@ -122,9 +122,11 @@ Outputs from our state compliance and inspection engine, dosage calculator, docu
 
 ### 7.1 Location and background location
 
-Some features use location information to support routes, geofenced arrival logging, and visit documentation. Depending on the feature, your device settings, and permissions you grant, the app may collect location information while the app is in use and, if background location permission is enabled, while the app is running in the background or closed. Location collection may not function as intended if permissions are denied, device settings are changed, or location services are unavailable.
+Some features use location information to support routes, geofenced arrival and departure logging, and visit documentation. Depending on the feature, your device settings, and permissions you grant, the app may collect location information while the app is in use and, if background location permission is enabled, while the app is running in the background or closed. Location collection may not function as intended if permissions are denied, device settings are changed, or location services are unavailable.
 
-You can generally disable or change location permissions through your device’s operating system settings. A Customer administrator may also control certain Service settings. Disabling location may limit or prevent geofenced arrival and related features, but does not necessarily remove location information already recorded in Customer Data.
+The Services record two moments for a service visit: the arrival, which is stored together with the position fix that detected it, and the departure, which is stored as a time only. A departure is worked out on the device by comparing recent position readings to the property’s own location, and only the resulting time is sent to us — never a position, and never anywhere the technician went afterward. The two times are used to show how long a visit took and to alert an Organization when a technician appears to have left a stop without finishing it.
+
+You can generally disable or change location permissions through your device’s operating system settings. A Customer administrator may also control certain Service settings. Disabling location may limit or prevent geofenced arrival and departure detection and related features, but does not necessarily remove location information already recorded in Customer Data.
 
 ### 7.2 Photos and files
 
@@ -216,7 +218,7 @@ We retain Personal Information for as long as reasonably necessary for the purpo
 | Customer Data — service records, chemistry readings, dosage entries, checklists, service notes, equipment details, and photos | For the life of the account, then 30 days after the subscription ends, after which it is permanently deleted — **except** for the compliance records in the row below |
 | Compliance records — water-reading logs, contamination incident records, and inspection reports, together with the customer, property, body-of-water, and visit records needed to display them | **Retained indefinitely.** These are the records a state health department may require to remain available for a body of water, and they stay reachable through a property’s QR-code log page after an Organization’s subscription ends. See the note below this table |
 | Customer portal accounts — an End Customer’s name and email address | Kept while the login exists, and blocked from signing in once the Organization’s subscription ends, so that an End Customer can keep their own identity and records if they later subscribe directly. **An End Customer can delete their own login at any time** from Your account in the portal, which removes the login immediately; they can also ask us at **privacy@aquarunner247.com**. Deleting a login does not delete the Organization’s service records — see Section 11 |
-| Location and route information | Arrival records are retained with the service visit they belong to, and follow that visit’s row above. Route plans and technician home addresses are deleted 30 days after the subscription ends |
+| Location and route information | Arrival and departure records are retained with the service visit they belong to, and follow that visit’s row above. Route plans and technician home addresses are deleted 30 days after the subscription ends |
 | Call recordings and transcripts | Retained with the service request they generated, and deleted 30 days after the subscription ends |
 | Device, diagnostic, and usage information | Error reports, server logs, and performance traces are held by our monitoring providers under a rolling retention window that we configure to 90 days or less |
 | Support communications | Three years from the last message in the conversation |
@@ -261,7 +263,7 @@ The categories of Personal Information potentially collected are described in Se
 
 **California sale/share disclosure:** AquaRunner247 has not sold Personal Information, and has not shared it for cross-context behavioral advertising, in the preceding 12 months.
 
-**Sensitive Personal Information disclosure:** We collect one category of sensitive Personal Information: **precise geolocation**, in the form of the position fix that records a technician’s arrival at a service visit, and the coordinates of the properties on a route. We collect and use it only to perform the Services an Organization has engaged us for — recording that a visit happened, where, and when — and for the security and integrity of those records. We do not use or disclose precise geolocation to infer characteristics about anyone, and we do not sell or share it. Because our use is limited to purposes that applicable law permits without a right to limit, the right to limit the use of sensitive Personal Information does not currently apply; if that ever changes, we will update this Policy and provide a mechanism to exercise it.
+**Sensitive Personal Information disclosure:** We collect one category of sensitive Personal Information: **precise geolocation**, in the form of the position fix that records a technician’s arrival at a service visit, and the coordinates of the properties on a route. Departure from a stop is determined on the device and recorded as a time only, so no departure position is transmitted to us or stored. We collect and use it only to perform the Services an Organization has engaged us for — recording that a visit happened, where, and when — and for the security and integrity of those records. We do not use or disclose precise geolocation to infer characteristics about anyone, and we do not sell or share it. Because our use is limited to purposes that applicable law permits without a right to limit, the right to limit the use of sensitive Personal Information does not currently apply; if that ever changes, we will update this Policy and provide a mechanism to exercise it.
 
 Because we do not sell or share Personal Information, we do not offer a “Your Privacy Choices” opt-out link; there is nothing to opt out of. If that ever changes, we will add one and update this Policy before any sale or sharing begins. Where required, we will process recognized Global Privacy Control signals as an opt-out request for the browser or device transmitting the signal. We do not knowingly sell or share Personal Information of individuals under 16 years of age.
 

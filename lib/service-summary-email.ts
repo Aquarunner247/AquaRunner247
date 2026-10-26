@@ -202,6 +202,13 @@ export async function sendBundledServiceSummary(
     const startedAts = bodies.map((b) => b.startedAt).filter((d): d is Date => d != null);
     const earliestStart = startedAts.length > 0 ? new Date(Math.min(...startedAts.map((d) => d.getTime()))) : null;
     const latestCompleted = new Date(Math.max(...bodies.map((b) => b.body.completedAt.getTime())));
+    // Mirror of the arrival rule: earliest arrival, LATEST departure. The technician left the
+    // property when they left the last body on it. Null unless every serviced body has one --
+    // a partial set would measure the gap to whichever body happened to report, not the visit.
+    const departedAts = bodies.map((b) => b.departedAt);
+    const latestDeparted = departedAts.every((d): d is Date => d != null)
+      ? new Date(Math.max(...departedAts.map((d) => d.getTime())))
+      : null;
 
     const result = await sendServiceSummaryEmail({
       to: contactEmail,
@@ -222,6 +229,7 @@ export async function sendBundledServiceSummary(
         [visit.property.addressLine1, visit.property.city, visit.property.region].filter(Boolean).join(", ") || null,
       technicianName: visit.technician?.name ?? visit.technician?.email ?? null,
       startedAt: earliestStart,
+      departedAt: latestDeparted,
       completedAt: latestCompleted,
       timeZone,
       ccEmail: visit.organization.serviceSummaryCcEmail,
@@ -343,6 +351,10 @@ export async function resendServiceSummary(visitId: string, recipients: string[]
   }
 
   const startedAts = bodies.map((b) => b.startedAt).filter((d): d is Date => d != null);
+  const resendDepartedAts = bodies.map((b) => b.departedAt);
+  const resendLatestDeparted = resendDepartedAts.every((d): d is Date => d != null)
+    ? new Date(Math.max(...resendDepartedAts.map((d) => d.getTime())))
+    : null;
   const result = await sendServiceSummaryEmail({
     to: recipients,
     branding: hasWhiteLabelBranding(visit.organization)
@@ -359,6 +371,7 @@ export async function resendServiceSummary(visitId: string, recipients: string[]
       [visit.property.addressLine1, visit.property.city, visit.property.region].filter(Boolean).join(", ") || null,
     technicianName: visit.technician?.name ?? visit.technician?.email ?? null,
     startedAt: startedAts.length > 0 ? new Date(Math.min(...startedAts.map((d) => d.getTime()))) : null,
+    departedAt: resendLatestDeparted,
     completedAt: new Date(Math.max(...bodies.map((b) => b.body.completedAt.getTime()))),
     timeZone,
     ccEmail: null,
@@ -403,7 +416,7 @@ async function loadBodies(
   },
   /** Only used to name a saved photo file -- see photoDownloadFilename. */
   naming: { propertyName: string; ymd: string },
-): Promise<{ body: ServiceSummaryBody; startedAt: Date | null }[]> {
+): Promise<{ body: ServiceSummaryBody; startedAt: Date | null; departedAt: Date | null }[]> {
   const { propertyName, ymd } = naming;
   const members = await prisma.serviceVisit.findMany({
     where: { id: { in: [...decision.completedIds, ...decision.skippedIds, ...decision.incompleteIds] } },
@@ -412,6 +425,7 @@ async function loadBodies(
       id: true,
       status: true,
       startedAt: true,
+      departedAt: true,
       completedAt: true,
       serviceMessage: true,
       techNotes: true,
@@ -492,7 +506,7 @@ async function loadBodies(
         serviceMessage: m.serviceMessage,
         outcome,
       };
-      return { body, startedAt: skipped ? null : m.startedAt };
+      return { body, startedAt: skipped ? null : m.startedAt, departedAt: skipped ? null : m.departedAt };
     }),
   ).then((rows) =>
     // Nothing to report if every member turned out skipped -- the bundle rule already guards this,

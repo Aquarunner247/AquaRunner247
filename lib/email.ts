@@ -125,6 +125,9 @@ type ServiceSummaryEmailInput = {
    * misleading than just omitting the arrival line for a visit that genuinely has no
    * separate arrival timestamp. Only render "Arrived" when this is a real, distinct time. */
   startedAt: Date | null;
+  /** Device-detected departure, latest across the bundle. The best on-site measurement there
+   * is; null for a visit worked before this shipped, with the app closed, or from a browser. */
+  departedAt?: Date | null;
   completedAt: Date;
   /** IANA zone, e.g. "America/Los_Angeles" -- resolve via lib/timezone.ts's
    * timeZoneForState(org.state) at the call site. This function runs server-side, where
@@ -314,7 +317,12 @@ export async function sendServiceSummaryEmail(input: ServiceSummaryEmailInput): 
     .map((b) => b.lastWorkEvidenceAt)
     .filter((d): d is Date => d != null)
     .reduce<Date | null>((latest, d) => (latest == null || d > latest ? d : latest), null);
-  const onSite = onSiteLabel({ startedAt: input.startedAt ?? null, completedAt: input.completedAt, lastPhotoAt });
+  const onSite = onSiteLabel({
+    startedAt: input.startedAt ?? null,
+    completedAt: input.completedAt,
+    lastPhotoAt,
+    departedAt: input.departedAt ?? null,
+  });
 
   const infoBlocks = [
     infoBlock("Technician", input.technicianName ?? "—"),

@@ -1569,7 +1569,21 @@ model ServiceVisit {
   arrivalLatitude       Decimal?  @db.Decimal(10, 7)
   arrivalLongitude      Decimal?  @db.Decimal(10, 7)
   arrivalAccuracyMeters Decimal?  @db.Decimal(8, 2)
-  completedAt           DateTime?
+
+  /// When the technician left the site, detected on the device by the same background watcher
+  /// that stamps arrival -- see lib/departure-detection.ts.
+  ///
+  /// A TIMESTAMP ONLY, deliberately: no coordinates. The arrival fix is kept because "where did
+  /// this reading come from" is a real question; the departure moment answers "how long were
+  /// they there", and a second position adds nothing that the first one and a clock do not.
+  /// Keeping it to a time is also what holds the Privacy Policy's promise small.
+  ///
+  /// Null for every visit before 2026-10-25, for any visit worked with the app closed, and for
+  /// anything logged from a browser -- so nothing may ASSUME it is present. It is the best of
+  /// several sources for on-site duration, not the only one (lib/mail/on-site-duration.ts).
+  departedAt DateTime?
+
+  completedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -4,7 +4,13 @@
  * Pure and separate from lib/email.ts so the edge cases below can be tested without Resend --
  * same split as lib/mail/task-digest-email.ts.
  *
- * Three sources, in descending order of what they actually prove:
+ * Four sources, in descending order of what they actually prove:
+ *
+ *  0. Arrival to DEPARTURE, when the device detected the technician leaving. This is the only
+ *     source that measures time on site directly rather than inferring it from when somebody
+ *     pressed a button or took a photograph, so it wins outright whenever it exists. Null for
+ *     every visit before 2026-10-25, for work done with the app closed, and for anything logged
+ *     from a browser -- which is why the three below still exist.
  *
  *  1. Arrival to completion, when completion is close behind the last evidence of work. This is
  *     the real figure and the only one stated plainly.
@@ -33,6 +39,11 @@ export type OnSiteInput = {
   completedAt: Date;
   /** Latest photo takenAt across the bundle. Null when no photo carried one. */
   lastPhotoAt: Date | null;
+  /**
+   * Device-detected departure (lib/departure-detection.ts). Optional so every existing caller
+   * keeps compiling and keeps its current behaviour until it passes one.
+   */
+  departedAt?: Date | null;
 };
 
 export type OnSiteDuration =
@@ -40,11 +51,26 @@ export type OnSiteDuration =
   | { kind: "atLeast"; ms: number }
   | { kind: "unknown" };
 
-export function onSiteDuration({ startedAt, completedAt, lastPhotoAt }: OnSiteInput): OnSiteDuration {
+export function onSiteDuration({ startedAt, completedAt, lastPhotoAt, departedAt }: OnSiteInput): OnSiteDuration {
   // A backfilled arrival equals completion exactly -- that is "never arrived", not a zero-length
   // visit, and nothing can be derived from it.
   if (startedAt == null || startedAt.getTime() === completedAt.getTime()) return { kind: "unknown" };
   if (completedAt.getTime() < startedAt.getTime()) return { kind: "unknown" };
+
+  /**
+   * A measured departure beats every inference below it, and is checked first for that reason.
+   *
+   * It is also the only source immune to the thing that makes the others awkward: Complete is
+   * tapped in batches at the end of a route -- six stops across three properties closed inside
+   * twelve minutes on 2026-10-09 -- so completedAt frequently describes paperwork rather than
+   * work. Departure describes leaving.
+   *
+   * A departure at or before arrival is nonsense (a device clock adjusted mid-visit would do
+   * it) and falls through to the inferences rather than reporting a negative or zero span.
+   */
+  if (departedAt != null && departedAt.getTime() > startedAt.getTime()) {
+    return { kind: "measured", ms: departedAt.getTime() - startedAt.getTime() };
+  }
 
   if (lastPhotoAt != null && completedAt.getTime() - lastPhotoAt.getTime() <= COMPLETION_LAG_TOLERANCE_MS) {
     return { kind: "measured", ms: completedAt.getTime() - startedAt.getTime() };

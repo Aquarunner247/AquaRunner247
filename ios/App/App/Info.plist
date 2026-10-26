@@ -69,9 +69,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>AquaRunner uses your camera to capture proof-of-service photos at each visit. Photos aren't pulled from your library — only the camera is used, matching what you see in the field.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>AquaRunner uses your location to automatically log arrival time at each stop on your route.</string>
+	<string>AquaRunner uses your location to automatically log when you arrive at each stop on your route and when you leave one you haven’t finished.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>AquaRunner logs your arrival time at each stop automatically, even while the app is in the background — for example while you're using Maps to drive there. Location is only used while you have an active route for the day.</string>
+	<string>AquaRunner logs when you arrive at each stop and when you leave automatically, even while the app is in the background — for example while you're using Maps to drive there. Leaving is worked out on this device and recorded as a time only; no position is sent for it. Location is only used while you have an active route for the day.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

@@ -62,10 +62,11 @@ week in it.
 > The app is not a wrapped website. It uses iOS capabilities that a browser cannot provide, and
 > they are central to the product rather than decorative:
 >
-> - **Background location** drives automatic arrival logging. A technician visits around nine
->   pools in a working day, sometimes more than twenty, driving between them with the phone
->   locked or showing Maps; the app detects arrival at each geofenced site and timestamps it
->   without the technician touching the phone. This is why the app requests "Always" location,
+> - **Background location** drives automatic arrival and departure logging. A technician visits
+>   around nine pools in a working day, sometimes more than twenty, driving between them with the
+>   phone locked or showing Maps; the app detects arrival at each geofenced site and timestamps
+>   it without the technician touching the phone, and detects leaving a site that was not
+>   finished so the office is alerted. This is why the app requests "Always" location,
 >   and the persistent iOS location indicator is expected behaviour.
 > - **Camera** captures proof-of-service photos at the poolside, including a blur check so a
 >   technician is told to retake an unusable photo before leaving the site.
@@ -103,10 +104,12 @@ week in it.
 > Terms: https://aquarunner247.com/terms
 > End User License Agreement: https://aquarunner247.com/eula
 >
-> Location data is used only to timestamp arrival at a scheduled work site. The app reads
-> location continuously while a technician has an unfinished route open, but only the single
-> position fix that records an arrival is transmitted to our servers and stored; the intervening
-> positions are evaluated on the device and discarded. We do not build a continuous location
+> Location data is used only to timestamp arrival at and departure from a scheduled work site.
+> The app reads location continuously while a technician has an unfinished route open, but only
+> the single position fix that records an arrival is transmitted to our servers and stored. A
+> departure is derived on the device and transmitted as a timestamp with no position attached,
+> so the service visit shows how long it took. The intervening positions are evaluated on the
+> device and discarded. We do not build a continuous location
 > trail, and we do not use location for advertising. Our privacy manifest declares every category
 > we collect.
 

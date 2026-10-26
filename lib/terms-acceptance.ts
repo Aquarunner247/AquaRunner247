@@ -24,7 +24,14 @@
  * piece of work; until it exists, a bump means new accounts accept the new version and existing
  * accounts keep the record of the old one.
  */
-export const TERMS_VERSION = "2026-10-22";
+/**
+ * 2026-10-25: bumped from the original 2026-10-22 stamp because GPS departure detection
+ * added something the documents did not disclose -- the app now also works out, on the
+ * device, that a technician has LEFT a stop, and stores that time. No organization had
+ * accepted any version at the time of the bump (checked: termsAcceptedAt was null
+ * everywhere), so nothing is stranded on the old text.
+ */
+export const TERMS_VERSION = "2026-10-25";
 
 /** The documents a signup accepts, in the order the notice names them. */
 export const TERMS_DOCUMENTS = [

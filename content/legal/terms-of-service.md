@@ -1,7 +1,7 @@
 # AquaRunner247 Terms of Service
 
-**Effective Date:** October 22, 2026  
-**Last Updated:** October 22, 2026
+**Effective Date:** October 25, 2026  
+**Last Updated:** October 25, 2026
 
 These Terms of Service (“**Terms**”) govern access to and use of the AquaRunner 24/7 Pro platform and the AquaRunner247 website, applications, software, portals, and related services (collectively, the “**Services**”). Please read them carefully.
 

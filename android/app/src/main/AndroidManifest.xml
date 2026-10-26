@@ -41,8 +41,8 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- Lets GPS auto-arrival keep working while a tech has the app backgrounded (navigating
-    with Maps, phone locked). @capacitor-community/background-geolocation's own manifest
+    <!-- Lets GPS auto-arrival and departure detection keep working while a tech has the app
+    backgrounded (navigating with Maps, phone locked). @capacitor-community/background-geolocation's own manifest
     already contributes FOREGROUND_SERVICE/FOREGROUND_SERVICE_LOCATION for its notification
     service; this is the one permission that's the app's own responsibility to declare and
     justify (Play Console requires a separate "Background location" disclosure for it). -->

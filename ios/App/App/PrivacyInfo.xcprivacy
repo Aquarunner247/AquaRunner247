@@ -43,7 +43,9 @@
 	<array>
 		<!-- The single position fix that records arrival at a stop. Privacy Policy Section 4,
 		     Location row: the app reads location continuously while a route is open but only
-		     the arrival fix is transmitted and stored. -->
+		     the arrival fix is transmitted and stored. Departure from a stop is also derived
+		     from those readings, on device, and leaves as a timestamp with no position, so it
+		     adds nothing to this declaration. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePreciseLocation</string>

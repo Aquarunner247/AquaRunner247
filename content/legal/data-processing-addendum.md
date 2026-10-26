@@ -1,8 +1,8 @@
 # Data Processing Agreement
 
 **Version:** 1.0  
-**Effective Date:** October 22, 2026  
-**Last Updated:** October 22, 2026
+**Effective Date:** October 25, 2026  
+**Last Updated:** October 25, 2026
 
 This Data Processing Agreement (“**DPA**”) forms part of, and is incorporated into, the Terms of Service or other written agreement governing the use of the AquaRunner247 services (the “**Agreement**”) between **AquaRunner247 LLC**, with its address at **732 S 6th St, Ste N, Las Vegas, NV 89101** (“**AquaRunner247**”), and the customer identified in the Agreement (“**Customer**”). This DPA applies when AquaRunner247 Processes Personal Data on Customer’s behalf.
 
@@ -70,7 +70,7 @@ f. managing user accounts, permissions, device access, and credentials for its u
 
 g. determining and verifying the accuracy of chemical readings, dosage decisions, service records, inspection records, and regulatory compliance records entered into or generated through the Services.
 
-3.4 **Operational and regulatory decisions.** The Services, including the compliance and inspection features, chemical dosage calculator, route optimization, geofenced arrival records, photos, and document scanner, are tools to assist Customer’s operations. They do not constitute legal, medical, health-department, safety, or professional advice and do not replace Customer’s independent judgment or applicable regulatory requirements. Customer remains responsible for deciding how to service each property, verifying dosage calculations and readings, maintaining accurate compliance records, and determining whether its work meets applicable laws, regulations, permits, and health-department requirements. AquaRunner247 does not guarantee that use of the Services will result in passing an inspection or achieving regulatory compliance.
+3.4 **Operational and regulatory decisions.** The Services, including the compliance and inspection features, chemical dosage calculator, route optimization, geofenced arrival and departure records, photos, and document scanner, are tools to assist Customer’s operations. They do not constitute legal, medical, health-department, safety, or professional advice and do not replace Customer’s independent judgment or applicable regulatory requirements. Customer remains responsible for deciding how to service each property, verifying dosage calculations and readings, maintaining accurate compliance records, and determining whether its work meets applicable laws, regulations, permits, and health-department requirements. AquaRunner247 does not guarantee that use of the Services will result in passing an inspection or achieving regulatory compliance.
 
 3.5 **Prohibited information.** Unless the Parties agree otherwise in writing, Customer will not intentionally submit special categories of Personal Data, sensitive Personal Data, payment card data, government identification numbers, or other highly sensitive information to the Services. Customer will avoid including unnecessary personal information in photos, inspection reports, notes, or other uploads.
 
@@ -269,7 +269,7 @@ AquaRunner247 Processes Customer Personal Data as needed to provide, maintain, s
 
 - create and administer user accounts and permissions;
 - manage route schedules, service visits, properties, and bodies of water;
-- record and display arrival and visit information, including the geolocation fix captured at the moment of logged arrival at a service visit, timestamps, and photos taken during service visits. While a technician has an unfinished route open in the mobile app, the app reads device location continuously — including in the background, with background location permission — in order to detect arrival; only the fix that records an arrival is transmitted to AquaRunner247 and stored, and the intervening positions are evaluated on the device and discarded;
+- record and display arrival, departure, and visit information, including the geolocation fix captured at the moment of logged arrival at a service visit, timestamps, and photos taken during service visits. While a technician has an unfinished route open in the mobile app, the app reads device location continuously — including in the background, with background location permission — in order to detect arrival at a stop and departure from a stop that was not finished; only the fix that records an arrival is transmitted to AquaRunner247 and stored, a departure is transmitted as a time with no position attached, and the intervening positions are evaluated on the device and discarded;
 - record water chemistry readings, dosage information, inspection checklists, and compliance records;
 - display records through the customer portal for End Customers, inspector portals, reports, and pump room QR codes as configured or directed by Customer;
 - provide route optimization and mobile app functionality, including offline data queuing and synchronization;
@@ -286,13 +286,13 @@ Depending on Customer’s use and configuration of the Services, Personal Data m
 
 - technician and staff account details, such as names, work contact details, usernames, roles, and account activity;
 - property, business, and individual contact details;
-- location and geolocation information, including geofenced arrival records and visit locations;
+- location and geolocation information, including geofenced arrival records, departure times, and visit locations;
 - geotagged and timestamped photos of pools, equipment, properties, and service visits;
 - chemical readings, dosage records, service notes, and visit histories;
 - state or local compliance inspection records, checklists, and related service documentation;
 - equipment make, model, and serial number information extracted from uploaded reports, where associated with an identifiable person or property;
 - call recordings and transcripts for inbound calls to a Customer’s configured phone number, including caller phone numbers and call content;
-- technician GPS location captured at the moment of logged arrival at a service visit (AquaRunner247 stores the arrival fix only, as described in Section 3 of this Annex);
+- technician GPS location captured at the moment of logged arrival at a service visit (AquaRunner247 stores the arrival fix only; a departure is stored as a time without a position, as described in Section 3 of this Annex);
 - photos taken during service visits, including geotagged and timestamped images;
 - gate codes, entry details, and access instructions;
 - records shared with or made available to customers, inspectors, property managers, or others through customer portals, reports, QR codes, or email; and

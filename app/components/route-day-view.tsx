@@ -18,6 +18,7 @@ import { sameEndpoint } from "@/lib/route-endpoints";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 import { isPushedVisit } from "@/lib/visit-pushed";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
+import { departureDecision, isAwayFix, nextAwaySince } from "@/lib/departure-detection";
 
 export type RouteStop = {
   id: string;
@@ -41,6 +42,10 @@ export type RouteStop = {
   address: string;
   scheduledStart: string;
   startedAt: string | null;
+  /// Needed by departure detection: a stop is watched for leaving only while it is arrived-at
+  /// and unfinished, and only until a departure has been recorded once.
+  completedAt?: string | null;
+  departedAt?: string | null;
   latitude: number | null;
   longitude: number | null;
   /// Per-property override of ARRIVAL_RADIUS_METERS (Property.geofenceMeters) -- null/0
@@ -331,6 +336,11 @@ export function RouteDayView({
   const layerRef = useRef<LayerGroup | null>(null);
   const itemsRef = useRef<DayItem[]>(initialItems);
   const notifiedRef = useRef<Set<string>>(new Set());
+  /** visitId -> when the current unbroken run of away-fixes began. Cleared the moment a fix
+   *  lands back inside, which is what makes the dwell a continuous absence (lib/departure-detection.ts). */
+  const awaySinceRef = useRef<Map<string, Date>>(new Map());
+  /** Stops already reported as departed this session, so a slow request cannot double-post. */
+  const departedRef = useRef<Set<string>>(new Set());
   const [movingVisitId, setMovingVisitId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState("");
   const [movedNotice, setMovedNotice] = useState("");
@@ -344,6 +354,24 @@ export function RouteDayView({
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  async function stampDeparture(visitId: string) {
+    departedRef.current.add(visitId);
+    try {
+      // No body: the server records the moment, not the place. See the route's own comment.
+      const res = await fetch(`/api/visits/${visitId}/departure`, { method: "PATCH" });
+      if (!res.ok) {
+        // 409 means the stop stopped being in progress between the decision and the request --
+        // completed, most likely. Nothing to retry, and nothing worth telling the technician:
+        // this fires from a background watcher and is not something they asked for.
+        return;
+      }
+    } catch {
+      // Offline. Drop the marker so the next fix can try again -- departure is detected from a
+      // continuous run of away-fixes, and the run has not ended just because a request failed.
+      departedRef.current.delete(visitId);
+    }
+  }
 
   async function stampArrival(visitId: string) {
     notifiedRef.current.add(visitId);
@@ -416,6 +444,54 @@ export function RouteDayView({
           void stampArrival(v.id);
         }
       }
+
+      /**
+       * The mirror of the loop above: a stop already arrived at and not yet finished is watched
+       * for the technician leaving it.
+       *
+       * Deliberately NOT gated on computeAutoArrivalEligibleIds. That gate exists because several
+       * bodies at one property share a coordinate, so arrival cannot tell which one you walked up
+       * to -- it picks a single representative. Leaving has no such ambiguity: once you are 180m
+       * away you have left all of them, and each in-progress stop should record it.
+       *
+       * The rule, the margin and the dwell are in lib/departure-detection.ts; this only supplies
+       * the fixes and keeps the per-stop timer.
+       */
+      const now = new Date();
+      for (const v of visitItems) {
+        // IN_PROGRESS is the authoritative "arrived and unfinished" signal; completedAt is
+        // optional on RouteStop, so a caller that omits it must not leave a finished stop under
+        // watch posting departures the API only rejects.
+        if (v.status !== "IN_PROGRESS") continue;
+        if (!v.startedAt || v.completedAt || v.departedAt) continue;
+        if (departedRef.current.has(v.id)) continue;
+        if (v.latitude == null || v.longitude == null) continue;
+
+        const radiusMeters = v.geofenceMeters && v.geofenceMeters > 0 ? v.geofenceMeters : ARRIVAL_RADIUS_METERS;
+        const distanceMeters = haversineMeters(here, v);
+        const away = isAwayFix({ distanceMeters, accuracyBufferMeters: buffer, radiusMeters });
+
+        const updated = nextAwaySince(awaySinceRef.current.get(v.id) ?? null, away, now);
+        if (updated == null) awaySinceRef.current.delete(v.id);
+        else awaySinceRef.current.set(v.id, updated);
+
+        const decision = departureDecision(
+          {
+            startedAt: new Date(v.startedAt),
+            completedAt: v.completedAt ? new Date(v.completedAt) : null,
+            departedAt: v.departedAt ? new Date(v.departedAt) : null,
+            latitude: v.latitude,
+            longitude: v.longitude,
+            geofenceMeters: v.geofenceMeters ?? null,
+          },
+          { distanceMeters, accuracyBufferMeters: buffer, defaultRadiusMeters: ARRIVAL_RADIUS_METERS, awaySince: updated, now },
+        );
+        if (decision.depart) {
+          awaySinceRef.current.delete(v.id);
+          void stampDeparture(v.id);
+        }
+      }
+
       return isDayFullyDone();
     }
 

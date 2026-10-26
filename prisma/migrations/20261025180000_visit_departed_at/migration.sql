@@ -1,0 +1,13 @@
+-- When the technician left the site, detected on the device by the same background watcher
+-- that already stamps arrival.
+--
+-- A timestamp only, no coordinates. The arrival fix is stored because "where did this reading
+-- come from" is a real question; departure answers "how long were they there", and a second
+-- position adds nothing a clock does not. It also keeps what the Privacy Policy has to promise
+-- down to one more time rather than another location.
+--
+-- Nullable with no default and never backfilled: a visit worked before this shipped, or with
+-- the app closed, or logged from a browser, genuinely has no departure time, and inventing one
+-- would turn an honest gap into a wrong measurement. lib/mail/on-site-duration.ts treats it as
+-- the best of several sources rather than the only one.
+ALTER TABLE "ServiceVisit" ADD COLUMN "departedAt" TIMESTAMP(3);
