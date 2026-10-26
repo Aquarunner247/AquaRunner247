@@ -25,6 +25,19 @@ export default async function LoginPage({ searchParams }: PageProps) {
         {params.error === "email-in-use" ? (
           <p className="mt-3 text-sm text-brand-danger">That email already has an account. Sign in below.</p>
         ) : null}
+        {/* Signup finished and the organization exists, but this email already had a login, so the
+            password chosen during signup was never applied to it. Saying that plainly is the whole
+            point -- the alternative is a correct password being rejected with no explanation. */}
+        {params.error === "existing-login" ? (
+          <p className="mt-3 text-sm text-brand-ink">
+            Your account is ready. This email already had a password with us, so sign in with that one
+            rather than the password you just chose.{" "}
+            <Link href="/forgot-password" className="font-medium text-brand-primary underline">
+              Reset it
+            </Link>{" "}
+            if you don&rsquo;t remember it.
+          </p>
+        ) : null}
         {params.reset === "success" ? (
           <p className="mt-3 text-sm text-brand-ok">Password updated — sign in with your new password.</p>
         ) : null}

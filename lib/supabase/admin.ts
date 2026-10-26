@@ -29,6 +29,20 @@ export function createSupabaseAdminClient() {
  * distinction is real and silent, and the next caller that emails or displays anything about the
  * password has to know which branch it got.
  */
+/**
+ * Create the Supabase Auth account for `email`, or return the existing one.
+ *
+ * `created: false` means the account ALREADY EXISTED and **the password argument was not
+ * applied to it** -- the existing password still governs. Callers must act on that flag:
+ *
+ *   - Do not tell the user their chosen password will work. It will not.
+ *   - Do not "fix" it by overwriting the password here. Anyone who knew an email address could
+ *     then take over its account through a signup form.
+ *   - Do not delete the returned account on a later failure. It is not yours to delete; a
+ *     CustomerUser portal login arrives through this same function.
+ *
+ * Dropping the flag is exactly what left a paid signup unable to log in, with no error shown.
+ */
 export async function createOrFindAuthUser(
   email: string,
   password: string,

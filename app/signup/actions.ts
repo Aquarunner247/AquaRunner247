@@ -373,7 +373,10 @@ export async function completeSignup(formData: FormData) {
     }
   }
 
-  const { id: authUserId } = await createOrFindAuthUser(email, password);
+  // `created` matters twice below and used to be dropped on the floor. False means this email
+  // ALREADY had a Supabase Auth account and the password typed on the previous screen was never
+  // applied to it -- see lib/supabase/admin.ts.
+  const { id: authUserId, created: authUserCreated } = await createOrFindAuthUser(email, password);
 
   try {
     if (targetOrgId) {
@@ -456,16 +459,30 @@ export async function completeSignup(formData: FormData) {
     }
   } catch (err) {
     // The paid Stripe subscription (if any) is untouched — only our own DB write failed.
-    // Nothing else references this auth user yet, so it's safe to clean up.
-    try {
-      const supabaseAdmin = createSupabaseAdminClient();
-      await supabaseAdmin.auth.admin.deleteUser(authUserId);
-    } catch {
-      // Non-critical — orphaned auth user, no app data references it.
+    //
+    // Clean up the auth account ONLY if this request created it. On an email that already had
+    // one, deleting it would destroy a login that exists for another reason entirely -- most
+    // plausibly a portal customer's (CustomerUser accounts come from this same helper, see
+    // lib/mail/send-welcome-email.ts). Losing somebody else's login because our own insert
+    // failed is far worse than leaving an orphan.
+    if (authUserCreated) {
+      try {
+        const supabaseAdmin = createSupabaseAdminClient();
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+      } catch {
+        // Non-critical — orphaned auth user, no app data references it.
+      }
     }
     console.error("[signup] failed to create organization/user after payment:", err);
     redirect("/signup?error=server-error");
   }
 
-  redirect("/login");
+  // Provision first, THEN explain. Somebody who just paid must not be turned away, but they
+  // also must not be dropped on a sign-in box where the password they just chose does not work.
+  //
+  // Deliberately NOT overwriting the existing account's password to make that password real:
+  // anyone who knew an email address could then reset its password by paying for a signup,
+  // which is account takeover. The existing password stands, and /forgot-password is the way
+  // through for someone who does not remember it.
+  redirect(authUserCreated ? "/login" : "/login?error=existing-login");
 }
