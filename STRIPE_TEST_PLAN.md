@@ -58,7 +58,10 @@ Purpose: end-to-end verification of the multi-tenant self-serve signup flow usin
 
 ### 7. Cross-check in Stripe Dashboard (test mode)
 - [x] Customer object created correctly — confirmed via `stripeCustomerId` populated on the Organization row and `customer.created`/`customer.updated` events
-- [x] Subscription object created with correct plan/pricing — `stripeSubscriptionId` populated, checkout page showed correct $49/mo after a 14-day trial
+- [x] Subscription object created with correct plan/pricing — `stripeSubscriptionId` populated, checkout page showed the then-current $49/mo after a
+      14-day trial. **That $49 was a retired tier** -- the tiers are now Service $99 and
+      White Label $149 (see Price setup above), so this run predates them and the amount
+      should not be read as current
 - [x] Events log shows expected sequence with no errors — via `stripe listen` log, not the visual Dashboard: payment_method.attached → customer.created → customer.updated → customer.subscription.created → setup_intent.created/succeeded → invoice.created/payment_succeeded → checkout.session.completed, all 200
 
 ## Sign-off
@@ -68,6 +71,39 @@ Purpose: end-to-end verification of the multi-tenant self-serve signup flow usin
 - [ ] Ready to move to live-mode key swap — not yet; close the open items above first
 
 ---
+
+## Price setup — the four variables
+
+The env names below are the ONLY ones `lib/stripe.ts` reads. An earlier set
+(`STRIPE_PRICE_ID_SOLO`, `_STARTER`, `_PRO`) outlived the tiers it was named for and sat in
+Preview long after nothing read it, which is the failure this table exists to prevent: an unset
+price is not an error anywhere in this codebase. `priceIdForTier` returns null, checkout has no
+price to send, and the only symptom is a signup that does not work.
+
+| Variable | Price | Stripe-side settings |
+|---|---|---|
+| `STRIPE_PRICE_ID_SERVICE` | $99/month | Recurring monthly. 3 staff seats included (`PLAN_TIER_INCLUDED_SEATS`) |
+| `STRIPE_PRICE_ID_WHITE_LABEL` | $149/month | Recurring monthly. 5 staff seats included |
+| `STRIPE_PRICE_ID_EXTRA_SEAT` | $15/month | Recurring monthly, usage type **Licensed** (per-unit quantity), *not* metered. See the extra-seat section below |
+| `STRIPE_PRICE_ID_COMPLIANCE` | $19/month | Recurring monthly. AquaRunner Compliance, bought by an end customer at `/portal/subscribe`. Hard cap of 2 seats |
+
+Plus `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. `ENTERPRISE` has no Price by design --
+it is volume-priced and set by hand by a platform admin, never chosen at checkout.
+
+### Four things that break this quietly
+
+1. **No trial on the Prices.** `app/signup/actions.ts` sets `trial_period_days: TRIAL_DAYS`
+   (14) on the checkout session, which is where the trial belongs; a trial configured on the
+   Price as well is a second source of truth for the same number. `/portal/subscribe` sets no
+   trial at all, deliberately -- it is somebody paying to keep their own records.
+2. **Price IDs are mode-specific.** A live-mode `price_...` with a test-mode secret key fails at
+   checkout. Keep Preview test-mode throughout.
+3. **Env changes do not reach a running deployment.** Values are baked in at build time, so
+   redeploy the target environment after saving them.
+4. **Nothing in code checks the Stripe AMOUNTS.** `lib/__tests__/plan-seats-match-pricing.test.ts`
+   pins the included seat counts and the $15 seat price to `app/pricing/page.tsx`, but $99, $149
+   and $19 live only in the marketing copy. Change an amount in Stripe and the pricing page will
+   not complain -- it will just be wrong.
 
 ## Extra staff seats ($15/month)
 
