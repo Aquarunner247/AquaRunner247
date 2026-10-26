@@ -21,6 +21,17 @@ const config: CapacitorConfig = {
   appId: "com.aquarunner247.pro",
   appName: "AquaRunner 24/7 Pro",
   webDir: "capacitor-shell",
+  /**
+   * Appended to the WebView's User-Agent so the server can tell the native app from a browser.
+   * MUST stay in step with NATIVE_SHELL_UA_TOKEN in lib/native-shell.ts, which is the only
+   * thing that reads it.
+   *
+   * It exists for one purpose: /portal/subscribe is a consumer, single-user purchase, which
+   * App Store Guideline 3.1.3(c)'s enterprise exemption explicitly does not cover. Inside the
+   * app that page points at the web instead of opening Stripe. Takes effect only in a rebuilt
+   * binary -- until one ships, every request looks like a browser.
+   */
+  appendUserAgent: "AquaRunner247App",
   server: {
     url: "https://aquarunner247.com",
     cleartext: false,

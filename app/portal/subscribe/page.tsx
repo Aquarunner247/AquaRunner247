@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { isNativeShellUserAgent } from "@/lib/native-shell";
 import { getCurrentCustomerPortalAccessState } from "@/lib/auth/current-customer-user";
 import { priceIdForTier } from "@/lib/stripe";
 import { startCompliancePlan } from "./actions";
@@ -26,6 +28,20 @@ export default async function PortalSubscribePage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
   const billingConfigured = complianceBillingConfigured();
 
+  /**
+   * Inside the native app this page offers no purchase.
+   *
+   * App Store Guideline 3.1.3(c) exempts business-to-business sales from in-app purchase, but
+   * explicitly not "consumer, single user, or family sales" -- and this is one: an individual
+   * paying for their own records after their pool company leaves. Selling it in the app would
+   * need StoreKit. Selling it on the web does not, so the app points at the web.
+   *
+   * Nobody loses the ability to subscribe. The emails that actually send customers here
+   * (sendCustomerAccessEndedEmail, and the cancellation webhook) open in a mail client's
+   * browser rather than the WebView, so the ordinary path never touches this branch.
+   */
+  const inNativeApp = isNativeShellUserAgent((await headers()).get("user-agent"));
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
       <p className="text-sm font-medium uppercase tracking-wide text-brand-primary">AquaRunner Compliance</p>
@@ -36,7 +52,18 @@ export default async function PortalSubscribePage({ searchParams }: PageProps) {
         $19/month to keep viewing your existing records and keep logging new readings yourself, on your own account.
       </p>
 
-      {!billingConfigured ? (
+      {inNativeApp ? (
+        <div className="mt-6 rounded-lg border border-brand-border bg-white p-4">
+          <p className="text-sm text-brand-ink">
+            To set up your own subscription, visit{" "}
+            <span className="font-semibold">aquarunner247.com</span> in your web browser and sign in
+            with this same email address.
+          </p>
+          <p className="mt-3 text-sm text-brand-muted">
+            Your records stay exactly as they are in the meantime — nothing is deleted while you decide.
+          </p>
+        </div>
+      ) : !billingConfigured ? (
         <p className="mt-6 text-sm text-brand-muted">
           Self-serve subscribing isn&rsquo;t available yet. Contact us and we&rsquo;ll get your account set up.
         </p>

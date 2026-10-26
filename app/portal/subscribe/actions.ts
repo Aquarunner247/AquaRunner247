@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { isNativeShellUserAgent } from "@/lib/native-shell";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { stripe, mapSubscriptionStatus, priceIdForTier } from "@/lib/stripe";
@@ -44,6 +46,20 @@ async function requireBlockedCustomerUser() {
  * creating a new one. Metadata carries only ids; completeCompliancePlan re-derives
  * everything else from the database once the checkout actually succeeds. */
 export async function startCompliancePlan() {
+  /**
+   * Re-checked here and not only on the page, for the reason app/portal/actions.ts gives about
+   * mustChangePassword: a page governs what it renders, while a server action can be invoked
+   * without ever loading the page that normally triggers it. A gate that only hides a button is
+   * not a gate.
+   *
+   * This is a consumer, single-user purchase, which App Store Guideline 3.1.3(c)'s enterprise
+   * exemption does not cover -- so it never starts from inside the native app. See
+   * lib/native-shell.ts.
+   */
+  if (isNativeShellUserAgent((await headers()).get("user-agent"))) {
+    redirect("/portal/subscribe");
+  }
+
   const { customerUser, customer } = await requireBlockedCustomerUser();
 
   const priceId = priceIdForTier("COMPLIANCE");
