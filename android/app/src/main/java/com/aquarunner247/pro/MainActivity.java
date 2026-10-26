@@ -1,4 +1,4 @@
-package com.aquarunner247.app;
+package com.aquarunner247.pro;
 
 import com.getcapacitor.BridgeActivity;
 

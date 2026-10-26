@@ -119,9 +119,9 @@ week in it.
 - [ ] Sign in as the demo account on a device and walk the six steps above — if any of them has
       drifted, the notes are worse than useless
 - [ ] Confirm `PrivacyInfo.xcprivacy` is in Build Phases → Copy Bundle Resources
-- [ ] Decide the bundle identifier. `capacitor.config.ts` still carries
-      `com.aquarunner247.app`, flagged in that file as a placeholder, and it is permanent once
-      submitted
+- [ ] Confirm the bundle identifier `com.aquarunner247.pro` is still free on BOTH stores.
+      App Store Connect rejects a collision when you register it, which is the real test; Play
+      is the same. It is permanent on both once either has seen it
 - [ ] App Store Connect privacy answers match `ios/App/App/PrivacyInfo.xcprivacy` — ten data
       types, all linked, none used for tracking
 - [ ] Google Play Data Safety form mirrors the same ten types

@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">AquaRunner 24/7 Pro</string>
     <string name="title_activity_main">AquaRunner 24/7 Pro</string>
-    <string name="package_name">com.aquarunner247.app</string>
-    <string name="custom_url_scheme">com.aquarunner247.app</string>
+    <string name="package_name">com.aquarunner247.pro</string>
+    <string name="custom_url_scheme">com.aquarunner247.pro</string>
 
     <!-- @capacitor-community/background-geolocation: text for the persistent notification
     Android requires while a tech's route is being tracked in the background. -->

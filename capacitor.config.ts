@@ -7,12 +7,18 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * the live production site directly; `webDir` (capacitor-shell/) is never actually shown to
  * a user, it only satisfies `cap add`'s requirement that the directory exist.
  *
- * appId is a placeholder (reverse-DNS of the production domain) -- change it before any
- * real App Store / Play Store submission if you want something else. It becomes part of
- * the bundle identifier and is effectively permanent once submitted.
+ * appId is `com.aquarunner247.pro`, matching the product name, and is PERMANENT once either
+ * store has seen it -- android/app/build.gradle derives applicationId from the same string and
+ * Play package names are as immovable as Apple's. Changing it after submission means a new
+ * listing and losing reviews, ratings and installs.
+ *
+ * `.pro` rather than the earlier placeholder `.app` deliberately: app/cpo is a second product
+ * (AquaRunner Compliance, its own plan tier) that could plausibly want its own mobile app one
+ * day, and `.app` would have burned the generic slot on the first one. This leaves
+ * `com.aquarunner247.compliance` free and obviously related.
  */
 const config: CapacitorConfig = {
-  appId: "com.aquarunner247.app",
+  appId: "com.aquarunner247.pro",
   appName: "AquaRunner 24/7 Pro",
   webDir: "capacitor-shell",
   server: {
