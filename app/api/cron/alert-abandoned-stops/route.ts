@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendAbandonedStopEmail } from "@/lib/email";
 import { timeZoneForState, formatLocalTime } from "@/lib/timezone";
-import { abandonedStopDecision, formatOpenDuration, ABANDONED_AFTER_HOURS } from "@/lib/abandoned-stop";
+import {
+  abandonedStopDecision,
+  formatOpenDuration,
+  formatOnSiteDuration,
+  ABANDONED_AFTER_HOURS,
+} from "@/lib/abandoned-stop";
 
 export const runtime = "nodejs";
 
@@ -13,12 +18,16 @@ export const runtime = "nodejs";
  * The nightly sweep already stamps `pushedAt` on these once the scheduled day is over, which is
  * how the org finds out today -- the next morning, as a record. Measured on 2026-10-25, 68 of
  * the 445 stops arrived at since September were never completed, roughly one in six, so this is
- * a real signal rather than noise. See lib/abandoned-stop.ts for why elapsed time is enough.
+ * a real signal rather than noise. See lib/abandoned-stop.ts for both rules and their thresholds.
  *
- * Hourly rather than daily, because the point is to be timely; the four-hour threshold does the
- * filtering, and running hourly only decides how soon after crossing it the mail goes out. No
- * timezone handling needed for the same reason -- the rule is "open too long", not "open past a
- * particular hour". One alert per stop, ever.
+ * Hourly rather than daily, because the point is to be timely; the thresholds do the filtering,
+ * and running hourly only decides how soon after crossing one the mail goes out. No timezone
+ * handling needed for the same reason -- the rule is "open too long" or "they left", not "open
+ * past a particular hour". One alert per stop, ever.
+ *
+ * Two rules, so two candidate shapes: open past four hours, OR a recorded departure at any
+ * elapsed time. The second is why the query cannot simply filter on an old `startedAt` -- a stop
+ * entered at 9am and departed at 9:25 must be picked up on the 10am run, not at 1pm.
  */
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -38,13 +47,15 @@ export async function GET(req: Request) {
       completedAt: null,
       pushedAt: null,
       abandonedAlertSentAt: null,
-      startedAt: { not: null, lte: cutoff },
+      startedAt: { not: null },
       technicianId: { not: null },
+      OR: [{ startedAt: { lte: cutoff } }, { departedAt: { not: null } }],
     },
     select: {
       id: true,
       status: true,
       startedAt: true,
+      departedAt: true,
       completedAt: true,
       pushedAt: true,
       abandonedAlertSentAt: true,
@@ -68,6 +79,7 @@ export async function GET(req: Request) {
   let sent = 0;
   let skipped = 0;
   let failed = 0;
+  const triggers: Record<string, number> = { departed: 0, elapsed: 0 };
   const reasons: Record<string, number> = {};
   const note = (reason: string) => {
     skipped++;
@@ -109,10 +121,18 @@ export async function GET(req: Request) {
       bodyName: visit.bodyOfWater?.name ?? null,
       openFor: formatOpenDuration(decision.openHours),
       arrivedAtLabel: `at ${formatLocalTime(startedAt, timeZone)}`,
+      // Only when the device actually recorded it. Passed together, because the email only makes
+      // the stronger "they left" claim when it has both.
+      departedAtLabel:
+        decision.trigger === "departed" && visit.departedAt
+          ? `at ${formatLocalTime(visit.departedAt, timeZone)}`
+          : null,
+      onSiteFor: decision.trigger === "departed" ? formatOnSiteDuration(decision.onSiteMinutes) : null,
       visitUrl: `${appUrl}/dashboard/visits/${visit.id}`,
     });
 
     if (result.ok) {
+      triggers[decision.trigger]++;
       // Stamped only after something actually sent, so a total failure retries next hour rather
       // than being recorded as done.
       await prisma.serviceVisit.update({
@@ -129,6 +149,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     ok: true,
     thresholdHours: ABANDONED_AFTER_HOURS,
+    triggers,
     candidates: candidates.length,
     sent,
     skipped,

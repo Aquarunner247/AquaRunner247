@@ -587,6 +587,13 @@ type AbandonedStopEmailInput = {
   /** Already formatted ("4 hours"), from lib/abandoned-stop.ts. */
   openFor: string;
   arrivedAtLabel: string;
+  /**
+   * Set only when the device recorded a departure. Both fields come together or not at all, and
+   * they change what this email claims: with them it says the technician left, without them it
+   * can only say the stop has been open a long time.
+   */
+  departedAtLabel?: string | null;
+  onSiteFor?: string | null;
   visitUrl: string;
 };
 
@@ -619,23 +626,40 @@ export async function sendAbandonedStopEmail(input: AbandonedStopEmailInput): Pr
     : escapeEmailHtml(input.propertyName);
   const tech = escapeEmailHtml(input.technicianName);
 
+  // Two different claims, and the stronger one is only available when the device actually saw
+  // the technician leave. Saying "left this stop" on the strength of elapsed time alone would be
+  // an accusation the app cannot support -- the stop may just be sitting unmarked.
+  const departed = Boolean(input.departedAtLabel && input.onSiteFor);
+  const eyebrow = departed
+    ? `Left without completing \u2014 on site ${escapeEmailHtml(input.onSiteFor ?? "")}`
+    : `Stop still open after ${escapeEmailHtml(input.openFor)}`;
+  const subject = departed
+    ? `${where} \u2014 left without being completed`
+    : `${where} \u2014 still open after ${input.openFor}`;
+  const lede = departed
+    ? `<strong>${tech}</strong> arrived at this stop ${escapeEmailHtml(input.arrivedAtLabel)}, left
+          ${escapeEmailHtml(input.departedAtLabel ?? "")} after ${escapeEmailHtml(input.onSiteFor ?? "")} on site, and it
+          was never marked complete.`
+    : `<strong>${tech}</strong> arrived at this stop ${escapeEmailHtml(input.arrivedAtLabel)} and it has not been
+          marked complete since.`;
+  const explainer = departed
+    ? `The app detected the departure from the technician's device, so the work is either unfinished or
+          finished without anybody tapping Complete. Either way it is worth a call now rather than tomorrow,
+          because an open stop also blocks ${tech} from starting at another property.`
+    : `That usually means one of two things: the stop was left unfinished, or the work is done and
+          nobody tapped Complete. The app cannot tell which \u2014 worth a quick check either way, because an
+          open stop also blocks ${tech} from starting at another property.`;
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
       <div style="background:${COLOR.ink}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Stop still open after ${escapeEmailHtml(input.openFor)}</p>
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">${eyebrow}</p>
         <h1 style="color:white; font-size:20px; margin:6px 0 0;">${where}</h1>
         <p style="color:${COLOR.mutedOnDark}; font-size:13px; margin:6px 0 0;">${escapeEmailHtml(input.organizationName)}</p>
       </div>
       <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
-        <p style="font-size:14px; margin:0 0 12px;">
-          <strong>${tech}</strong> arrived at this stop ${escapeEmailHtml(input.arrivedAtLabel)} and it has not been
-          marked complete since.
-        </p>
-        <p style="font-size:14px; margin:0 0 16px;">
-          That usually means one of two things: the stop was left unfinished, or the work is done and
-          nobody tapped Complete. The app cannot tell which \u2014 worth a quick check either way, because an
-          open stop also blocks ${tech} from starting at another property.
-        </p>
+        <p style="font-size:14px; margin:0 0 12px;">${lede}</p>
+        <p style="font-size:14px; margin:0 0 16px;">${explainer}</p>
         <p style="margin:0 0 16px;">
           <a href="${input.visitUrl}" style="display:inline-block; background:${COLOR.primary}; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
             Open this stop
@@ -655,7 +679,7 @@ export async function sendAbandonedStopEmail(input: AbandonedStopEmailInput): Pr
       const result = await resend.emails.send({
         from: fromAddress,
         to,
-        subject: `${where} \u2014 still open after ${input.openFor}`,
+        subject,
         html,
       });
       if (result.error) lastError = result.error.message;

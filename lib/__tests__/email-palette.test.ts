@@ -138,6 +138,25 @@ beforeAll(async () => {
         }),
     },
     {
+      // The same email on its other branch. Rendered separately because the departure wording is
+      // a whole second set of strings, and an unrendered branch is exactly where a stray
+      // "${COLOR.x}" survived last time.
+      name: "abandoned stop (departure detected)",
+      run: () =>
+        m.sendAbandonedStopEmail({
+          to: ["ops@example.com"],
+          organizationName: "Lindley's Pool & Spa Service",
+          technicianName: "Rich",
+          propertyName: "Paseo Del Prado",
+          bodyName: "Main Pool",
+          openFor: "1 hour",
+          arrivedAtLabel: "at 2:40 PM",
+          departedAtLabel: "at 3:05 PM",
+          onSiteFor: "25 minutes",
+          visitUrl: "https://aquarunner247.com/dashboard/visits/abc",
+        }),
+    },
+    {
       name: "cancellation scrub warning",
       run: () =>
         m.sendCancellationScrubWarningEmail({
