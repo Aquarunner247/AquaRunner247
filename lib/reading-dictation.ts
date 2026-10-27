@@ -332,3 +332,208 @@ export function parseDictatedReading(transcript: string): DictatedReading {
 export function hasAnyReading(parsed: DictatedReading): boolean {
   return Object.keys(parsed.values).length > 0 || parsed.suspect.length > 0;
 }
+
+/* ------------------------------------------------------------------------------------------ *
+ * Chemicals added
+ * ------------------------------------------------------------------------------------------ */
+
+/**
+ * A dose is a different parsing problem from a reading, and harder in one specific way: there is
+ * no fixed vocabulary. ChemicalProduct.name is free text owned by the organization -- "Muriatic
+ * Acid", "Cal Hypo 73%", "3in Trichlor Tabs" -- so the only honest source of product names is
+ * that organization's own catalogue, passed in. Hardcoding a chemical list here would work for
+ * Lindley's and quietly fail for the next customer.
+ *
+ * Getting this wrong costs more than a reading does. VisitChemicalDose carries unitCharge, so a
+ * mismatched product bills the customer for something that was never added, and it tells the
+ * next technician the wrong thing about what is already in the water. So an ambiguous match is
+ * REPORTED, never resolved by picking the best score.
+ */
+export type DictatableProduct = {
+  id: string;
+  /** ChemicalProduct.name, as the organization wrote it. */
+  name: string;
+  /** ChemicalProduct.unit -- arbitrary text: "gal", "lb", "tablet". */
+  unit: string;
+};
+
+export type DictatedDose = {
+  productId: string;
+  productName: string;
+  quantity: number;
+  /** Always the product's own unit, never the spoken one. See parseDictatedDoses. */
+  unit: string;
+  /** Set when the spoken unit disagreed with the product's, which usually means a mis-hear. */
+  spokenUnitConflict?: string;
+};
+
+export type DictatedDoses = {
+  doses: DictatedDose[];
+  /** A quantity whose product matched more than one catalogue entry equally well. */
+  ambiguous: { quantity: number; heard: string; candidates: string[] }[];
+  /** A quantity with no recognisable product, or words that matched nothing. */
+  unmatched: string[];
+};
+
+/** Quantity words that are not numbers. "a gallon" is one gallon. */
+const QUANTITY_WORDS: Readonly<Record<string, number>> = { a: 1, an: 1, half: 0.5, quarter: 0.25 };
+
+const FRACTION_WORDS: Readonly<Record<string, number>> = { half: 0.5, quarter: 0.25 };
+
+/**
+ * A spoken quantity, including the shapes a bare number parser cannot take.
+ *
+ * "half a gallon" puts an article in the middle of the quantity, and "two and a half" puts a
+ * fraction on the end -- both are how acid actually gets dosed, and both used to parse as
+ * nothing, which silently dropped a chemical that went into the water.
+ */
+function parseQuantityWords(words: readonly string[]): number | null {
+  // The article is grammar, not quantity, once anything else is present: "half a gallon" is 0.5.
+  const w = words.length > 1 ? words.filter((x) => x !== "a" && x !== "an") : [...words];
+  if (w.length === 0) return words.length > 0 ? 1 : null;
+  if (w.length === 1 && w[0] in QUANTITY_WORDS) return QUANTITY_WORDS[w[0]];
+
+  const last = w[w.length - 1];
+  if (last in FRACTION_WORDS) {
+    const rest = w.slice(0, -1);
+    if (rest.length === 0) return FRACTION_WORDS[last];
+    const base = wordsToNumber(rest);
+    return base == null ? null : base + FRACTION_WORDS[last];
+  }
+  return wordsToNumber(w);
+}
+
+/** Spoken unit words, mapped to the shape ChemicalProduct.unit tends to take. */
+const UNIT_WORDS: Readonly<Record<string, string>> = {
+  pound: "lb", pounds: "lb", lb: "lb", lbs: "lb",
+  ounce: "oz", ounces: "oz", oz: "oz",
+  gallon: "gal", gallons: "gal", gal: "gal",
+  quart: "qt", quarts: "qt", qt: "qt",
+  pint: "pt", pints: "pt",
+  tablet: "tablet", tablets: "tablet", tab: "tablet", tabs: "tablet",
+  bag: "bag", bags: "bag", scoop: "scoop", scoops: "scoop",
+  liter: "l", liters: "l", litre: "l", litres: "l",
+};
+
+/** Words to drop from a dose phrase. Deliberately NOT "a"/"an" -- those are quantities here. */
+const DOSE_FILLER = new Set(["uh", "um", "er", "and", "of", "added", "add", "put", "in", "the", "then", "also", "some", "i", "we"]);
+
+function normalizeDose(transcript: string): string[] {
+  return transcript
+    .toLowerCase()
+    .replace(/[^a-z0-9.\s]/g, " ")
+    .replace(/\.(?!\d)/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 0 && !DOSE_FILLER.has(w));
+}
+
+/** Product name to comparable tokens: "Cal Hypo 73%" -> ["cal","hypo","73"]. */
+function productTokens(name: string): string[] {
+  return name.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+}
+
+/**
+ * How well a spoken phrase names a product, as the count of the product's own words it contains.
+ *
+ * Counting the PRODUCT's words rather than the spoken ones is what makes shorthand work: a
+ * technician says "acid" for "Muriatic Acid" and "cal hypo" for "Cal Hypo 73%", and neither says
+ * the whole name. A score of zero means no connection at all.
+ */
+function productScore(spoken: readonly string[], product: DictatableProduct): number {
+  const tokens = productTokens(product.name);
+  if (tokens.length === 0) return 0;
+  let hits = 0;
+  for (const t of tokens) if (spoken.includes(t)) hits += 1;
+  return hits;
+}
+
+/**
+ * Parse "added two pounds of cal hypo and a gallon of acid" against an organization's catalogue.
+ *
+ * Reads quantity-first, which is how doses are said: a number (or "a"/"half"), an optional unit,
+ * then the product, up to the next quantity. The product's OWN unit is always what gets stored --
+ * the catalogue is the authority on whether something is sold by the pound or the gallon, and a
+ * technician saying "two gallons" of a powder is a mis-hear worth surfacing rather than a reason
+ * to invent a unit the organization does not use.
+ */
+export function parseDictatedDoses(transcript: string, products: readonly DictatableProduct[]): DictatedDoses {
+  const tokens = normalizeDose(transcript);
+  const doses: DictatedDose[] = [];
+  const ambiguous: DictatedDoses["ambiguous"] = [];
+  const unmatched: string[] = [];
+
+  const isQuantityStart = (w: string) => /^\d/.test(w) || w in QUANTITY_WORDS || w in SMALL_WORDS || w in TENS_WORDS;
+
+  let i = 0;
+  while (i < tokens.length) {
+    if (!isQuantityStart(tokens[i])) {
+      unmatched.push(tokens[i]);
+      i += 1;
+      continue;
+    }
+
+    // The quantity runs until a unit word or a word that cannot be part of a number.
+    const qtyWords: string[] = [];
+    while (i < tokens.length && isQuantityStart(tokens[i]) && !(tokens[i] in UNIT_WORDS)) {
+      qtyWords.push(tokens[i]);
+      i += 1;
+    }
+    const quantity = parseQuantityWords(qtyWords);
+
+    let spokenUnit: string | null = null;
+    let spokenUnitWord: string | null = null;
+    if (i < tokens.length && tokens[i] in UNIT_WORDS) {
+      spokenUnitWord = tokens[i];
+      spokenUnit = UNIT_WORDS[tokens[i]];
+      i += 1;
+    }
+
+    // Everything up to the next quantity names the product.
+    const nameWords: string[] = [];
+    while (i < tokens.length && !isQuantityStart(tokens[i])) {
+      nameWords.push(tokens[i]);
+      i += 1;
+    }
+
+    // "three tabs" names the product WITH the unit word and nothing else. Tablets, bags and
+    // scoops are all said that way, so a unit left holding no product is tried as the name
+    // rather than thrown away with the dose attached to it.
+    if (nameWords.length === 0 && spokenUnitWord != null) {
+      nameWords.push(spokenUnitWord);
+      spokenUnit = null;
+    }
+
+    if (quantity == null || nameWords.length === 0) {
+      unmatched.push(...qtyWords, ...(spokenUnit ? [spokenUnit] : []), ...nameWords);
+      continue;
+    }
+
+    const scored = products
+      .map((p) => ({ product: p, score: productScore(nameWords, p) }))
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    if (scored.length === 0) {
+      unmatched.push(...qtyWords, ...nameWords);
+      continue;
+    }
+
+    const best = scored[0].score;
+    const tied = scored.filter((s) => s.score === best);
+    if (tied.length > 1) {
+      // Two products named equally well. Picking one would bill a customer for a chemical
+      // nobody added; the screen asks instead.
+      ambiguous.push({ quantity, heard: nameWords.join(" "), candidates: tied.map((t) => t.product.name) });
+      continue;
+    }
+
+    const product = tied[0].product;
+    const dose: DictatedDose = { productId: product.id, productName: product.name, quantity, unit: product.unit };
+    if (spokenUnit && spokenUnit.toLowerCase() !== product.unit.toLowerCase()) {
+      dose.spokenUnitConflict = spokenUnit;
+    }
+    doses.push(dose);
+  }
+
+  return { doses, ambiguous, unmatched };
+}

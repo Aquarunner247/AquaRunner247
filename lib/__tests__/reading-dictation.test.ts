@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDictatedReading, wordsToNumber, hasAnyReading } from "@/lib/reading-dictation";
+import { parseDictatedReading, parseDictatedDoses, wordsToNumber, hasAnyReading } from "@/lib/reading-dictation";
 
 /**
  * Every value here ends up in a health-department compliance log, so the cases that matter most
@@ -143,5 +143,86 @@ describe("parseDictatedReading", () => {
     // A suspect value still needs the screen -- that is the whole point of showing it.
     expect(hasAnyReading(parseDictatedReading("pH seventy four"))).toBe(true);
     expect(hasAnyReading(parseDictatedReading("hello"))).toBe(false);
+  });
+});
+
+describe("parseDictatedDoses", () => {
+  /**
+   * A realistic catalogue: free text, inconsistent casing, a percentage in one name, and two
+   * entries that both contain "chlorine" -- which is the ambiguity that matters.
+   */
+  const CATALOG = [
+    { id: "p1", name: "Muriatic Acid", unit: "gal" },
+    { id: "p2", name: "Cal Hypo 73%", unit: "lb" },
+    { id: "p3", name: "3in Trichlor Tabs", unit: "tablet" },
+    { id: "p4", name: "Liquid Chlorine", unit: "gal" },
+    { id: "p5", name: "Sodium Bicarb", unit: "lb" },
+  ];
+
+  it("reads the way a technician reports what they put in", () => {
+    const d = parseDictatedDoses("added two pounds of cal hypo and a gallon of muriatic acid", CATALOG);
+    expect(d.doses).toEqual([
+      { productId: "p2", productName: "Cal Hypo 73%", quantity: 2, unit: "lb" },
+      { productId: "p1", productName: "Muriatic Acid", quantity: 1, unit: "gal" },
+    ]);
+    expect(d.ambiguous).toEqual([]);
+  });
+
+  it("matches the shorthand nobody says in full", () => {
+    // "acid" is one word of "Muriatic Acid"; "tabs" is one word of "3in Trichlor Tabs". Scoring
+    // the PRODUCT's words is what makes partial names work.
+    const d = parseDictatedDoses("one gallon acid three tabs", CATALOG);
+    expect(d.doses.map((x) => [x.productName, x.quantity])).toEqual([
+      ["Muriatic Acid", 1],
+      ["3in Trichlor Tabs", 3],
+    ]);
+  });
+
+  it("stores the catalogue's unit, not the spoken one, and says when they disagree", () => {
+    // Cal Hypo is sold by the pound. "Two gallons" is a mis-hear or the wrong product, and
+    // inventing a unit the organization does not use would make the dose uncostable.
+    const d = parseDictatedDoses("two gallons of cal hypo", CATALOG);
+    expect(d.doses[0].unit).toBe("lb");
+    expect(d.doses[0].spokenUnitConflict).toBe("gal");
+  });
+
+  it("refuses to choose between two products named equally well", () => {
+    // "chlorine" alone fits Liquid Chlorine and nothing else here by word count -- but add a
+    // catalogue where it ties, and the parser must ask rather than bill someone for a guess.
+    const tie = [
+      { id: "a", name: "Chlorine Granular", unit: "lb" },
+      { id: "b", name: "Chlorine Liquid", unit: "gal" },
+    ];
+    const d = parseDictatedDoses("two of chlorine", tie);
+    expect(d.doses).toEqual([]);
+    expect(d.ambiguous).toHaveLength(1);
+    expect(d.ambiguous[0].candidates).toEqual(["Chlorine Granular", "Chlorine Liquid"]);
+    expect(d.ambiguous[0].quantity).toBe(2);
+  });
+
+  it("handles halves, which is how acid is actually dosed", () => {
+    const d = parseDictatedDoses("half a gallon of acid", CATALOG);
+    expect(d.doses[0]).toMatchObject({ productName: "Muriatic Acid", quantity: 0.5, unit: "gal" });
+  });
+
+  it("reports a product that is not in this organization's catalogue", () => {
+    // Said clearly, matches nothing they stock. Silently dropping it would lose a chemical that
+    // went into the water.
+    const d = parseDictatedDoses("four pounds of borate", CATALOG);
+    expect(d.doses).toEqual([]);
+    expect(d.unmatched).toContain("borate");
+  });
+
+  it("keeps the doses it understood when one goes wrong", () => {
+    const d = parseDictatedDoses("two pounds cal hypo five pounds unobtainium", CATALOG);
+    expect(d.doses).toHaveLength(1);
+    expect(d.doses[0].productName).toBe("Cal Hypo 73%");
+    expect(d.unmatched).toContain("unobtainium");
+  });
+
+  it("returns nothing from an empty catalogue rather than failing", () => {
+    const d = parseDictatedDoses("two pounds of cal hypo", []);
+    expect(d.doses).toEqual([]);
+    expect(d.unmatched.length).toBeGreaterThan(0);
   });
 });
