@@ -70,8 +70,13 @@ utility prefixes above.
   runs `prisma migrate deploy`, which then tries to re-apply everything, fails on "already
   exists", and leaves a failed row that blocks every later migration.
 - Write the migration under `prisma/migrations/<timestamp>_<name>/migration.sql`, apply it
-  **locally** with `prisma migrate deploy`, then hand the SQL to the user to run against
-  production themselves. Never ask for the production connection string.
+  **locally** with `prisma migrate deploy`, then hand it to the user to apply to production
+  themselves — they run `prisma migrate deploy` against the direct (non-pooled) production URL,
+  which is how every migration before 2026-10-22 was applied and what keeps `_prisma_migrations`
+  correct without anybody maintaining it by hand. Never ask for that connection string.
+- The Vercel build has never run migrations and should not start: `build` is plain `next build`
+  and `postinstall` is `prisma generate`. Applying schema changes mid-deploy would break the
+  ordering rule below.
 - The ordering rule still holds: the migration reaches production **before** the code that
   uses the new column deploys. Prisma selects every scalar field, so code referencing a
   column the database lacks fails every query against that table, not just the new path.
