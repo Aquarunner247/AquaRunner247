@@ -116,7 +116,9 @@ export function AlertsBell({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label={`Alerts (${totalCount})`}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-brand-border bg-white shadow-sm transition hover:bg-brand-foam"
+        /* h-11 w-11 = 44px, DESIGN-SYSTEM's touch minimum. This was h-10 (40px) -- under it,
+           on the one control an admin taps on a phone to read a closure-risk alert. */
+        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-brand-border bg-white shadow-sm transition hover:bg-brand-foam"
       >
         <BellIcon ringing={totalCount > 0} />
         {totalCount > 0 ? (
@@ -131,6 +133,11 @@ export function AlertsBell({
       </button>
 
       {open ? (
+        /* right-0 anchors this panel's RIGHT edge to the bell and it grows leftward, so it is
+           only fully on screen while the bell is at the page's right gutter. app/dashboard/page.tsx
+           keeps it there with ml-auto; if this panel ever renders off-screen again, that is the
+           first thing to check rather than the width below. At 390px: 90vw = 351px inside a 20px
+           gutter, so it spans x 19..370. */
         <div className="absolute right-0 z-40 mt-2 max-h-[70vh] w-[min(90vw,420px)] overflow-y-auto rounded-2xl border border-brand-border bg-white p-3 shadow-softLg">
           {totalCount === 0 ? (
             <p className="p-3 text-sm text-brand-muted">Nothing needs attention — all clear.</p>

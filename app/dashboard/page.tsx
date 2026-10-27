@@ -555,7 +555,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <p className="app-subhead">{user.email}</p>
         </div>
         {appUser?.role === "ADMIN" ? (
-          <div className="flex items-center gap-4">
+          /* ml-auto is what keeps the bell in the top-RIGHT corner once this header wraps.
+             The header is flex-wrap + justify-between, and a wrapped line holding a single item
+             lays out from flex-START -- so on a phone these controls dropped to their own line
+             and sat on the left, which put the bell mid-screen. The alerts panel is anchored
+             right-0 to the bell and is 90vw wide, so from there it extended off the left edge of
+             the viewport and could not be read. */
+          <div className="ml-auto flex items-center gap-4">
             <PropertyTypeFilterSelect selected={selectedPropertyType} action="/dashboard" />
             <AlertsBell
               closureHazardReadings={closureHazardItems}
