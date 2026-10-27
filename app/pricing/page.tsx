@@ -24,8 +24,31 @@ type Plan = {
   per?: string;
   featured?: boolean;
   points: string[];
+  /** Shown while signups are closed. */
   cta: { label: string; href: string };
+  /**
+   * Where this plan's checkout lives, for when they open. Absent for Enterprise, which has no
+   * self-serve price by design -- it is quoted, so its CTA stays "Talk it through" either way.
+   */
+  signup?: { label: string; href: string };
 };
+
+/**
+ * Whether the pricing page sells or collects emails.
+ *
+ * The same flag /signup itself checks, so the two cannot disagree: with it off, /signup redirects
+ * to "/" and a "Start your trial" button here would be a dead end for every visitor. Reading it
+ * rather than hardcoding means the page turns into a funnel the moment signups are enabled, with
+ * no second deploy -- and until then it stays exactly the waitlist it is today.
+ *
+ * NOTE this is not the only switch. Production also needs its Stripe keys and price ids, or
+ * checkout opens with no price to charge. See STRIPE_TEST_PLAN.md.
+ */
+const signupsOpen = process.env.SIGNUPS_ENABLED === "true";
+
+function ctaFor(plan: Plan): { label: string; href: string } {
+  return signupsOpen && plan.signup ? plan.signup : plan.cta;
+}
 
 const PLANS: Plan[] = [
   {
@@ -44,6 +67,7 @@ const PLANS: Plan[] = [
       "Printable, laminate-ready sheets and QR codes for pump rooms",
     ],
     cta: { label: "Join the waitlist", href: "#waitlist" },
+    signup: { label: "Start your free trial", href: "/signup?tier=SERVICE" },
   },
   {
     name: "White Label",
@@ -59,6 +83,7 @@ const PLANS: Plan[] = [
       "On the roadmap: branded service reports and QR landing pages",
     ],
     cta: { label: "Join the waitlist", href: "#waitlist" },
+    signup: { label: "Start your free trial", href: "/signup?tier=WHITE_LABEL" },
   },
   {
     name: "Enterprise",
@@ -254,12 +279,12 @@ export default function PricingPage() {
                 </ul>
                 <div className="mt-8">
                   {plan.featured ? (
-                    <PrimaryButton href={plan.cta.href} className="w-full">
-                      {plan.cta.label}
+                    <PrimaryButton href={ctaFor(plan).href} className="w-full">
+                      {ctaFor(plan).label}
                     </PrimaryButton>
                   ) : (
-                    <SecondaryButton href={plan.cta.href} className="w-full">
-                      {plan.cta.label}
+                    <SecondaryButton href={ctaFor(plan).href} className="w-full">
+                      {ctaFor(plan).label}
                     </SecondaryButton>
                   )}
                 </div>
@@ -280,8 +305,15 @@ export default function PricingPage() {
                   of water they maintain — without the routing and dispatch they would never open. $19/month, flat.
                 </p>
               </div>
-              <SecondaryButton href="/for-property-managers" tone="dark">
-                See AquaRunner Compliance
+              {/* The only route in for somebody who was never anyone's customer. /portal/subscribe
+                  serves the other case -- an end customer whose pool company left -- and reaching it
+                  requires an existing portal login, so it cannot answer this one. Both land on the
+                  same COMPLIANCE price. */}
+              <SecondaryButton
+                href={signupsOpen ? "/signup?tier=COMPLIANCE" : "/for-property-managers"}
+                tone="dark"
+              >
+                {signupsOpen ? "Subscribe for $19/month" : "See AquaRunner Compliance"}
               </SecondaryButton>
             </div>
           </Card>
