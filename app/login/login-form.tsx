@@ -6,6 +6,23 @@ import { createClient } from "@/lib/supabase/client";
 import { PasswordInput } from "@/app/components/password-input";
 import { getStaffAccessStatus, getPostLoginPath } from "./actions";
 
+/**
+ * Why a sign-in that got past the password can still fail, in words the person can act on.
+ *
+ * The common cause is a DEPLOY landing while this page sat open: Server Action ids are baked in
+ * at build time, so the ids this page was built with stop existing and the call 404s with
+ * "Server Action ... was not found on the server". Nothing is wrong with the account and nothing
+ * the person types will help -- only a reload will -- so say that rather than "try again in a
+ * moment", which invites them to keep clicking a button that cannot work.
+ */
+function signInFailureMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  if (/server action/i.test(message)) {
+    return "The app was updated while this page was open. Refresh the page, then sign in again.";
+  }
+  return "Something went wrong checking your account. Please try again in a moment.";
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +53,20 @@ export function LoginForm() {
     // customer-portal users share one Supabase Auth pool. Reject and sign back out
     // immediately rather than leaving a half-logged-in session where the nav shows
     // "signed in" but no /dashboard page actually works.
-    const staffAccessStatus = await getStaffAccessStatus();
+    let staffAccessStatus: Awaited<ReturnType<typeof getStaffAccessStatus>>;
+    try {
+      staffAccessStatus = await getStaffAccessStatus();
+    } catch (err) {
+      // A THROWN action is not a confirmed non-staff account, so this gets the same treatment as
+      // the "error" return below: sign out, say something non-presumptuous. Before this existed
+      // the throw escaped onSubmit, setLoading(false) never ran, and the button sat on
+      // "Signing in..." forever -- while the Supabase session above had already been
+      // established, so the person was silently signed in behind a UI saying they were not.
+      await supabase.auth.signOut();
+      setLoading(false);
+      setError(signInFailureMessage(err));
+      return;
+    }
     if (staffAccessStatus !== "ok") {
       await supabase.auth.signOut();
       setLoading(false);
@@ -52,7 +82,15 @@ export function LoginForm() {
       }
       return;
     }
-    const postLoginPath = await getPostLoginPath();
+    // Staff access is confirmed and the session is live by this point, so a failure here costs
+    // only the preferred landing page -- /dashboard re-checks auth and routes on by role. Far
+    // better than stranding somebody who is already signed in.
+    let postLoginPath = "/dashboard";
+    try {
+      postLoginPath = await getPostLoginPath();
+    } catch {
+      // Deliberately swallowed; see above.
+    }
     setLoading(false);
     window.location.href = postLoginPath;
   }
