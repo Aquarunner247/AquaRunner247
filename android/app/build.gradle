@@ -16,8 +16,32 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Release signing, read from android/keystore.properties -- which is gitignored, because it
+    // holds the upload key's passwords. Losing that key is recoverable through Play App Signing;
+    // publishing it is not.
+    //
+    // Absent properties file means the release build stays UNSIGNED rather than failing: a
+    // checkout without the keystore (CI, a fresh clone, anyone but the release machine) still
+    // has to be able to compile. An unsigned bundle is obvious the moment Play rejects it; a
+    // build that cannot run at all is a worse way to find that out.
+    signingConfigs {
+        release {
+            def props = new Properties()
+            def propsFile = rootProject.file('keystore.properties')
+            if (propsFile.exists()) {
+                props.load(new FileInputStream(propsFile))
+                storeFile file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (rootProject.file('keystore.properties').exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
