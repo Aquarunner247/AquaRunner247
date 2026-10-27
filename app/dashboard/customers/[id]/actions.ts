@@ -859,6 +859,9 @@ export async function importVenueReadings(formData: FormData) {
             // inspector log counts completed visits; logOnlyRecord is what keeps it out of customer
             // emails, pay and "completed this week". See ServiceVisit.logOnlyRecord.
             logOnlyRecord: true,
+            // Nobody performed this visit, but a person imported the sheet it came from, which
+            // is exactly what an inspector asking "where did this row come from" wants.
+            createdById: appUser.id,
           },
           select: { id: true },
         });

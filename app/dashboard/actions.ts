@@ -153,6 +153,9 @@ export async function addAdHocStop(formData: FormData) {
         bodyOfWaterId: body.id,
         technicianId,
         recurringStopId: null,
+        // This is the path that put four Borgata stops on a Monday with nothing to say who did
+        // it. A hand-added stop is the case createdById exists for.
+        createdById: appUser.id,
         // AdHocStop allows a null position; ServiceVisit does not model one.
         routeSequence: routeSequence ?? undefined,
         // Local midnight for the chosen day, exactly as visit generation computes it.

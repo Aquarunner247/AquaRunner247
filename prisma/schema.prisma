@@ -656,6 +656,7 @@ model User {
   endAddress   String?
 
   assignedVisits                 ServiceVisit[]          @relation("VisitTechnician")
+  createdVisits                  ServiceVisit[]          @relation("VisitCreatedBy")
   assignedRoutes                 RecurringRoute[]        @relation("RouteTechnician")
   sentAlerts                     CustomerAlert[]
   adHocStops                     AdHocStop[]             @relation("AdHocStopTechnician")
@@ -1562,6 +1563,23 @@ model ServiceVisit {
   /// could answer before -- an imported row and a CPO-logged row both have no author at all.
   loggedByCustomerUserId String?
   loggedByCustomerUser   CustomerUser? @relation("VisitLoggedByCustomerUser", fields: [loggedByCustomerUserId], references: [id], onDelete: SetNull)
+
+  /// The staff member who created this visit BY HAND, when a person did.
+  ///
+  /// Null is not "unknown who" -- it is "no staff member created this", and the other three cases
+  /// each answer themselves: a generated visit has `recurringStopId`, a portal reading has
+  /// `loggedByCustomerUserId`, and a move has `movedFrom`. Deliberately no origin enum alongside
+  /// this: it would restate those three fields and could then disagree with them.
+  ///
+  /// Added because nothing could answer "why is this property on today's list when it is not on
+  /// their route". Four Borgata stops appeared on a Monday on 2026-10-26 (serviced Tue/Thu/Sat),
+  /// and the only way to tell a hand-added stop from a generated one was that the manual path
+  /// writes local midnight into `scheduledStart` while generation writes the route's real ETA.
+  /// That is an inference from a side effect, and it could not name the person either way.
+  ///
+  /// SetNull rather than Cascade: losing a staff member must not delete service history.
+  createdById String?
+  createdBy   User?   @relation("VisitCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   startedAt             DateTime?
   /// GPS location captured at the moment arrival was logged (geofence auto-detect or the

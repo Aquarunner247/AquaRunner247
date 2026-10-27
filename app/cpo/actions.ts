@@ -103,6 +103,10 @@ export async function logReadingNow(formData: FormData) {
         // A reading logged with no technician dispatched -- same category as a CSV import, so the
         // same flag keeps it out of anything that means "a service happened".
         logOnlyRecord: true,
+        // The CPO who logged it. This is the "who recorded this day" that the log could not
+        // answer for a CPO-logged row -- see ServiceVisit.loggedByCustomerUserId's comment,
+        // which names exactly this gap.
+        createdById: appUser.id,
       },
       select: { id: true },
     });

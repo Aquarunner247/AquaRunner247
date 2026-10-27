@@ -165,6 +165,8 @@ export async function PATCH(_request: Request, context: { params: Promise<{ id: 
          * one that quietly vanished is not.
          */
         recurringStopId: null,
+        // `movedFrom` already records that this is a move; this records who made it.
+        createdById: appUser.id,
       },
       select: { id: true, scheduledStart: true },
     });
