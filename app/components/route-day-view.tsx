@@ -467,11 +467,15 @@ export function RouteDayView({
        */
       const now = new Date();
       for (const v of visitItems) {
-        // IN_PROGRESS is the authoritative "arrived and unfinished" signal; completedAt is
-        // optional on RouteStop, so a caller that omits it must not leave a finished stop under
-        // watch posting departures the API only rejects.
-        if (v.status !== "IN_PROGRESS") continue;
-        if (!v.startedAt || v.completedAt || v.departedAt) continue;
+        // Watch until they LEAVE, not until they finish. Completing a stop is a button press;
+        // departure is the thing being measured, and on a normal visit the press comes first.
+        // Watching only IN_PROGRESS meant a visit that went well never recorded one at all.
+        //
+        // CANCELLED is still excluded: a skipped or moved stop had no work and no presence worth
+        // reporting, and stamping a departure on one would put a duration in a customer's report
+        // for a visit that did not happen.
+        if (v.status !== "IN_PROGRESS" && v.status !== "COMPLETED") continue;
+        if (!v.startedAt || v.departedAt) continue;
         if (departedRef.current.has(v.id)) continue;
         if (v.latitude == null || v.longitude == null) continue;
 

@@ -49,10 +49,12 @@ export async function PATCH(_request: Request, context: { params: Promise<{ id: 
     return NextResponse.json({ ok: true, departedAt: visit.departedAt, alreadyRecorded: true });
   }
 
-  // Nothing to leave. A stop that was never arrived at has no departure, and one already
-  // completed has a better end time than this.
-  if (visit.startedAt == null || visit.completedAt != null) {
-    return NextResponse.json({ ok: false, reason: "NOT_IN_PROGRESS" }, { status: 409 });
+  // Arrival is the only precondition. A COMPLETED stop is accepted on purpose: Complete is
+  // tapped before driving away on a normal visit, and refusing here is what left well-run visits
+  // with no measured time on site at all. Skipped stops never reach this -- the watcher excludes
+  // CANCELLED, because a visit that did not happen must not acquire a duration.
+  if (visit.startedAt == null) {
+    return NextResponse.json({ ok: false, reason: "NEVER_ARRIVED" }, { status: 409 });
   }
 
   const departedAt = new Date();

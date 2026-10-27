@@ -48,8 +48,20 @@ export const DEPARTURE_MARGIN_METERS = 30;
 export const DEPARTURE_SUSTAINED_MS = 3 * 60 * 1000;
 
 export type DepartureCandidate = {
-  /** Arrival has been stamped; this is a stop in progress. */
+  /** Arrival has been stamped. Without it there is no span to measure and nothing to leave. */
   startedAt: Date | null;
+  /**
+   * Deliberately NOT a disqualifier.
+   *
+   * It was one until 2026-10-27, and that quietly gutted the feature: a technician who taps
+   * Complete before driving away -- which is the normal case -- stopped being watched at the tap,
+   * so no departure was ever recorded for a visit that went well. Production bore it out, 13
+   * stops arrived and 8 completed on the first full day, with zero departures.
+   *
+   * Kept on the type because the caller still needs it for the loitering window in
+   * lib/mail/on-site-duration.ts, and because "how long were they there" is a question about
+   * presence, which completion does not answer.
+   */
   completedAt: Date | null;
   departedAt: Date | null;
   /** Null when the venue was never pinned -- nothing can be concluded from distance. */
@@ -61,7 +73,7 @@ export type DepartureCandidate = {
 
 export type DepartureDecision =
   | { depart: true; awayForMs: number }
-  | { depart: false; reason: "not-in-progress" | "already-departed" | "no-pin" | "still-here" | "not-long-enough" };
+  | { depart: false; reason: "never-arrived" | "already-departed" | "no-pin" | "still-here" | "not-long-enough" };
 
 /**
  * Whether this stop should be marked departed now.
@@ -83,8 +95,9 @@ export function departureDecision(
     now: Date;
   },
 ): DepartureDecision {
-  // Only a stop that was arrived at and not finished can be left.
-  if (visit.startedAt == null || visit.completedAt != null) return { depart: false, reason: "not-in-progress" };
+  // Arrival is the only precondition. A finished stop is still a stop somebody is standing on,
+  // and the moment they stop standing on it is exactly what this measures.
+  if (visit.startedAt == null) return { depart: false, reason: "never-arrived" };
   if (visit.departedAt != null) return { depart: false, reason: "already-departed" };
 
   // An unpinned venue has no boundary to be outside of. Saying nothing is correct.

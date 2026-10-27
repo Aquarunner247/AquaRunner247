@@ -33,6 +33,21 @@
 /** Completion later than this past the last photo is paperwork, not time on site. */
 export const COMPLETION_LAG_TOLERANCE_MS = 45 * 60 * 1000;
 
+/**
+ * How long after finishing the technician may still be on site before the clock stops counting
+ * as service.
+ *
+ * Departure measures PRESENCE, which is the right end of a visit right up until it isn't: a van
+ * parked at a big commercial property through a lunch break would otherwise turn a 25-minute
+ * service into a 90-minute one in the customer's report. Past this, the device is describing
+ * where somebody ate, so the inferences below give the better answer.
+ *
+ * Negative spans -- departure BEFORE completion -- are the ordinary case and always allowed:
+ * leaving and tapping Complete from the truck is exactly what the batch-completion habit looks
+ * like, and arrival-to-departure is the honest span for it.
+ */
+export const LINGER_AFTER_COMPLETION_MS = 45 * 60 * 1000;
+
 export type OnSiteInput = {
   /** Null when never logged, or backfilled to equal completedAt (which is the same as never). */
   startedAt: Date | null;
@@ -69,7 +84,11 @@ export function onSiteDuration({ startedAt, completedAt, lastPhotoAt, departedAt
    * it) and falls through to the inferences rather than reporting a negative or zero span.
    */
   if (departedAt != null && departedAt.getTime() > startedAt.getTime()) {
-    return { kind: "measured", ms: departedAt.getTime() - startedAt.getTime() };
+    const lingeredMs = departedAt.getTime() - completedAt.getTime();
+    if (lingeredMs <= LINGER_AFTER_COMPLETION_MS) {
+      return { kind: "measured", ms: departedAt.getTime() - startedAt.getTime() };
+    }
+    // Still on site long after the work finished. Fall through rather than report the wait.
   }
 
   if (lastPhotoAt != null && completedAt.getTime() - lastPhotoAt.getTime() <= COMPLETION_LAG_TOLERANCE_MS) {

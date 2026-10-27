@@ -97,9 +97,17 @@ describe("departureDecision", () => {
 
   it("says nothing about stops it has no business judging", () => {
     const far = at(RADIUS + DEPARTURE_MARGIN_METERS + 500, LONG_AGO);
-    expect(departureDecision(visit({ startedAt: null }), far)).toEqual({ depart: false, reason: "not-in-progress" });
-    expect(departureDecision(visit({ completedAt: NOW }), far)).toEqual({ depart: false, reason: "not-in-progress" });
+    expect(departureDecision(visit({ startedAt: null }), far)).toEqual({ depart: false, reason: "never-arrived" });
     expect(departureDecision(visit({ departedAt: NOW }), far)).toEqual({ depart: false, reason: "already-departed" });
+  });
+
+  it("still reports a departure from a stop that was already completed", () => {
+    // The normal visit, and the case this feature existed for without serving: the technician
+    // taps Complete at the pool and then drives away. Treating the tap as the end of the watch
+    // meant a visit that went WELL never recorded a departure -- 13 arrivals and 8 completions
+    // in production on the first full day produced zero of them.
+    const d = departureDecision(visit({ completedAt: NOW }), at(RADIUS + DEPARTURE_MARGIN_METERS + 500, LONG_AGO));
+    expect(d.depart).toBe(true);
   });
 
   it("says nothing about an unpinned venue", () => {
