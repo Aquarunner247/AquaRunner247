@@ -52,7 +52,19 @@ function buildCsp(nonce: string): string {
     // inline content, not a cross-origin load, but explicit 'self' avoids any ambiguity.
     "frame-src 'self'",
     "frame-ancestors 'self'",
-    "form-action 'self'",
+    // Stripe's hosted pages are form-action targets, not frames: signup and /portal/subscribe
+    // redirect to checkout.stripe.com, and "Manage billing" redirects to billing.stripe.com.
+    //
+    // 'self' alone is enough ONLY while the page has hydrated, because React then submits the
+    // Server Action as a fetch and the redirect is an ordinary navigation. Without hydration the
+    // form degrades to a NATIVE browser POST -- which Server Actions support on purpose -- and
+    // then form-action governs where that submission may land, so the redirect to Stripe is
+    // blocked and the person sits on the form with nothing happening and no error.
+    //
+    // That is not hypothetical. It happens whenever a chunk fails to load, which is exactly what
+    // a deploy does to anyone holding the previous page: its chunk URLs 404, hydration never
+    // completes, and the next click silently dies. Found this way on 2026-10-27, on signup.
+    "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
     "base-uri 'self'",
     "object-src 'none'",
     "upgrade-insecure-requests",
