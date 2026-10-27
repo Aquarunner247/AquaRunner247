@@ -61,6 +61,23 @@ utility prefixes above.
   check (git history, current file contents) rather than assuming based on the
   file's current state.
 
+## Database migrations
+
+- **Prisma owns migrations. Do not apply schema changes through the Supabase MCP tools**
+  (`apply_migration`, or DDL via `execute_sql`). Those record into
+  `supabase_migrations.schema_migrations`, which Prisma cannot see, so the column lands in
+  production while `_prisma_migrations` stays behind. The drift is invisible until someone
+  runs `prisma migrate deploy`, which then tries to re-apply everything, fails on "already
+  exists", and leaves a failed row that blocks every later migration.
+- Write the migration under `prisma/migrations/<timestamp>_<name>/migration.sql`, apply it
+  **locally** with `prisma migrate deploy`, then hand the SQL to the user to run against
+  production themselves. Never ask for the production connection string.
+- The ordering rule still holds: the migration reaches production **before** the code that
+  uses the new column deploys. Prisma selects every scalar field, so code referencing a
+  column the database lacks fails every query against that table, not just the new path.
+- Reading production with `execute_sql` (SELECTs, `information_schema` checks) is fine and
+  is the right way to confirm a migration landed.
+
 ## Destructive operations
 - Any script that deletes or modifies production data must default to a dry run
   (list what it would do, change nothing) unless explicitly told to apply.
