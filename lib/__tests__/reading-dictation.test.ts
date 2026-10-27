@@ -196,7 +196,11 @@ describe("parseDictatedDoses", () => {
     const d = parseDictatedDoses("two of chlorine", tie);
     expect(d.doses).toEqual([]);
     expect(d.ambiguous).toHaveLength(1);
-    expect(d.ambiguous[0].candidates).toEqual(["Chlorine Granular", "Chlorine Liquid"]);
+    // Ids come back too, or the screen cannot turn the technician's choice into a costed dose.
+    expect(d.ambiguous[0].candidates).toEqual([
+      { id: "a", name: "Chlorine Granular", unit: "lb" },
+      { id: "b", name: "Chlorine Liquid", unit: "gal" },
+    ]);
     expect(d.ambiguous[0].quantity).toBe(2);
   });
 

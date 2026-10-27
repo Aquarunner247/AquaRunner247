@@ -47,6 +47,31 @@ export type ReadingField =
   | "flowMeterGpm";
 
 /**
+ * How each field is named on screen, and what it is measured in.
+ *
+ * Here rather than imported from lib/compliance.ts, which has its own copies for its own
+ * purposes: that module is server-weight and this has to render in a technician's browser. The
+ * strings must match what the visit form shows, or a confirmation screen would name a reading
+ * one thing and the field it fills another.
+ */
+export const READING_FIELD_LABELS: Readonly<Record<ReadingField, { label: string; unit: string }>> = {
+  ph: { label: "pH", unit: "" },
+  freeChlorinePpm: { label: "Free Chlorine", unit: "ppm" },
+  totalChlorinePpm: { label: "Total Chlorine", unit: "ppm" },
+  brominePpm: { label: "Bromine", unit: "ppm" },
+  alkalinityPpm: { label: "Total Alkalinity", unit: "ppm" },
+  cyanuricAcidPpm: { label: "Cyanuric Acid", unit: "ppm" },
+  calciumHardnessPpm: { label: "Calcium Hardness", unit: "ppm" },
+  saltPpm: { label: "Salt", unit: "ppm" },
+  temperatureF: { label: "Water Temperature", unit: "\u00B0F" },
+  filterPressurePsi: { label: "Filter Pressure", unit: "psi" },
+  pumpPressurePsi: { label: "Pump Pressure", unit: "psi" },
+  filterGaugeReading: { label: "Filter Gauge", unit: "" },
+  vacGaugeReading: { label: "Vacuum Gauge", unit: "" },
+  flowMeterGpm: { label: "Flow Meter", unit: "gpm" },
+};
+
+/**
  * What a technician might call each field out loud.
  *
  * Longest phrase first within each field, and the whole table is scanned longest-first overall,
@@ -369,8 +394,14 @@ export type DictatedDose = {
 
 export type DictatedDoses = {
   doses: DictatedDose[];
-  /** A quantity whose product matched more than one catalogue entry equally well. */
-  ambiguous: { quantity: number; heard: string; candidates: string[] }[];
+  /**
+   * A quantity whose product matched more than one catalogue entry equally well.
+   *
+   * Candidates carry their ids, not just names: whatever asks the technician to choose has to
+   * turn that choice back into a VisitChemicalDose, and a name alone cannot do it -- two
+   * organizations can stock products with the same name, and the dose is costed from the id.
+   */
+  ambiguous: { quantity: number; heard: string; candidates: { id: string; name: string; unit: string }[] }[];
   /** A quantity with no recognisable product, or words that matched nothing. */
   unmatched: string[];
 };
@@ -523,7 +554,11 @@ export function parseDictatedDoses(transcript: string, products: readonly Dictat
     if (tied.length > 1) {
       // Two products named equally well. Picking one would bill a customer for a chemical
       // nobody added; the screen asks instead.
-      ambiguous.push({ quantity, heard: nameWords.join(" "), candidates: tied.map((t) => t.product.name) });
+      ambiguous.push({
+        quantity,
+        heard: nameWords.join(" "),
+        candidates: tied.map((t) => ({ id: t.product.id, name: t.product.name, unit: t.product.unit })),
+      });
       continue;
     }
 
