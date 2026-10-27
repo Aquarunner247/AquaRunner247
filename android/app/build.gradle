@@ -30,7 +30,10 @@ android {
             def propsFile = rootProject.file('keystore.properties')
             if (propsFile.exists()) {
                 props.load(new FileInputStream(propsFile))
-                storeFile file(props['storeFile'])
+                // rootProject.file, NOT file(): inside the :app module, file() resolves against
+                // android/app/, so a keystore sitting beside keystore.properties in android/
+                // would not be found and the error names a path nobody chose.
+                storeFile rootProject.file(props['storeFile'])
                 storePassword props['storePassword']
                 keyAlias props['keyAlias']
                 keyPassword props['keyPassword']
