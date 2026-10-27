@@ -7,6 +7,11 @@ import { createPortal } from "react-dom";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { BackgroundGeolocationPlugin } from "@capacitor-community/background-geolocation";
+import { BackgroundLocationDisclosure } from "@/app/components/background-location-disclosure";
+import {
+  needsBackgroundLocationDisclosure,
+  recordBackgroundLocationDisclosureAccepted,
+} from "@/lib/background-location-disclosure";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_ANCHOR, BRAND_PRIMARY } from "@/app/lib/chart-colors";
@@ -349,6 +354,13 @@ export function RouteDayView({
   const awaySinceRef = useRef<Map<string, Date>>(new Map());
   /** Stops already reported as departed this session, so a slow request cannot double-post. */
   const departedRef = useRef<Set<string>>(new Set());
+  /**
+   * Play requires a prominent in-app disclosure, accepted by an affirmative action, BEFORE
+   * background location is requested -- see lib/background-location-disclosure.ts. Null until
+   * the native watcher asks for it, so it never appears on the web.
+   */
+  const [showLocationDisclosure, setShowLocationDisclosure] = useState(false);
+  const [disclosureAccepted, setDisclosureAccepted] = useState(false);
   const [movingVisitId, setMovingVisitId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState("");
   const [movedNotice, setMovedNotice] = useState("");
@@ -539,6 +551,15 @@ export function RouteDayView({
         }
       }
 
+      // THE DISCLOSURE GATE. Nothing below may request a permission until this has been
+      // accepted: the plugin's `requestPermissions: true` fires the OS dialog directly, and Play
+      // policy puts this screen in front of it. Declining simply means no background watcher --
+      // the stop still has its manual "I've arrived" button, same as a denied OS permission.
+      if (!disclosureAccepted && needsBackgroundLocationDisclosure(typeof window === "undefined" ? null : window.localStorage)) {
+        setShowLocationDisclosure(true);
+        return teardown;
+      }
+
       (async () => {
         // Android 13+ requires this OS permission before it will show the persistent
         // notification the foreground service needs -- without it, Android silently
@@ -649,7 +670,7 @@ export function RouteDayView({
       navigator.geolocation.clearWatch(watchId);
       document.removeEventListener("visibilitychange", handleVisible);
     };
-  }, [effectiveReadOnly, isToday, allowGpsAutoArrival]);
+  }, [effectiveReadOnly, isToday, allowGpsAutoArrival, disclosureAccepted]);
 
   // Initialize the map once
   useEffect(() => {
@@ -1221,6 +1242,21 @@ export function RouteDayView({
 
   return (
     <div>
+      {/* Play requires this BEFORE the permission prompt, and the watcher above will not start
+          until it is accepted. Rendered at the top of the tree so nothing in the route list can
+          overlap it -- a disclosure partly behind a card is one a reviewer counts as missing. */}
+      {showLocationDisclosure ? (
+        <BackgroundLocationDisclosure
+          onAccept={() => {
+            recordBackgroundLocationDisclosureAccepted(typeof window === "undefined" ? null : window.localStorage);
+            setShowLocationDisclosure(false);
+            // Flips the effect's dependency, which re-runs it and starts the watcher -- this
+            // time past the gate.
+            setDisclosureAccepted(true);
+          }}
+          onDecline={() => setShowLocationDisclosure(false)}
+        />
+      ) : null}
       {missingCoords ? (
         <p className="mb-2 text-xs text-brand-warn">
           Some stops don&rsquo;t have map coordinates yet — an admin can geocode addresses from the Routes page.
