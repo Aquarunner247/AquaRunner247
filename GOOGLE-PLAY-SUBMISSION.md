@@ -119,10 +119,16 @@ content shared publicly, no ads, no purchases in the app. Expect "Everyone".
 
 ## Things that will catch you out
 
-**Closed testing before production.** A Play developer account registered as an **individual**
-must run a closed test with at least 12 testers opted in for 14 continuous days before it can
-apply for production access. An **organisation** account does not. If the account is personal,
-start that 14-day clock now — it is the longest item on this list and nothing else shortens it.
+**Closed testing is NOT required here.** The developer account is an **organisation**
+(confirmed 2026-10-27), so the 12-testers-for-14-days rule that gates individual accounts does
+not apply and this can go straight to production. Worth writing down because it is the single
+biggest difference in how long a first submission takes, and the answer is not visible from the
+code.
+
+**A reviewer has to be able to sign in.** The app opens on a login wall, so Play's **App access**
+section needs working credentials or it is an automatic rejection. Use the demo organisation from
+`scripts/seed-app-review-org.ts` — the same one the App Store notes use. It has NOT been run
+against production yet; that is a prerequisite for this section, not an afterthought.
 
 **No in-app purchases, deliberately.** `/portal/subscribe` is gated off inside the native shell
 (`lib/native-shell.ts`), and nothing in the app sells anything. That is the answer if review asks
@@ -141,13 +147,19 @@ and a reviewer seeing it is expected behaviour, not a bug.
 
 ## Order of operations
 
+Organisation account, so production is reachable directly.
+
 1. Keystore + Play App Signing, register the package name
-2. If the account is personal — start the 12-tester closed test immediately, it gates everything
-3. Feature graphic and screenshots
-4. Data Safety form and the deletion URL
+2. Seed the demo organisation against production, and fill its password into **both** this file
+   and `APP-REVIEW-NOTES.md` — the reviewer cannot get past the login without it
+3. Build and upload the bundle
+4. Data Safety form, the deletion URL, content rating, App access credentials
 5. Background-location declaration and video
-6. Content rating
-7. Upload the bundle, submit
+6. Feature graphic and screenshots
+7. Submit to production
+
+Items 5 and 6 are the only ones that need something made rather than filled in, so they set the
+pace.
 
 Apple comes after this passes. `APP-REVIEW-NOTES.md` has the App Store side, and the two filings
 must keep saying the same thing about data — if one changes, change both.
