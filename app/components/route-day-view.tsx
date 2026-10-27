@@ -57,6 +57,14 @@ export type RouteStop = {
   /// and for an admin's single-technician view (both single-color, as before).
   technicianId?: string | null;
   technicianLabel?: string | null;
+  /// Why this stop is on the day when the route did not put it there, e.g. "Added by hand ·
+  /// Breanna" or "Moved here · Breanna". Built server-side from ServiceVisit.createdById, so this
+  /// component holds no rule about what counts as hand-added -- see app/dashboard/schedule/page.tsx.
+  ///
+  /// Supplied ONLY by the admin schedule's query, like technicianLabel above. A technician does
+  /// not need to know who entered their stop, and this screen is read in direct sun: a line that
+  /// changes nothing they do is a line competing with the ones that do.
+  originLabel?: string | null;
 };
 
 /// An "extra stop" (AdHocStop) — an errand, not a real chemistry-reading service visit.
@@ -1437,6 +1445,19 @@ export function RouteDayView({
                               still truncates -- the property is what identifies the card. */}
                           <p className="break-words text-sm font-semibold text-brand-ink">{v.propertyName}</p>
                           <p className="truncate text-xs text-brand-muted">{v.address || "No address on file"}</p>
+                          {(() => {
+                            // One line for the card, not one per member row. Only claims what is
+                            // true of EVERY visible member: four hand-added Borgata venues read as
+                            // one line, and a card where only some were added by hand says so
+                            // rather than tarring the generated ones.
+                            const labels = [...new Set(members.map((m) => m.originLabel).filter(Boolean))];
+                            if (labels.length === 0) return null;
+                            const text =
+                              labels.length === 1 && members.every((m) => m.originLabel)
+                                ? labels[0]
+                                : "Some stops added by hand";
+                            return <p className="text-xs text-brand-muted">{text}</p>;
+                          })()}
                           {arrivedAt ? (
                             <p className="text-xs font-medium text-brand-ok">
                               Arrived {new Date(arrivedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
@@ -1586,6 +1607,7 @@ export function RouteDayView({
                         {v.propertyName} — {v.bodyName}
                       </Link>
                       <p className="truncate text-xs text-brand-muted">{v.address || "No address on file"}</p>
+                      {v.originLabel ? <p className="text-xs text-brand-muted">{v.originLabel}</p> : null}
                       {v.startedAt ? (
                         <p className="text-xs font-medium text-brand-ok">
                           Arrived {new Date(v.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}

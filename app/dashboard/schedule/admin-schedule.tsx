@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { visitOriginLabel } from "@/lib/visit-origin";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
 import { countFinishedWalkUps, countWalkUps } from "@/lib/stop-grouping";
 import { RouteDayView, type DayItem } from "@/app/components/route-day-view";
@@ -304,6 +305,13 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             pushedAt: true,
             movedToVisitId: true,
             routeSequence: true,
+            // For the "why is this here" line (lib/visit-origin.ts). recurringStopId says the
+            // route generated it, movedFrom says it was pushed here from another day, and
+            // createdBy names whoever entered it. Admin screens only -- a technician's own view
+            // builds its items in app/dashboard/schedule/page.tsx and deliberately omits these.
+            recurringStopId: true,
+            movedFrom: { select: { id: true } },
+            createdBy: { select: { name: true, email: true } },
             property: {
               select: { id: true, name: true, addressLine1: true, city: true, region: true, latitude: true, longitude: true },
             },
@@ -335,6 +343,11 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     longitude: coalesceCoord(v.bodyOfWater.longitude, v.property.longitude),
     technicianId: v.technician?.id ?? null,
     technicianLabel: v.technician ? (v.technician.name ?? v.technician.email) : null,
+    originLabel: visitOriginLabel({
+      createdByName: v.createdBy ? (v.createdBy.name ?? v.createdBy.email) : null,
+      recurringStopId: v.recurringStopId,
+      movedFromId: v.movedFrom?.id ?? null,
+    }),
   }));
 
   const technicianIdsWithStops = new Set(routeStops.map((v) => v.technicianId).filter((id): id is string => Boolean(id)));
