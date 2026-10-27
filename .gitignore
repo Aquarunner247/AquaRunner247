@@ -70,3 +70,10 @@ prisma/*.db-journal
 # LibreOffice/OpenOffice lock files, created while a document in content/legal/source/ or a
 # generated .md is open in an editor. Transient, per-machine, never belong in the repo.
 .~lock.*#
+
+# Android signing. The upload keystore and its passwords must never reach the repo: losing the
+# key is recoverable through Play App Signing, but publishing it is not. Added before the
+# keystore existed, deliberately -- the window where this is missing is the dangerous one.
+*.jks
+*.keystore
+android/keystore.properties
