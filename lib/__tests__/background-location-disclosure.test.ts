@@ -6,7 +6,7 @@ import {
   recordBackgroundLocationDisclosureAccepted,
   BACKGROUND_LOCATION_ALWAYS_HINT,
   needsAlwaysAllowHint,
-  recordAlwaysAllowHintDismissed,
+  recordBackgroundLocationProven,
   type DisclosureStorage,
 } from "@/lib/background-location-disclosure";
 
@@ -92,12 +92,20 @@ describe("the Allow-all-the-time hint", () => {
     expect(all.toLowerCase()).toContain("locks");
   });
 
-  it("is dismissible and remembered separately from the disclosure", () => {
+  it("offers no way to dismiss it", () => {
+    // A notice about a thing that is silently broken must not be clearable by somebody who has
+    // not fixed it.
+    expect(Object.keys(BACKGROUND_LOCATION_ALWAYS_HINT)).not.toContain("dismiss");
+  });
+
+  it("clears only on proof that background location works, and cannot be tapped away", () => {
+    // The point of the change: a Done button let somebody retire the notice without changing
+    // anything, and nothing visible changes when background location is missing.
     const s = fakeStorage();
     expect(needsAlwaysAllowHint(s)).toBe(true);
-    recordAlwaysAllowHintDismissed(s);
+    recordBackgroundLocationProven(s);
     expect(needsAlwaysAllowHint(s)).toBe(false);
-    // Dismissing the hint must not count as accepting the disclosure -- they gate different things.
+    // Proving background location is not accepting the disclosure -- different gates.
     expect(needsBackgroundLocationDisclosure(s)).toBe(true);
   });
 

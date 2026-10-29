@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { AlertsBell } from "@/app/components/alerts-bell";
+import { autoArrivalPercent, autoArrivalHealth, techniciansNeedingAttention } from "@/lib/auto-arrival-health";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
 import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, organizationHasCommercialPools } from "@/lib/compliance";
 import { WaveProgress } from "@/app/components/wave-progress";
@@ -542,6 +543,44 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     issues: r.issues,
   }));
 
+  /**
+   * How much arrival logging is actually automatic, per technician, over three weeks.
+   *
+   * Measured 2026-10-29: Rodrigo 14%, Rich 8%. Automatic arrival is the feature that justifies
+   * background location to both app stores, and nothing in the product showed that it was
+   * barely running -- a technician tapping "I've arrived" every stop has no reason to report
+   * it, because the app works, it is just doing none of the thing it promises.
+   *
+   * A GPS arrival carries arrivalLatitude; the manual button records a time and nothing else.
+   */
+  const arrivalWindowStart = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000);
+  const arrivalRows = appUser?.role === "ADMIN" ? await prisma.serviceVisit.groupBy({
+    by: ["technicianId"],
+    where: {
+      organizationId: appUser.organizationId,
+      startedAt: { gte: arrivalWindowStart, not: null },
+      technicianId: { not: null },
+    },
+    _count: { _all: true, arrivalLatitude: true },
+  }) : [];
+  const technicianNames = new Map(
+    appUser?.role === "ADMIN"
+      ? (await prisma.user.findMany({
+          where: { organizationId: appUser.organizationId, active: true },
+          select: { id: true, name: true, email: true },
+        })).map((u) => [u.id, u.name ?? u.email ?? "Unknown"] as const)
+      : [],
+  );
+  const arrivalCounts = arrivalRows
+    .filter((r): r is typeof r & { technicianId: string } => r.technicianId != null)
+    .map((r) => ({
+      technicianId: r.technicianId,
+      technicianName: technicianNames.get(r.technicianId) ?? "Unknown",
+      arrivals: r._count._all,
+      gpsArrivals: r._count.arrivalLatitude,
+    }));
+  const arrivalNeedsAttention = techniciansNeedingAttention(arrivalCounts);
+
   const weekPercent = stats && stats.weekTotal > 0 ? (stats.weekCompleted / stats.weekTotal) * 100 : 0;
   // Narrowing a `let` does not survive into a callback, so alias it before the JSX.
   const usage = chemUsage;
@@ -673,6 +712,42 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           </span>
                         ))}
                       </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* Automatic arrival health.
+                Hidden entirely when everybody is fine, because a card that is always there and
+                always green stops being read. It appears when somebody's phone has stopped doing
+                the thing the app promises -- which nothing surfaced until 2026-10-29, when a
+                query showed automatic arrival was firing on one stop in eight. */}
+            {arrivalNeedsAttention.length > 0 ? (
+              <div className="app-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">
+                  Automatic arrival needs attention (last 3 weeks)
+                </p>
+                <p className="mt-2 text-sm text-brand-ink">
+                  These technicians are logging arrivals by hand instead. Usually it is the phone: on Android,
+                  location has to be set to &ldquo;Allow all the time&rdquo; in Settings, which the permission prompt
+                  never offers.
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {arrivalNeedsAttention.map((t) => (
+                    <li
+                      key={t.technicianId}
+                      className="app-card-inset flex flex-wrap items-center justify-between gap-3"
+                    >
+                      <span className="text-sm font-semibold text-brand-ink">{t.technicianName}</span>
+                      <span className="flex items-center gap-3">
+                        <span className="app-metric text-sm text-brand-ink">
+                          {t.gpsArrivals} of {t.arrivals} automatic
+                        </span>
+                        <span className="app-pill app-pill-attention">
+                          {autoArrivalHealth(t) === "none" ? "none" : `${autoArrivalPercent(t)}%`}
+                        </span>
+                      </span>
                     </li>
                   ))}
                 </ul>

@@ -64,7 +64,6 @@ export const BACKGROUND_LOCATION_ALWAYS_HINT = {
     "Android's prompt only offers \u201cWhile using the app\u201d. Until location is set to " +
     "\u201cAllow all the time\u201d in Settings, arrival will stop logging as soon as your phone locks.",
   action: "Open settings",
-  dismiss: "Done",
 } as const;
 
 /** Separate from the disclosure's key: dismissing the hint is not accepting the disclosure. */
@@ -107,22 +106,37 @@ export function recordBackgroundLocationDisclosureAccepted(storage: DisclosureSt
 /**
  * Whether the "Allow all the time" hint still needs showing.
  *
- * Same fail-safe as the disclosure: unreadable storage means show it. The cost of showing it
- * twice is one tap; the cost of never showing it is a technician who thinks arrival is broken.
+ * NOT dismissible, deliberately. A tap on Done used to retire it forever, which made it a
+ * notice somebody could clear without changing anything -- and the whole problem is that
+ * nothing visible changes when background location is missing. It goes away when it is no
+ * longer true, and not before.
+ *
+ * "No longer true" is proven rather than assumed: see recordBackgroundLocationProven, which is
+ * called only when a position fix arrives while this page is HIDDEN. Nothing else demonstrates
+ * background location, because a foreground-only grant still delivers fixes happily while the
+ * app is open.
+ *
+ * Same fail-safe as the disclosure: unreadable storage means show it.
  */
 export function needsAlwaysAllowHint(storage: DisclosureStorage | null | undefined): boolean {
   if (!storage) return true;
   try {
-    return storage.getItem(BACKGROUND_LOCATION_ALWAYS_HINT_KEY) !== "dismissed";
+    return storage.getItem(BACKGROUND_LOCATION_ALWAYS_HINT_KEY) !== "proven";
   } catch {
     return true;
   }
 }
 
-export function recordAlwaysAllowHintDismissed(storage: DisclosureStorage | null | undefined): void {
+/**
+ * Record that background location demonstrably works on this device.
+ *
+ * The caller must only invoke this on evidence -- a fix delivered while the page was hidden.
+ * Calling it on a grant, or on a foreground fix, turns the hint back into a notice that lies.
+ */
+export function recordBackgroundLocationProven(storage: DisclosureStorage | null | undefined): void {
   if (!storage) return;
   try {
-    storage.setItem(BACKGROUND_LOCATION_ALWAYS_HINT_KEY, "dismissed");
+    storage.setItem(BACKGROUND_LOCATION_ALWAYS_HINT_KEY, "proven");
   } catch {
     // Shown again next time, which is the safe way to be wrong.
   }

@@ -12,7 +12,7 @@ import {
   needsBackgroundLocationDisclosure,
   recordBackgroundLocationDisclosureAccepted,
   needsAlwaysAllowHint,
-  recordAlwaysAllowHintDismissed,
+  recordBackgroundLocationProven,
   BACKGROUND_LOCATION_ALWAYS_HINT,
 } from "@/lib/background-location-disclosure";
 import { PushNotifications } from "@capacitor/push-notifications";
@@ -476,6 +476,13 @@ export function RouteDayView({
         if (v.latitude == null || v.longitude == null) continue;
         const radius = v.geofenceMeters && v.geofenceMeters > 0 ? v.geofenceMeters : ARRIVAL_RADIUS_METERS;
         if (haversineMeters(here, v) <= radius + buffer) {
+          // A fix that lands while this page is HIDDEN is the only proof background location
+          // actually works -- a foreground-only grant delivers fixes happily while the app is
+          // open, so an arrival alone proves nothing. This is what retires the hint.
+          if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+            recordBackgroundLocationProven(typeof window === "undefined" ? null : window.localStorage);
+            setShowAlwaysHint(false);
+          }
           void stampArrival(v.id);
         }
       }
@@ -1384,16 +1391,6 @@ export function RouteDayView({
               className="app-btn-primary-sm min-h-11 px-4"
             >
               {BACKGROUND_LOCATION_ALWAYS_HINT.action}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                recordAlwaysAllowHintDismissed(typeof window === "undefined" ? null : window.localStorage);
-                setShowAlwaysHint(false);
-              }}
-              className="app-btn-ghost-sm min-h-11 px-4"
-            >
-              {BACKGROUND_LOCATION_ALWAYS_HINT.dismiss}
             </button>
           </div>
         </div>
