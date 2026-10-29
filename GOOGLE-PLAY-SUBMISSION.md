@@ -140,6 +140,12 @@ completed visits and today's schedule) and is isolated from the real customer's 
 > For the technician experience, including automatic arrival logging, sign in instead as:
 > appreview-tech@aquarunner247.com — same password.
 
+> **The demo schedule goes stale after one day.** Visits are anchored to the day the seeder
+> ran, so by the next morning the technician's route is empty — and an empty day reads as
+> "finished" to the app, which means no location watcher starts and the background-location
+> disclosure never appears. Proven on 2026-10-29, a day after seeding. Re-run the seeder the
+> morning you submit, and again before recording the permissions video.
+
 **A reviewer has to be able to sign in.** The app opens on a login wall, so Play's **App access**
 section needs working credentials or it is an automatic rejection. Use the demo organisation from
 `scripts/seed-app-review-org.ts` — the same one the App Store notes use. It has NOT been run

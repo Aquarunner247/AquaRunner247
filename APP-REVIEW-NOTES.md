@@ -120,6 +120,8 @@ week in it.
 - [ ] Paste the demo password into App Store Connect directly — it is deliberately not in
       this repo, so it has to come from the password manager at submission time
 - [ ] Re-run the demo seeder against production so "today" has stops on it
+      (the schedule is anchored to the seeding day and is empty by the next morning,
+      which also stops the location watcher and the background-location disclosure)
 - [ ] Sign in as the demo account on a device and walk the six steps above — if any of them has
       drifted, the notes are worse than useless
 - [ ] Confirm `PrivacyInfo.xcprivacy` is in Build Phases → Copy Bundle Resources
