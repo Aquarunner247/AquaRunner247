@@ -36,7 +36,7 @@ week in it.
 > **Demo account**
 >
 > Username: appreview@aquarunner247.com
-> Password: [FILL IN BEFORE SUBMITTING]
+> Password: kept out of this repo on purpose. It is in the password manager under "AquaRunner demo review account" — paste it straight into the store console.
 >
 > This is a dedicated demo organization with sample properties and two weeks of sample service
 > history. It contains no real customer data.
@@ -117,7 +117,8 @@ week in it.
 
 ## Checklist before hitting submit
 
-- [ ] Replace `[FILL IN BEFORE SUBMITTING]` with the real demo password
+- [ ] Paste the demo password into App Store Connect directly — it is deliberately not in
+      this repo, so it has to come from the password manager at submission time
 - [ ] Re-run the demo seeder against production so "today" has stops on it
 - [ ] Sign in as the demo account on a device and walk the six steps above — if any of them has
       drifted, the notes are worse than useless

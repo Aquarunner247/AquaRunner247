@@ -135,7 +135,7 @@ completed visits and today's schedule) and is isolated from the real customer's 
 > demonstration pool-service company created for review; it contains no real customer data.
 >
 > Username: appreview@aquarunner247.com
-> Password: [FILL IN BEFORE SUBMITTING]
+> Password: kept out of this repo on purpose. It is in the password manager under "AquaRunner demo review account" — paste it straight into the store console.
 >
 > For the technician experience, including automatic arrival logging, sign in instead as:
 > appreview-tech@aquarunner247.com — same password.

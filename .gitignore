@@ -77,3 +77,8 @@ prisma/*.db-journal
 *.jks
 *.keystore
 android/keystore.properties
+
+# Editor swap files. One got committed by a `git add -A` while a doc was open in vim.
+*.swp
+*.swo
+*~
