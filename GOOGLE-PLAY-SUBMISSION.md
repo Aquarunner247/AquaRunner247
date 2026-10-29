@@ -125,6 +125,21 @@ not apply and this can go straight to production. Worth writing down because it 
 biggest difference in how long a first submission takes, and the answer is not visible from the
 code.
 
+### App access credentials
+
+Paste these into **App access → All functionality is restricted** in the console. The demo
+organisation is seeded on production (3 properties, 5 bodies of water, a route, 14 days of
+completed visits and today's schedule) and is isolated from the real customer's data.
+
+> **Instructions:** Sign in at https://aquarunner247.com/login with the account below. It is a
+> demonstration pool-service company created for review; it contains no real customer data.
+>
+> Username: appreview@aquarunner247.com
+> Password: [FILL IN BEFORE SUBMITTING]
+>
+> For the technician experience, including automatic arrival logging, sign in instead as:
+> appreview-tech@aquarunner247.com — same password.
+
 **A reviewer has to be able to sign in.** The app opens on a login wall, so Play's **App access**
 section needs working credentials or it is an automatic rejection. Use the demo organisation from
 `scripts/seed-app-review-org.ts` — the same one the App Store notes use. It has NOT been run
