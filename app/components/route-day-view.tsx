@@ -62,6 +62,11 @@ export type RouteStop = {
   /// and for an admin's single-technician view (both single-color, as before).
   technicianId?: string | null;
   technicianLabel?: string | null;
+  /// Whether this stop was created by hand rather than generated, which is the only kind that
+  /// may be DELETED rather than skipped (lib/visit-deletable.ts). Supplied only by the admin
+  /// schedule's query, like originLabel below -- a technician must not be able to shorten their
+  /// own day, and the server enforces that regardless of what this says.
+  handAdded?: boolean;
   /// Why this stop is on the day when the route did not put it there, e.g. "Added by hand ·
   /// Breanna" or "Moved here · Breanna". Built server-side from ServiceVisit.createdById, so this
   /// component holds no rule about what counts as hand-added -- see app/dashboard/schedule/page.tsx.
@@ -971,6 +976,61 @@ export function RouteDayView({
 
 
   /**
+   * Confirmation for deleting a hand-added stop.
+   *
+   * Confirmed for the same reason Move is, and then some: unlike Skip there is no way back at
+   * all. A skipped stop can be unskipped in the place it was skipped; a deleted one has to be
+   * typed in again from memory.
+   *
+   * The wording names what is actually being destroyed -- a stop somebody added by hand -- so
+   * that a mis-tap on a generated stop reads as obviously wrong before it is confirmed. (The
+   * button is not offered on generated stops, and the server refuses them regardless; this is
+   * the third layer rather than the only one.)
+   */
+  function renderDeleteConfirm() {
+    if (!pendingDelete) return null;
+    return createPortal(
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-brand-ink/70 p-4"
+        style={{ zIndex: ABOVE_MAP_Z_INDEX }}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-confirm-title"
+      >
+        <div className="w-full max-w-sm rounded-2xl border border-brand-border bg-white p-5 shadow-soft">
+          <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-danger">Delete stop</p>
+          <h2 id="delete-confirm-title" className="mt-1 font-display text-lg font-bold text-brand-ink">
+            Delete this stop?
+          </h2>
+          <p className="mt-2 text-sm text-brand-ink">{stopLabel(pendingDelete)}</p>
+          <p className="mt-2 text-sm text-brand-muted">
+            It was added by hand, so deleting removes it completely &mdash; today keeps no record of it. Use Skip
+            instead if the stop was real and simply did not happen.
+          </p>
+          {deleteError ? <p className="mt-3 text-sm text-brand-danger">{deleteError}</p> : null}
+          <div className="mt-5 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => void deleteStop(pendingDelete)}
+              className="app-btn-danger-solid-sm min-h-[44px]"
+            >
+              Delete it
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPendingDelete(null); setDeleteError(""); }}
+              className="app-btn-secondary-sm min-h-[44px]"
+            >
+              Keep it
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
+  /**
    * Moves one stop to the next day its technician works. Returns the outcome rather than setting
    * state, so the bundle version below can move several and report once.
    */
@@ -1080,6 +1140,33 @@ export function RouteDayView({
       if (failures.length > 0) setMoveError(failures.join(" · "));
     } finally {
       setMovingVisitId(null);
+    }
+  }
+
+  /** The hand-added stop a Delete tap is waiting on confirmation for. */
+  const [pendingDelete, setPendingDelete] = useState<RouteStop | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+
+  /**
+   * Remove a stop that should never have been on the day.
+   *
+   * Deliberately NOT optimistic. Skipping can be, because a wrong guess there is one tap to
+   * undo; a wrong guess here means a row vanishing from somebody's screen that the server
+   * refused to delete -- so the list only changes once the server says it is gone.
+   */
+  async function deleteStop(visit: RouteStop) {
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/visits/${visit.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setDeleteError(body?.message ?? "Could not delete this stop.");
+        return;
+      }
+      setItems((prev) => prev.filter((i) => !(i.kind === "visit" && i.id === visit.id)));
+      setPendingDelete(null);
+    } catch {
+      setDeleteError("Could not reach the server. Nothing was deleted.");
     }
   }
 
@@ -1265,6 +1352,7 @@ export function RouteDayView({
       {moveError ? <p className="mb-2 text-sm font-medium text-brand-danger">{moveError}</p> : null}
       {movedNotice ? <p className="mb-2 text-sm font-medium text-brand-ok">{movedNotice}</p> : null}
       {renderMoveConfirm()}
+      {renderDeleteConfirm()}
       {locationState === "denied" ? (
         <p className="mb-2 text-xs text-brand-warn">
           Location access is off, so arrival times won&rsquo;t log automatically — enable location for this site in your browser
@@ -1687,6 +1775,20 @@ export function RouteDayView({
                             className="app-btn-ghost-sm"
                           >
                             {isSkipped ? "Unskip" : "Skip"}
+                          </button>
+                        ) : null}
+                        {/* Only ever offered for a hand-added stop, and only on the admin
+                            schedule, which is the only caller that supplies handAdded. A stop the
+                            route generated is skipped, never deleted -- that record is a miss and
+                            deleting it would quietly improve the day's numbers. */}
+                        {v.handAdded && !isMoved && !isSkipped ? (
+                          <button
+                            type="button"
+                            onClick={() => { setDeleteError(""); setPendingDelete(v); }}
+                            title="Delete this stop — it was added by hand"
+                            className="app-btn-ghost-sm text-brand-danger"
+                          >
+                            Delete
                           </button>
                         ) : null}
                         {allowMoveToTomorrow && !isSkipped && !isMoved ? (

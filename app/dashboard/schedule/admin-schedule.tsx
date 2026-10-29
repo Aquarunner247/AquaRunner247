@@ -344,6 +344,10 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     longitude: coalesceCoord(v.bodyOfWater.longitude, v.property.longitude),
     technicianId: v.technician?.id ?? null,
     technicianLabel: v.technician ? (v.technician.name ?? v.technician.email) : null,
+    // Only a hand-added stop may be deleted rather than skipped (lib/visit-deletable.ts). Sent
+    // from here and nowhere else: the technician's own view builds its items in
+    // app/dashboard/schedule/page.tsx and must not offer this.
+    handAdded: v.recurringStopId == null && v.createdBy != null,
     originLabel: visitOriginLabel({
       createdByName: v.createdBy ? (v.createdBy.name ?? v.createdBy.email) : null,
       recurringStopId: v.recurringStopId,
