@@ -12,6 +12,7 @@ import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { InlineAssignSelect } from "@/app/components/inline-assign-select";
 import { WaveProgress } from "@/app/components/wave-progress";
+import { SubmitButton } from "@/app/components/submit-button";
 import { RouteStopsList } from "./route-stops-list";
 import { resolveRouteEndpoints } from "@/lib/route-endpoints";
 import { RouteFilters } from "./route-filters";
@@ -704,9 +705,9 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                       placeholder="ETA offset (min)"
                       className="app-field w-40"
                     />
-                    <button type="submit" className="app-btn-primary-sm">
+                    <SubmitButton className="app-btn-primary-sm" pendingLabel="Adding…">
                       Add stop
-                    </button>
+                    </SubmitButton>
                   </>
                 )}
               </form>
@@ -778,9 +779,9 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                       </option>
                     ))}
                   </select>
-                  <button type="submit" className="app-btn-primary-sm min-h-[44px]">
+                  <SubmitButton className="app-btn-primary-sm min-h-[44px]" pendingLabel="Adding…">
                     Add stop
-                  </button>
+                  </SubmitButton>
                 </form>
                 {route.technicianId == null ? (
                   <p className="mt-2 text-xs text-brand-muted">

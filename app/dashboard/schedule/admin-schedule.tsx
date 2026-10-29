@@ -26,6 +26,7 @@ import { resolveRouteEndpoints } from "@/lib/route-endpoints";
 import { projectedStopsForYmd, type ProjectableRoute } from "@/lib/route-projection";
 import { ScheduleMonthView, type MonthDay } from "./schedule-month-view";
 import { AdHocStopDateField } from "@/app/components/adhoc-stop-date-field";
+import { SubmitButton } from "@/app/components/submit-button";
 
 type Props = {
   appUser: { id: string; organizationId: string };
@@ -769,9 +770,12 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
                       </option>
                     ))}
                   </select>
-                  <button type="submit" className="app-btn-primary-sm">
+                  {/* Not a plain button: a double-tap used to submit twice and create two
+                      identical stops. It happened in production on 2026-10-29 -- three OYO stops
+                      for the same body of water, two of them 0.56 seconds apart. */}
+                  <SubmitButton className="app-btn-primary-sm" pendingLabel="Adding…">
                     Add stop
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             ) : null}
