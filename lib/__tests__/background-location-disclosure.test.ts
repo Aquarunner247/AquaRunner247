@@ -4,6 +4,9 @@ import {
   BACKGROUND_LOCATION_DISCLOSURE_KEY,
   needsBackgroundLocationDisclosure,
   recordBackgroundLocationDisclosureAccepted,
+  BACKGROUND_LOCATION_ALWAYS_HINT,
+  needsAlwaysAllowHint,
+  recordAlwaysAllowHintDismissed,
   type DisclosureStorage,
 } from "@/lib/background-location-disclosure";
 
@@ -72,5 +75,33 @@ describe("remembering the acceptance", () => {
     const s = fakeStorage();
     expect(needsBackgroundLocationDisclosure(s)).toBe(true);
     expect(needsBackgroundLocationDisclosure(s)).toBe(true);
+  });
+});
+
+describe("the Allow-all-the-time hint", () => {
+  const all = [BACKGROUND_LOCATION_ALWAYS_HINT.title, BACKGROUND_LOCATION_ALWAYS_HINT.body].join(" ");
+
+  it("names the exact setting Android hides", () => {
+    // A technician has to recognise the words on the settings screen. Paraphrasing them is how
+    // this stops being actionable.
+    expect(all).toContain("Allow all the time");
+    expect(all).toContain("While using the app");
+  });
+
+  it("says what breaks, not just what to tap", () => {
+    expect(all.toLowerCase()).toContain("locks");
+  });
+
+  it("is dismissible and remembered separately from the disclosure", () => {
+    const s = fakeStorage();
+    expect(needsAlwaysAllowHint(s)).toBe(true);
+    recordAlwaysAllowHintDismissed(s);
+    expect(needsAlwaysAllowHint(s)).toBe(false);
+    // Dismissing the hint must not count as accepting the disclosure -- they gate different things.
+    expect(needsBackgroundLocationDisclosure(s)).toBe(true);
+  });
+
+  it("shows again when storage is unavailable", () => {
+    expect(needsAlwaysAllowHint(null)).toBe(true);
   });
 });

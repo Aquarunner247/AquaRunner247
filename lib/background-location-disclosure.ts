@@ -46,6 +46,30 @@ export const BACKGROUND_LOCATION_DISCLOSURE = {
  */
 export const BACKGROUND_LOCATION_DISCLOSURE_KEY = "aquarunner.backgroundLocationDisclosure.v1";
 
+/**
+ * The step Android does not tell anyone about.
+ *
+ * Since Android 11 the runtime prompt offers only "While using the app", "Only this time" and
+ * "Don't allow" -- "Allow all the time" is deliberately absent and can be granted ONLY from the
+ * system settings screen afterwards. So a technician taps the only reasonable option, believes
+ * they have granted location, and then arrival silently stops stamping the moment their phone
+ * locks. Nothing in the app said otherwise until this existed.
+ *
+ * Found while filming the Play permissions video on 2026-10-29: the grant looked complete and
+ * the background notification never appeared.
+ */
+export const BACKGROUND_LOCATION_ALWAYS_HINT = {
+  title: "One more step, on Android",
+  body:
+    "Android's prompt only offers \u201cWhile using the app\u201d. Until location is set to " +
+    "\u201cAllow all the time\u201d in Settings, arrival will stop logging as soon as your phone locks.",
+  action: "Open settings",
+  dismiss: "Done",
+} as const;
+
+/** Separate from the disclosure's key: dismissing the hint is not accepting the disclosure. */
+export const BACKGROUND_LOCATION_ALWAYS_HINT_KEY = "aquarunner.backgroundLocationAlwaysHint.v1";
+
 /** Minimal shape of localStorage, so this is testable without a browser. */
 export type DisclosureStorage = {
   getItem(key: string): string | null;
@@ -77,5 +101,29 @@ export function recordBackgroundLocationDisclosureAccepted(storage: DisclosureSt
   } catch {
     // Nothing to do. needsBackgroundLocationDisclosure will ask again, which is the safe way to
     // be wrong.
+  }
+}
+
+/**
+ * Whether the "Allow all the time" hint still needs showing.
+ *
+ * Same fail-safe as the disclosure: unreadable storage means show it. The cost of showing it
+ * twice is one tap; the cost of never showing it is a technician who thinks arrival is broken.
+ */
+export function needsAlwaysAllowHint(storage: DisclosureStorage | null | undefined): boolean {
+  if (!storage) return true;
+  try {
+    return storage.getItem(BACKGROUND_LOCATION_ALWAYS_HINT_KEY) !== "dismissed";
+  } catch {
+    return true;
+  }
+}
+
+export function recordAlwaysAllowHintDismissed(storage: DisclosureStorage | null | undefined): void {
+  if (!storage) return;
+  try {
+    storage.setItem(BACKGROUND_LOCATION_ALWAYS_HINT_KEY, "dismissed");
+  } catch {
+    // Shown again next time, which is the safe way to be wrong.
   }
 }

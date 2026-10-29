@@ -11,6 +11,9 @@ import { BackgroundLocationDisclosure } from "@/app/components/background-locati
 import {
   needsBackgroundLocationDisclosure,
   recordBackgroundLocationDisclosureAccepted,
+  needsAlwaysAllowHint,
+  recordAlwaysAllowHintDismissed,
+  BACKGROUND_LOCATION_ALWAYS_HINT,
 } from "@/lib/background-location-disclosure";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
@@ -366,6 +369,13 @@ export function RouteDayView({
    */
   const [showLocationDisclosure, setShowLocationDisclosure] = useState(false);
   const [disclosureAccepted, setDisclosureAccepted] = useState(false);
+  /**
+   * Android grants background location ONLY from its settings screen -- its runtime prompt does
+   * not offer "Allow all the time" at all. So accepting the disclosure and tapping through the
+   * prompt leaves a technician believing they are tracked when they are not, and arrival stops
+   * the moment the phone locks. This says so, once, with a way to fix it.
+   */
+  const [showAlwaysHint, setShowAlwaysHint] = useState(false);
   const [movingVisitId, setMovingVisitId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState("");
   const [movedNotice, setMovedNotice] = useState("");
@@ -1337,6 +1347,13 @@ export function RouteDayView({
           onAccept={() => {
             recordBackgroundLocationDisclosureAccepted(typeof window === "undefined" ? null : window.localStorage);
             setShowLocationDisclosure(false);
+            // iOS escalates to Always through its own prompt, so this is Android's problem alone.
+            if (
+              Capacitor.getPlatform() === "android" &&
+              needsAlwaysAllowHint(typeof window === "undefined" ? null : window.localStorage)
+            ) {
+              setShowAlwaysHint(true);
+            }
             // Flips the effect's dependency, which re-runs it and starts the watcher -- this
             // time past the gate.
             setDisclosureAccepted(true);
@@ -1353,7 +1370,35 @@ export function RouteDayView({
       {movedNotice ? <p className="mb-2 text-sm font-medium text-brand-ok">{movedNotice}</p> : null}
       {renderMoveConfirm()}
       {renderDeleteConfirm()}
-      {locationState === "denied" ? (
+      {/* Shown after the disclosure is accepted, and whenever location is reported as denied --
+          on a phone the fix is the same screen either way, and "check your browser settings" is
+          advice nobody in the native app can act on. */}
+      {showAlwaysHint || (locationState === "denied" && Capacitor.isNativePlatform()) ? (
+        <div className="app-card-inset mb-2">
+          <p className="text-sm font-medium text-brand-ink">{BACKGROUND_LOCATION_ALWAYS_HINT.title}</p>
+          <p className="mt-1 text-sm text-brand-ink">{BACKGROUND_LOCATION_ALWAYS_HINT.body}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void BackgroundGeolocation.openSettings()}
+              className="app-btn-primary-sm min-h-11 px-4"
+            >
+              {BACKGROUND_LOCATION_ALWAYS_HINT.action}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                recordAlwaysAllowHintDismissed(typeof window === "undefined" ? null : window.localStorage);
+                setShowAlwaysHint(false);
+              }}
+              className="app-btn-ghost-sm min-h-11 px-4"
+            >
+              {BACKGROUND_LOCATION_ALWAYS_HINT.dismiss}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {locationState === "denied" && !Capacitor.isNativePlatform() ? (
         <p className="mb-2 text-xs text-brand-warn">
           Location access is off, so arrival times won&rsquo;t log automatically — enable location for this site in your browser
           settings to turn it back on.
