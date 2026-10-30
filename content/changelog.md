@@ -8,6 +8,14 @@ if something here affects how you or your technicians work, it says so.
 
 ---
 
+## October 30, 2026
+
+**The Android back button now goes back, not out.** On a phone, the hardware/gesture back action
+used to quit the app from anywhere — leave a stop, check a customer's history, anything — because
+nothing told Android to try the in-app history first. It now steps back a screen the way the same
+action does in a browser, and only backs out of the app once there's nowhere left to go, without
+losing whatever you had open.
+
 ## October 14, 2026
 
 **A technician's home, set once, on every one of their days.** Each route card now shows where

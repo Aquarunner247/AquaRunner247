@@ -9,6 +9,7 @@ import "./globals.css";
 import { SideNav } from "./components/side-nav";
 import { OnboardingCallBanner } from "./components/onboarding-call-banner";
 import { ServiceWorkerRegister } from "./components/service-worker-register";
+import { AndroidBackButton } from "./components/android-back-button";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
@@ -144,6 +145,7 @@ export default async function RootLayout({
           `}
         </Script>
         <ServiceWorkerRegister />
+        <AndroidBackButton />
         <OnboardingCallBanner show={showOnboardingCallBanner} />
         <div className="md:flex">
           <SideNav
