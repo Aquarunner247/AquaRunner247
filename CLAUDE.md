@@ -52,6 +52,35 @@ The short version, so it is impossible to miss:
 Before claiming a UI change is done, grep your own diff for hex literals and for the banned
 utility prefixes above.
 
+## Android native builds need JDK 21
+
+`android/app/capacitor.build.gradle` and `android/capacitor-cordova-android-plugins/build.gradle`
+(both Capacitor-generated) set `sourceCompatibility`/`targetCompatibility` to
+`JavaVersion.VERSION_21`. `javac` cannot target a `--release` newer than the JDK actually
+running it, so building with anything older fails with `invalid source release: 21` on
+`compileDebugJavaWithJavac` — a confusing error if you don't already know the real cause is
+just "wrong JDK." JDK 17, the Ubuntu/Pop!_OS default, is too old.
+
+Install JDK 21 alongside whatever's already there (this doesn't replace or break an existing
+JDK 17) and point this project's Gradle at it specifically, rather than changing the system
+default and risking other projects:
+
+```bash
+sudo apt install openjdk-21-jdk
+echo "org.gradle.java.home=/usr/lib/jvm/java-21-openjdk-amd64" >> android/gradle.properties
+```
+
+(Confirm the exact path with `ls /usr/lib/jvm` first — it varies by distro/install method.)
+
+That `org.gradle.java.home` line is machine-specific (the path won't exist on someone else's
+box) — don't commit it. It's a local-only override, same spirit as `keystore.properties`.
+
+Most changes to this app are web-only and need no native rebuild at all: the Android/iOS
+shells load the live production site directly (`capacitor.config.ts`'s `server.url`) rather
+than bundling a static build, so a Vercel deploy is normally enough. A rebuild is only needed
+when something native actually changes — a new Capacitor plugin (`npx cap sync android`),
+`AndroidManifest.xml`, Gradle config, or similar.
+
 ## Credentials and secrets
 - Never ask the user to paste a real credential (DATABASE_URL, API keys, passwords)
   into chat, even to run a script for them. Instead: confirm the script/command is
