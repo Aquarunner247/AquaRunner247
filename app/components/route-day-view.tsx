@@ -376,6 +376,25 @@ export function RouteDayView({
    * the moment the phone locks. This says so, once, with a way to fix it.
    */
   const [showAlwaysHint, setShowAlwaysHint] = useState(false);
+
+  /**
+   * Re-raise the hint on every load until background location is proven.
+   *
+   * It used to be set only when the disclosure was accepted, which made a notice billed as
+   * non-dismissible disappear on the next app launch -- a technician who tapped "While using the
+   * app" and closed the app never saw it again, while background location stayed off. That is
+   * the exact silent failure it exists to prevent.
+   *
+   * Only where the watcher itself runs: allowGpsAutoArrival is false on the admin schedule, and
+   * a location hint on an office screen is noise about somebody else's phone.
+   */
+  useEffect(() => {
+    if (!allowGpsAutoArrival || !isToday) return;
+    if (Capacitor.getPlatform() !== "android") return;
+    if (needsAlwaysAllowHint(typeof window === "undefined" ? null : window.localStorage)) {
+      setShowAlwaysHint(true);
+    }
+  }, [allowGpsAutoArrival, isToday]);
   const [movingVisitId, setMovingVisitId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState("");
   const [movedNotice, setMovedNotice] = useState("");
