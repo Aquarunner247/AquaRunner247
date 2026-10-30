@@ -57,7 +57,26 @@ type Venue = {
   city: string;
   lat: number;
   lng: number;
-  bodies: { key: string; name: string; type: BodyOfWaterType; gallons: number; group: string | null }[];
+  bodies: {
+    key: string;
+    name: string;
+    type: BodyOfWaterType;
+    gallons: number;
+    group: string | null;
+    /**
+     * Minimum required flow, when this body has a figure worth showing.
+     *
+     * Nevada's ruleset requires FLOW_METER for every body type, so the reading form asks for a
+     * flow rate and the public inspector log draws a flow chart against this number as its
+     * target band. Left undefined, both the chart band and the "Min required flow" row on the
+     * log read as an em-dash.
+     *
+     * Deliberately per-body rather than derived from `gallons`: a pool's 6-hour turnover and a
+     * spa's half-hour one are different rules, and inventing one formula for both would put a
+     * wrong number on a compliance page.
+     */
+    minFlowGpm?: number;
+  }[];
 };
 
 /**
@@ -77,7 +96,9 @@ const VENUES: Venue[] = [
     lat: 36.1147,
     lng: -115.2041,
     bodies: [
-      { key: "dp-pool", name: "Main Pool", type: BodyOfWaterType.POOL, gallons: 92000, group: "Main" },
+      // 92,000 gal / 6-hour turnover = 256 gpm. This is the body the store screenshots are
+      // taken from, which is why it is the one carrying a flow figure.
+      { key: "dp-pool", name: "Main Pool", type: BodyOfWaterType.POOL, gallons: 92000, group: "Main", minFlowGpm: 256 },
       { key: "dp-spa", name: "Spa", type: BodyOfWaterType.SPA, gallons: 900, group: "Main" },
     ],
   },
@@ -290,8 +311,19 @@ async function main() {
           latitude: venue.lat,
           longitude: venue.lng,
           requiresComplianceReadings: true,
+          minimumRequiredFlowGpm: b.minFlowGpm,
+          // maximumFilterFlowGpm is deliberately NOT set. app/p/[publicSlug]/page.tsx passes it as
+          // the target band for the FILTER PRESSURE chart -- a gpm value bounding a psi reading.
+          // A realistic 400 there gives that chart a 0-400 psi band and flattens the real 17-21
+          // psi readings into a line along the bottom. Left null, the chart auto-scales correctly.
         },
-        update: { name: b.name, volumeGallons: b.gallons, publicSlug: `demo-${b.key}`, serviceGroup: b.group },
+        update: {
+          name: b.name,
+          volumeGallons: b.gallons,
+          publicSlug: `demo-${b.key}`,
+          serviceGroup: b.group,
+          minimumRequiredFlowGpm: b.minFlowGpm,
+        },
       });
 
       // propertyId is required and separate from bodyOfWaterId -- a stop belongs to a
@@ -329,7 +361,36 @@ async function main() {
             scheduledStart: anchor,
             routeSequence: sortOrder - 1,
             ...(isToday
-              ? { status: VisitStatus.SCHEDULED }
+              ? {
+                  status: VisitStatus.SCHEDULED,
+                  // The Main Pool arrives with today's readings already typed in, and ONLY the Main
+                  // Pool. Two things need that. The store screenshots of the reading screen are
+                  // taken here, and an empty form shows neither the numbers nor the "last reading"
+                  // strip comparing them to the previous service -- which is half of what that
+                  // screen is for. Every other stop stays untouched so the Play permissions video
+                  // still records a genuinely fresh day.
+                  // Values differ from the history below on purpose: an identical reading makes the
+                  // comparison strip look broken rather than unchanged.
+                  ...(b.key === "dp-pool"
+                    ? {
+                        reading: {
+                          create: {
+                            capturedAt: anchor,
+                            ph: 7.6,
+                            freeChlorinePpm: 3.1,
+                            totalChlorinePpm: 3.3,
+                            alkalinityPpm: 95,
+                            cyanuricAcidPpm: 50,
+                            temperatureF: 84,
+                            pumpPressurePsi: 27,
+                            vacGaugeReading: 7,
+                            filterPressurePsi: 20,
+                            flowMeterGpm: 260,
+                          },
+                        },
+                      }
+                    : {}),
+                }
               : {
                   status: VisitStatus.COMPLETED,
                   serviceComplete: true,
@@ -346,7 +407,13 @@ async function main() {
                       cyanuricAcidPpm: 45,
                       temperatureF: 82,
                       pumpPressurePsi: 26,
+                      // Nevada requires PUMP_VACUUM and FLOW_METER alongside the two pressures
+                      // (EquipmentReadingRequirement rows for the NV ruleset), so the reading form
+                      // marks all four required and the inspector log has a column for each.
+                      // Omitting these left two of eleven columns empty down the whole month.
+                      vacGaugeReading: 6,
                       filterPressurePsi: 18,
+                      flowMeterGpm: 268,
                     },
                   },
                 }),

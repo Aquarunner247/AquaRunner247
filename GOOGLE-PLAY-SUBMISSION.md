@@ -110,7 +110,12 @@ parties for advertising:
 - [ ] App icon 512×512 — **already generated** at `store/google-play/icon-512.png`
 - [ ] Feature graphic 1024×500 — required, no exceptions
 - [ ] At least 2 phone screenshots (4 or more is better). Best candidates: the day's route list,
-      a reading entry screen, the compliance log sheet, the QR record page.
+      a reading entry screen, and the public QR inspector record at `/p/<publicSlug>` --
+      `/p/demo-dp-pool` on the demo org. That last one IS the compliance log sheet: the monthly
+      table at the top of `app/p/[publicSlug]/page.tsx` is the only surface in the app that
+      renders `getMonthlyReadingRows`, and Nevada's own seed notes say it mirrors SNHD's paper
+      form. An earlier version of this list named the log sheet and the QR page as two separate
+      screenshots; they are one screen.
 
 **Category:** Business. **Content rating:** answer the questionnaire honestly — no user-generated
 content shared publicly, no ads, no purchases in the app. Expect "Everyone".
