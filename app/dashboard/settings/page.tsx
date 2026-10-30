@@ -50,6 +50,12 @@ const CUSTOMIZATION_LINKS: SettingsLink[] = [
 
 const COMPANY_LINKS: SettingsLink[] = [
   {
+    href: "/dashboard/settings/optional-readings",
+    title: "Optional readings",
+    description:
+      "Calcium hardness and salt \u2014 the two readings no state requires. Off by default, so technicians only see what you actually track.",
+  },
+  {
     href: "/dashboard/settings/pay-rates",
     title: "Pay rates",
     description:

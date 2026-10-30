@@ -70,7 +70,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
     where: { id },
     include: {
       // `name` for interpolating {{orgName}} into the service messages the technician picks from.
-      organization: { select: { state: true, name: true } },
+      organization: { select: { state: true, name: true, trackCalciumHardness: true, trackSaltPpm: true } },
       property: {
         select: {
           name: true,
@@ -500,6 +500,10 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
           canCorrectCompleted={canCorrectCompleted}
           hasVolume={visit.bodyOfWater.volumeGallons != null}
           readingFields={readingFields}
+          optionalReadingFields={[
+            ...(visit.organization.trackCalciumHardness ? ["calciumHardnessPpm" as const] : []),
+            ...(visit.organization.trackSaltPpm ? ["saltPpm" as const] : []),
+          ]}
           previousReading={previousReading}
           chemicalProducts={chemicalProducts}
           checklistItems={checklistItems}

@@ -76,8 +76,17 @@ function toFieldConfig(spec: ReadingFieldSpec): FieldConfig {
  * `readingFields` prop, split here purely for the two-card layout. */
 const EQUIPMENT_FIELD_KEYS = new Set<ReadingFieldSpec["key"]>(["pumpPressurePsi", "vacGaugeReading", "filterPressurePsi", "flowMeterGpm"]);
 
-/** Optional fields -- not part of activeReadingFields since no state's compliance log
- * requires them. Always shown, never required, so entering them is purely opt-in. */
+/**
+ * Fields no state's compliance log requires, so they never appear in activeReadingFields.
+ *
+ * Shown only when the organization has turned them on (Settings -> Optional readings). They used
+ * to render for everybody, which put two sliders most technicians ignore onto a screen read in
+ * direct sun -- and a field nobody fills is worse than no field, because it teaches people to
+ * scroll past the chemistry card.
+ *
+ * Still never REQUIRED when shown: salt applies to a salt pool and not to the chlorine pool next
+ * door, and the same company services both.
+ */
 const DOSING_ONLY_FIELDS: FieldConfig[] = [
   { key: "calciumHardnessPpm", label: "Calcium Hardness", unitLabel: "ppm", required: false, min: 0, max: 1000, step: 10 },
   { key: "saltPpm", label: "Salt", unitLabel: "ppm", required: false, min: 0, max: 6000, step: 50 },
@@ -115,6 +124,14 @@ type Props = {
   /** Set when the nightly sweep closed this stop out. Picking it back up starts it again. */
   initialPushedAt?: string | null;
   readingFields: ReadingFieldSpec[];
+  /**
+   * Which optional reading fields this organization tracks. Empty hides the section entirely.
+   *
+   * Spelled out rather than typed as ReadingFieldKey, because these two are precisely the keys
+   * that type does NOT contain -- it is derived from state compliance requirements, and no state
+   * requires either of them.
+   */
+  optionalReadingFields?: ("calciumHardnessPpm" | "saltPpm")[];
   previousReading: PreviousReading | null;
   chemicalProducts: ChemicalProductOption[];
   checklistItems: ChecklistItemOption[];
@@ -208,7 +225,7 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume: initialHasVolume, readingFields, previousReading, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt,
+export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume: initialHasVolume, readingFields, optionalReadingFields = [], previousReading, chemicalProducts, checklistItems: initialChecklistItems, initialIssues, initialReading, initialPhotoCount, initialPhotos = [], initialDoses, initialStartedAt,
   initialPushedAt = null, initialDosing, serviceMessages }: Props) {
   const [hasVolume, setHasVolume] = useState(initialHasVolume);
   const [startedAt, setStartedAt] = useState<string | null>(initialStartedAt);
@@ -375,6 +392,10 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
   }
   const chemistryFields = useMemo(() => readingFields.filter((f) => !EQUIPMENT_FIELD_KEYS.has(f.key)).map(toFieldConfig), [readingFields]);
   const equipmentFields = useMemo(() => readingFields.filter((f) => EQUIPMENT_FIELD_KEYS.has(f.key)).map(toFieldConfig), [readingFields]);
+  const optionalFields = useMemo(
+    () => DOSING_ONLY_FIELDS.filter((f) => (optionalReadingFields as string[]).includes(f.key)),
+    [optionalReadingFields],
+  );
   // Bromine never gets a computed dosing recommendation (see DosingCard's doc comment) --
   // just an out-of-range flag, reusing the same zoneMin/zoneMax this body's own state
   // ruleset already resolved for the reading form's own field spec, rather than
@@ -1147,8 +1168,14 @@ export function VisitForm({ visitId, visitStatus, canCorrectCompleted, hasVolume
             <h2 className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-wide text-brand-ink">Chemistry</h2>
             <LastReadingStrip previous={previousReading} fields={chemistryFields} />
             <div className="mt-3 space-y-3">{chemistryFields.map(renderSlider)}</div>
-            <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional</p>
-            <div className="mt-2 space-y-3">{DOSING_ONLY_FIELDS.map(renderSlider)}</div>
+            {/* The heading goes with the fields. An "Optional" label above nothing is the kind
+                of empty furniture that makes a card look broken. */}
+            {optionalFields.length > 0 ? (
+              <>
+                <p className="mt-4 text-xs font-medium uppercase tracking-wide text-brand-muted">Optional</p>
+                <div className="mt-2 space-y-3">{optionalFields.map(renderSlider)}</div>
+              </>
+            ) : null}
           </div>
 
           {hasVolume ? (

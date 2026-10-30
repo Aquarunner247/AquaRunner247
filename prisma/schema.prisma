@@ -215,6 +215,21 @@ model Organization {
   /// this feature. See OrgPhoneAgentSettings for the actual per-org configuration.
   aiPhoneAgentEnabled Boolean @default(false)
 
+  /// Optional water readings this organization actually tracks.
+  ///
+  /// Calcium hardness and salt are the only two reading fields no state's compliance log
+  /// requires, so they are not part of the state-derived field set. They used to render on every
+  /// visit under an "Optional" heading, which put two sliders a technician mostly ignores on a
+  /// screen read in direct sun -- and a field nobody fills is worse than no field, because it
+  /// teaches people to scroll past the chemistry card.
+  ///
+  /// Off by default, including for existing organizations: a reading nobody asked for should not
+  /// appear because of a schema change. Turning one on makes it visible, NOT mandatory -- salt in
+  /// particular applies to a salt pool and not to the chlorine pool next door, and the same
+  /// company services both.
+  trackCalciumHardness Boolean @default(false)
+  trackSaltPpm         Boolean @default(false)
+
   /// Set when someone at this org clicks "Book a free onboarding call" on the
   /// site-wide banner (see OnboardingCallBanner) -- a best-effort "they've engaged"
   /// signal, not a verified attendance record (no Setmore webhook integration exists).

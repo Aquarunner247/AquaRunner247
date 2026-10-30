@@ -57,3 +57,29 @@ export async function updateComplianceProfile(formData: FormData) {
   // rather than leaving them on Settings to navigate there themselves.
   redirect("/dashboard/compliance");
 }
+
+/**
+ * Which optional water readings this organization tracks.
+ *
+ * Calcium hardness and salt are the only two reading fields no state's compliance log requires,
+ * so they are not part of the state-derived set a technician is asked for. They used to render
+ * on every visit anyway, under an "Optional" heading.
+ *
+ * Checkbox semantics: an unticked box submits nothing at all, which is why each is read as
+ * "=== 'on'" rather than trusted to arrive. Getting that wrong would make the form capable of
+ * turning a field on and never off.
+ */
+export async function updateOptionalReadings(formData: FormData) {
+  const appUser = await requireAdmin();
+
+  await prisma.organization.update({
+    where: { id: appUser.organizationId },
+    data: {
+      trackCalciumHardness: String(formData.get("trackCalciumHardness") ?? "") === "on",
+      trackSaltPpm: String(formData.get("trackSaltPpm") ?? "") === "on",
+    },
+  });
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/settings/optional-readings");
+}
