@@ -137,6 +137,49 @@ function visitAnchor(daysAgo: number, offsetMinutes: number): Date {
   return new Date(d.getTime() + offsetMinutes * 60 * 1000);
 }
 
+/**
+ * The one body of water that carries a full month of DAILY readings.
+ *
+ * A commercial pool in Nevada is tested daily, but a service company does not visit daily -- the
+ * days in between are logged by the property's own CPO. ServiceVisit.logOnlyRecord is exactly that
+ * row: a reading for the compliance record with nobody dispatched, kept out of pay, customer
+ * summary emails and "completed this week", and deliberately counted by lib/reading-rows.ts.
+ *
+ * Only this body, because this is where the store screenshots are taken and the public inspector
+ * log is the screenshot that needs a month in it. Giving every body a daily log would also mean
+ * inventing a plausible daily history for two spas, which is more fiction than the demo needs.
+ */
+const DAILY_LOG_BODY_KEY = "dp-pool";
+
+/**
+ * Deterministic readings for one day of the month, all inside Nevada's bands.
+ *
+ * Nevada's seeded ruleset: pH 7.0-7.8, free chlorine 2-10 ppm, total alkalinity 60-180 ppm,
+ * cyanuric acid 30-50 ppm. Everything below sits comfortably inside those, because a log sheet
+ * full of out-of-range chips is a bad screenshot and a worse first impression -- the point of the
+ * page is that the record is complete, not that the pool is in trouble.
+ *
+ * Arithmetic rather than random so re-running the seeder reproduces the same month instead of
+ * quietly rewriting history, and so the values visibly move day to day instead of flatlining.
+ */
+function dailyLogReading(day: number) {
+  return {
+    ph: Number((7.25 + (day % 5) * 0.1).toFixed(2)),
+    freeChlorinePpm: Number((2.4 + ((day * 3) % 7) * 0.15).toFixed(2)),
+    totalChlorinePpm: Number((2.6 + ((day * 3) % 7) * 0.15).toFixed(2)),
+    alkalinityPpm: 85 + (day % 6) * 5,
+    cyanuricAcidPpm: 40 + (day % 3) * 5,
+    temperatureF: 80 + (day % 7),
+    // All four gauges: Nevada's ruleset carries EquipmentReadingRequirement rows for
+    // PUMP_PRESSURE, PUMP_VACUUM, FILTER_PRESSURE and FLOW_METER, so the inspector log has a
+    // column for each and leaving two null dashed out a fifth of the sheet.
+    pumpPressurePsi: 25 + (day % 4),
+    vacGaugeReading: 5 + (day % 4),
+    filterPressurePsi: 17 + (day % 5),
+    flowMeterGpm: 260 + (day % 5) * 8,
+  };
+}
+
 async function resolveAuthUserId(supabaseAdmin: SupabaseClient, email: string, password: string): Promise<string> {
   const created = await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true });
   if (!created.error && created.data.user?.id) return created.data.user.id;
@@ -194,6 +237,7 @@ async function main() {
   }
   note("a weekday route with every property on it");
   note("14 days of completed visits with readings, plus today's schedule");
+  note(`a daily compliance log for the Main Pool, 1st of this month to today`);
 
   if (!APPLY) {
     console.log(`\n[demo-seed] Dry run complete — ${plan.length} things would be written. Re-run with --apply.\n`);
@@ -420,6 +464,93 @@ async function main() {
           },
         });
       }
+
+      /**
+       * Every remaining day of the month, so the public inspector log is a complete sheet.
+       *
+       * Without this the log shows three readings in a 31-row table and reads as a pool nobody
+       * tests, which is the opposite of what the page is for. The days the loop above already
+       * covers are skipped rather than doubled: two COMPLETED visits on one day would make the
+       * header's visit count wrong, and getMonthlyReadingRows keeps only the later of them anyway.
+       *
+       * Future days are never written. A compliance log carrying tomorrow's reading is the single
+       * fastest way to make an inspector distrust the whole record.
+       *
+       * Dates come from the machine's local clock, same as visitAnchor -- this is run from Las
+       * Vegas, and introducing a timezone library here only for the seeder would be its own
+       * source of drift.
+       */
+      if (b.key === DAILY_LOG_BODY_KEY) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const monthIndex = today.getMonth();
+        const serviceDays = new Set(
+          [14, 7, 0]
+            .map((daysAgo) => visitAnchor(daysAgo, 0))
+            .filter((d) => d.getFullYear() === year && d.getMonth() === monthIndex)
+            .map((d) => d.getDate()),
+        );
+
+        const stamp = `${year}${String(monthIndex + 1).padStart(2, "0")}`;
+
+        // Scoped to THIS month, so a re-run replaces the current sheet rather than layering a
+        // second copy underneath it -- and so seeding in November does not delete October. A
+        // month already logged is history the inspector page can still be asked for by its month
+        // selector, and the demo is more convincing with more of it, not less.
+        //
+        // The second clause clears the hand-written backfill that preceded this block, which
+        // numbered its ids by bare day and would otherwise duplicate every day of this month.
+        await prisma.serviceVisit.deleteMany({
+          where: {
+            OR: [
+              { id: { startsWith: `${DEMO_PREFIX}visit-${b.key}-log-${stamp}` } },
+              {
+                id: {
+                  in: Array.from(
+                    { length: 31 },
+                    (_, i) => `${DEMO_PREFIX}visit-${b.key}-log-${String(i + 1).padStart(2, "0")}`,
+                  ),
+                },
+              },
+            ],
+          },
+        });
+        let logged = 0;
+        for (let day = 1; day <= today.getDate(); day++) {
+          if (serviceDays.has(day)) continue;
+          // 10:00 local: after the technician's 07:00 stop, so the previous-reading strip on
+          // today's visit still compares against the last SERVICE visit rather than against a
+          // logbook row recorded the same morning.
+          const at = new Date(year, monthIndex, day, 10, 0, 0, 0);
+          await prisma.serviceVisit.create({
+            data: {
+              id: id("visit", b.key, "log", `${stamp}${String(day).padStart(2, "0")}`),
+              organizationId: org.id,
+              propertyId: property.id,
+              bodyOfWaterId: body.id,
+              scheduledStart: at,
+              routeSequence: 0,
+              status: VisitStatus.COMPLETED,
+              serviceComplete: true,
+              completedAt: at,
+              // No technicianId on purpose. The schedule page selects a day by technician, so a
+              // null one keeps these off the route screen -- otherwise every logged day would
+              // show up as an extra completed stop on the technician's own schedule.
+              logOnlyRecord: true,
+              reading: {
+                create: {
+                  capturedAt: at,
+                  ...dailyLogReading(day),
+                  backwashAt: day % 7 === 3 ? new Date(at.getTime() + 20 * 60 * 1000) : null,
+                },
+              },
+            },
+          });
+          logged++;
+        }
+        console.log(`  + ${logged} daily compliance readings for ${b.name}`);
+      }
+
       etaOffset += 25;
     }
   }
