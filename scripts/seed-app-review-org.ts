@@ -174,7 +174,10 @@ function dailyLogReading(day: number) {
     // PUMP_PRESSURE, PUMP_VACUUM, FILTER_PRESSURE and FLOW_METER, so the inspector log has a
     // column for each and leaving two null dashed out a fifth of the sheet.
     pumpPressurePsi: 25 + (day % 4),
-    vacGaugeReading: 5 + (day % 4),
+    // NEGATIVE: a vacuum gauge reads below atmospheric, and lib/reading-bounds.ts bounds this
+    // field to -30..0. Positive values are rejected by the form with "this didn't save", which
+    // is exactly what a store screenshot caught.
+    vacGaugeReading: -(5 + (day % 4)),
     filterPressurePsi: 17 + (day % 5),
     flowMeterGpm: 260 + (day % 5) * 8,
   };
@@ -427,7 +430,7 @@ async function main() {
                             cyanuricAcidPpm: 50,
                             temperatureF: 84,
                             pumpPressurePsi: 27,
-                            vacGaugeReading: 7,
+                            vacGaugeReading: -7,
                             filterPressurePsi: 20,
                             flowMeterGpm: 260,
                           },
@@ -455,7 +458,7 @@ async function main() {
                       // (EquipmentReadingRequirement rows for the NV ruleset), so the reading form
                       // marks all four required and the inspector log has a column for each.
                       // Omitting these left two of eleven columns empty down the whole month.
-                      vacGaugeReading: 6,
+                      vacGaugeReading: -6,
                       filterPressurePsi: 18,
                       flowMeterGpm: 268,
                     },
