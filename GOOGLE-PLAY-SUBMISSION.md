@@ -87,18 +87,25 @@ parties for advertising:
 
 **Full description:**
 
-> AquaRunner 24/7 Pro is the field app for pool service companies running residential and
-> commercial routes.
+> AquaRunner 24/7 Pro is the field and office app for pool service companies running residential
+> and commercial routes.
 >
 > Technicians see the day's stops in driving order, log chemistry readings and chemical doses at
 > the poolside, capture proof-of-service photos, and work through state-specific compliance
 > checklists for commercial pools. Arrival at each stop is timestamped automatically, so the
 > record is made without stopping to tap anything.
 >
+> Admins and office staff build and adjust routes, assign stops to technicians, and watch the day
+> unfold as it happens — overdue stops, open issues, and out-of-range readings surface while
+> there's still time to do something about them. A service report goes out automatically after
+> every visit, and customers can check their own history without calling the office.
+>
 > • Route and schedule for the day, in driving order
 > • Water chemistry logging with dosage calculations
 > • Proof-of-service photos, with a blur check before they are accepted
 > • State-specific commercial compliance log sheets
+> • Route building, technician assignment, and live office alerts
+> • Automatic service reports and a customer self-service portal
 > • QR-coded public record for each body of water
 > • Works offline and syncs when signal returns
 >
