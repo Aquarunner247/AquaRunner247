@@ -7,7 +7,11 @@ android {
         applicationId "com.aquarunner247.pro"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // Bumped for the bundle carrying the Android back-button handler and the recoloured
+        // launcher icon. Play rejects a versionCode it has already seen, and 1 was uploaded on
+        // 2026-10-31. versionName stays "1.0": it is what a user sees, and the launch version is
+        // still 1.0 however many bundles it took to get there.
+        versionCode 2
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
