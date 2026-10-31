@@ -11,7 +11,7 @@ android {
         // launcher icon. Play rejects a versionCode it has already seen, and 1 was uploaded on
         // 2026-10-31. versionName stays "1.0": it is what a user sees, and the launch version is
         // still 1.0 however many bundles it took to get there.
-        versionCode 2
+        versionCode 3
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
