@@ -592,6 +592,32 @@ async function main() {
     }
   }
 
+  /**
+   * Retire any route or stop in this organisation that this seeder does not own.
+   *
+   * Without this, anything created by hand in the demo org survives alongside the seven routes
+   * above -- and a second ACTIVE route on the same weekday makes visit generation produce the
+   * day twice, because it dedupes per recurringStop and a duplicate stop is a different stop.
+   * Production had exactly that: a hand-built Thursday route with a cuid id, invisible until it
+   * collided with the seeded one.
+   *
+   * Routes are deactivated, not deleted, for the same reason as the legacy route above. Stops
+   * ARE deleted, which is safe: ServiceVisit.recurringStopId is onDelete SetNull, so historical
+   * visits keep their readings and simply stop claiming to come from a route that no longer
+   * exists.
+   */
+  const ownedRouteIds = Array.from(routes.values(), (r) => r.id);
+  const retiredRoutes = await prisma.recurringRoute.updateMany({
+    where: { organizationId: org.id, id: { notIn: ownedRouteIds }, active: true },
+    data: { active: false },
+  });
+  const strayStops = await prisma.recurringStop.deleteMany({
+    where: { route: { organizationId: org.id }, routeId: { notIn: ownedRouteIds } },
+  });
+  if (retiredRoutes.count || strayStops.count) {
+    console.log(`  + retired ${retiredRoutes.count} foreign route(s), removed ${strayStops.count} stray stop(s)`);
+  }
+
   console.log(`\n[demo-seed] Done. Sign in at /login as ${ADMIN_EMAIL}.`);
   console.log("[demo-seed] Password: the value of DEMO_ADMIN_PASSWORD (not printed).\n");
 }
