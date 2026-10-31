@@ -238,7 +238,7 @@ async function main() {
   for (const v of VENUES) {
     note(`property "${v.propertyName}" with ${v.bodies.length} ${v.bodies.length === 1 ? "venue" : "venues"}`);
   }
-  note("a weekday route with every property on it");
+  note("a route for all seven weekdays, each with every venue on it");
   note("14 days of completed visits with readings, plus today's schedule");
   note(`a daily compliance log for the Main Pool, 1st of this month to today`);
 
@@ -299,19 +299,48 @@ async function main() {
     update: { name: "Desert Oasis Managed Properties" },
   });
 
-  const route = await prisma.recurringRoute.upsert({
-    where: { id: id("route") },
-    create: {
-      id: id("route"),
-      organizationId: org.id,
-      name: "Demo Route",
-      technicianId: tech.id,
-      frequency: "WEEKLY",
-      dayOfWeek: new Date().getDay() === 0 ? 7 : new Date().getDay(),
-      active: true,
-    },
-    update: { technicianId: tech.id, active: true, dayOfWeek: new Date().getDay() === 0 ? 7 : new Date().getDay() },
-  });
+  /**
+   * A route on EVERY day of the week, not just the one the seeder happened to run on.
+   *
+   * This used to be a single route pinned to `new Date().getDay()`, which meant the demo
+   * organisation had a working schedule on exactly one weekday. lib/visit-generation.ts only
+   * generates visits from routes whose dayOfWeek matches the day being viewed, so on the other
+   * six the technician's day came up empty -- and an empty day is not merely a blank screen:
+   * isDayFullyDone() is an .every() over no stops, so it reports the day finished, the location
+   * watcher never starts and the background-location disclosure never appears.
+   *
+   * That is the single most dangerous thing that can happen to this app in review. The Play
+   * declaration claims arrivals are logged automatically in the background; a reviewer who opens
+   * the app on the wrong weekday sees a product that does nothing of the sort. It already cost a
+   * re-shoot of the permissions video on 2026-10-29. Seven routes cost nothing and remove the
+   * dependency on which day anybody happens to look.
+   */
+  const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  // Deactivated rather than deleted: ServiceVisit.recurringStopId is onDelete SetNull, so removing
+  // the old route's stops would quietly unlink real visits that were generated from them. Visit
+  // generation filters on active, so this is enough to stop the legacy route doubling up a day.
+  await prisma.recurringRoute.updateMany({ where: { id: id("route") }, data: { active: false } });
+
+  const routes = new Map<number, { id: string }>();
+  for (let day = 1; day <= 7; day++) {
+    routes.set(
+      day,
+      await prisma.recurringRoute.upsert({
+        where: { id: id("route", `d${day}`) },
+        create: {
+          id: id("route", `d${day}`),
+          organizationId: org.id,
+          name: DAY_NAMES[day - 1],
+          technicianId: tech.id,
+          frequency: "WEEKLY",
+          dayOfWeek: day,
+          active: true,
+        },
+        update: { technicianId: tech.id, active: true, dayOfWeek: day, name: DAY_NAMES[day - 1] },
+      }),
+    );
+  }
 
   let sortOrder = 0;
   let etaOffset = 7 * 60; // first stop anchored at 07:00 local
@@ -375,18 +404,23 @@ async function main() {
 
       // propertyId is required and separate from bodyOfWaterId -- a stop belongs to a
       // property and optionally names one venue on it.
-      await prisma.recurringStop.upsert({
-        where: { id: id("stop", b.key) },
-        create: {
-          id: id("stop", b.key),
-          routeId: route.id,
-          propertyId: property.id,
-          bodyOfWaterId: body.id,
-          sortOrder,
-          etaOffsetMinutes: etaOffset,
-        },
-        update: { routeId: route.id, propertyId: property.id, sortOrder, etaOffsetMinutes: etaOffset },
-      });
+      //
+      // The same venue on all seven routes, at the same position and time, so the day reads
+      // identically whenever a reviewer opens it.
+      for (const [day, dayRoute] of routes) {
+        await prisma.recurringStop.upsert({
+          where: { id: id("stop", `d${day}`, b.key) },
+          create: {
+            id: id("stop", `d${day}`, b.key),
+            routeId: dayRoute.id,
+            propertyId: property.id,
+            bodyOfWaterId: body.id,
+            sortOrder,
+            etaOffsetMinutes: etaOffset,
+          },
+          update: { routeId: dayRoute.id, propertyId: property.id, sortOrder, etaOffsetMinutes: etaOffset },
+        });
+      }
       sortOrder++;
 
       // Two weeks of history so the compliance log, the QR page and the dashboard charts have
