@@ -76,6 +76,16 @@ type Venue = {
      * wrong number on a compliance page.
      */
     minFlowGpm?: number;
+    /**
+     * What the filter is rated to take. Together with `minFlowGpm` this is the flow chart's
+     * target band on the public inspector log -- two measured figures in the same unit.
+     *
+     * It used to be left unset on purpose, because the page handed this gpm value to the FILTER
+     * PRESSURE chart as a psi bound and a realistic 400 flattened the real 17-21 psi readings.
+     * That was fixed by giving the figure to the flow chart where it belongs, so there is no
+     * longer a reason to withhold it.
+     */
+    maxFlowGpm?: number;
   }[];
 };
 
@@ -98,7 +108,7 @@ const VENUES: Venue[] = [
     bodies: [
       // 92,000 gal / 6-hour turnover = 256 gpm. This is the body the store screenshots are
       // taken from, which is why it is the one carrying a flow figure.
-      { key: "dp-pool", name: "Main Pool", type: BodyOfWaterType.POOL, gallons: 92000, group: "Main", minFlowGpm: 256 },
+      { key: "dp-pool", name: "Main Pool", type: BodyOfWaterType.POOL, gallons: 92000, group: "Main", minFlowGpm: 256, maxFlowGpm: 400 },
       { key: "dp-spa", name: "Spa", type: BodyOfWaterType.SPA, gallons: 900, group: "Main" },
     ],
   },
@@ -388,10 +398,7 @@ async function main() {
           longitude: venue.lng,
           requiresComplianceReadings: true,
           minimumRequiredFlowGpm: b.minFlowGpm,
-          // maximumFilterFlowGpm is deliberately NOT set. app/p/[publicSlug]/page.tsx passes it as
-          // the target band for the FILTER PRESSURE chart -- a gpm value bounding a psi reading.
-          // A realistic 400 there gives that chart a 0-400 psi band and flattens the real 17-21
-          // psi readings into a line along the bottom. Left null, the chart auto-scales correctly.
+          maximumFilterFlowGpm: b.maxFlowGpm,
         },
         update: {
           name: b.name,
@@ -399,6 +406,7 @@ async function main() {
           publicSlug: `demo-${b.key}`,
           serviceGroup: b.group,
           minimumRequiredFlowGpm: b.minFlowGpm,
+          maximumFilterFlowGpm: b.maxFlowGpm,
         },
       });
 
