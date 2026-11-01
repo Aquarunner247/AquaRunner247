@@ -75,6 +75,72 @@ status, gather, record, transcription) is chained automatically via the
 `action`/`transcribeCallback` URLs each response sets, not configured in the
 Twilio Console.
 
+## Onboarding an org without giving them a new number
+
+Nobody wants to reprint trucks and invoices because they bought answering
+software. They don't have to: the org keeps the number they already publish and
+**conditionally forwards** it to a Twilio number that is never advertised.
+
+Two modes, and which one you get is decided entirely by whether
+`OrgPhoneAgentSettings.primaryPhoneNumber` is set. There is no separate switch.
+
+| Mode | `primaryPhoneNumber` | Who rings the office first | What the caller dials |
+|---|---|---|---|
+| **Published Twilio number** | set | Twilio, via `<Dial>` | the Twilio number |
+| **Forwarded own number** | **empty** | their own carrier | their existing number |
+
+`app/api/twilio/voice/route.ts` branches on exactly this: with no primary line
+there is nothing to dial, so it goes straight to the agent. In forwarding mode
+that is not a fallback, it is the whole point — the carrier has *already* rung
+the office and given up before Twilio ever sees the call. Setting
+`primaryPhoneNumber` as well would make Twilio ring the office a second time,
+which double-rings the caller and can loop a call back into the forward.
+
+### Setting it up
+
+1. Buy a Twilio number and point its Voice webhook at
+   `https://aquarunner247.com/api/twilio/voice` (the step in the section above).
+   Do not give this number to the customer — it is a destination, not a line.
+2. In **Settings → AI Phone Agent**, enter the Twilio number and leave
+   **Primary business/owner line** EMPTY.
+3. The org sets conditional forwarding on their existing line, to the Twilio
+   number. On most US mobile carriers that is `*61*<number>#` for
+   forward-on-no-answer and `*67*<number>#` for forward-on-busy; landline and
+   VoIP are a toggle in the carrier's portal. Reversible in seconds, no porting,
+   no downtime, and their number keeps working exactly as it does today.
+
+### Two things to verify with a real call per carrier
+
+- **Caller ID survives the forward.** `lib/phone-match.ts` identifies a caller by
+  matching Twilio's `From` against the property contact fields. Most carriers
+  pass the original caller through, which is what makes recognition work. Some
+  substitute the *forwarding* number instead — in which case every call looks
+  like it came from the org itself and caller recognition silently matches
+  nothing. Test before promising the feature.
+- **The greeting can no longer tell after-hours from busy.** In forwarding mode
+  the carrier decides why it forwarded and does not tell us, so
+  `afterHoursGreeting` and `busyOverflowGreeting` are chosen from the org's
+  configured hours alone, not from what actually happened on the call.
+
+### The alternative: port the number
+
+An org can instead port their number to Twilio outright, making their real
+number the Twilio number. Cleanest end state, and the published-number mode then
+works as designed — set `primaryPhoneNumber` to a cell so the office still rings
+first. But porting takes days to weeks, needs a letter of authorisation, and a
+botched port takes their phone down. Offer it to someone who asks for it; do not
+make it the default for a small pool company.
+
+### Why provisioning is still manual
+
+There is no code that buys numbers — no `availablePhoneNumbers`, no
+`incomingPhoneNumbers.create` — and signup creates no `OrgPhoneAgentSettings`
+row at all. That is deliberate: every Twilio number carries a monthly charge, so
+auto-buying one per signup would bill for orgs that never switch the feature on.
+Steps 1 and 2 above are the only manual part; everything after is self-serve in
+the admin UI, which guards `twilioPhoneNumber` against collisions with another
+org because that number is how an inbound call resolves to an org at all.
+
 ## Caller recognition + live status answers
 
 Two pieces, added after the MVP above. Caller-ID matching (against `Property`
