@@ -355,23 +355,29 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
         <section className="mt-4 grid gap-4 md:grid-cols-2">
           <ReadingChart label="Pump pressure" unit="psi" daysInMonth={totalDays} points={seriesFor((r) => r.pumpPressurePsi)} />
           <ReadingChart label="Pump vacuum gauge" unit="inHg" daysInMonth={totalDays} points={seriesFor((r) => r.vacGaugeReading)} />
+          {/* No target band: nothing in the schema holds a filter-pressure bound. This used to be
+              given maximumFilterFlowGpm -- a FLOW figure in gpm bounding a PRESSURE reading in psi
+              -- which also stretched the chart's domain to that number, flattening real 17-21 psi
+              readings into a line along the bottom. It stayed invisible only because the field is
+              null on every body in production. */}
           <ReadingChart
             label="Filter pressure"
             unit="psi"
             daysInMonth={totalDays}
             points={seriesFor((r) => r.filterPressurePsi)}
-            targetMax={maxFilterFlow}
-            targetMin={maxFilterFlow != null ? 0 : undefined}
-            targetLabel="Max required"
           />
+          {/* Both bounds are gpm and both are real: the flow the health department requires, and
+              the most the filter is rated to take. The upper bound used to be minFlow * 1.5, a
+              number nobody measured, which does not belong on a page an inspector reads. With no
+              maximum recorded the chart simply draws no band -- ReadingChart needs both. */}
           <ReadingChart
             label="Flow rate"
             unit="gpm"
             daysInMonth={totalDays}
             points={seriesFor((r) => r.flowMeterGpm)}
             targetMin={minFlow}
-            targetMax={minFlow != null ? minFlow * 1.5 : undefined}
-            targetLabel="Min required"
+            targetMax={maxFilterFlow}
+            targetLabel="Required range"
           />
         </section>
       ) : null}
