@@ -819,9 +819,9 @@ model WelcomeEmailSend {
 
   toEmail      String
   sentAt       DateTime @default(now())
-  /// "sent" | "failed" | "resent" -- plain string, not an enum, since a future "resend
-  /// invite" action (explicitly out of scope for this pass) is the only other value ever
-  /// expected and doesn't warrant a schema migration of its own.
+  /// "sent" | "failed" | "resent" | "link_generated" -- plain string, not an enum, so a new
+  /// value (like "link_generated", for generateInviteLink in lib/mail/send-welcome-email.ts)
+  /// never needs a schema migration of its own.
   status       String
   errorMessage String?
 

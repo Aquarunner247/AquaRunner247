@@ -14,7 +14,7 @@ import { createSupabaseAdminClient, createOrFindAuthUser } from "@/lib/supabase/
 import { generateUnknowablePassword } from "@/lib/auth/initial-password";
 import { sendCustomerAccessEndedEmail } from "@/lib/email";
 import { sendAlertToCustomer } from "@/lib/customer-alerts";
-import { sendWelcomeEmail } from "@/lib/mail/send-welcome-email";
+import { sendWelcomeEmail, generateInviteLink } from "@/lib/mail/send-welcome-email";
 import { parseReadingsCsv, parseTimeOfDay } from "@/lib/csv-import";
 import { parseCustomerContact } from "@/lib/customer-contact-fields";
 import { parseDueOn, parseRemindDaysBefore, reminderDayFor } from "@/lib/customer-task-due";
@@ -1332,6 +1332,39 @@ export async function createCustomerLogin(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+/**
+ * Hands back the same activation link the welcome email contains, for an admin to paste into
+ * whatever channel they know actually reaches this customer -- a text, a call, however they
+ * normally communicate -- instead of trusting it arrived by email.
+ *
+ * Called directly from a client component (not a <form action>): the link must never travel
+ * through a redirect URL or a revalidated page, since both can end up in server/access logs,
+ * and it's a live bearer credential -- see lib/mail/send-welcome-email.ts's security notes.
+ * It only ever exists in this response and in the admin's own browser state.
+ *
+ * Re-checks the login belongs to the caller's own org (through the CustomerUser -> Customer
+ * relation) rather than trusting a bare id, same reasoning as deleteCustomerLogin below.
+ */
+export async function generateCustomerLoginInviteLink(
+  customerUserId: string,
+): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
+  const appUser = await requireAdmin();
+
+  const customerUser = await prisma.customerUser.findFirst({
+    where: { id: customerUserId, customer: { organizationId: appUser.organizationId } },
+    select: { id: true, email: true, customerId: true },
+  });
+  if (!customerUser) return { ok: false, reason: "Portal login not found." };
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return generateInviteLink({
+    organizationId: appUser.organizationId,
+    customerId: customerUser.customerId,
+    customerEmail: customerUser.email,
+    portalBaseUrl: appUrl,
+  });
 }
 
 /**
