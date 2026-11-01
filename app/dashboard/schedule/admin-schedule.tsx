@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { visitOriginLabel } from "@/lib/visit-origin";
 import { ensureVisitsGeneratedForDate } from "@/lib/visit-generation";
-import { countFinishedWalkUps, countWalkUps } from "@/lib/stop-grouping";
+import { countFinishedWalkUps, countPendingWalkUps, countWalkUps, countWalkUpsInProgress } from "@/lib/stop-grouping";
 import { RouteDayView, type DayItem } from "@/app/components/route-day-view";
 import { TechnicianFilterSelect } from "@/app/components/technician-filter-select";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
@@ -414,12 +414,15 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     technicianId: v.technicianId,
     status: v.status,
   }));
+  // All four in the SAME unit. These used to mix: total and completed counted walk-ups while
+  // inProgress and pending counted venues, so a day of four walk-ups across five venues read
+  // "4 total, 5 pending" -- visible in a Play Store screenshot on 2026-10-30. `skipped` was
+  // computed in the venue unit too and never rendered, so it is gone rather than fixed.
   const stats = {
     total: countWalkUps(countableStops),
     completed: countFinishedWalkUps(countableStops),
-    inProgress: routeStops.filter((v) => v.status === "IN_PROGRESS").length,
-    pending: routeStops.filter((v) => v.status === "SCHEDULED").length,
-    skipped: routeStops.filter((v) => v.status === "CANCELLED").length,
+    inProgress: countWalkUpsInProgress(countableStops),
+    pending: countPendingWalkUps(countableStops),
   };
 
   // Interleaving only happens when a single technician's day is being viewed -- the

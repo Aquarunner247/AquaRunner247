@@ -220,11 +220,47 @@ export function countWalkUps(stops: CountableStop[]): number {
  * was skipped is worse than one that says the day is done.
  */
 export function countFinishedWalkUps(stops: CountableStop[]): number {
+  return countWalkUpsInState(stops, "settled");
+}
+
+/**
+ * Walk-ups a technician is standing at, and walk-ups nobody has reached yet.
+ *
+ * These exist because the day's four counters used to mix two units: `total` and `completed`
+ * counted walk-ups while `inProgress` and `pending` counted venues, so Desert Palms' pool and spa
+ * were one job in the headline and two underneath it. A day of four walk-ups across five venues
+ * read "4 total, 5 pending", which is the disagreement countWalkUps was introduced to end.
+ *
+ * A walk-up is in progress the moment ANY of its venues is, because that is when the technician is
+ * actually there, and pending only while none of them has been started. Together with settled they
+ * partition the day, so total always equals completed + in progress + pending -- which is the
+ * property worth having, and the one the old counters could not hold.
+ */
+export function countWalkUpsInProgress(stops: CountableStop[]): number {
+  return countWalkUpsInState(stops, "in-progress");
+}
+
+export function countPendingWalkUps(stops: CountableStop[]): number {
+  return countWalkUpsInState(stops, "pending");
+}
+
+type WalkUpState = "settled" | "in-progress" | "pending";
+
+/** Settled wins over in-progress: a group whose venues are all COMPLETED or CANCELLED is done
+ *  regardless, and nothing can be both. */
+function walkUpState(memberIds: string[], byId: Map<string, CountableStop>): WalkUpState {
+  let anyInProgress = false;
+  let allSettled = true;
+  for (const id of memberIds) {
+    const status = byId.get(id)?.status;
+    if (status === "IN_PROGRESS") anyInProgress = true;
+    if (status !== "COMPLETED" && status !== "CANCELLED") allSettled = false;
+  }
+  if (allSettled) return "settled";
+  return anyInProgress ? "in-progress" : "pending";
+}
+
+function countWalkUpsInState(stops: CountableStop[], state: WalkUpState): number {
   const byId = new Map(stops.map((stop) => [stop.id, stop]));
-  return groupNearbyStops(stops).filter((group) =>
-    group.memberIds.every((id) => {
-      const status = byId.get(id)?.status;
-      return status === "COMPLETED" || status === "CANCELLED";
-    }),
-  ).length;
+  return groupNearbyStops(stops).filter((group) => walkUpState(group.memberIds, byId) === state).length;
 }

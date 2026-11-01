@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   BUNDLE_RADIUS_METERS,
   coalesceBundleMembers,
+  countFinishedWalkUps,
+  countPendingWalkUps,
+  countWalkUps,
+  countWalkUpsInProgress,
   formatSequenceRange,
   groupNearbyStops,
   metersBetween,
@@ -313,5 +317,75 @@ describe("coalesceBundleMembers", () => {
 
   it("returns an empty list unchanged", () => {
     expect(coalesceBundleMembers([])).toEqual([]);
+  });
+});
+
+/**
+ * The exact day that exposed the bug: Desert Palms' pool and spa declared one walk-up, plus three
+ * standalone venues. Four walk-ups across five venues.
+ */
+function desertPalmsDay(statuses: Record<string, string>) {
+  return [
+    { ...stop("dp-pool", { serviceGroup: "Main" }), status: statuses["dp-pool"] },
+    { ...spa("dp-spa", { serviceGroup: "Main" }), status: statuses["dp-spa"] },
+    { ...stop("cr-pool", { propertyId: "p2" }), status: statuses["cr-pool"] },
+    { ...stop("si-indoor", { propertyId: "p3" }), status: statuses["si-indoor"] },
+    { ...stop("si-spa", { propertyId: "p4" }), status: statuses["si-spa"] },
+  ];
+}
+
+const ALL_SCHEDULED = {
+  "dp-pool": "SCHEDULED",
+  "dp-spa": "SCHEDULED",
+  "cr-pool": "SCHEDULED",
+  "si-indoor": "SCHEDULED",
+  "si-spa": "SCHEDULED",
+};
+
+describe("day counters share one unit", () => {
+  it("counts a fresh day as four walk-ups pending, not five venues", () => {
+    const day = desertPalmsDay(ALL_SCHEDULED);
+    expect(countWalkUps(day)).toBe(4);
+    expect(countPendingWalkUps(day)).toBe(4);
+    expect(countWalkUpsInProgress(day)).toBe(0);
+    expect(countFinishedWalkUps(day)).toBe(0);
+  });
+
+  it("treats a walk-up as in progress as soon as ONE of its venues is", () => {
+    const day = desertPalmsDay({ ...ALL_SCHEDULED, "dp-pool": "IN_PROGRESS" });
+    expect(countWalkUpsInProgress(day)).toBe(1);
+    expect(countPendingWalkUps(day)).toBe(3);
+  });
+
+  it("keeps a part-finished walk-up out of completed", () => {
+    const day = desertPalmsDay({ ...ALL_SCHEDULED, "dp-pool": "COMPLETED" });
+    expect(countFinishedWalkUps(day)).toBe(0);
+    expect(countPendingWalkUps(day)).toBe(4);
+  });
+
+  it("settles a walk-up once every venue is done or skipped", () => {
+    const day = desertPalmsDay({ ...ALL_SCHEDULED, "dp-pool": "COMPLETED", "dp-spa": "CANCELLED" });
+    expect(countFinishedWalkUps(day)).toBe(1);
+    expect(countPendingWalkUps(day)).toBe(3);
+  });
+
+  it("settled beats in progress, so nothing is counted twice", () => {
+    const day = desertPalmsDay({ ...ALL_SCHEDULED, "dp-pool": "COMPLETED", "dp-spa": "COMPLETED", "cr-pool": "IN_PROGRESS" });
+    expect(countFinishedWalkUps(day)).toBe(1);
+    expect(countWalkUpsInProgress(day)).toBe(1);
+    expect(countPendingWalkUps(day)).toBe(2);
+  });
+
+  it("partitions the day however the statuses fall", () => {
+    const mixes = [
+      ALL_SCHEDULED,
+      { ...ALL_SCHEDULED, "dp-pool": "IN_PROGRESS" },
+      { ...ALL_SCHEDULED, "dp-pool": "COMPLETED", "dp-spa": "CANCELLED", "cr-pool": "IN_PROGRESS" },
+      { "dp-pool": "COMPLETED", "dp-spa": "COMPLETED", "cr-pool": "CANCELLED", "si-indoor": "COMPLETED", "si-spa": "COMPLETED" },
+    ];
+    for (const mix of mixes) {
+      const day = desertPalmsDay(mix);
+      expect(countFinishedWalkUps(day) + countWalkUpsInProgress(day) + countPendingWalkUps(day)).toBe(countWalkUps(day));
+    }
   });
 });
