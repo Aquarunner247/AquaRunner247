@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
-import { uploadDocumentForCustomer, deleteDocumentForCustomer } from "@/lib/customer-documents";
+import { uploadDocumentForCustomer } from "@/lib/customer-documents";
 import { deletePortalAccount } from "@/lib/portal-account-deletion";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -23,18 +23,6 @@ export async function uploadDocumentAsCustomer(formData: FormData) {
   if (mustSetPasswordFirst(customerUser)) return;
 
   await uploadDocumentForCustomer(customerUser.customerId, formData);
-  revalidatePath("/portal/documents");
-}
-
-export async function deleteDocumentAsCustomer(formData: FormData) {
-  const customerUser = await getCurrentCustomerUser();
-  if (!customerUser) return;
-  if (mustSetPasswordFirst(customerUser)) return;
-
-  const documentId = String(formData.get("documentId") ?? "").trim();
-  if (!documentId) return;
-
-  await deleteDocumentForCustomer(customerUser.customerId, documentId);
   revalidatePath("/portal/documents");
 }
 

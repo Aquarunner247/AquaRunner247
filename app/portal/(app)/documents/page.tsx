@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePortalPage } from "@/lib/auth/portal-page-guard";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CUSTOMER_DOCUMENTS_BUCKET } from "@/lib/customer-documents";
-import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
-import { uploadDocumentAsCustomer, deleteDocumentAsCustomer } from "../../actions";
+import { uploadDocumentAsCustomer } from "../../actions";
 
 export default async function PortalDocumentsPage() {
   const customerUser = await requirePortalPage("/portal/documents");
@@ -52,14 +51,6 @@ export default async function PortalDocumentsPage() {
                   )}
                   <span className="ml-2 text-xs text-brand-muted">{doc.createdAt.toLocaleDateString()}</span>
                 </span>
-                <form action={deleteDocumentAsCustomer}>
-                  <input type="hidden" name="documentId" value={doc.id} />
-                  <ConfirmSubmitButton
-                    label="🗑"
-                    confirmMessage={`Delete "${doc.label}"?`}
-                    className="rounded px-2 py-1 text-base hover:bg-brand-border"
-                  />
-                </form>
               </li>
             ))}
           </ul>
