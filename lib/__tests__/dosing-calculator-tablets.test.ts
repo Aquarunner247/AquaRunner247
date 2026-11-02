@@ -4,7 +4,7 @@ import { describe, it, expect } from "vitest";
 // DATABASE_URL isn't set in the test environment. dosing-units.ts is deliberately kept
 // Prisma-free (see its own doc comments) precisely so this kind of pure-function test
 // works; dosing-calculator.ts re-exports the same functions for its own internal use.
-import { computeTabletRecommendation, daysUntilNextWeekday } from "@/lib/dosing-units";
+import { buildTabletNote, computeTabletRecommendation, daysUntilNextWeekday } from "@/lib/dosing-units";
 
 describe("daysUntilNextWeekday", () => {
   it("returns the number of days to the soonest upcoming occurrence", () => {
@@ -59,5 +59,33 @@ describe("computeTabletRecommendation", () => {
     expect(result.immediateTablets).toBe(0);
     expect(result.maintenanceTablets).toBeCloseTo(1, 5);
     expect(result.totalTablets).toBe(1);
+  });
+});
+
+describe("buildTabletNote names the right holder", () => {
+  const rec = computeTabletRecommendation(27_000, 1, 3, 7, 1.48);
+
+  it("says feeder by default, for a plumbed chlorinator", () => {
+    expect(buildTabletNote(rec)).toContain("keep the feeder stocked");
+    expect(buildTabletNote(rec)).not.toContain("floater");
+  });
+
+  it("says floater for a floating dispenser", () => {
+    expect(buildTabletNote(rec, "floater")).toContain("keep the floater stocked");
+    expect(buildTabletNote(rec, "floater")).not.toContain("keep the feeder");
+  });
+
+  it("keeps the CYA caveat whichever holder it is -- the chemistry is the same", () => {
+    for (const note of [buildTabletNote(rec), buildTabletNote(rec, "floater")]) {
+      expect(note).toContain("3 ppm of CYA per 10,000 gal");
+    }
+  });
+
+  it("drops the holder wording entirely when there is no schedule to project to", () => {
+    const noSchedule = computeTabletRecommendation(27_000, 1, 3, null, 1.48);
+    for (const note of [buildTabletNote(noSchedule), buildTabletNote(noSchedule, "floater")]) {
+      expect(note).toContain("no recurring schedule found");
+      expect(note).not.toContain("stocked");
+    }
   });
 });

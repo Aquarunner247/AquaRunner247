@@ -192,10 +192,10 @@ export function computeTabletRecommendation(
 /** Assembles the tablet recommendation's note -- both precision caveats (tablet weight,
  * CYA buildup) stated directly rather than left implicit, per this feature's whole reason
  * for existing as a heuristic-flagged estimate instead of an exact Taylor-table dose. */
-export function buildTabletNote(t: TabletRecommendation): string {
+export function buildTabletNote(t: TabletRecommendation, holder: "feeder" | "floater" = "feeder"): string {
   const breakdown =
     t.daysUntilNextVisit != null
-      ? `Roughly ${roundOneDecimal(t.immediateTablets)} tablet(s) to correct today's reading, plus ${roundOneDecimal(t.maintenanceTablets)} to keep the feeder stocked for the ${t.daysUntilNextVisit} day${t.daysUntilNextVisit === 1 ? "" : "s"} until the next visit.`
+      ? `Roughly ${roundOneDecimal(t.immediateTablets)} tablet(s) to correct today's reading, plus ${roundOneDecimal(t.maintenanceTablets)} to keep the ${holder} stocked for the ${t.daysUntilNextVisit} day${t.daysUntilNextVisit === 1 ? "" : "s"} until the next visit.`
       : "Covers only today's correction -- no recurring schedule found for this body, so a maintenance amount couldn't be projected.";
   return [
     breakdown,

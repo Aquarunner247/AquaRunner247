@@ -314,7 +314,8 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               className="app-field mt-1 md:w-56"
             >
               <option value={ChlorineFeedMechanism.MANUAL}>Manually dosed</option>
-              <option value={ChlorineFeedMechanism.TABLET_FEEDER}>Tablet feeder</option>
+              <option value={ChlorineFeedMechanism.TABLET_FEEDER}>Tablet feeder (chlorinator)</option>
+              <option value={ChlorineFeedMechanism.TABLET_FLOATER}>Floating tablet dispenser</option>
               <option value={ChlorineFeedMechanism.LIQUID_FEED_PUMP}>Liquid feed pump</option>
             </select>
             <span className="mt-1 block text-xs text-brand-muted">

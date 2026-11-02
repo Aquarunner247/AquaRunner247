@@ -385,8 +385,16 @@ enum DisinfectionMethod {
 enum ChlorineFeedMechanism {
   /// technician doses granular/liquid chlorine by hand each visit (today's only behavior)
   MANUAL
-  /// erosion feeder (trichlor pucks) supplies baseline chlorine continuously
+  /// erosion feeder / chlorinator (trichlor pucks) supplies baseline chlorine continuously.
+  /// Loading it by hand each visit is normal and is still this, not MANUAL -- every erosion
+  /// feeder is filled by hand.
   TABLET_FEEDER
+  /// trichlor pucks in a floating dispenser rather than a plumbed feeder. Same chemical and
+  /// the same dissolve-over-time behaviour, so it gets the same tablet recommendation; it is
+  /// a separate value because the guidance differs ("check the floater" is not "check the
+  /// feeder") and because a floater holds far fewer pucks than a chlorinator. Common
+  /// residentially, which is the only place it has turned up so far.
+  TABLET_FLOATER
   /// metering pump feeds liquid chlorine from a tank
   LIQUID_FEED_PUMP
 }

@@ -236,6 +236,9 @@ function feedMechanismPrefix(mechanism: ChlorineFeedMechanism): string {
   if (mechanism === "TABLET_FEEDER") {
     return "This body uses a tablet feeder for chlorine -- check/refill the feeder first. If FC is still low after that, ";
   }
+  if (mechanism === "TABLET_FLOATER") {
+    return "This body uses a floating tablet dispenser -- check it is not empty or stuck in a corner first. If FC is still low after that, ";
+  }
   if (mechanism === "LIQUID_FEED_PUMP") {
     return "This body uses a liquid chlorine feed pump -- check the tank level and pump operation first. If FC is still low after that, ";
   }
@@ -363,7 +366,12 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     // gives the tech the real choice instead of hiding one. Only for direction === "UP" --
     // tablets only ever raise chlorine, so a too-high reading (DOWN) stays on the existing
     // sodium-thiosulfate path untouched.
-    if (key === "FREE_CHLORINE" && direction === "UP" && visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FEEDER") {
+    // Both tablet mechanisms, because the chemistry is identical -- the same trichlor puck
+    // dissolving over the same interval. Only the guidance and the holder's capacity differ.
+    const onTablets =
+      visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FEEDER" ||
+      visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER";
+    if (key === "FREE_CHLORINE" && direction === "UP" && onTablets) {
       const tabletSetting = enabledProductsByType.get("FREE_CHLORINE")?.find((s) => s.catalogProduct.form === "TABLET");
       if (tabletSetting) {
         const days = await daysUntilNextVisit(visit.bodyOfWater.id, visit.organizationId);
@@ -377,7 +385,7 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
             targetMax: resolved.boundMax,
             productName: tabletSetting.catalogProduct.name,
             formattedDose: formatDose(tablet.totalTablets, "TABLET"),
-            note: buildTabletNote(tablet),
+            note: buildTabletNote(tablet, visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER" ? "floater" : "feeder"),
             rawAmount: tablet.totalTablets,
             dosingUnit: "TABLET",
             billingLink: buildBillingLink(tabletSetting.linkedBillingProduct, tablet.totalTablets, "TABLET"),
