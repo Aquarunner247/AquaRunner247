@@ -259,6 +259,7 @@ const GROUPS: Group[] = [
 ];
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/features" },
   title: "Features — AquaRunner 24/7",
   description:
     "State compliance enforced in the workflow, a QR code on every body of water, real-road routing, offline capture, Taylor-based dosing, and a portal your customers can read. Everything a pool service day actually needs.",

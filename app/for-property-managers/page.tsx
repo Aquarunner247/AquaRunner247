@@ -16,6 +16,7 @@ import styles from "../landing.module.css";
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/for-property-managers" },
   title: "AquaRunner Compliance — for properties with an in-house CPO",
   description:
     "Your CPO already keeps the pool right. AquaRunner Compliance gives every body of water a QR code and a log built for your state's rules, so an inspector sees the complete record on site. $19/month, no per-pool fees.",

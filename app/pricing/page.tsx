@@ -101,6 +101,7 @@ const PLANS: Plan[] = [
 ];
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/pricing" },
   title: "Pricing — AquaRunner 24/7",
   description:
     "Service, White Label, or Enterprise — no per-pool fees, ever, and no feature held back for a higher price. Plans differ by how many staff logins you need and how your customers see the software, not by which features you get.",

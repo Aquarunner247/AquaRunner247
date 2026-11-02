@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { organizationJsonLd, softwareApplicationJsonLd, jsonLdScriptContent } from "@/lib/structured-data";
 import Image from "next/image";
 import Link from "next/link";
 import { SiteNav, SiteFooter } from "./components/landing/site-chrome";
@@ -59,6 +60,7 @@ const FEATURES = [
 ];
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/" },
   title: "AquaRunner 24/7 — Commercial pool compliance, enforced in the app",
   description:
     "A technician cannot close out a commercial pool that fails state requirements. AquaRunner puts the code inside the workflow — with residential routes in the same subscription, and no per-pool fees. Join the waitlist.",
@@ -83,6 +85,16 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div className={`bg-brand-surface ${styles.tokens}`}>
+      {/* Organization and SoftwareApplication only. No aggregateRating and no priced offers --
+          see lib/structured-data.ts for why neither belongs here without something real behind it. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScriptContent(organizationJsonLd()) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScriptContent(softwareApplicationJsonLd()) }}
+      />
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-brand-ink focus:px-4 focus:py-2 focus:text-white"
