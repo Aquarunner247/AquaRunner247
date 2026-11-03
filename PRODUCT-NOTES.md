@@ -57,6 +57,10 @@ Two separate gaps:
    chlorine is present, a linear maintenance dose is the wrong answer and arguably should
    not be offered silently. Thresholds need the owner's input rather than a textbook.
 
+Spec drafted at `specs/shock-breakpoint-dosing.md`. Every number in it is marked as
+needing the owner's sign-off — the thresholds and the breakpoint multiplier are not
+Taylor-table figures and should not be shipped as though they were.
+
 ---
 
 ## 2026-11-02 — Three hostnames serve the marketing site, none redirects
