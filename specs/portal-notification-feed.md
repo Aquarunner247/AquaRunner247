@@ -86,29 +86,44 @@ alert.** Note the sending side already records `sendOutcome`, `recipientCount` a
 a different and weaker claim. Adding the table later does not require migrating away from
 the watermark; the two answer different questions.
 
-## Service summaries — DECIDED 2026-11-04: they join the feed
+## Service entries — DECIDED 2026-11-04: keyed on the service DAY
 
-Summaries are **bundled**: one email can cover several visits, and every member carries the
-same `summaryEmailSentAt` stamp — see `resolveSummaryBundle` and the field's own doc
-comment, which exists precisely so a pool and its spa are not reported twice.
+Summaries join the feed, and the home page's existing service block **becomes** the feed
+rather than sitting beside it. The operator chose to eliminate the redundancy rather than
+link between two things that say the same thing.
 
-**So a feed entry must be keyed on the bundle, not the visit.** Grouping by
-`summaryEmailSentAt` within a customer is the natural key, since that is exactly what the
-bundle already writes. One entry per send, listing the venues it covered.
+That decision changes what a service entry is keyed on, and the first draft of this spec
+had it wrong.
 
-With the watermark decision above, a summary is unread when its `summaryEmailSentAt` is
-newer than the reader's `feedLastSeenAt`. No new storage for summaries at all.
+**Not `summaryEmailSentAt`.** Summary emails are sent by a cron, so a pool serviced this
+morning has no stamp until that job runs. Keying the feed on the send would make the portal
+LESS current than it is today, where `/portal` shows the most recent completed service day
+as soon as it is completed. That is a regression dressed as a feature.
 
-## Avoiding duplication with what the home page already shows
+**Keyed on the service day.** One entry per customer per day on which work was completed,
+listing the venues serviced. This also removes the bundling problem rather than solving it:
+a pool and its spa serviced on one arrival are by definition the same day, so they are one
+entry without `resolveSummaryBundle` being involved at all. Day-grouping is coarser than
+bundle-grouping and strictly safe — a bundle never spans days.
 
-`/portal` already loads the customer's most recent completed service day and the visits on
-it. A "your service report is ready" entry sitting above a panel that already shows that
-day's service is close to saying the same thing twice.
+`summaryEmailSentAt` becomes **display metadata on the entry** ("report emailed 3 Nov"),
+not its identity. Useful to show, and it answers "did my report go out" without governing
+whether the service appears.
 
-**◆ Worth deciding:** either the summary entry links to the existing detail rather than
-repeating it, or the home page's service section becomes the feed and stops being a
-separate block. The second is cleaner but is a redesign of the portal home, not an
-addition to it.
+Unread is the same rule as for alerts: the entry's date is newer than this login's
+`feedLastSeenAt`. No new storage for service entries either.
+
+### What this does to the current home page
+
+`/portal` today is a single-day view with previous/next day navigation. As a feed it
+becomes a reverse-chronological list, so that navigation has nowhere to live.
+
+◆ The natural resolution is that a feed entry links through to the existing day detail —
+the day view stops being the landing page and becomes the drill-down. That preserves
+everything a customer can see today and removes the duplication, but it is a change to how
+they browse history, not only to what the home shows. Worth saying out loud to the operator
+before it is built, because "eliminate the redundancy" and "move the day view" are the same
+decision and only the first was explicitly taken.
 
 ## UI
 
@@ -135,21 +150,21 @@ addition to it.
 | File | Change |
 |---|---|
 | `prisma/schema.prisma` | `feedLastSeenAt DateTime?` on `CustomerUser` — nothing on `CustomerAlert`. Migration applied to production BEFORE the code deploys |
-| `app/portal/(app)/page.tsx` | load alerts and bundled summaries, unread = newer than this login's `feedLastSeenAt` |
+| `app/portal/(app)/page.tsx` | becomes the feed: alerts + completed service days, unread = newer than this login's `feedLastSeenAt`. Today's single-day view moves to a drill-down |
 | `app/portal/(app)/alerts/page.tsx` | stamp `feedLastSeenAt`; show read state |
 | `app/portal/components/portal-nav.tsx` | unread badge; possible relabel |
 | `lib/customer-alerts.ts` | unchanged — sending is done |
 
 ## Open questions
 
-Resolved 2026-11-04: read is **per login**; summaries **do** join the feed.
+Resolved 2026-11-04: read is **per login**; summaries **do** join the feed; the home page's
+service block **becomes** the feed rather than sitting beside it, and service entries are
+keyed on the service day rather than the email send.
 
 Still open:
 
-1. ◆ Does the home page's existing service block stay alongside the feed, or become it?
-   `/portal` already shows the most recent completed service day, so a "your report is
-   ready" entry above it says the same thing twice. Folding them together is the clean
-   answer and is a redesign of the portal home, not an addition to it.
+1. ◆ Confirm the day view becomes a drill-down rather than the landing page — see the end
+   of "Service entries". Implied by eliminating the redundancy, but not explicitly decided.
 2. ◆ Mark seen on view, or on an explicit dismiss? With a watermark, "on view" means
    stamping `feedLastSeenAt` when the feed renders. Lower friction, and right for
    operational notices; wrong if anything here ever needs to look acknowledged.
