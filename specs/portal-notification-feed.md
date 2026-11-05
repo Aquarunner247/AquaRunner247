@@ -31,31 +31,62 @@ A feed on the portal home, drawn from **two** sources:
 "your pool failed" notification is a different product with different consequences, and
 the compliance record already carries the readings for anyone entitled to see them.
 
-## Read state
+## Read state — DECIDED 2026-11-04: per login
 
-Add to `CustomerAlert`:
+The operator chose **per portal login**, not per customer. A property with an on-site
+manager and a head office contact: each person sees their own unread state, and one
+reading a notice does not clear it for the other.
+
+**That rules out a `readAt` column on `CustomerAlert`.** One alert row holds one stamp, so
+the first reader would clear it for everybody — which is exactly the per-customer behaviour
+that was rejected. An earlier draft of this spec proposed that column; it is wrong for the
+decision taken.
+
+Two shapes work. They are not exclusive, and the second can be added later without undoing
+the first.
+
+### Recommended: a watermark per login
 
 ```
-readAt              DateTime?
-readByCustomerUserId String?
+CustomerUser.feedLastSeenAt  DateTime?
 ```
 
-Nullable, so every existing alert reads as unread. That is the right default — they were
-never shown on the home page, so the customer genuinely has not seen them there.
+Anything in the feed newer than this login's `feedLastSeenAt` is unread. Null means
+everything is unread, which is correct — none of it has ever been shown on the home page.
 
-**◆ One decision needed: is "read" per customer or per portal login?** A property with two
-logins — an on-site manager and a head office contact — behaves differently depending:
+Why this one:
 
-- **Per customer:** either person reading it clears it for both. Right for "the pool is
-  closed Thursday."
-- **Per login:** each person must see it themselves. Right for anything you would later
-  want to show a specific person received.
+- **It handles both sources with one mechanism.** A service summary has no row to mark
+  read, so any per-row scheme needs a watermark for summaries anyway. This is that
+  watermark, used for both.
+- One nullable column, no join table, no write per alert per reader.
+- It satisfies "per login" literally: each `CustomerUser` carries their own.
 
-Recording `readByCustomerUserId` alongside the timestamp keeps both options open even if
-the first implementation treats it as per-customer, which is why both columns are listed
-rather than a bare boolean.
+What it cannot do: express "I read this one but not that one." Opening the feed marks
+everything currently in it as seen. For operational notices — a closure, a schedule change
+— that is the normal behaviour of every inbox badge and is almost certainly fine.
 
-## Service summaries in the feed
+### If per-alert precision is ever needed
+
+```
+model CustomerAlertRead {
+  alertId        String
+  customerUserId String
+  readAt         DateTime @default(now())
+  @@unique([alertId, customerUserId])
+}
+```
+
+One row per (alert, reader). Supports partial reading and answers "did this specific person
+open this specific notice", which the watermark cannot.
+
+◆ **Only build this if there is a reason to prove a particular person read a particular
+alert.** Note the sending side already records `sendOutcome`, `recipientCount` and
+`failedRecipientCount`, so delivery is evidenced — this would be about *reading*, which is
+a different and weaker claim. Adding the table later does not require migrating away from
+the watermark; the two answer different questions.
+
+## Service summaries — DECIDED 2026-11-04: they join the feed
 
 Summaries are **bundled**: one email can cover several visits, and every member carries the
 same `summaryEmailSentAt` stamp — see `resolveSummaryBundle` and the field's own doc
@@ -65,14 +96,8 @@ comment, which exists precisely so a pool and its spa are not reported twice.
 `summaryEmailSentAt` within a customer is the natural key, since that is exactly what the
 bundle already writes. One entry per send, listing the venues it covered.
 
-A summary entry is **derived, not stored** — there is no row to mark read. Either:
-
-- **(a)** treat summaries as always-read and show them as history rather than notifications,
-  or
-- **(b)** store a per-customer "feed last seen" timestamp and call anything newer unread.
-
-◆ (b) is simpler than it sounds and gives a real unread count across both sources. (a)
-means the badge only ever counts alerts.
+With the watermark decision above, a summary is unread when its `summaryEmailSentAt` is
+newer than the reader's `feedLastSeenAt`. No new storage for summaries at all.
 
 ## Avoiding duplication with what the home page already shows
 
@@ -109,17 +134,24 @@ addition to it.
 
 | File | Change |
 |---|---|
-| `prisma/schema.prisma` | `readAt`, `readByCustomerUserId` on `CustomerAlert`; migration applied to production BEFORE deploy |
-| `app/portal/(app)/page.tsx` | load unread alerts and, if included, bundled summaries |
-| `app/portal/(app)/alerts/page.tsx` | mark read; show read state |
+| `prisma/schema.prisma` | `feedLastSeenAt DateTime?` on `CustomerUser` — nothing on `CustomerAlert`. Migration applied to production BEFORE the code deploys |
+| `app/portal/(app)/page.tsx` | load alerts and bundled summaries, unread = newer than this login's `feedLastSeenAt` |
+| `app/portal/(app)/alerts/page.tsx` | stamp `feedLastSeenAt`; show read state |
 | `app/portal/components/portal-nav.tsx` | unread badge; possible relabel |
 | `lib/customer-alerts.ts` | unchanged — sending is done |
 
 ## Open questions
 
-1. ◆ Read per customer, or per portal login?
-2. ◆ Do service summaries join the feed, or do alerts stay the only source?
-3. ◆ If they join: store a "feed last seen" timestamp, or treat summaries as always-read?
-4. ◆ Does the home page's existing service block stay, or become the feed?
-5. ◆ Mark read on view, or explicit dismiss?
-6. ◆ Keep the nav label "Alerts", or widen it?
+Resolved 2026-11-04: read is **per login**; summaries **do** join the feed.
+
+Still open:
+
+1. ◆ Does the home page's existing service block stay alongside the feed, or become it?
+   `/portal` already shows the most recent completed service day, so a "your report is
+   ready" entry above it says the same thing twice. Folding them together is the clean
+   answer and is a redesign of the portal home, not an addition to it.
+2. ◆ Mark seen on view, or on an explicit dismiss? With a watermark, "on view" means
+   stamping `feedLastSeenAt` when the feed renders. Lower friction, and right for
+   operational notices; wrong if anything here ever needs to look acknowledged.
+3. ◆ Keep the nav label "Alerts", or widen it? Once summaries are in it, the contents no
+   longer match the word.
