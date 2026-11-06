@@ -9,6 +9,54 @@ Dated, newest first. Delete an entry when it ships or is decided against.
 
 ---
 
+## 2026-11-05 — In-app subscriptions: link out, don't build IAP
+
+Reopening the 2026-10-31 "web only" decision, because the facts it rested on changed.
+
+The owner's objection is that sending someone out of the app to subscribe turns people
+away — he says it turns *him* away. He is right, and post-Epic there is now a middle path
+that did not exist when the decision was taken:
+
+| | Link out to your own checkout |
+|---|---|
+| Apple (US) | allowed, **0%**, may sit alongside IAP, may say the web is cheaper |
+| Google Play (US) | allowed, **10%** for subscriptions, but you must enrol in the external-links programme and use their APIs — a bare link is a violation |
+
+So it is no longer "full IAP or send them away". A real Subscribe button that opens Stripe
+checkout removes the friction, keeps one billing system, and costs 0-10% instead of the
+15-30% that made IAP unattractive.
+
+**Still not urgent:** `/portal/subscribe` is not live, so nobody is being turned away yet.
+What matters is that when it does go live, the link-out is the shape to build — not
+StoreKit and Play Billing, and not the current dead end.
+
+**Verify before building.** These rates come from secondary summaries, not Apple's and
+Google's own policy text. That distinction already bit once this week: a blog said Play
+"requires" a 30-second background-location video when Google's own page says "aim for 30
+seconds or less". Apple's 0% also rests on a ruling that went to the Supreme Court in June
+2026.
+
+---
+
+## 2026-11-05 — There are no Stripe environment variables in production
+
+Checked while trying to enable signups. The Vercel project has **zero** Stripe variables —
+not in production, not in preview, not anywhere. `grep -ci stripe` over the full env
+listing returns 0.
+
+The code reads six: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+`STRIPE_PRICE_ID_SERVICE`, `STRIPE_PRICE_ID_WHITE_LABEL`, `STRIPE_PRICE_ID_COMPLIANCE`,
+`STRIPE_PRICE_ID_EXTRA_SEAT`. None exists.
+
+`SIGNUPS_ENABLED` exists on **preview only**, with an empty value.
+
+So "turn Stripe on" is not a flag flip — nothing is wired. The earlier note that the price
+variables used "retired tier names" was wrong in detail and worse in substance: the names
+in `lib/stripe.ts` match the current `PlanTier` enum exactly, and the variables simply are
+not there. They were deleted during the October Stripe work and never restored.
+
+---
+
 ## 2026-11-03 — Moving a stop AND changing its route day makes a duplicate
 
 Moving Monday's Fifty101 to Tuesday creates a hand-added visit on Tuesday. Separately
