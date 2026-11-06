@@ -560,14 +560,20 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                 </div>
               </div>
 
-              <form action={updateRouteWindow} className="mt-3 flex flex-wrap items-end gap-2">
+              {/* DATES this route is active between -- deliberately NOT called "starting"/"ending"
+                  any more. It sat directly above the block that sets WHERE the day starts and
+                  ends, so the card carried four controls whose labels were all variations of
+                  start and end, meaning two completely different things. */}
+              <form action={updateRouteWindow} className="mt-3">
+                <p className="app-kicker">Active dates</p>
+                <div className="mt-1 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="routeId" value={route.id} />
                 <div>
                   <label
                     htmlFor={`starts-on-${route.id}`}
                     className="text-xs font-semibold uppercase tracking-wide text-brand-muted"
                   >
-                    Starting on
+                    Runs from
                   </label>
                   <input
                     id={`starts-on-${route.id}`}
@@ -582,7 +588,7 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                     htmlFor={`ends-on-${route.id}`}
                     className="text-xs font-semibold uppercase tracking-wide text-brand-muted"
                   >
-                    Ending on
+                    Runs until
                   </label>
                   <input
                     id={`ends-on-${route.id}`}
@@ -599,6 +605,7 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                 <span className="text-xs text-brand-muted">
                   {windowLabel ?? "Runs every week, no end date"}
                 </span>
+                </div>
               </form>
 
               {route.maxCapacity != null ? (
@@ -612,73 +619,94 @@ export default async function RoutesPage({ searchParams }: PageProps) {
                 </div>
               ) : null}
 
-              {/* Where this day begins and ends, and whether that comes from the route or the
-                  technician. Stated rather than left implicit, because "Optimize stop order"
-                  below silently depends on it.
+              {/* WHERE the day begins and ends. Three things were compressed into one line and
+                  the operator could not read it: the value, where the value came from, and two
+                  actions that do opposite things.
 
-                  Readable rather than tucked away: this was text-xs inside a quiet inset, and the
-                  operator could not find it at all when looking for somewhere to pick a
-                  technician's home -- "where is it supposed to be?". The link is now a button with
-                  a 44px target and a label that says what it does, rather than "set for this day"
-                  in link-sized text among a dense card. */}
-              <div className="app-card-inset mt-3 space-y-2">
-                {(["start", "end"] as const).map((which) => {
-                  const resolved = routeEndpoints.get(route.id);
-                  const point = which === "start" ? resolved?.start : resolved?.end;
-                  const overridden =
-                    which === "start" ? route.startLatitude != null : route.endLatitude != null;
-                  return (
-                    <div key={which} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                      <span className="w-14 shrink-0 text-xs font-semibold uppercase tracking-wide text-brand-muted">
-                        {which === "start" ? "Starts" : "Ends"}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-brand-ink">
-                        {point
-                          ? point.label || "a set point"
-                          : which === "start"
-                            ? "whichever stop is first"
-                            : "back where the day started"}
-                      </span>
-                      {overridden ? <span className="app-pill-attention shrink-0">this day only</span> : null}
+                  The source is now written out instead of encoded in whether a pill appears.
+                  Previously "label + pill" meant this day only, "label + no pill" meant inherited
+                  from the technician, and prose like "whichever stop is first" meant nothing was
+                  set anywhere -- three states a reader had to already know to decode.
 
-                      {/* One tap, here on the card, for the two things actually wanted most often.
-                          Which one shows depends on whether this technician has a point of their
-                          own yet -- the whole re-entry problem is that Rodrigo did not. */}
-                      {overridden && route.technician ? (
-                        techHasOwn(route.technician, which) ? (
-                          <form action={clearRouteLocation} className="shrink-0">
-                            <input type="hidden" name="routeId" value={route.id} />
-                            <input type="hidden" name="which" value={which} />
-                            <input type="hidden" name="back" value={backTo} />
-                            <button type="submit" className="app-btn-ghost-sm min-h-[44px]">
-                              Use {route.technician.name ?? route.technician.email}&rsquo;s own
-                            </button>
-                          </form>
-                        ) : (
-                          <form action={saveRouteLocationAsTechnicianDefault} className="shrink-0">
-                            <input type="hidden" name="routeId" value={route.id} />
-                            <input type="hidden" name="which" value={which} />
-                            <input type="hidden" name="back" value={backTo} />
-                            <button
-                              type="submit"
-                              title={`Use this on every one of ${route.technician.name ?? route.technician.email}'s days, not just this one`}
-                              className="app-btn-ghost-sm min-h-[44px]"
-                            >
-                              Save as {route.technician.name ?? route.technician.email}&rsquo;s {which}
-                            </button>
-                          </form>
-                        )
-                      ) : null}
+                  The two actions keep the same noun and differ by verb, so their direction is
+                  readable: "Use X's default" pulls the technician's value down onto this day,
+                  "Make this X's default" pushes this day's value up to the technician. Named
+                  rather than pronouns, which also avoids assuming anyone's gender. */}
+              <div className="app-card-inset mt-3">
+                <p className="app-kicker">Where the day begins and ends</p>
+                <p className="mt-1 text-xs text-brand-muted">
+                  Used by Optimize stop order to work out the driving order.
+                </p>
+                <div className="mt-2 space-y-2">
+                  {(["start", "end"] as const).map((which) => {
+                    const resolved = routeEndpoints.get(route.id);
+                    const point = which === "start" ? resolved?.start : resolved?.end;
+                    const overridden =
+                      which === "start" ? route.startLatitude != null : route.endLatitude != null;
+                    const techName = route.technician?.name ?? route.technician?.email ?? null;
 
-                      <Link
-                        href={`/dashboard/routes/${route.id}/location/${which}?back=${encodeURIComponent(backTo)}`}
-                        className="app-btn-ghost-sm min-h-[44px] shrink-0"
-                      >
-                        {overridden ? `Change ${which}` : `Set ${which}`}
-                      </Link>
-                    </div>
-                  );
-                })}
+                    // The value, as a value -- not as a sentence explaining why there isn't one.
+                    const value = point
+                      ? point.label || "A set point on the map"
+                      : which === "start"
+                        ? "The first stop of the day"
+                        : "Back where the day started";
+
+                    // Said in words, so the three states stop depending on a pill being noticed.
+                    const source = overridden
+                      ? "set for this day only"
+                      : point
+                        ? techName
+                          ? `${techName}'s usual ${which}`
+                          : `the usual ${which}`
+                        : "nothing set";
+
+                    return (
+                      <div key={which} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-brand-muted">
+                          {which === "start" ? "Leaves from" : "Returns to"}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm text-brand-ink">{value}</span>
+                          <span className="block text-xs text-brand-muted">{source}</span>
+                        </span>
+
+                        {overridden && route.technician ? (
+                          techHasOwn(route.technician, which) ? (
+                            <form action={clearRouteLocation} className="shrink-0">
+                              <input type="hidden" name="routeId" value={route.id} />
+                              <input type="hidden" name="which" value={which} />
+                              <input type="hidden" name="back" value={backTo} />
+                              <button type="submit" className="app-btn-ghost-sm min-h-[44px]">
+                                Use {techName}&rsquo;s default
+                              </button>
+                            </form>
+                          ) : (
+                            <form action={saveRouteLocationAsTechnicianDefault} className="shrink-0">
+                              <input type="hidden" name="routeId" value={route.id} />
+                              <input type="hidden" name="which" value={which} />
+                              <input type="hidden" name="back" value={backTo} />
+                              <button
+                                type="submit"
+                                title={`Apply this to every one of ${techName}'s days, not just this one`}
+                                className="app-btn-ghost-sm min-h-[44px]"
+                              >
+                                Make this {techName}&rsquo;s default
+                              </button>
+                            </form>
+                          )
+                        ) : null}
+
+                        <Link
+                          href={`/dashboard/routes/${route.id}/location/${which}?back=${encodeURIComponent(backTo)}`}
+                          className="app-btn-ghost-sm min-h-[44px] shrink-0"
+                        >
+                          {overridden || point ? "Change" : "Set"}
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <form action={addRouteStop} className="app-card-inset mt-3 flex flex-wrap items-center gap-2">
