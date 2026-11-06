@@ -360,14 +360,26 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     const productChemicalType = productChemicalTypeFor(key, direction);
     const feedPrefix = key === "FREE_CHLORINE" ? feedMechanismPrefix(visit.bodyOfWater.chlorineFeedMechanism) : "";
 
-    // Additional, independent recommendation -- not a replacement for whatever the normal
-    // liquid/granular pick below produces (or doesn't). An org running a tablet feeder can
-    // still have a granular product enabled for periodic shock treatment; showing both
-    // gives the tech the real choice instead of hiding one. Only for direction === "UP" --
-    // tablets only ever raise chlorine, so a too-high reading (DOWN) stays on the existing
-    // sodium-thiosulfate path untouched.
+    // A tablet-fed body gets the TABLET recommendation and nothing else.
+    //
+    // This used to show both, deliberately: the reasoning was that an org running a feeder
+    // might also keep granular for periodic shock, so showing both "gives the tech the real
+    // choice instead of hiding one". In the field that is not what happened. Technicians read
+    // two chlorine lines on one card and added BOTH -- reported by the operator 2026-11-06
+    // after it happened on real pools. Two doses of chlorine because the screen listed two is
+    // an over-chlorination the software caused, which beats the argument for choice.
+    //
+    // Only for direction === "UP": tablets only ever raise chlorine, so a too-high reading
+    // stays on the existing sodium-thiosulfate path untouched.
+    //
     // Both tablet mechanisms, because the chemistry is identical -- the same trichlor puck
     // dissolving over the same interval. Only the guidance and the holder's capacity differ.
+    //
+    // NOTE for whoever builds specs/shock-breakpoint-dosing.md: shock is the one case where
+    // liquid or cal-hypo must come back, because a feeder cannot raise chlorine fast enough
+    // and trichlor adds CYA exactly when the pool least needs it. That path must suppress the
+    // TABLET recommendation instead, not sit alongside it -- the same two-doses problem in
+    // reverse.
     const onTablets =
       visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FEEDER" ||
       visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER";
@@ -391,7 +403,13 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
             billingLink: buildBillingLink(tabletSetting.linkedBillingProduct, tablet.totalTablets, "TABLET"),
           }),
         );
+        // The tablet dose IS the chlorine recommendation for this body. Skip the
+        // liquid/granular pick below so the card carries one chlorine line, not two.
+        continue;
       }
+      // Deliberately NOT a continue: no tablet product is enabled for this org, so falling
+      // through to liquid/granular is the only way a tablet-fed pool gets any chlorine
+      // recommendation at all. Suppressing here would show nothing.
     }
 
     if (!productChemicalType) {
