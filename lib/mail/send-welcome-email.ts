@@ -6,6 +6,10 @@
  * (app/dashboard/customers/[id]/actions.ts) right after a brand-new CustomerUser row is
  * created there.
  *
+ * `generateInviteLink` at the bottom of this file is the same first step on its own, for an
+ * admin who wants the activation link itself rather than an emailed one -- see its own doc
+ * comment for why that exists.
+ *
  * SECURITY NOTES -- read before changing this file:
  *
  * 1. Service role key: `createSupabaseAdminClient` (lib/supabase/admin.ts) uses
@@ -29,10 +33,11 @@
  *    WelcomeEmailSend audit row below) -- it's a bearer credential.
  *
  * 3. Rate limiting: enforced here (checkWelcomeEmailRateLimit), not left to the caller --
- *    max 3 sends to the same address per 24h, backed by the WelcomeEmailSend audit table
- *    this function already writes to. There is no separate "resend invite" action built in
- *    this pass (explicitly out of scope); when one is added, it must call this same
- *    function so the limit still applies.
+ *    max 3 sends (or link generations -- see `generateInviteLink` below) to the same address
+ *    per 24h, backed by the WelcomeEmailSend audit table this function already writes to.
+ *    The link-only path shares the same counter as the emailed one: either way the result is
+ *    a live bearer credential for that address, and the abuse case (hammering the same inbox
+ *    or account) doesn't care which path produced it.
  *
  * 4. Cross-tenant isolation: `organizationId` must come from the authenticated admin's
  *    session (see requireAdmin() at the createCustomerLogin call site), never from a
@@ -94,6 +99,43 @@ async function checkWelcomeEmailRateLimit(toEmail: string): Promise<boolean> {
   return count < RATE_LIMIT_MAX_SENDS;
 }
 
+/**
+ * Generates the same activation URL the welcome email sends, without rendering or mailing
+ * anything. Shared by `sendWelcomeEmail` and `generateInviteLink` below so there is exactly
+ * one place that talks to Supabase for this.
+ *
+ * Our own URL, not Supabase's action_link.
+ *
+ * action_link points at Supabase's verify endpoint, which redeems the token and then hands the session
+ * back in the URL FRAGMENT -- never sent to a server, and /auth/callback expects a `?code=` it will
+ * never get. That is the bug a customer hit on 2026-10-02: the link dropped them on the staff login
+ * with an auth error, and only "forgot my password" worked, because that flow starts in the browser
+ * and really does use a code.
+ *
+ * Redeeming the hashed token ourselves (app/auth/confirm) keeps the whole exchange server-side and
+ * cookie-based, and takes Supabase's redirect allow-list out of the path entirely.
+ */
+async function generateActivationLink(
+  customerEmail: string,
+  portalBaseUrl: string,
+): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
+  const supabaseAdmin = createSupabaseAdminClient();
+
+  // Redirects through this app's existing password-set flow -- see this file's header
+  // comment. ?portal=1 is read by app/reset-password/page.tsx so the post-set redirect
+  // goes to /portal/login instead of the staff /login page.
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    type: "recovery",
+    email: customerEmail,
+  });
+
+  if (error || !data?.properties?.hashed_token) {
+    return { ok: false, reason: error?.message ?? "No hashed_token returned" };
+  }
+
+  return { ok: true, url: buildActivationUrl(portalBaseUrl, data.properties.hashed_token) };
+}
+
 export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<{ ok: true } | { ok: false; reason: string }> {
   const org = await prisma.organization.findUnique({
     where: { id: params.organizationId },
@@ -124,36 +166,14 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
     return { ok: false, reason: "Too many emails sent to this address recently." };
   }
 
-  const supabaseAdmin = createSupabaseAdminClient();
-
-  // Redirects through this app's existing password-set flow -- see this file's header
-  // comment. ?portal=1 is read by app/reset-password/page.tsx so the post-set redirect
-  // goes to /portal/login instead of the staff /login page.
-  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-    type: "recovery",
-    email: params.customerEmail,
-  });
-
-  if (error || !data?.properties?.hashed_token) {
-    await logSend(params, "failed", error?.message ?? "No hashed_token returned");
+  const linkResult = await generateActivationLink(params.customerEmail, params.portalBaseUrl);
+  if (!linkResult.ok) {
+    await logSend(params, "failed", linkResult.reason);
     // Generic reason to the caller -- never surface Supabase's own message, which can
     // otherwise leak cross-tenant account-existence details.
     return { ok: false, reason: "Could not generate an activation link." };
   }
-
-  /**
-   * Our own URL, not Supabase's action_link.
-   *
-   * action_link points at Supabase's verify endpoint, which redeems the token and then hands the session
-   * back in the URL FRAGMENT -- never sent to a server, and /auth/callback expects a `?code=` it will
-   * never get. That is the bug a customer hit on 2026-10-02: the link dropped them on the staff login
-   * with an auth error, and only "forgot my password" worked, because that flow starts in the browser
-   * and really does use a code.
-   *
-   * Redeeming the hashed token ourselves (app/auth/confirm) keeps the whole exchange server-side and
-   * cookie-based, and takes Supabase's redirect allow-list out of the path entirely.
-   */
-  const activationUrl = buildActivationUrl(params.portalBaseUrl, data.properties.hashed_token);
+  const activationUrl = linkResult.url;
 
   const { subject, html, text } = renderWelcomeEmail({
     orgName: org.name,
@@ -205,7 +225,11 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
   return { ok: true };
 }
 
-async function logSend(params: SendWelcomeEmailParams, status: "sent" | "failed" | "resent", errorMessage: string | null) {
+async function logSend(
+  params: { organizationId: string; customerId: string; customerEmail: string },
+  status: "sent" | "failed" | "resent" | "link_generated",
+  errorMessage: string | null,
+) {
   await prisma.welcomeEmailSend.create({
     data: {
       organizationId: params.organizationId,
@@ -215,4 +239,43 @@ async function logSend(params: SendWelcomeEmailParams, status: "sent" | "failed"
       errorMessage: errorMessage ?? undefined,
     },
   });
+}
+
+export interface GenerateInviteLinkParams {
+  organizationId: string;
+  customerId: string;
+  customerEmail: string;
+  /** Same as SendWelcomeEmailParams.portalBaseUrl -- see that field's doc comment. */
+  portalBaseUrl: string;
+}
+
+/**
+ * The link-only counterpart to `sendWelcomeEmail`, for when email delivery can't be trusted
+ * (spam filtering, a mistyped address, an inbox nobody checks) and the office wants to hand
+ * the activation link to the customer directly -- text, call and read it out, however they'd
+ * normally reach that person -- instead of relying on it landing in an inbox.
+ *
+ * Same bearer-credential rules as the emailed link apply: the caller must show it once and
+ * not persist it anywhere (this function itself never writes the token, only an audit row
+ * recording that a link was generated). Shares `sendWelcomeEmail`'s rate limit, deliberately
+ * -- see that function's doc comment, point 3.
+ */
+export async function generateInviteLink(
+  params: GenerateInviteLinkParams,
+): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
+  if (!(await checkWelcomeEmailRateLimit(params.customerEmail))) {
+    // No audit row on a rate-limit refusal, same as sendWelcomeEmail -- nothing was
+    // attempted against Supabase, so there's nothing to log an outcome for.
+    return { ok: false, reason: "Too many links generated for this address recently. Wait a bit and try again." };
+  }
+
+  const linkResult = await generateActivationLink(params.customerEmail, params.portalBaseUrl);
+  if (!linkResult.ok) {
+    await logSend(params, "failed", linkResult.reason);
+    // Generic reason, same justification as sendWelcomeEmail's.
+    return { ok: false, reason: "Could not generate an activation link." };
+  }
+
+  await logSend(params, "link_generated", null);
+  return { ok: true, url: linkResult.url };
 }

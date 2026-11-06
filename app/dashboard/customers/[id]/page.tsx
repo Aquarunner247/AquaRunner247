@@ -7,6 +7,7 @@ import { generateQrDataUrl, publicBodyOfWaterUrl } from "@/lib/qr";
 import { createBodyOfWater } from "../actions";
 import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
 import { AddressFields } from "@/app/components/address-fields";
+import { CustomerLoginInviteLink } from "./customer-login-invite-link";
 import {
   deleteCustomer,
   endCustomerRelationship,
@@ -1083,6 +1084,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                         />
                       </form>
                     )}
+                    {/* Only for a login nobody has activated yet -- an already-active customer
+                        can just sign in or use "forgot password" at /portal/login themselves. */}
+                    {!isEnded && !cu.activatedAt ? <CustomerLoginInviteLink customerUserId={cu.id} /> : null}
                   </li>
                 ))}
               </ul>
