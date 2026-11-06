@@ -9,6 +9,38 @@ Dated, newest first. Delete an entry when it ships or is decided against.
 
 ---
 
+## 2026-11-06 — A technician can silently change their own route start point
+
+Raised by the operator while the route card was being reshaped, and worth deciding.
+
+`User.startLatitude / startLongitude / startAddress` is ONE field with TWO editors:
+
+| Who | Where |
+|---|---|
+| the technician | More -> start location (`app/dashboard/more/start-location`) |
+| the office | Users -> technician -> start location (`app/dashboard/users/[userId]/start-location`) |
+
+So it is not merely linked, it is the same value. If a technician changes their start
+location on their phone, the default behind **every one of their routes** changes with it,
+including days the office configured. Resolution order is
+`route.start ?? technician.start ?? none` (`lib/route-endpoints.ts`), so only days carrying
+an explicit per-day override are insulated.
+
+Two open questions:
+
+1. **Should a technician be able to change it at all?** It is their home address, which
+   argues for yes. It is also an input to route optimisation and therefore to the order of
+   their own working day, which argues for no.
+2. **If they can, should the office be told?** Today the change is silent: nothing notifies
+   anyone and nothing records who made it. The office would see a different driving order the
+   next morning with no explanation available on the screen.
+
+Neither is a bug. The reshape in 57c1e6e makes the *route* card say which layer a value came
+from, which is a prerequisite for this being noticeable at all, but it does not address who
+may set the technician-level default or whether a change is visible.
+
+---
+
 ## 2026-11-05 — In-app subscriptions: link out, don't build IAP
 
 Reopening the 2026-10-31 "web only" decision, because the facts it rested on changed.
