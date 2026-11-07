@@ -9,6 +9,7 @@ import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, 
 import { WaveProgress } from "@/app/components/wave-progress";
 import { ChemGauge } from "@/app/components/chem-gauge";
 import { resolveIssue } from "./actions";
+import { setCustomerTaskDone } from "./customers/[id]/actions";
 import { TechnicianHome } from "./technician-home";
 import { timeZoneForState, formatLocalDate, startOfLocalDay } from "@/lib/timezone";
 import { taskDueState } from "@/lib/customer-task-due";
@@ -609,6 +610,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               outOfRangeReadings={outOfRangeItems}
               dueTasks={dueTaskItems}
               resolveIssue={resolveIssue}
+              setCustomerTaskDone={setCustomerTaskDone}
               closureFeeLabel={closureFeeLabel}
             />
           </div>

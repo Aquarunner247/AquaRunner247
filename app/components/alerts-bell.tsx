@@ -55,6 +55,9 @@ type AlertsBellProps = {
   /** Office to-dos against a customer that are due today or overdue (CustomerTask). */
   dueTasks: DueTaskItem[];
   resolveIssue: (formData: FormData) => void | Promise<void>;
+  /** Ticks a CustomerTask off. ADMIN and OFFICE both, matching resolveIssue above -- a to-do
+   *  somebody can see in this bell but not tick would be a dead control. */
+  setCustomerTaskDone: (formData: FormData) => void | Promise<void>;
   /** e.g. "$909 reopening fee" -- from the org's ComplianceRuleset, so this isn't hardcoded
    * to Nevada's fee. Omitted entirely when the linked department doesn't charge one / isn't known. */
   closureFeeLabel?: string | null;
@@ -86,6 +89,8 @@ export function AlertsBell({
   outOfRangeReadings,
   dueTasks,
   resolveIssue,
+  setCustomerTaskDone,
+ 
   closureFeeLabel,
 }: AlertsBellProps) {
   const [open, setOpen] = useState(false);
@@ -195,18 +200,31 @@ export function AlertsBell({
                   <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">To-dos</p>
                   <ul className="mt-2 space-y-1">
                     {dueTasks.map((task) => (
-                      <li key={task.id} className="text-sm text-brand-ink/80">
-                        <Link
-                          href={`/dashboard/customers/${task.customerId}?tab=overview`}
-                          className="app-link"
-                          onClick={() => setOpen(false)}
-                        >
-                          {task.customer}
-                        </Link>{" "}
-                        · {task.title} ·{" "}
-                        <span className={task.overdue ? "font-semibold text-brand-danger" : "text-brand-warn"}>
-                          {task.dueLabel}
+                      <li key={task.id} className="flex flex-wrap items-start justify-between gap-2 text-sm text-brand-ink/80">
+                        <span className="min-w-0 flex-1">
+                          <Link
+                            href={`/dashboard/customers/${task.customerId}?tab=overview`}
+                            className="app-link"
+                            onClick={() => setOpen(false)}
+                          >
+                            {task.customer}
+                          </Link>{" "}
+                          · {task.title} ·{" "}
+                          <span className={task.overdue ? "font-semibold text-brand-danger" : "text-brand-warn"}>
+                            {task.dueLabel}
+                          </span>
                         </span>
+                        {/* Same shape as "Mark resolved" on a reported issue above: a form posting
+                            the existing server action, not a bespoke endpoint. `done=1` matches
+                            setCustomerTaskDone's own parsing, which also supports reopening. */}
+                        <form action={setCustomerTaskDone} className="shrink-0">
+                          <input type="hidden" name="taskId" value={task.id} />
+                          <input type="hidden" name="customerId" value={task.customerId} />
+                          <input type="hidden" name="done" value="1" />
+                          <button type="submit" className="app-btn-primary-sm min-h-[44px]">
+                            Mark done
+                          </button>
+                        </form>
                       </li>
                     ))}
                   </ul>

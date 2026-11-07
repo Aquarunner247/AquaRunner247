@@ -32,6 +32,21 @@ async function requireAdmin() {
   return appUser;
 }
 
+/**
+ * ADMIN or OFFICE. Deliberately separate from requireAdmin rather than widening it: nearly
+ * every action in this file is customer and property administration, which stays admin-only.
+ *
+ * Ticking off a to-do is not that. Office staff are the people working the dashboard's alert
+ * bell all day, and resolveIssue -- the thing sitting directly above to-dos in that bell --
+ * has always allowed OFFICE. A to-do they can see but not tick is a dead control.
+ */
+async function requireAdminOrOffice() {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) redirect("/login");
+  if (appUser.role !== "ADMIN" && appUser.role !== "OFFICE") redirect("/dashboard");
+  return appUser;
+}
+
 /** A blank field or 0-or-negative input both mean "use the default 150m" (see
  * ARRIVAL_RADIUS_METERS in route-day-view.tsx) -- only a positive override is worth
  * persisting. */
@@ -1484,7 +1499,7 @@ export async function addCustomerTask(formData: FormData) {
 }
 
 export async function setCustomerTaskDone(formData: FormData) {
-  const appUser = await requireAdmin();
+  const appUser = await requireAdminOrOffice();
   const customerId = String(formData.get("customerId") ?? "").trim();
   const taskId = String(formData.get("taskId") ?? "").trim();
   const done = String(formData.get("done") ?? "") === "1";
@@ -1506,6 +1521,9 @@ export async function setCustomerTaskDone(formData: FormData) {
         { completedAt: null, completedByUserId: null },
   });
   revalidatePath(`/dashboard/customers/${customerId}`);
+  // The alert bell lives on the dashboard and lists the same to-dos, so without this a task
+  // ticked from the bell stays in the bell until something else happens to revalidate it.
+  revalidatePath("/dashboard");
 }
 
 export async function deleteCustomerTask(formData: FormData) {
