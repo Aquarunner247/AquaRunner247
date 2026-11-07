@@ -26,9 +26,26 @@ export type VolumeShapeInput = {
 };
 
 const CUBIC_FT_TO_GALLONS = 7.5;
-/** Rounded-rectangle oval/kidney approximation constant -- not a true ellipse (~5.9),
- * this is the standard published pool-industry figure for these two shapes. */
-const OVAL_KIDNEY_CONSTANT = 6.7;
+/** Rounded-rectangle oval approximation constant -- not a true ellipse (~5.9), this is the
+ *  standard published pool-industry figure. Named OVAL_KIDNEY_CONSTANT when kidney was
+ *  expected to share it; kidney does not, and uses KIDNEY_SHAPE_FACTOR below instead. */
+const OVAL_CONSTANT = 6.7;
+
+/**
+ * The shape factor in the published kidney/freeform formula:
+ *
+ *     (A + B) x length x average depth x 0.45 x 7.5
+ *
+ * It accounts for a kidney being substantially narrower than the rectangle its two width
+ * measurements would otherwise describe. It was missing, so the calculator returned roughly
+ * 1 / 0.45 = 2.2x the real volume -- and since BodyOfWater.volumeGallons is what dosing reads,
+ * every chemical recommendation for such a pool would have been about 2.2x too large.
+ *
+ * Caught in the 2026-11-01 code review. Latent rather than harmful: there were no
+ * VolumeCalculation rows in production when this was fixed, so every volume in use had been
+ * typed in by hand and no dose was ever computed from it.
+ */
+const KIDNEY_SHAPE_FACTOR = 0.45;
 
 function averageDepth(shallow?: number | null, deep?: number | null): number | null {
   if (shallow != null && deep != null) return (shallow + deep) / 2;
@@ -55,12 +72,18 @@ export function calculateGallons(input: VolumeShapeInput): number | null {
     case "OVAL": {
       const depth = averageDepth(input.shallowDepthFt, input.deepDepthFt);
       if (!input.lengthFt || !input.widthFt || depth == null || depth <= 0) return null;
-      return input.lengthFt * input.widthFt * depth * OVAL_KIDNEY_CONSTANT;
+      return input.lengthFt * input.widthFt * depth * OVAL_CONSTANT;
     }
     case "KIDNEY_FREEFORM": {
       const depth = averageDepth(input.shallowDepthFt, input.deepDepthFt);
       if (!input.freeformMeasurementA || !input.freeformMeasurementB || !input.widthFt || depth == null || depth <= 0) return null;
-      return (input.freeformMeasurementA + input.freeformMeasurementB) * input.widthFt * depth * CUBIC_FT_TO_GALLONS;
+      return (
+        (input.freeformMeasurementA + input.freeformMeasurementB) *
+        input.widthFt *
+        depth *
+        KIDNEY_SHAPE_FACTOR *
+        CUBIC_FT_TO_GALLONS
+      );
     }
     case "MULTI_DEPTH": {
       const { shallowSectionLengthFt: sL, shallowSectionWidthFt: sW, shallowSectionDepthFt: sD } = input;
