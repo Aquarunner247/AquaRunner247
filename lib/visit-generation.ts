@@ -29,6 +29,30 @@ export async function ensureVisitsGeneratedForDate(organizationId: string, ymd: 
   const todayYmd = ymdInTimeZone(new Date(), timeZone);
   const isoWeekday = isoWeekdayOfYmd(ymd);
 
+  /**
+   * Never generate into the past. Looking at history must not create it.
+   *
+   * This ran for whatever day was opened, so scrolling back through the schedule manufactured
+   * stops that never happened: one visit per route stop for that weekday, landing as SCHEDULED
+   * on a date already gone. Nothing cleaned them up either -- the nightly sweep only closes out
+   * IN_PROGRESS, and retractVisitsNoLongerOnThisDay skips past days -- so they sat there until
+   * somebody tapped one.
+   *
+   * On 2026-11-07 one did. A Tailgate Beach Club visit dated Nov 2 was CREATED that morning,
+   * appeared on screen, and was started at 08:20 -- the same minute the real Nov 7 Tailgate
+   * visit was completed. Being IN_PROGRESS at another property, it then blocked the technician
+   * from starting Baymont for the rest of the route, telling him to go and finish a stop he had
+   * already finished. The operator reported it had happened before.
+   *
+   * The two functions at the bottom of this file already guard exactly this way
+   * (`if (dayStart < todayStart) return`) -- alignment and retraction have always refused to
+   * rewrite a past day. Generation was the one that did not, and it is the one that creates
+   * rows.
+   *
+   * A day in the past shows the visits it actually has, which for an unworked day is none.
+   */
+  if (ymd < todayYmd) return;
+
   // A route only runs inside its service window. Both bounds are inclusive and either may
   // be null (no start bound / never ends). startsOn and endsOn are @db.Date, so Prisma
   // hands them back as UTC midnight of that calendar date -- compared against the same
