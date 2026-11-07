@@ -204,6 +204,9 @@ export function wordsToNumber(words: readonly string[]): number | null {
   let total = 0;
   let current = 0;
   let sawAny = false;
+  /** True when the token just consumed was a plain number word, so a second one running
+   *  straight into it can be refused rather than silently added. See the SMALL_WORDS branch. */
+  let prevWasSmall = false;
 
   for (let i = 0; i < words.length; i++) {
     const w = words[i];
@@ -214,17 +217,20 @@ export function wordsToNumber(words: readonly string[]): number | null {
       continue;
     }
     if (w === "hundred") {
+      prevWasSmall = false;
       current = (current === 0 ? 1 : current) * 100;
       sawAny = true;
       continue;
     }
     if (w === "thousand") {
+      prevWasSmall = false;
       total += (current === 0 ? 1 : current) * 1000;
       current = 0;
       sawAny = true;
       continue;
     }
     if (w in TENS_WORDS) {
+      prevWasSmall = false;
       // "two fifty": a unit already sitting in `current` with a tens word behind it is the
       // dropped hundred, not an addition. 2 then 50 is 250, never 52 -- nobody says "two fifty"
       // meaning fifty-two.
@@ -234,7 +240,27 @@ export function wordsToNumber(words: readonly string[]): number | null {
       continue;
     }
     if (w in SMALL_WORDS) {
+      /**
+       * Two plain number words in a row is ambiguous, and must not be guessed at.
+       *
+       * Adding them is what "seven four" used to do: 7 + 4 = 11. For pH that is catastrophically
+       * quiet -- 11 is inside PLAUSIBLE's 0-14, so nothing downstream questions it and an
+       * impossible reading is saved to a compliance record as though a technician had said it.
+       * The guard above anticipated the OTHER misread, "pH 74", and says so; it never saw this
+       * one, because 11 looks reasonable.
+       *
+       * This is the rule the function already claims a few lines up: "seven four" is genuinely
+       * ambiguous between 74 and 7.4, "and guessing at a reading is the one thing this must not
+       * do". Returning null makes it an unmatched token the technician is asked about, instead
+       * of a number nobody said.
+       *
+       * Only consecutive plain words are refused. A unit after a TENS word ("eighty two" = 82)
+       * or after "hundred" ("one hundred five" = 105) is unambiguous and still adds, which is
+       * why this tracks what the PREVIOUS token was rather than simply whether current > 0.
+       */
+      if (prevWasSmall) return null;
       current += SMALL_WORDS[w];
+      prevWasSmall = true;
       sawAny = true;
       continue;
     }

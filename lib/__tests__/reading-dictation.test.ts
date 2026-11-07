@@ -27,6 +27,36 @@ describe("wordsToNumber", () => {
     expect(wordsToNumber(["two", "fifty"])).toBe(250); // unit then tens: the dropped hundred
     expect(wordsToNumber(["thirty", "two", "hundred"])).toBe(3200);
     expect(wordsToNumber(["one", "hundred"])).toBe(100);
+  });
+
+  it("refuses two plain number words in a row instead of adding them", () => {
+    // "seven four" used to return 7 + 4 = 11. For pH that passes PLAUSIBLE's 0-14 unchallenged,
+    // so an impossible reading was saved to a compliance record as though someone had said it.
+    // The function's own comment already says "seven four" is ambiguous between 74 and 7.4 and
+    // that guessing is the one thing it must not do -- null is that rule applied.
+    expect(wordsToNumber(["seven", "four"])).toBeNull();
+    expect(wordsToNumber(["three", "two"])).toBeNull();
+    expect(wordsToNumber(["one", "two", "three"])).toBeNull();
+    // A teen is still a plain word, so the same ambiguity applies.
+    expect(wordsToNumber(["seven", "fifteen"])).toBeNull();
+  });
+
+  it("still adds a unit where it is unambiguous", () => {
+    // Only CONSECUTIVE plain words are refused. After a tens word or "hundred" there is no
+    // ambiguity about what was meant, which is why the guard tracks the previous token.
+    expect(wordsToNumber(["eighty", "two"])).toBe(82);
+    expect(wordsToNumber(["one", "hundred", "five"])).toBe(105);
+    expect(wordsToNumber(["one", "hundred", "twenty", "five"])).toBe(125);
+    expect(wordsToNumber(["thirty", "two", "hundred"])).toBe(3200);
+  });
+
+  it("leaves the unambiguous spoken forms for 7.4 working", () => {
+    // The point is not to reject the reading, it is to reject the GUESS. Both ways a technician
+    // can say 7.4 unambiguously still parse.
+    expect(wordsToNumber(["seven", "point", "four"])).toBe(7.4);
+    expect(wordsToNumber(["7.4"])).toBe(7.4);
+    // And "oh" still marks digits read out one at a time.
+    expect(wordsToNumber(["one", "oh", "five"])).toBe(105);
     expect(wordsToNumber(["four", "thousand"])).toBe(4000);
   });
 
