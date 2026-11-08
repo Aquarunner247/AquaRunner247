@@ -51,8 +51,18 @@ android {
             if (rootProject.file('keystore.properties').exists()) {
                 signingConfig signingConfigs.release
             }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 shrinking, obfuscation and optimization. Play flags an unoptimized DEX
+            // ("Obfuscation 1%") and wants this addressed by February 2027.
+            //
+            // The default file must be the -optimize variant: plain proguard-android.txt
+            // contains -dontoptimize, so minifyEnabled alone would shrink and obfuscate but
+            // leave the optimization pass off -- which is the half Play is actually asking for.
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            // shrinkResources stays OFF deliberately. It is a separate risk with no bearing on
+            // the DEX warning, and this app's web assets live in assets/ rather than res/, so
+            // the win would be small while adding a second variable to the device test.
         }
     }
 }
