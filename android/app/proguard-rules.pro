@@ -36,6 +36,22 @@
 # one failure here a technician would notice in the field rather than in testing.
 -keep class com.equimaps.capacitor_background_geolocation.BackgroundGeolocationService { *; }
 
+# --- Capacitor annotations -------------------------------------------------------------
+# Capacitor reads @CapacitorPlugin off each plugin class at runtime, by reflection, for the
+# plugin's JS-facing name and its permission aliases (Bridge.getPermissionStates iterates
+# annotation.permissions()). Losing it would make getPermissionState return null.
+#
+# Honest note, so nobody re-derives this the hard way: these rules were added while chasing
+# the camera crash on a theory that R8 had stripped these annotations. That theory was
+# WRONG -- a dexdump of the failing build showed all seven @CapacitorPlugin annotations
+# present with their full permissions arrays, including Camera's. The real cause was the
+# optimization pass (see android/app/build.gradle). These rules are kept because keeping
+# reflectively-read annotation types is correct regardless, but do not credit them with
+# fixing the crash, and do not assume they are load-bearing.
+-keepattributes *Annotation*
+-keep @interface com.getcapacitor.annotation.**
+-keep class com.getcapacitor.annotation.** { *; }
+
 # --- Crash readability ----------------------------------------------------------------
 # Without these, every obfuscated stack trace loses its line numbers. The mapping file at
 # android/app/build/outputs/mapping/release/mapping.txt is what turns the renamed frames

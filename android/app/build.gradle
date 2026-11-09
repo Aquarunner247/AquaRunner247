@@ -54,11 +54,20 @@ android {
             // R8 shrinking, obfuscation and optimization. Play flags an unoptimized DEX
             // ("Obfuscation 1%") and wants this addressed by February 2027.
             //
-            // The default file must be the -optimize variant: plain proguard-android.txt
-            // contains -dontoptimize, so minifyEnabled alone would shrink and obfuscate but
-            // leave the optimization pass off -- which is the half Play is actually asking for.
+            // Shrink and obfuscate, but deliberately NOT the -optimize default file.
+            //
+            // Play's warning measures OBFUSCATION ("Obfuscation 1%"), which minifyEnabled
+            // delivers on its own -- 91.5% of classes renamed. The optimization pass is a
+            // separate thing Play did not ask for, and it broke the camera: with
+            // proguard-android-optimize.txt, R8 merged PermissionHelper's four lambdas into
+            // one synthetic class (CameraPlugin$$ExternalSyntheticLambda0) and dispatched
+            // getPermissionStateFn to the wrong body, so getPermissionState returned null and
+            // Kotlin's platform-type null check crashed getPhoto. Verified by building the
+            // same commit with minifyEnabled false, where the camera opens cleanly.
+            //
+            // plain proguard-android.txt carries -dontoptimize, which is exactly what we want.
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
 
             // shrinkResources stays OFF deliberately. It is a separate risk with no bearing on
             // the DEX warning, and this app's web assets live in assets/ rather than res/, so
