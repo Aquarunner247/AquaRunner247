@@ -27,10 +27,14 @@ const OUT = resolve(process.argv[2] ?? "legal-pdfs");
 const PORT = 9333;
 
 /**
- * The documents, in the order a reader should meet them: the agreement first, then what it
- * incorporates. Deliberately not every file in content/legal/ -- the SLA is an unpublished
- * template with bracketed commitments in it, and the subprocessor and open-source notices are
- * reference pages that are read online rather than signed.
+ * The documents, in the order a reader should meet them: the agreements first, then the two
+ * reference pages they incorporate by reference -- the subprocessor list named in DPA Section
+ * 5.3 and Privacy Policy Section 10, and the attribution notice named in EULA Section 9. A
+ * reviewer handed the agreements without those two cannot check what either clause points at.
+ *
+ * Deliberately not every file in content/legal/: the SLA is an unpublished template with
+ * bracketed commitments still in it, and printing it would put numbers in someone's hands
+ * that AquaRunner247 has not agreed to.
  */
 const DOCS = [
   ["terms-of-service", "Terms of Service"],
@@ -38,6 +42,8 @@ const DOCS = [
   ["data-processing-addendum", "Data Processing Agreement"],
   ["end-user-license-agreement", "End User License Agreement"],
   ["consumer-addendum", "Consumer Addendum"],
+  ["subprocessors", "Sub-processors"],
+  ["open-source-notices", "Open-Source Notices"],
 ] as const;
 
 /**
@@ -78,11 +84,27 @@ function findChrome(): string {
   );
 }
 
-/** The stamp lines each document carries at the top, reused in the running footer. */
-function stamps(md: string): { version?: string; effective?: string } {
+/**
+ * The stamp line for the running footer, taken from whatever the document itself carries.
+ *
+ * The five agreements are stamped Version plus Effective Date. The two reference pages are not
+ * versioned -- they are current-state lists rather than terms anybody agrees to -- and carry
+ * only "Last updated", so that is the fallback. A footer with no date at all would be the worst
+ * outcome: the point of printing these is knowing which copy is in your hand.
+ */
+function footerStamp(md: string): string {
   const grab = (label: string) =>
-    md.match(new RegExp(`\\*\\*${label}:\\*\\*\\s*([^\\n]*?)\\s*(?:\\n|$)`))?.[1]?.trim();
-  return { version: grab("Version"), effective: grab("Effective Date") };
+    md.match(new RegExp(`\\*\\*${label}:\\*\\*\\s*([^\\n]*?)\\s*(?:\\n|$)`, "i"))?.[1]?.trim();
+
+  const version = grab("Version");
+  const effective = grab("Effective Date");
+  const parts = [version && `Version ${version}`, effective && `Effective ${effective}`].filter(Boolean);
+
+  if (parts.length === 0) {
+    const updated = grab("Last updated");
+    if (updated) parts.push(`Last updated ${updated}`);
+  }
+  return parts.join(" · ");
 }
 
 /**
@@ -201,10 +223,7 @@ async function main() {
 
   for (const [slug, title] of DOCS) {
     const md = readFileSync(`content/legal/${slug}.md`, "utf8");
-    const { version, effective } = stamps(md);
-    const stamp = [version && `Version ${version}`, effective && `Effective ${effective}`]
-      .filter(Boolean)
-      .join(" · ");
+    const stamp = footerStamp(md);
 
     // Chrome prints from a file it can read; the intermediate HTML is left in place because a
     // layout surprise in the PDF is far easier to diagnose in the markup that produced it.
