@@ -21,6 +21,17 @@ Update the credentials block before every submission, and re-run
 `npm run db:seed-app-review-org -- --apply` against production so the demo data has a current
 week in it.
 
+**Also accept the agreements on the demo organization before submitting.** The seeder leaves
+`termsAcceptedAt` null on purpose -- it does not invent a consent -- so an admin whose stored
+version is not the current `TERMS_VERSION` (`lib/terms-acceptance.ts`) is held at
+`/accept-terms` by the gate in `app/dashboard/layout.tsx` before the dashboard renders. The
+demo user is an ADMIN, so a reviewer can clear it, but a reviewer meeting an unexplained wall
+on step 1 is how a pass becomes a rejection for a reason unrelated to the app. Sign in as the
+demo account once after deploying and tap **"I agree and accept"**; it is AquaRunner247's own organization,
+so that is a real acceptance rather than one invented on someone's behalf. This recurs on every
+`TERMS_VERSION` bump, not just the first one, which is why it is on the checklist below rather
+than being a one-time fix.
+
 ---
 
 ## Paste-ready notes
@@ -48,7 +59,10 @@ week in it.
 > customer's pool in Las Vegas. That cannot happen during review, so every screen also offers a
 > manual control. To see the full workflow:
 >
-> 1. Sign in with the account above.
+> 1. Sign in with the account above. If a screen headed **"Please review our agreements"**
+>    appears, tap **"I agree and accept"** — it is shown once to an account administrator who
+>    has not yet accepted the current Terms of Service, and it is the only thing between the
+>    login and the dashboard.
 > 2. Open **Schedule** from the bottom navigation. The demo route has five stops scheduled today.
 > 3. Tap any stop to open it.
 > 4. Tap **"I've arrived"**. This is the manual equivalent of the geofence trigger and works
@@ -124,6 +138,8 @@ week in it.
       which also stops the location watcher and the background-location disclosure)
 - [ ] Sign in as the demo account on a device and walk the six steps above — if any of them has
       drifted, the notes are worse than useless
+- [ ] While signed in as the demo admin, clear the `/accept-terms` screen if it appears, so the
+      reviewer lands on the dashboard. It reappears after every `TERMS_VERSION` bump
 - [ ] Confirm `PrivacyInfo.xcprivacy` is in Build Phases → Copy Bundle Resources
 - [ ] Confirm the bundle identifier `com.aquarunner247.pro` is still free on BOTH stores.
       App Store Connect rejects a collision when you register it, which is the real test; Play
