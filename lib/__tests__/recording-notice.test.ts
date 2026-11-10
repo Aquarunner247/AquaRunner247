@@ -90,4 +90,41 @@ describe("recording notice", () => {
     // An all-party-consent notice that offers no way out is not consent.
     expect(RECORDING_NOTICE.toLowerCase()).toContain("hang up");
   });
+
+  /**
+   * The three disclosures the notice carries, asserted separately from its position.
+   * These are content assertions on purpose: the position tests above all pass on a notice
+   * that has been quietly reworded down to "this call may be monitored", which is the
+   * regression that would actually cost something. See RECORDING_NOTICE's comment.
+   */
+  describe("content", () => {
+    it("discloses recording and transcription", () => {
+      const notice = RECORDING_NOTICE.toLowerCase();
+      expect(notice).toContain("recorded");
+      expect(notice).toContain("transcribed");
+    });
+
+    it("discloses that artificial intelligence processes the call", () => {
+      // The recording is parsed by a model into a ticket, and on the conversational path
+      // the caller's live audio goes to OpenAI. "Recorded" alone implies a human listening.
+      expect(RECORDING_NOTICE.toLowerCase()).toContain("artificial intelligence");
+    });
+
+    it("discloses that no person is on the line, and offers a human alternative", () => {
+      // The conversational agent is instructed not to apologize for a person not answering,
+      // so nothing else on the call ever tells the caller they aren't talking to an employee.
+      const notice = RECORDING_NOTICE.toLowerCase();
+      expect(notice).toContain("automated system");
+      expect(notice).toContain("rather than a person");
+      expect(notice).toContain("speak with a person");
+    });
+  });
+
+  it("does not leave AI identity to the conversational agent's own prompt", () => {
+    // buildRealtimeInstructions is a request to a model, so a disclosure placed there is
+    // made at the model's discretion. It has to be in the deterministic <Say> instead.
+    const twiml = conversationalAiTwiml("conf-abc", "https://example.com/join");
+    const sayBlock = /<Say[^>]*>([\s\S]*?)<\/Say>/.exec(twiml)?.[1] ?? "";
+    expect(sayBlock.toLowerCase()).toContain("automated system");
+  });
 });

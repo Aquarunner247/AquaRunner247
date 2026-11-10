@@ -193,10 +193,17 @@ model Organization {
   /// sent it, which is the reason it exists.
   trialReminderSentAt DateTime?
 
+  /// The CURRENT acceptance -- the most recent row in termsAcceptances, denormalized onto
+  /// the organization so that the gate in app/dashboard/layout.tsx and app/cpo/(app)/layout.tsx
+  /// can decide whether to prompt without a second query on every page load. The log is the
+  /// evidence; these two are the fast path. Null means this organization has never accepted,
+  /// which is true of every account created before 2026-10-22 and is deliberately NOT
+  /// backfilled -- see lib/terms-acceptance.ts.
   termsAcceptedAt      DateTime?
   /// The TERMS_VERSION constant in lib/terms-acceptance.ts, which is the documents' own
   /// effective date. Stored rather than derived so a later revision cannot rewrite what an
-  /// organization actually agreed to.
+  /// organization actually agreed to. Compared against TERMS_VERSION to decide whether
+  /// re-acceptance is due, so a stale value here re-prompts rather than failing silently.
   termsAcceptedVersion String?
 
   /// Captured at signup — USPS 2-letter code ("NV", "CA", ...). Null for accounts that
@@ -258,6 +265,7 @@ model Organization {
   phoneAgentDailyUsage  PhoneAgentDailyUsage[]
   scrubRuns             OrganizationScrubRun[]
   welcomeEmailSends     WelcomeEmailSend[]
+  termsAcceptances      TermsAcceptance[]
 
   @@index([complianceRulesetId])
 }
@@ -265,6 +273,60 @@ model Organization {
 /// One row per cancellation-scrub attempt (dry-run or live) against an org -- an org-wide
 /// permanent-delete operation needs its own durable, queryable record independent of
 /// console logs, the same way a payment needs a receipt. See lib/org-scrub.ts.
+/// One row per act of assent to the legal documents: who clicked, when, which version,
+/// and from where. Append-only by convention -- nothing in the app updates or deletes a row.
+///
+/// Why a log and not just the two fields on Organization: those record the current state and
+/// are overwritten on re-acceptance, so after the first version bump they can no longer show
+/// what an organization agreed to before it. Enforcing arbitration, the liability cap or the
+/// Section 9.5 retention instruction means producing evidence of assent to the version that
+/// contained that clause, by a named person, at a stated time -- which is exactly the record
+/// a court looks for and exactly what a single overwritten timestamp cannot provide.
+///
+/// Organization-scoped rather than user-scoped: the agreement binds the organization, and the
+/// user is recorded as the person who bound it.
+model TermsAcceptance {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// The user who accepted. Nullable and SetNull rather than Cascade on purpose: deleting a
+  /// staff member must never delete the evidence that their organization accepted the Terms,
+  /// and lib/org-scrub.ts deletes every User row for a canceled org. acceptedByEmail below
+  /// preserves who it was after the User row is gone.
+  acceptedByUserId String?
+  acceptedByUser   User?   @relation(fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  /// Copied at acceptance time, not joined. Survives the User row being deleted, and records
+  /// the address as it was then rather than as it is now.
+  acceptedByEmail String
+  acceptedByName  String?
+  /// The role that user held at the time -- relevant because only an ADMIN can bind the
+  /// organization, and a later role change must not cast doubt on an earlier acceptance.
+  acceptedByRole  String
+
+  /// The TERMS_VERSION in force when this was accepted.
+  version    String
+  acceptedAt DateTime @default(now())
+
+  /// Which documents the notice named, as hrefs, exactly as TERMS_DOCUMENTS listed them at
+  /// the time. Stored because the set itself changes: the DPA was added to the bundle on
+  /// 2026-11-10, so "accepted version X" alone would not say whether the DPA was included.
+  documents String[]
+
+  /// "SIGNUP" for the original click-through at account creation, "REACCEPTANCE" for the
+  /// prompt raised when TERMS_VERSION moves ahead of the stored version.
+  context String
+
+  /// Best-effort, from the request headers -- Vercel sets x-forwarded-for, but a direct or
+  /// proxied request may not, so null is a normal value and never blocks an acceptance.
+  ipAddress String?
+  userAgent String?
+
+  @@index([organizationId, acceptedAt])
+  @@index([acceptedByUserId])
+}
+
 model OrganizationScrubRun {
   id             String       @id @default(cuid())
   organizationId String
@@ -691,6 +753,7 @@ model User {
   phoneAgentSettingsUpdates      OrgPhoneAgentSettings[]
   customerTasksCreated           CustomerTask[]          @relation("CustomerTaskCreatedBy")
   customerTasksCompleted         CustomerTask[]          @relation("CustomerTaskCompletedBy")
+  termsAcceptances               TermsAcceptance[]
 
   @@index([organizationId])
 }

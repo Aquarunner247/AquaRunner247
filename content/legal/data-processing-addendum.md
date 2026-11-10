@@ -1,8 +1,8 @@
 # Data Processing Agreement
 
-**Version:** 1.0  
-**Effective Date:** October 25, 2026  
-**Last Updated:** October 25, 2026
+**Version:** 1.1  
+**Effective Date:** November 10, 2026  
+**Last Updated:** November 10, 2026
 
 This Data Processing Agreement (“**DPA**”) forms part of, and is incorporated into, the Terms of Service or other written agreement governing the use of the AquaRunner247 services (the “**Agreement**”) between **AquaRunner247 LLC**, with its address at **732 S 6th St, Ste N, Las Vegas, NV 89101** (“**AquaRunner247**”), and the customer identified in the Agreement (“**Customer**”). This DPA applies when AquaRunner247 Processes Personal Data on Customer’s behalf.
 
@@ -112,9 +112,23 @@ c. implement and maintain the technical and organizational measures described in
 
 6.4 **Customer cooperation.** Customer will provide information reasonably necessary for AquaRunner247 to provide the assistance described in this Section and remains responsible for assessing and responding to Data Subject requests and regulatory obligations.
 
+6.5 **Requests touching compliance records retained after termination.** Section 9.5 retains a defined set of compliance records without a fixed end date, including after the Agreement ends. Because a Data Subject request may reach those records when there is no longer a Customer to refer it to, the following process applies to them specifically and operates whether or not the Agreement is still in force:
+
+a. **Individual assessment.** AquaRunner247 will assess each request against the specific records involved. It will not refuse a request on the basis that Section 9.5 exists.
+
+b. **Deletion of anything not required.** AquaRunner247 will delete any Personal Data that is not necessary to keep a regulatory log intact, including Personal Data retained in error and any category outside Section 9.5(a) to (c).
+
+c. **Reasoned response where it cannot delete.** Where AquaRunner247 cannot delete, it will identify the record, state the legal or regulatory basis it relies on and the period it expects that basis to apply, and assess whether the record can be reduced or pseudonymized further rather than retained as it stands.
+
+d. **Referral while the Agreement is in force.** Where Customer is the Controller and remains contactable, AquaRunner247 will refer the request to Customer under Section 6.2 and act on Customer’s instructions, except that it will not act on an instruction to delete a record where retention is required by law.
+
+e. **Timing.** AquaRunner247 will acknowledge a request of this kind within **10 business days** and respond substantively within the period Applicable Data Protection Law requires of Customer, or within **30 days** where no period applies.
+
+f. **Record of decisions.** AquaRunner247 will keep a record of requests of this kind and their outcomes, and will make it available to Customer on request as audit information under Section 10.1.
+
 ## 7. Security Incidents and Personal Data Breaches
 
-7.1 **Notification.** AquaRunner247 will notify Customer without undue delay, and in any case within **72 hours**, after becoming aware of a Security Incident involving Customer Personal Data. Notification will be sent to **[Customer security/privacy notice email or contact]** or another contact Customer designates in writing.
+7.1 **Notification.** AquaRunner247 will notify Customer without undue delay, and in any case within **72 hours**, after becoming aware of a Security Incident involving Customer Personal Data. Notification will be sent to the contact Customer maintains under Section 12.2. Where Customer has not designated a separate contact, notification will be sent to the email address associated with Customer’s Account — which, consistent with Section 22 of the Terms of Service, is the address of each user on the Account with the administrator role — and, where Customer has configured one, to its billing contact. Customer is responsible for keeping those addresses current; a notice sent to them is effective even if Customer has not designated a security contact.
 
 7.2 **Notification contents.** To the extent information is reasonably available at the time, AquaRunner247’s notice will include:
 
@@ -146,7 +160,7 @@ a. the data exporter is Customer, acting as Controller, and the data importer is
 
 b. the optional docking clause in Clause 7 is included;
 
-c. the competent supervisory authority, governing law, and courts will be completed as follows: **[Competent Supervisory Authority]**, **[EU Member State law]**, and **[EU Member State courts]**, respectively, in accordance with the SCCs and Applicable Data Protection Law;
+c. the competent supervisory authority, governing law, and courts are as stated in Section 2 of Annex 3, which resolves each of them by reference to the data exporter’s place of establishment rather than leaving it open, in accordance with the SCCs and Applicable Data Protection Law;
 
 d. Annex I of the SCCs is completed using the Parties’ details and the Processing details in Annex 1 to this DPA; and
 
@@ -174,15 +188,34 @@ AquaRunner247 also takes an automatic archive of Customer Personal Data when it 
 
 9.5 **Compliance records retained after termination.** Health-department compliance logging for a body of water attaches to that body of water rather than to the service company recording it, and the Services publish those logs at a QR code posted at the pool. So notwithstanding Section 9.1, AquaRunner247 retains the following after termination, without a fixed end date:
 
-a. water-reading logs, contamination incident records, and inspection reports;
+a. water-reading logs, contamination incident records, incident monitoring readings, and inspection reports;
 
 b. the customer name, property, body-of-water, and service-visit records needed to identify and display those logs; and
 
 c. customer portal accounts (an end customer’s name and email address), which are blocked from signing in but not deleted, so that an end customer can retain their own identity and records if they later contract with AquaRunner247 or another Organization directly.
 
-On termination AquaRunner247 clears the operational and personal fields from the records retained under (b) — the technician assigned to each visit, technician notes, arrival GPS coordinates, and Customer’s own notes and billing reference for a customer. Everything outside (a) to (c) is deleted on the Section 9.1 schedule.
+**Minimization of the retained set.** The records retained under (b) are reduced to what the compliance log requires, and AquaRunner247 erases the following on termination:
 
-Customer acknowledges this retention and instructs AquaRunner247 to carry it out as part of the Services. A Party may ask the other to delete a specific retained record, and AquaRunner247 will comply unless retention is required by law or necessary to keep a regulatory log intact. Customer is responsible for telling the individuals whose Personal Data this concerns, and for confirming the retention is consistent with its own obligations.
+- every contact person recorded against a property — the property manager, the on-site maintenance contact, the HOA manager, and, for a residential property, the owner — in each case their name, telephone numbers, and email address;
+- the access directions for the property, including any gate or access code, and Customer’s free-text notes on the property;
+- Customer’s notes and billing reference for a customer; and
+- on every service visit, the technician assigned to it, technician notes, and the arrival GPS coordinates and accuracy.
+
+What remains in (b) is the property’s name, type, postal address and map coordinates, the body of water’s own details, the customer’s name as the heading the log is published under, and each visit’s date and recorded times. The effect is that a retained compliance log identifies a property and the servicing business, and does not identify an individual. AquaRunner247 will not materially expand the categories retained under (a) to (c) without Customer’s agreement or a change notified under Section 14. Everything outside (a) to (c) is deleted on the Section 9.1 schedule.
+
+**Customer instruction.** Customer, as Controller, instructs AquaRunner247 to carry out the retention described in this Section as part of the Services, and acknowledges that:
+
+a. the retention is a documented instruction under Section 3 and under Clause 8.1 of the SCCs where they apply, and AquaRunner247 Processes the retained records only to make the compliance log available and to meet a legal or regulatory obligation — never to provide the Services to another customer, and never for AquaRunner247’s own commercial purposes;
+
+b. Customer has determined that the retention is necessary and proportionate for the regulatory purpose described above, and is responsible for its own legal basis for it, for any notice or disclosure its own privacy notice must carry, and for informing the individuals whose Personal Data it concerns;
+
+c. AquaRunner247 relies on this instruction, together with the legal-obligation ground available to it, when responding to a Data Subject or a Supervisory Authority about a retained record; and
+
+d. Customer will notify AquaRunner247 if it determines that the retention is no longer lawful for a particular record or category, in which case the Parties will address it under Section 9.6.
+
+9.6 **Deleting a retained record.** A Party may ask the other to delete a specific record retained under Section 9.5, and AquaRunner247 will comply unless retention is required by law or necessary to keep a regulatory log intact. A request originating from a Data Subject is handled under Section 6.5, which applies whether or not the Agreement is still in force. Where AquaRunner247 declines, it will identify the record, state the basis and expected duration, and assess whether the record can be reduced or pseudonymized further instead.
+
+9.7 **Residential properties.** The public compliance log is published only for commercial bodies of water. Where a property is recorded as residential, the regulatory basis for Section 9.5 will usually not apply to it, and AquaRunner247 will delete its records on the Section 9.1 schedule on Customer’s or a Data Subject’s request.
 
 ## 10. Audits and Inspections
 
@@ -219,11 +252,15 @@ AquaRunner247 may create and use data derived from the operation of the Services
 **Address:** 732 S 6th St, Ste N, Las Vegas, NV 89101  
 **Website:** https://aquarunner247.com/privacy
 
-12.2 **Customer contact.** Customer will provide and maintain a contact for privacy and security notices:
+12.2 **Customer contact.** Customer will maintain a contact for privacy and security notices. Because this DPA is ordinarily accepted electronically rather than executed, that contact defaults to Customer’s Account rather than to a field filled in here: unless Customer designates a different contact in writing or in an Order, the contact is each user on Customer’s Account holding the administrator role, at the email address recorded for them in the Services, and Customer’s notice address is the business address on its Account.
 
-**Customer Contact:** [Name or role]  
-**Email:** [Customer privacy/security email]  
-**Address:** [Customer notice address]
+Customer may designate a dedicated privacy or security contact at any time by writing to **privacy@aquarunner247.com**, and should do so if notices of a Security Incident need to reach someone other than its account administrators. Customer is responsible for keeping these details current, and a notice sent to the defaulted contact is effective under Section 7.1 where Customer has designated no other.
+
+Where the Parties execute this DPA rather than accepting it electronically, Customer may state its contact on the lines below. These are fields to be completed on execution rather than terms left unresolved: a blank line leaves the default in this Section 12.2 in place, and the DPA is complete either way.
+
+**Customer Contact (name or role):**  __________________________________  
+**Email:**  __________________________________  
+**Address:**  __________________________________
 
 ## 13. Liability and Relationship to Agreement
 
@@ -429,12 +466,19 @@ Where required under Section 8.2:
 - **Processing details:** Annex 1 to this DPA.
 - **Security measures:** Annex 2 to this DPA.
 - **Approved Subprocessors:** This Annex 3, subject to the general authorization and notice provisions in Section 5.
-- **Competent Supervisory Authority:** [Competent Supervisory Authority].
-- **Governing law:** [EU Member State law].
-- **Courts:** [EU Member State courts].
-- **Optional docking clause:** Included.
+- **Competent Supervisory Authority (Clause 13):** The supervisory authority of the EU Member State in which the data exporter is established. Where the data exporter is not established in an EU Member State but has appointed a representative under Article 27 GDPR, the authority of the Member State in which that representative is established. Where neither applies, the authority of the Member State in which the Data Subjects whose Personal Data is transferred are located.
+- **Governing law (Clause 17):** Option 2 — the law of the EU Member State in which the data exporter is established. Where that Member State’s law does not allow for third-party beneficiary rights, the law of Ireland.
+- **Courts (Clause 18):** The courts of the EU Member State in which the data exporter is established. Where the data exporter is not established in an EU Member State, the courts of Ireland.
+- **Optional docking clause (Clause 7):** Included.
+- **Clause 9 (Subprocessors):** Option 2 — general written authorization, with the notice period in Section 5.3 of this DPA.
+- **Clause 11 (Redress):** The optional independent dispute resolution body is **not** selected.
+- **Annex I.A (Parties):** The Parties’ details in the Agreement and in this Annex. **Annex I.B (Processing):** Annex 1 to this DPA. **Annex I.C (Supervisory authority):** as stated above. **Annex II:** Annex 2 to this DPA. **Annex III:** Section 1 of this Annex.
 
-The Parties incorporate by reference the unmodified text of the EU Standard Contractual Clauses adopted by Commission Implementing Decision (EU) 2021/914. The Parties will complete any required SCC appendices and selections before the relevant Restricted Transfer begins.
+These selections are the defaults that apply where no Order or separately executed data transfer agreement states otherwise, so that no selection is left open. They are stated here rather than left blank because an unselected Clause 17 or 18 leaves the SCCs incomplete and unusable.
+
+The Parties incorporate by reference the unmodified text of the EU Standard Contractual Clauses adopted by Commission Implementing Decision (EU) 2021/914.
+
+**AquaRunner247 does not currently make Restricted Transfers.** The Services are offered for use in the United States, Customer Personal Data is stored in the United States, and the three Europe-based map providers in Section 1 above receive data travelling out of the United States rather than out of the EEA or the UK (see Section 8.1). This Section and Section 3 below therefore operate only if that changes — a Customer established in the EEA or the UK should agree the Annex I and Table entries for its own transfer in writing before the transfer begins.
 
 ## 3. UK International Data Transfer Addendum
 
@@ -443,35 +487,38 @@ Where required under Section 8.3, the Parties incorporate by reference the UK In
 - **Parties and key information:** As set out in the Agreement, this DPA, and Section 2 of this Annex.
 - **Selected EU SCC module:** Module Two — Controller to Processor.
 - **Tables and required details:** To be completed using the Parties’ details and Annexes 1–3 of this DPA.
-- **UK Addendum version:** [Applicable version or date].
-- **Start date:** [Effective Date or transfer start date].
+- **UK Addendum version:** Template Addendum **B.1.0**, in force 21 March 2022, issued by the Information Commissioner under section 119A(1) of the Data Protection Act 2018.
+- **Table 1 (Parties):** The Parties’ details in the Agreement and in Section 2 of this Annex. **Table 2 (Selected SCCs):** the EU SCCs in Section 2 of this Annex, Module Two, as amended by the UK Addendum. **Table 3 (Appendix information):** Annexes 1 and 2 to this DPA, and Section 1 of this Annex.
+- **Table 4 (Ending the Addendum when the Approved Addendum changes):** **Importer**.
+- **Start date:** The Effective Date of this DPA, or the date the relevant Restricted Transfer begins if later.
 
-The Parties will complete the UK Addendum’s required tables and selections before the relevant Restricted Transfer begins. The UK Addendum’s mandatory text is incorporated without modification.
+The UK Addendum’s mandatory text is incorporated without modification. As with Section 2, these entries are stated so that nothing is left blank; AquaRunner247 does not currently make Restricted Transfers from the United Kingdom.
 
 ## 4. Signature and Acceptance
 
-This DPA may be accepted as part of the Agreement through electronic acceptance or the Parties’ execution below.
+This DPA forms part of the Agreement and is ordinarily accepted electronically, at the same time and in the same act as the Terms of Service, the End User License Agreement and the Privacy Policy — AquaRunner247 records the accepting user, the date and time, and the version accepted. No signature is required for this DPA to bind the Parties, and the blocks below are for a Customer that requires a countersigned copy; leaving them blank does not affect the DPA’s effect.
 
 **Customer**
 
-Legal name: [Customer legal entity name]  
-By: [Authorized signatory]  
-Name: [Name]  
-Title: [Title]  
-Date: [Date]
+Legal name:  __________________________________  
+Signature:  __________________________________  
+Name:  __________________________________  
+Title:  __________________________________  
+Date:  __________________________________
 
 **AquaRunner247**
 
 Legal name: AquaRunner247 LLC  
-By: [Authorized signatory]  
-Name: [Name]  
-Title: [Title]  
-Date: [Date]
+Signature:  __________________________________  
+Name:  __________________________________  
+Title:  __________________________________  
+Date:  __________________________________
 
 ## Version History
 
 | Version | Date | Description |
 |---|---|---|
-| 1.0 | October 22, 2026 | Initial draft |
+| 1.0 | October 22, 2026 | Initial draft. Re-dated effective October 25, 2026, with no change to its terms, so that every document in the accepted bundle carried one effective date. |
+| 1.1 | November 10, 2026 | Added Section 6.5 (Data Subject requests reaching retained compliance records) and Sections 9.6–9.7. Rewrote Section 9.5 to minimize the retained set, list field by field what is erased on termination, and strengthen Customer’s documented instruction. Completed the open SCC and UK Addendum selections in Annex 3 and recorded that no Restricted Transfers are currently made. Replaced the remaining bracketed fill-in fields in Section 12.2 and the signature block with blank form lines, so no part of the published DPA reads as an unfinished draft. |
 
 *This document is for informational purposes only and should be reviewed by a licensed attorney before execution.*

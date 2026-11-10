@@ -10,6 +10,7 @@ import { isValidStateCode } from "@/lib/us-states";
 import { DEFAULT_CHECKLIST_ITEMS } from "@/lib/default-checklist-items";
 import { DEFAULT_RESIDENTIAL_CHECKLIST } from "@/lib/default-residential-checklist";
 import { termsAcceptanceFields } from "@/lib/terms-acceptance";
+import { logTermsAcceptance } from "@/lib/terms-acceptance-record";
 
 const TRIAL_DAYS = 14;
 
@@ -378,6 +379,11 @@ export async function completeSignup(formData: FormData) {
   // applied to it -- see lib/supabase/admin.ts.
   const { id: authUserId, created: authUserCreated } = await createOrFindAuthUser(email, password);
 
+  // Read once, before the branches, so the Organization fields and the TermsAcceptance log row
+  // carry the identical timestamp -- two different times for one act of assent is the kind of
+  // discrepancy that gets picked at when the record is what is being relied on.
+  const acceptance = termsAcceptanceFields();
+
   try {
     if (targetOrgId) {
       // The webhook's safety-net org create may predate this state/hasCommercialPools
@@ -396,11 +402,20 @@ export async function completeSignup(formData: FormData) {
           // The webhook's safety-net create made the row, but nobody had accepted anything
           // at that point -- this submit is the first time a person saw the notice and
           // acted on it, so it is the acceptance for this org too.
-          ...termsAcceptanceFields(),
+          ...acceptance,
         },
       });
-      await prisma.user.create({
+      const adminUser = await prisma.user.create({
         data: { organizationId: targetOrgId, authUserId, email, name, role: "ADMIN", active: true },
+      });
+      // The evidence behind the two fields above: who clicked, from where, and which
+      // documents the notice named. Written after the User row so it can point at it.
+      await logTermsAcceptance({
+        db: prisma,
+        organizationId: targetOrgId,
+        accepter: { id: adminUser.id, email: adminUser.email, name: adminUser.name, role: adminUser.role },
+        context: "SIGNUP",
+        now: acceptance.termsAcceptedAt,
       });
     } else {
       await prisma.$transaction(async (tx) => {
@@ -411,7 +426,7 @@ export async function completeSignup(formData: FormData) {
             businessPhone: phone,
             // Server-side clock at the moment the account is created, never a resubmitted
             // field -- the whole value of this record is that the user cannot author it.
-            ...termsAcceptanceFields(),
+            ...acceptance,
             planStatus,
             planTier,
             stripeCustomerId,
@@ -423,7 +438,7 @@ export async function completeSignup(formData: FormData) {
             complianceRulesetId: stateRuleset?.id ?? null,
           },
         });
-        await tx.user.create({
+        const adminUser = await tx.user.create({
           data: {
             organizationId: org.id,
             authUserId,
@@ -432,6 +447,15 @@ export async function completeSignup(formData: FormData) {
             role: "ADMIN",
             active: true,
           },
+        });
+        // Inside the same transaction on purpose -- an acceptance that outlived a rolled-back
+        // signup would be evidence of nothing.
+        await logTermsAcceptance({
+          db: tx,
+          organizationId: org.id,
+          accepter: { id: adminUser.id, email: adminUser.email, name: adminUser.name, role: adminUser.role },
+          context: "SIGNUP",
+          now: acceptance.termsAcceptedAt,
         });
         await tx.checklistItemDefinition.createMany({
           // Two lists, seeded together. Commercial items keep the default scope COMMERCIAL;

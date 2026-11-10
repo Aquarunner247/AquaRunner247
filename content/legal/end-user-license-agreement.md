@@ -1,8 +1,8 @@
 # AquaRunner247 End User License Agreement
 
-**Version:** 1.0  
-**Effective Date:** October 25, 2026  
-**Last Updated:** October 25, 2026
+**Version:** 1.1  
+**Effective Date:** November 10, 2026  
+**Last Updated:** November 10, 2026
 
 This End User License Agreement (“**EULA**”) is between **AquaRunner247 LLC**, doing business as AquaRunner247 (“**AquaRunner247**,” “**we**,” “**us**,” or “**our**”), and the person or organization accepting this EULA (“**you**” or “**Customer**”). It governs your use of the AquaRunner247 mobile application and web-based platform, including related features and services (collectively, the “**App**”).
 
@@ -135,7 +135,7 @@ AquaRunner247 may provide support as described in the Terms of Service, Customer
 
 ## 13. Privacy
 
-AquaRunner247’s collection and use of personal information, location information, and other data are described in the Privacy Policy available at **https://aquarunner247.com/privacy**. Customer is responsible for providing any notices and obtaining any consents required from its employees, contractors, customers, property owners, inspectors, or other individuals whose information Customer submits or makes available through the App.
+AquaRunner247’s collection and use of personal information, location information, and other data are described in the Privacy Policy available at **https://aquarunner247.com/privacy**. Where AquaRunner247 Processes personal information on Customer’s behalf, the Data Processing Agreement at **https://aquarunner247.com/dpa** also applies; it is incorporated into the Terms of Service and is accepted together with this EULA. Customer is responsible for providing any notices and obtaining any consents required from its employees, contractors, customers, property owners, inspectors, or other individuals whose information Customer submits or makes available through the App.
 
 ## 14. Disclaimer of Warranties
 
@@ -185,7 +185,7 @@ The App and Documentation are “commercial items,” “commercial computer sof
 
 ## 21. General Terms
 
-21.1 **Entire agreement.** This EULA, together with the Terms of Service, Privacy Policy, applicable subscription or order terms, and any other documents expressly incorporated by reference, is the agreement concerning Customer’s license to use the App and supersedes prior agreements on that subject.
+21.1 **Entire agreement.** This EULA, together with the Terms of Service, Privacy Policy, Data Processing Agreement, applicable subscription or order terms, and any other documents expressly incorporated by reference, is the agreement concerning Customer’s license to use the App and supersedes prior agreements on that subject. If there is a conflict, the order of precedence in Section 25.3 of the Terms of Service applies.
 
 21.2 **Assignment.** Customer may not assign or transfer this EULA or any rights under it without AquaRunner247’s prior written consent, except as permitted under the Terms of Service. AquaRunner247 may assign this EULA as permitted by the Terms of Service.
 
@@ -205,6 +205,15 @@ Questions about this EULA may be directed to:
 **Email:** support@aquarunner247.com  
 **Website:** aquarunner247.com  
 **Notice Address:** 732 S 6th St, Ste N, Las Vegas, NV 89101
+
+## Version History
+
+An organization’s recorded acceptance names the version it agreed to, so each version listed here remains available on request at **admin@aquarunner247.com**.
+
+| Version | Date | Description |
+|---|---|---|
+| 1.0 | October 22, 2026 | Initial draft. Re-dated effective October 25, 2026, with no change to its terms, so that every document in the accepted bundle carried one effective date. |
+| 1.1 | November 10, 2026 | Named the Data Processing Agreement in Sections 13 and 21.1 and adopted the Terms of Service order of precedence, following the DPA becoming part of the agreements every Customer accepts. |
 
 ---
 

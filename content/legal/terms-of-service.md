@@ -1,7 +1,8 @@
 # AquaRunner247 Terms of Service
 
-**Effective Date:** October 25, 2026  
-**Last Updated:** October 25, 2026
+**Version:** 1.2  
+**Effective Date:** November 10, 2026  
+**Last Updated:** November 10, 2026
 
 These Terms of Service (“**Terms**”) govern access to and use of the AquaRunner 24/7 Pro platform and the AquaRunner247 website, applications, software, portals, and related services (collectively, the “**Services**”). Please read them carefully.
 
@@ -23,7 +24,13 @@ The Services are a multi-tenant platform: each Organization’s account and Cust
 
 ## 2. Eligibility and Business Use
 
-You must be at least 18 years old and legally able to agree to these Terms. The Services are designed primarily for pool service and maintenance businesses and their personnel. Sole proprietors and individuals may also use the Services, subject to these Terms and applicable law.
+You must be at least 18 years old and legally able to agree to these Terms.
+
+**These Terms are written for business use.** The Services are commercial tools for pool service and maintenance businesses, their personnel, and the operators of commercially regulated bodies of water. That includes the **AquaRunner Compliance** plan, which exists to produce the chemical and inspection logs a health department requires for a commercial pool, spa, splash pad, or similar water feature. Those logging requirements apply to commercially regulated water, not to a private residential pool, and the public QR-code compliance log is published only for a commercial body of water. A single-property owner, an HOA, a property manager, or an in-house Certified Pool Operator who subscribes is doing so to meet that operational and regulatory obligation — which is business use, whatever the size of the account.
+
+By subscribing, you confirm that you are using the Services for business, commercial, or regulatory-compliance purposes and not primarily for personal, family, or household purposes.
+
+**If you are in fact a consumer.** We recognize that a person may still subscribe primarily for personal, family, or household purposes. If you do, our **Consumer Addendum** at https://aquarunner247.com/consumer-terms applies to you and is incorporated into these Terms by reference. It modifies these Terms in your favor — including the indemnity in Section 20.1, the refund and cancellation provisions in Sections 4.5 and 4.6, and the dispute resolution provisions in Section 24 — and it prevails over these Terms to the extent of any conflict. Nothing in these Terms waives a right that applicable consumer protection law does not allow to be waived, whether or not the Consumer Addendum applies to you.
 
 You may use the Services only if doing so does not violate applicable law, a third party’s rights, or an agreement that binds you. You are responsible for ensuring that your use of the Services is appropriate for your business and the properties you service.
 
@@ -122,7 +129,11 @@ You retain ownership of documents, photos, records, and other materials you uplo
 
 ### 7.4 Data processing and privacy
 
-Our collection and use of personal information is described in our Privacy Policy at https://aquarunner247.com/privacy, which is incorporated into these Terms by reference. If we enter into a separate data processing agreement with you, that agreement will govern our processing of personal information to the extent of any conflict with these Terms.
+Our collection and use of personal information is described in our Privacy Policy at https://aquarunner247.com/privacy, which is incorporated into these Terms by reference.
+
+Where we Process personal information on your behalf, our **Data Processing Agreement** at https://aquarunner247.com/dpa also applies and is incorporated into these Terms by reference. It applies to every Customer, and you accept it at the same time and in the same act as these Terms — no separate signature is required, although we will countersign a copy on request. It governs our processing of personal information to the extent of any conflict with these Terms. If we enter into a separately negotiated data processing agreement with you, that agreement governs instead, to the extent of any conflict.
+
+The Data Processing Agreement records your instructions to us as the controller of that information. Two of them are worth reading before you accept: Section 9.5, under which we retain a defined and minimized set of health-department compliance records after your subscription ends so that the QR-code log posted at a pool keeps resolving, and Section 6.5, which is the process we follow when an individual asks us to delete one of those records.
 
 You are responsible for providing any notices and obtaining any consents required from your employees, contractors, customers, property owners, and other individuals whose information you submit or make available through the Services.
 
@@ -251,7 +262,13 @@ TO THE MAXIMUM EXTENT PERMITTED BY LAW, EACH PARTY’S TOTAL AGGREGATE LIABILITY
 
 ### 19.3 Exceptions and application
 
-The exclusions and cap in this section do not limit: (a) your obligation to pay fees properly due; (b) either party’s indemnification obligations under these Terms; (c) either party’s liability for breach of its confidentiality obligations; (d) either party’s liability for fraud or willful misconduct, or gross negligence to the extent such liability cannot lawfully be limited; (e) liability that applicable law does not allow to be excluded or limited; or (f) any other liability expressly excluded from limitation in an Order signed by both parties.
+The exclusions and cap in this section do not limit: (a) your obligation to pay fees properly due; (b) your indemnification obligations under Section 20.1; (c) our indemnification obligation under Section 20.2, which is instead subject to the separate, higher cap stated in Section 19.4; (d) either party’s liability for breach of its confidentiality obligations; (e) either party’s liability for fraud or willful misconduct, or gross negligence to the extent such liability cannot lawfully be limited; (f) liability that applicable law does not allow to be excluded or limited; or (g) any other liability expressly excluded from limitation in an Order signed by both parties.
+
+### 19.4 Cap on our intellectual-property indemnity
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, OUR TOTAL AGGREGATE LIABILITY UNDER SECTION 20.2, INCLUDING DEFENSE COSTS WE PAY, WILL NOT EXCEED THE GREATER OF (i) THE FEES PAID OR PAYABLE BY YOU TO AQUARUNNER247 IN THE 12 MONTHS BEFORE THE EVENT FIRST GIVING RISE TO THE CLAIM AND (ii) **US$50,000**.
+
+This is deliberately a higher cap than Section 19.2 rather than the same one. An indemnity against third-party infringement claims is of little use if it is limited to a small subscription’s annual fees, because the cost of defending such a claim bears no relation to what the customer pays us.
 
 The limitations in this section apply regardless of the theory of liability and even if a limited remedy fails of its essential purpose. They apply only to the maximum extent allowed by law.
 
@@ -284,7 +301,7 @@ This obligation does not apply to a claim arising from:
 
 If a claim covered by this Section 20.2 is made or we reasonably believe one is likely, we may, at our option and expense: (a) procure the right for you to keep using the affected Services; (b) modify or replace the affected Services so they are no longer infringing while remaining materially equivalent in function; or (c) if neither (a) nor (b) is commercially reasonable, terminate the affected Services on written notice and refund any prepaid fees covering the terminated portion of your then-current term.
 
-**This Section 20.2 states our entire obligation and your exclusive remedy for any claim that the Services infringe or misappropriate a third party’s intellectual property rights.** Our obligations under this Section 20.2 are subject to the limitation of liability in Section 19.2.
+**This Section 20.2 states our entire obligation and your exclusive remedy for any claim that the Services infringe or misappropriate a third party’s intellectual property rights.** Our obligations under this Section 20.2 are subject to the cap in Section 19.4, and not to the general cap in Section 19.2.
 
 ### 20.3 Indemnification procedure
 
@@ -365,7 +382,7 @@ If any provision of these Terms is found unenforceable, it will be modified to t
 
 ### 25.3 Entire agreement and order of precedence
 
-These Terms, together with any Order, the Privacy Policy, the End User License Agreement, any applicable service level agreement, and any applicable data processing agreement, are the entire agreement between you and AquaRunner247 concerning the Services and replace prior or contemporaneous agreements on that subject. If there is a conflict, the following order applies: (1) a signed Order, but only for the subject it expressly addresses; (2) an applicable data processing agreement, for data-processing matters; (3) an applicable service level agreement, for Service availability, support, and service credits; (4) the End User License Agreement, for use of the mobile application and app-store terms; and (5) these Terms. The Privacy Policy governs the matters it addresses concerning personal information.
+These Terms, together with any Order, the Privacy Policy, the End User License Agreement, the Data Processing Agreement, the Consumer Addendum where it applies, and any applicable service level agreement, are the entire agreement between you and AquaRunner247 concerning the Services and replace prior or contemporaneous agreements on that subject. If there is a conflict, the following order applies: (1) the Consumer Addendum, where it applies to you under Section 2, for the matters it addresses; (2) a signed Order, but only for the subject it expressly addresses; (3) an applicable data processing agreement, for data-processing matters; (4) an applicable service level agreement, for Service availability, support, and service credits; (5) the End User License Agreement, for use of the mobile application and app-store terms; and (6) these Terms. The Privacy Policy governs the matters it addresses concerning personal information.
 
 ### 25.4 Force majeure
 
@@ -395,6 +412,16 @@ For questions about these Terms, billing, or the Services, contact us at:
 **Email:** support@aquarunner247.com  
 **Website:** [https://aquarunner247.com](https://aquarunner247.com)  
 **Notice Address:** 732 S 6th St, Ste N, Las Vegas, NV 89101
+
+## Version History
+
+An organization’s recorded acceptance names the version it agreed to, so each version listed here remains available on request at **admin@aquarunner247.com**.
+
+| Version | Date | Description |
+|---|---|---|
+| 1.0 | October 22, 2026 | Initial draft |
+| 1.1 | October 25, 2026 | Disclosed on-device GPS departure detection. |
+| 1.2 | November 10, 2026 | Section 7.4: the Data Processing Agreement now applies to every Customer and is accepted with these Terms, rather than applying only on separate execution. Section 2 rewritten to state that the Services, including the AquaRunner Compliance plan, are commercial tools, and to incorporate the new Consumer Addendum for anyone who is in fact a consumer. New Section 19.4 caps our intellectual-property indemnity at the greater of 12 months’ fees or US$50,000, resolving a conflict between the former Section 19.3(b) and Section 20.2, which stated opposite answers on whether that indemnity was capped. Sections 19.3, 20.2 and 25.3 updated to match. |
 
 ---
 

@@ -1,7 +1,8 @@
 # AquaRunner247 Privacy Policy
 
-**Effective Date:** October 25, 2026  
-**Last Updated:** October 25, 2026
+**Version:** 1.2  
+**Effective Date:** November 10, 2026  
+**Last Updated:** November 10, 2026
 
 ## Contents
 
@@ -11,7 +12,7 @@
 4. Personal Information We Collect  
 5. How We Collect Information  
 6. How We Use Information and Our Legal Bases  
-7. Location, Photos, and Document Scanning  
+7. Location, Photos, Document Scanning, and Automated Phone Calls  
 8. QR Codes, Portals, and Compliance Records  
 9. Cookies and Similar Technologies  
 10. How We Share Information  
@@ -77,10 +78,10 @@ The information we collect depends on how you interact with us and how a Custome
 | Identifiers and contact details | Name, business name, email address, telephone number, username, account identifiers, and mailing or business address |
 | Account and business information | Role, employer, permissions, subscription details, service-area information, and account settings |
 | Billing and transaction information | Plan, invoices, payment status, and transaction history. Payment card and bank details may be collected directly by a payment processor rather than stored by us |
-| Location information | Property addresses, route information, and technician device location. While a technician has an unfinished route open in the mobile app, the app reads device location continuously — including while the app is in the background or the phone is locked, if background location permission is granted — so that it can detect arrival at a stop, and that the technician has left a stop that was not finished. **Only the single position fix that records an arrival is sent to us and stored**; a departure is sent to us as a time only, with no position attached to it. The intervening positions are evaluated on the device and discarded, and tracking stops once the day's stops are complete. We do not build or retain a continuous location trail for a technician |
+| Location information | Property addresses, route information, and technician device location. While a technician has an unfinished route open in the mobile app, the app reads device location continuously — including while the app is in the background or the phone is locked, if background location permission is granted — so that it can detect arrival at a stop, and that the technician has left a stop that was not finished. **Only the single position fix that records an arrival is sent to us and stored**; a departure is sent to us as a time only, with no position attached to it. The intervening positions are evaluated on the device and discarded, and tracking stops once the day’s stops are complete. We do not build or retain a continuous location trail for a technician |
 | Pool and service records | Water chemistry readings, dosage records, inspection checklists, compliance records, service notes, equipment details (including make, model, and serial numbers extracted from uploaded inspection reports), and visit histories |
 | Photos, documents, and other files | Photos taken during service visits (including geotagged and timestamped photos), uploaded inspection reports and their extracted data, and other content submitted by a Customer or End User |
-| Call recordings and transcripts | Where a Customer configures a phone number for the Services, inbound calls may be handled, recorded, and transcribed; we collect the caller’s phone number, call audio recordings, call transcripts, and any information the caller provides during the call |
+| Call recordings and transcripts | Where a Customer configures a phone number for the Services, inbound calls that the Customer’s own line does not answer are handled by an automated system rather than by a person, and are recorded and transcribed; we collect the caller’s phone number, call audio recordings, call transcripts, and any information the caller provides during the call. See Section 7.3 |
 | Customer portal information | Name, email address, and service or account information an Organization shares with its End Customers through the customer portal |
 | Device and usage information | Device type, operating system, app version, IP address, log data, interaction with features, crash reports, and diagnostic information |
 | Communications | Support requests, feedback, emails, text messages, and other communications with us |
@@ -118,7 +119,7 @@ Where required by applicable law, we rely on one or more legal bases, which may 
 
 Outputs from our state compliance and inspection engine, dosage calculator, document scanner, and other automated features are intended as operational tools. They are not legal, regulatory, medical, health-department, or professional advice. Customers and End Users are responsible for reviewing outputs, confirming readings and extracted information, and determining what is appropriate for a property and its circumstances.
 
-## 7. Location, Photos, and Document Scanning
+## 7. Location, Photos, Document Scanning, and Automated Phone Calls
 
 ### 7.1 Location and background location
 
@@ -133,6 +134,20 @@ You can generally disable or change location permissions through your device’s
 When an End User takes or uploads a photo, the Services may associate it with a service visit and record the date, time, or location, depending on the device, app settings, and permissions. The Services may analyze photo quality, including detecting whether an image appears blurry. Photos can capture people or other information unintentionally; users should avoid including people or unnecessary sensitive details.
 
 Customers and End Users may upload inspection reports and other documents. The document scanner may extract equipment make, model, and serial-number information or other information from those files. Extracted information may be incomplete or inaccurate and should be reviewed by the user. Customers are responsible for ensuring they have appropriate authority to upload documents and information about others.
+
+### 7.3 Automated phone calls, recording, and artificial intelligence
+
+A Customer may connect a phone number to the Services. When it does, a call to that number that the Customer’s own line does not answer — because it is outside their business hours, or because nobody picked up — is answered by an automated system rather than by a person.
+
+**What the caller is told, before anything is captured.** The first thing the automated system says, on every call and on every path, is that the call is handled by an automated system rather than a person, that it is recorded and transcribed, that artificial intelligence is used to understand the request, and that a caller who would rather not be recorded, or would rather speak to a person, should hang up and call back during business hours. Nevada, where we operate, requires the consent of all parties to record a telephone call, as do several other states. That notice is spoken before any recording, any speech capture, and any audio is sent to an AI provider, and a caller who stays on the line after hearing it consents to being recorded. The notice is not configurable by a Customer and cannot be switched off.
+
+**What the automated system does.** Depending on the Customer’s configuration, it either asks a short series of questions and records the answers, or holds a spoken conversation with the caller. In the conversational mode, the caller’s audio is streamed live to our AI provider during the call so that the system can respond. In both modes the recording is transcribed, and the transcript is processed by an AI model that turns it into a structured service request, which is emailed to the Customer. The subprocessors involved — our telephony provider, our AI provider, and our conversational-agent provider — are listed in Section 10, and all of them process this information in the United States.
+
+**Information the automated system can reveal.** If the number a caller is calling from matches a property on a Customer’s account, the automated system can tell that caller when their next service visit is scheduled, when their pool was last serviced, and which technician is assigned to them. It answers those questions only for the account already matched to the incoming number, and it will not look up any other account, including one the caller names during the call. A caller whose number is not matched is not told anything about any account.
+
+**Accuracy and limits.** An automated transcript or AI summary can be wrong, incomplete, or garbled, and the recording is retained as the authoritative record of what was said. The automated system does not make decisions about anyone; it takes a message and passes it to the Customer.
+
+**Retention and choices.** Call recordings and transcripts are retained with the service request they generated and deleted 30 days after the Customer’s subscription ends — see Section 13. A caller who does not want to be recorded can hang up during the notice and reach a person by calling during the Customer’s business hours. To ask about a recording of a call you made, contact us at **privacy@aquarunner247.com**; because these recordings are Customer Data, we will generally refer the request to the Customer, as described in Section 11.
 
 ## 8. QR Codes, Portals, and Compliance Records
 
@@ -216,7 +231,7 @@ We retain Personal Information for as long as reasonably necessary for the purpo
 | Account and contact information | For the life of the Organization’s account, then 30 days after the subscription ends. The Organization’s own business record — its name, plan, and billing identifiers — is kept after that so that a former customer can be identified for support, audit, and reactivation |
 | Billing and transaction records | Retained for as long as applicable tax, accounting, and corporate recordkeeping law requires, which for us is seven years from the transaction. Card details are held by our payment processor, not by us |
 | Customer Data — service records, chemistry readings, dosage entries, checklists, service notes, equipment details, and photos | For the life of the account, then 30 days after the subscription ends, after which it is permanently deleted — **except** for the compliance records in the row below |
-| Compliance records — water-reading logs, contamination incident records, and inspection reports, together with the customer, property, body-of-water, and visit records needed to display them | **Retained indefinitely.** These are the records a state health department may require to remain available for a body of water, and they stay reachable through a property’s QR-code log page after an Organization’s subscription ends. See the note below this table |
+| Compliance records — water-reading logs, contamination incident records, incident monitoring readings, and inspection reports, together with the reduced customer, property, body-of-water, and visit records needed to display them | **Retained indefinitely, subject to the deletion process below.** These are the records a state health department may require to remain available for a body of water, and they stay reachable through a property’s QR-code log page after an Organization’s subscription ends. Personal contact details are **not** part of what is retained — the note below this table lists field by field what is kept and what is erased |
 | Customer portal accounts — an End Customer’s name and email address | Kept while the login exists, and blocked from signing in once the Organization’s subscription ends, so that an End Customer can keep their own identity and records if they later subscribe directly. **An End Customer can delete their own login at any time** from Your account in the portal, which removes the login immediately; they can also ask us at **privacy@aquarunner247.com**. Deleting a login does not delete the Organization’s service records — see Section 11 |
 | Location and route information | Arrival and departure records are retained with the service visit they belong to, and follow that visit’s row above. Route plans and technician home addresses are deleted 30 days after the subscription ends |
 | Call recordings and transcripts | Retained with the service request they generated, and deleted 30 days after the subscription ends |
@@ -226,7 +241,52 @@ We retain Personal Information for as long as reasonably necessary for the purpo
 
 At the end of a subscription, Customer Data remains available for export for **30 days**, after which it is deleted or de-identified, except as described in the next paragraph or to the extent retention is required or permitted by law or is necessary for security, backup, or dispute-resolution purposes.
 
-**What we keep indefinitely, and why.** Health-department compliance logging for a commercial pool or spa is tied to the body of water, not to whoever happens to be servicing it. If we deleted the water-reading history, contamination incident records, and inspection reports when an Organization cancelled, the QR-code log page posted at that pool would stop resolving and the record a regulator expects to find would disappear. So we retain those records, and the minimum customer, property, body-of-water, and service-visit rows needed to display them, without a fixed end date. When an Organization’s subscription ends we also clear the operational and personal fields from those retained records — the technician who performed each visit, their notes, the arrival GPS coordinates, and the Organization’s own notes and billing reference for a customer. Everything else is deleted. The applicable agreement or DPA may provide additional details, and an Organization that believes a particular record should not be retained can contact us at **privacy@aquarunner247.com**.
+### 13.1 What we keep indefinitely, and why
+
+Health-department compliance logging for a commercial pool or spa is tied to the body of water, not to whoever happens to be servicing it. If we deleted the water-reading history, contamination incident records, and inspection reports when an Organization cancelled, the QR-code log page posted at that pool would stop resolving and the record a regulator expects to find would disappear. So we retain those records, and the reduced set of rows needed to display them, without a fixed end date.
+
+We minimize that retained set to what the compliance log actually needs. Retention of the record is not a reason to retain the people attached to it, so when an Organization’s subscription ends we erase the personal contact information from the records we keep.
+
+### 13.2 Exactly what is retained, and what is erased
+
+**Retained indefinitely:**
+
+- The compliance records themselves: water-reading logs, contamination incident records, incident monitoring readings, and inspection reports.
+- Each body of water: its name, type, volume, equipment-independent details, and its public log identifier.
+- Each property: its name, type, street address, city, state, postal code, and map coordinates. These appear on, or locate, the log itself.
+- The customer’s **name** — the business or household name the Organization entered — which is the heading the log is published under.
+- Each service visit: its date, the times recorded for it, and the readings, incidents, and reports attached to it.
+- The Organization’s own business record — its name, plan, and billing identifiers — which is its account, not information about a customer.
+- Customer portal logins (an End Customer’s name and email address), handled as set out in the table above, and deletable by the End Customer at any time.
+
+**Erased when the subscription ends, from records we otherwise keep:**
+
+- Every contact person on a property: the property manager, the on-site maintenance contact, the HOA manager, and, for a residential property, the owner — in each case their name, telephone numbers, and email address.
+- The directions for physically reaching the pool, including any gate or access code, and the Organization’s free-text notes on the property.
+- The Organization’s notes and billing reference for a customer.
+- On every service visit: which technician performed it, their notes, and the GPS coordinates and accuracy recorded on arrival.
+
+**Deleted outright,** on the 30-day schedule in the table above: visit photos, uploaded customer documents and safety data sheets, chemical dosage entries, checklists, issue flags, chemistry recommendations, equipment and volume records, service schedules, routes and route plans, technician pay rates and payroll settings, staff logins, management-company records, customer alerts, and all phone-agent call records, recordings, and transcripts.
+
+The practical effect is that a retained compliance log identifies a property and the business that serviced it, and no longer identifies an individual person.
+
+### 13.3 Legal and regulatory retention override
+
+Where we retain information because a law, regulation, or health-department requirement calls for it — which is the basis for the compliance records above — that retention continues even after a request to delete, to the extent the law allows us to keep it. Most U.S. state privacy laws, including the CCPA as amended by the CPRA, permit a business or service provider to decline a deletion request to the extent retention is necessary to comply with a legal obligation. We rely on that only for the records described in Section 13.2, only for as long as the obligation applies, and only to the extent necessary — which is why the personal fields listed above are erased rather than retained alongside the log.
+
+### 13.4 Asking us to delete a retained compliance record
+
+A request is handled individually rather than refused by policy. If you are an individual and a retained record concerns you, or you are an Organization and believe a particular record should not be retained, contact us at **privacy@aquarunner247.com** with enough detail to find the record. We will:
+
+1. Acknowledge the request, normally within 10 business days.
+2. Identify the specific records involved and tell you what each one contains.
+3. Delete anything not required to keep a regulatory log intact — including anything retained by mistake, and anything outside the categories in Section 13.2.
+4. Where we cannot delete a record, tell you which record it is, the specific obligation we are relying on, and how long we expect it to apply, and consider whether the record can be reduced or pseudonymized further instead of kept as it is.
+5. Where the record belongs to an Organization’s account as Customer Data, pass the request to that Organization and tell you we have done so, as described in Section 11 — they decide what their records contain, and we act on their instructions.
+
+If you are in a state that provides a right to appeal a declined privacy request, Section 16 explains how to appeal, and that right applies to a refusal under this Section.
+
+A residential property has no public compliance log — the log is published only for commercial bodies of water — so if your records concern a residential pool, tell us, because the regulatory basis above will usually not apply to them at all.
 
 ## 14. Security and Privacy Incidents
 
@@ -335,6 +395,16 @@ Questions, comments, and privacy requests may be sent to:
 Privacy contact: **Privacy Contact**  
 Email: **privacy@aquarunner247.com**  
 Website: **https://aquarunner247.com**
+
+## Version History
+
+An organization’s recorded acceptance names the version it agreed to, so each version listed here remains available on request at **admin@aquarunner247.com**.
+
+| Version | Date | Description |
+|---|---|---|
+| 1.0 | October 22, 2026 | Initial draft |
+| 1.1 | October 25, 2026 | Disclosed on-device GPS departure detection. |
+| 1.2 | November 10, 2026 | Added Section 7.3 (automated phone calls, recording, and artificial intelligence). Rewrote Section 13 to state field by field what survives a cancellation, to record the legal and regulatory retention override, and to set out the process for asking us to delete a retained compliance record. |
 
 ## 24. Attorney Review Notice
 

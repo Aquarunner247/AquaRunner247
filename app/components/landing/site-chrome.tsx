@@ -122,11 +122,16 @@ export function SiteFooter() {
 
         <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 font-sans text-xs text-brand-mutedOnDark">
           <p>&copy; {new Date().getFullYear()} AquaRunner 24/7. Built in Las Vegas, Nevada.</p>
-          {/* flex-wrap, not a plain row: six legal links overflow 390px without it, and an
+          {/* flex-wrap, not a plain row: seven legal links overflow 390px without it, and an
               overflowing footer puts horizontal scroll on every page it appears on. */}
           <p className="flex flex-wrap gap-x-4 gap-y-2">
             <Link href="/terms" className="transition-colors hover:text-white">
               Terms of Service
+            </Link>
+            {/* Routed 2026-11-10. ToS Section 2 incorporates it by URL, so a 404 here would be
+                a contractual reference to a document nobody can read. */}
+            <Link href="/consumer-terms" className="transition-colors hover:text-white">
+              Consumer Addendum
             </Link>
             <Link href="/privacy" className="transition-colors hover:text-white">
               Privacy Policy

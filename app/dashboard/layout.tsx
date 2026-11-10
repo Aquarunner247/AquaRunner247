@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { prisma } from "@/lib/prisma";
+import { canAcceptTerms, needsTermsAcceptance } from "@/lib/terms-acceptance";
 import { TechBottomNav } from "@/app/components/tech-bottom-nav";
 import { OnboardingTourLauncher } from "@/app/components/onboarding-tour-launcher";
 
@@ -19,7 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!appUser.isPlatformAdmin) {
     const organization = await prisma.organization.findUnique({
       where: { id: appUser.organizationId },
-      select: { planStatus: true, planTier: true, businessName: true, name: true },
+      select: { planStatus: true, planTier: true, businessName: true, name: true, termsAcceptedVersion: true },
     });
     orgName = organization?.businessName?.trim() || organization?.name?.trim() || null;
     // AquaRunner Compliance is a separate product with its own route tree (app/cpo) --
@@ -28,6 +29,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // mismatch, not a billing problem.
     if (organization?.planTier === "COMPLIANCE") redirect("/cpo");
     if (organization?.planStatus === "CANCELED") redirect("/billing/expired");
+    // Mandatory re-acceptance. Only an ADMIN is held here: nobody else can bind the
+    // organization (see canAcceptTerms), so blocking a technician would stop them working a
+    // route to no legal effect. Placed after the product-mismatch and billing redirects so a
+    // COMPLIANCE org is sent to its own tree and gated by that layout instead of this one.
+    if (organization && needsTermsAcceptance(organization) && canAcceptTerms(appUser)) {
+      redirect("/accept-terms");
+    }
     pastDue = organization?.planStatus === "PAST_DUE";
   }
 

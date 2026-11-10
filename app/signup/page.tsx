@@ -129,6 +129,32 @@ export default async function SignupPage({ searchParams }: PageProps) {
         <p className="text-xs text-brand-muted">
           You&rsquo;ll set a password after your card is confirmed on the next step.
         </p>
+        {/* The $19 tier is the one a single property owner or in-house CPO buys, so it is the
+            one where a buyer might later say they were a consumer and that the business-focused
+            indemnity and arbitration terms should not bind them. Terms of Service Section 2 now
+            states that the Services are commercial tools and incorporates a Consumer Addendum
+            for anyone who is in fact a consumer; this is the matching acknowledgment, shown
+            where the buyer can act on it. Not a checkbox: the submit button is already the act
+            of assent to the Terms that contain this statement, and a second required tick ahead
+            of it would just be a click to get past rather than something read. */}
+        {tier === "COMPLIANCE" ? (
+          <p className="text-sm leading-relaxed text-brand-ink">
+            AquaRunner Compliance produces the chemical and inspection logs a health department
+            requires for a <strong>commercially regulated</strong> pool, spa, or water feature. By
+            starting a trial you confirm you are subscribing for business, commercial, or
+            regulatory-compliance purposes. If you are instead subscribing primarily for personal
+            or household use, our{" "}
+            <a
+              href="/consumer-terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-brand-primary underline"
+            >
+              Consumer Addendum
+            </a>{" "}
+            applies to you and changes these terms in your favor.
+          </p>
+        ) : null}
         {/* Immediately above the button, so the notice and the act of assent are the same
             moment. Moving it elsewhere on the page is what makes an agreement browsewrap. */}
         <TermsNotice action="starting your trial" />

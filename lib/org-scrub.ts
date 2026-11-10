@@ -19,7 +19,10 @@ export type OrgScrubOutcome = {
  *     support/audit; nulling them would also permanently break self-serve reactivation)
  *   - Customer (kept, but notes/billingRef cleared -- only `name` is needed, shown on
  *     the public QR page)
- *   - Property, BodyOfWater (kept fully -- needed to resolve/render the QR page)
+ *   - Property (kept, but every contact and free-text field cleared -- see
+ *     PROPERTY_FIELDS_CLEARED_ON_SCRUB. Only name/propertyType/addressLine1/city/region
+ *     are read by the public log, so the rest was retained forever for nothing)
+ *   - BodyOfWater (kept fully -- needed to resolve/render the QR page)
  *   - ServiceVisit (kept, but technicianId/techNotes/arrival GPS fields cleared --
  *     operational/PII, not compliance-relevant)
  *   - VisitWaterReading, ContaminationIncident, IncidentMonitoringReading,
@@ -32,6 +35,53 @@ export type OrgScrubOutcome = {
  * removes no storage files -- see app/api/cron/scrub-canceled-orgs/route.ts for how
  * dry-run stays the default until this feature's trial period ends.
  */
+/**
+ * Property fields cleared on a retained Property row, rather than kept with it.
+ *
+ * Why this list exists at all: a Property row survives the scrub indefinitely, because the
+ * public compliance log at /p/[publicSlug] has to keep resolving after the pool company
+ * cancels. But that page reads only `name`, `propertyType`, `addressLine1`, `city`,
+ * `region` and the parent Customer's `name` -- check app/p/[publicSlug]/page.tsx before
+ * trusting that sentence. Everything below was being retained with no end date and no
+ * purpose: four separate contact blocks (property manager, on-site maintenance, HOA
+ * manager, residential owner), the directions for physically getting to the pool, and the
+ * organization's free-text notes on the property.
+ *
+ * Several of these are worse than ordinary contact data. `accessNotes` is where a gate
+ * code goes. The owner/manager blocks are a named individual's personal phone number and
+ * email address, which under CPRA stay personal information for as long as they are held
+ * -- and "we need it so a health inspector can scan a QR code" does not reach them.
+ *
+ * Tradeoff, so it is on the record: if an end customer later subscribes to AquaRunner
+ * Compliance themselves, app/portal/subscribe/actions.ts MOVES these same Property rows
+ * into their new organization, and they will arrive with the contact fields blank. That is
+ * the property owner re-entering their own name and phone number once, which is not a
+ * reason to hold everyone else's indefinitely.
+ *
+ * Deliberately NOT cleared: latitude/longitude/postalCode/geofenceMeters, which locate the
+ * body of water the log belongs to rather than describing a person, and isHOA/hasDog, which
+ * are property attributes with no contact value once the blocks above are gone.
+ */
+export const PROPERTY_FIELDS_CLEARED_ON_SCRUB = {
+  managerName: null,
+  managerBusinessPhone: null,
+  managerMobilePhone: null,
+  managerPhone: null,
+  managerEmail: null,
+  maintenanceName: null,
+  maintenanceCellPhone: null,
+  maintenanceEmail: null,
+  hoaManagerName: null,
+  hoaManagerPhone: null,
+  hoaManagerEmail: null,
+  ownerName: null,
+  ownerMobilePhone: null,
+  ownerHomePhone: null,
+  ownerEmail: null,
+  accessNotes: null,
+  notes: null,
+} as const;
+
 export async function runOrgScrub(organizationId: string, dryRun: boolean): Promise<OrgScrubOutcome> {
   const deletedCounts: Record<string, number> = {};
 
@@ -91,6 +141,7 @@ export async function runOrgScrub(organizationId: string, dryRun: boolean): Prom
         data: { technicianId: null, techNotes: null, arrivalLatitude: null, arrivalLongitude: null, arrivalAccuracyMeters: null },
       });
       await prisma.customer.updateMany({ where: { organizationId }, data: { notes: null, billingRef: null } });
+      await prisma.property.updateMany({ where: { organizationId }, data: { ...PROPERTY_FIELDS_CLEARED_ON_SCRUB } });
     }
 
     return { status: "SUCCESS", deletedCounts };
