@@ -8,7 +8,7 @@ This page is the list referred to in Section 5.3 of our [Data Processing Agreeme
 Section 10 of our [Privacy Policy](/privacy). We update it when a sub-processor is added or removed,
 and notify organization admin contacts as Section 5.3 describes.
 
-**Last updated:** October 22, 2026
+**Last updated:** November 10, 2026
 
 | Sub-processor | Purpose | Processing location | Information involved |
 |---|---|---|---|
@@ -39,7 +39,8 @@ inspection records, no photos, no documents, no call recordings, and no contact 
 addresses, or phone numbers.
 
 We rely on the publicly published usage policies and privacy notices of those three rather than on a
-negotiated data processing agreement with each. An organization that does not want property addresses
+negotiated data processing agreement with each — Section 5.2.1 of our [Data Processing Agreement](/dpa)
+says so there too, so the two documents cannot be read as promising different things. An organization that does not want property addresses
 sent outside the United States can tell us, and we will disable address autocomplete, geocoding, and
 route optimization for its account; stops can still be ordered by hand.
 

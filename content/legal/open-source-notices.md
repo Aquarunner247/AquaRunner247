@@ -14,7 +14,7 @@ Map data and imagery carry their own attribution, shown on the map itself: stree
 &copy; Esri and its imagery partners. Driving routes and travel times are calculated by Project
 OSRM, and address geocoding by Nominatim, both operated by the OpenStreetMap community.
 
-**Last updated:** October 22, 2026
+**Last updated:** November 10, 2026
 
 ## Components
 
@@ -40,22 +40,23 @@ The following components are used under the MIT License, each copyright its resp
 authors:
 
 - `@capacitor-community/background-geolocation` 1.2.26
-- `@capacitor/android` 8.5.0
+- `@capacitor/android` 8.5.3
+- `@capacitor/app` 8.1.2
 - `@capacitor/camera` 8.2.3
-- `@capacitor/core` 8.5.0
+- `@capacitor/core` 8.5.3
 - `@capacitor/geolocation` 8.2.2
-- `@capacitor/ios` 8.5.0
+- `@capacitor/ios` 8.5.3
 - `@capacitor/push-notifications` 8.1.2
 - `@capacitor/splash-screen` 8.0.2
 - `@capacitor/status-bar` 8.0.3
-- `@sentry/nextjs` 10.70.0
+- `@sentry/nextjs` 10.78.0
 - `@supabase/ssr` 0.6.1
 - `@supabase/supabase-js` 2.100.1
 - `@types/ws` 8.18.1
 - `@vercel/analytics` 2.0.1
 - `@vercel/config` 0.6.1
 - `marked` 18.0.13
-- `next` 15.5.23
+- `next` 15.5.29
 - `papaparse` 5.7.0
 - `pg` 8.20.0
 - `qrcode` 1.5.4
@@ -66,7 +67,7 @@ authors:
 - `stripe` 22.3.1
 - `twilio` 6.1.0
 - `ws` 8.21.3
-- `zod` 4.4.3
+- `zod` 4.6.7
 
 ### Apache License 2.0
 
@@ -76,8 +77,8 @@ its respective authors. You may obtain a copy of the License at
 to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 
-- `@prisma/adapter-pg` 7.6.0
-- `@prisma/client` 7.6.0
+- `@prisma/adapter-pg` 7.10.1
+- `@prisma/client` 7.10.1
 - `@vercel/blob` 2.8.0
 - `@vercel/functions` 3.9.5
 - `@vercel/speed-insights` 2.0.0
