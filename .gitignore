@@ -82,3 +82,8 @@ android/keystore.properties
 *.swp
 *.swo
 *~
+
+# Generated print copies of the agreements (npm run legal:pdf). Built from content/legal/*.md,
+# which is the source -- a committed PDF is a copy that goes stale the first time a document is
+# amended, and a customer ends up holding the wrong version.
+legal-pdfs/

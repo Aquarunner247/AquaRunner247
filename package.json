@@ -27,7 +27,8 @@
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android",
     "db:test-transaction-pooler": "node --env-file=.env node_modules/.bin/tsx scripts/test-transaction-pooler.ts",
-    "db:backfill-service-groups": "node --env-file=.env node_modules/.bin/tsx scripts/backfill-service-groups.ts"
+    "db:backfill-service-groups": "node --env-file=.env node_modules/.bin/tsx scripts/backfill-service-groups.ts",
+    "legal:pdf": "node_modules/.bin/tsx scripts/legal-pdfs.ts"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",
