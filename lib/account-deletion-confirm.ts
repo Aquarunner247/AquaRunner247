@@ -15,10 +15,20 @@
  * admin and irreversible deletion -- so it lives where a test can reach it.
  */
 
-/** What survives deletion, in the words the UI and the documents both use. */
+/**
+ * What survives deletion, in the words the UI and the documents both use.
+ *
+ * Kept deliberately specific: this string is the disclosure declared to Google Play as the
+ * data-deletion URL, and it has to match what lib/org-scrub.ts actually leaves behind rather
+ * than reading as reassuringly vague. It said "names" until 2026-11-10, which left out the
+ * service address -- and the address is printed on the public log page the retention exists
+ * to keep serving. See PROPERTY_FIELDS_CLEARED_ON_SCRUB for the other side of the split and
+ * Privacy Policy Section 13.2 for the field-by-field version.
+ */
 export const RETAINED_AFTER_DELETION =
   "water-reading logs, contamination incident records, and inspection reports, plus the customer, " +
-  "property, and body-of-water names needed to display them";
+  "property, and body-of-water names and the property's service address, which are needed to " +
+  "display them";
 
 /**
  * Whether what the admin typed matches the organization's own name.
