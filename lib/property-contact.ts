@@ -22,3 +22,26 @@ export function propertyContactEmail(property: PropertyContactFields): string | 
   const manager = property.managerEmail?.trim() || null;
   return property.propertyType === "RESIDENTIAL" ? (owner ?? manager) : (manager ?? owner);
 }
+
+export type PropertyReportFields = PropertyContactFields & {
+  reportEmail?: string | null;
+};
+
+/**
+ * Where a property's service summary and alert actually go.
+ *
+ * Separate from propertyContactEmail rather than folded into it, because the two questions are
+ * genuinely different and one caller wants the other answer: the QuickBooks customer export
+ * (app/api/exports/quickbooks/customers/route.ts) builds an accounting record, which wants the
+ * customer's own address and not a maintenance supervisor who happens to receive the reports.
+ * Folding the override into propertyContactEmail would have silently rewritten that export too.
+ *
+ * reportEmail wins outright when it is set -- no merging with the contact blocks and no second
+ * recipient. An admin who types an address into "send reports here" has named the destination,
+ * and adding the manager back in alongside would mail chemistry to someone the admin just
+ * chose to route around. Widening to several recipients is a different feature with its own
+ * decision to make; see CustomerContact in prisma/schema.prisma.
+ */
+export function propertyReportEmail(property: PropertyReportFields): string | null {
+  return property.reportEmail?.trim() || propertyContactEmail(property);
+}

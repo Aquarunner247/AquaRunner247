@@ -59,6 +59,13 @@ export default async function CpoPropertiesPage() {
             <input name="managerEmail" type="email" className="app-field mt-1" />
           </label>
           <label className="text-sm text-brand-ink">
+            Send reports to
+            <input name="reportEmail" type="email" className="app-field mt-1" />
+            <span className="mt-1 block text-xs text-brand-muted">
+              Optional. Blank sends summaries and alerts to the manager email above.
+            </span>
+          </label>
+          <label className="text-sm text-brand-ink">
             Street address
             <input name="addressLine1" className="app-field mt-1" />
           </label>

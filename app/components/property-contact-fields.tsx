@@ -25,6 +25,7 @@ export type PropertyContactDefaults = {
   ownerEmail?: string | null;
   accessNotes?: string | null;
   hasDog?: boolean | null;
+  reportEmail?: string | null;
 };
 
 type Props = {
@@ -210,6 +211,21 @@ export function PropertyContactFields({
           </div>
         </>
       )}
+
+      <div className="mt-3 border-t border-brand-border pt-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Service reports</p>
+        <p className="mt-1 text-xs text-brand-muted">
+          Leave blank to send summaries and alerts to the contact above. Set it when the person who
+          reads the chemistry is not the one you arrange access with.
+        </p>
+        <input
+          name="reportEmail"
+          type="email"
+          defaultValue={defaults.reportEmail ?? ""}
+          placeholder="Send reports to this address instead"
+          className={`mt-2 w-full ${inputClass}`}
+        />
+      </div>
     </>
   );
 }

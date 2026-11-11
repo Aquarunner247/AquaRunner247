@@ -23,6 +23,7 @@ export async function createStandaloneProperty(formData: FormData) {
   const managerName = String(formData.get("managerName") ?? "").trim();
   const managerBusinessPhone = String(formData.get("managerBusinessPhone") ?? "").trim();
   const managerEmail = String(formData.get("managerEmail") ?? "").trim();
+  const reportEmail = String(formData.get("reportEmail") ?? "").trim();
   const addressLine1 = String(formData.get("addressLine1") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
   const region = String(formData.get("region") ?? "").trim();
@@ -38,6 +39,7 @@ export async function createStandaloneProperty(formData: FormData) {
       managerName: managerName || null,
       managerBusinessPhone: managerBusinessPhone || null,
       managerEmail: managerEmail || null,
+      reportEmail: reportEmail || null,
       addressLine1: addressLine1 || null,
       city: city || null,
       region: region || null,

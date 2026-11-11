@@ -63,6 +63,7 @@ export type OrgScrubOutcome = {
  * are property attributes with no contact value once the blocks above are gone.
  */
 export const PROPERTY_FIELDS_CLEARED_ON_SCRUB = {
+  reportEmail: null,
   managerName: null,
   managerBusinessPhone: null,
   managerMobilePhone: null,

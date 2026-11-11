@@ -2,7 +2,7 @@ import type { CustomerAlertSendOutcome } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { sendCustomerAlertEmail } from "@/lib/email";
 import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
-import { propertyContactEmail } from "@/lib/property-contact";
+import { propertyReportEmail } from "@/lib/property-contact";
 import { applyAlertPlaceholders } from "@/lib/alert-placeholders";
 
 export type CustomerAlertOutcome = "sent" | "partial" | "failed" | "no-recipients" | "not-found";
@@ -53,9 +53,19 @@ export async function sendAlertToCustomer(params: {
         customerUsers: { where: { active: true }, select: { email: true, name: true } },
         // ownerEmail/ownerName alongside the manager fields: a residential property uses those
         // (see propertyContactEmail), and reading only managerEmail meant a residential customer
-        // with no portal login received no alerts at all.
+        // with no portal login received no alerts at all. reportEmail overrides both when the
+        // admin has routed this property's reports somewhere else; omitting it from the select
+        // would make it arrive undefined and read as "not set".
         properties: {
-          select: { managerEmail: true, managerName: true, ownerEmail: true, ownerName: true, propertyType: true, name: true },
+          select: {
+            reportEmail: true,
+            managerEmail: true,
+            managerName: true,
+            ownerEmail: true,
+            ownerName: true,
+            propertyType: true,
+            name: true,
+          },
           take: 1,
         },
       },
@@ -92,7 +102,7 @@ export async function sendAlertToCustomer(params: {
     customer.customerUsers.length > 0
       ? customer.customerUsers.map((cu) => ({ email: cu.email, name: cu.name ?? customer.name }))
       : (() => {
-          const fallback = property ? propertyContactEmail(property) : null;
+          const fallback = property ? propertyReportEmail(property) : null;
           return fallback ? [{ email: fallback, name: customer.name }] : [];
         })();
 

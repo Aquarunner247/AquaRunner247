@@ -109,6 +109,7 @@ describe("Property fields retained after an organization is scrubbed", () => {
     // Spelled out rather than pattern-matched: these are the four contact blocks and the
     // two free-text fields, and each one is a person's details or a way into the property.
     for (const field of [
+      "reportEmail",
       "managerName",
       "managerBusinessPhone",
       "managerMobilePhone",

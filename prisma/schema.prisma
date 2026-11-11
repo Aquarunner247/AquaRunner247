@@ -1022,6 +1022,17 @@ model Property {
   /// Drives which on-site service form/compliance rules apply — single source of truth,
   /// not an account- or login-level setting.
   propertyType         PropertyType       @default(COMMERCIAL)
+  /// Where this property's service summaries and alerts are sent, when that is not the contact
+  /// in the blocks below. The contact who appears in managerEmail is frequently whoever access
+  /// is arranged with rather than whoever wants the chemistry: an HOA records the management
+  /// company there while the readings belong with the on-site supervisor or the board, and a
+  /// hotel wants engineering rather than the GM. Null -- the default, and the state of every
+  /// existing row -- behaves exactly as before, falling back to managerEmail/ownerEmail.
+  ///
+  /// Read only by the two customer-facing senders, through propertyReportEmail(). The
+  /// QuickBooks customer export deliberately still uses propertyContactEmail: an accounting
+  /// record wants the customer's own address, not wherever reports happen to be routed.
+  reportEmail          String?
   managerName          String?
   managerBusinessPhone String?
   managerMobilePhone   String?

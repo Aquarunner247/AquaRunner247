@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendServiceSummaryEmail, type ServiceSummaryBody } from "@/lib/email";
 import { hasWhiteLabelBranding } from "@/lib/plan-tiers";
-import { propertyContactEmail } from "@/lib/property-contact";
+import { propertyReportEmail } from "@/lib/property-contact";
 import { timeZoneForState, localDayBounds, ymdInTimeZone } from "@/lib/timezone";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
@@ -91,6 +91,9 @@ export async function sendBundledServiceSummary(
       property: {
         select: {
           name: true,
+          // reportEmail first: it is the override propertyReportEmail prefers, and a field
+          // left out of the select arrives undefined, which would read as "not set".
+          reportEmail: true,
           managerEmail: true,
           ownerEmail: true,
           propertyType: true,
@@ -108,7 +111,7 @@ export async function sendBundledServiceSummary(
   // Also guarded at both call sites; repeated here so no future caller can email one by accident.
   if (visit.logOnlyRecord) return { sent: false, reason: "log-only-record", waitingOn: [] };
 
-  const contactEmail = propertyContactEmail(visit.property);
+  const contactEmail = propertyReportEmail(visit.property);
   if (!contactEmail) return { sent: false, reason: "no-contact-email", waitingOn: [] };
 
   const timeZone = timeZoneForState(visit.organization.state);

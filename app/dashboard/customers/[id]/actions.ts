@@ -103,6 +103,8 @@ export async function updateCustomerAndPrimaryProperty(formData: FormData) {
   const managerBusinessPhone = String(formData.get("managerBusinessPhone") ?? "").trim();
   const managerMobilePhone = String(formData.get("managerMobilePhone") ?? "").trim();
   const managerEmail = String(formData.get("managerEmail") ?? "").trim();
+  // Applies to both property types, so it is read outside the mutually-exclusive blocks below.
+  const reportEmail = String(formData.get("reportEmail") ?? "").trim();
   const maintenanceName = String(formData.get("maintenanceName") ?? "").trim();
   const maintenanceCellPhone = String(formData.get("maintenanceCellPhone") ?? "").trim();
   const maintenanceEmail = String(formData.get("maintenanceEmail") ?? "").trim();
@@ -131,6 +133,7 @@ export async function updateCustomerAndPrimaryProperty(formData: FormData) {
           ownerEmail: String(formData.get("ownerEmail") ?? "").trim() || null,
           accessNotes: String(formData.get("accessNotes") ?? "").trim() || null,
           hasDog: formData.get("hasDog") != null,
+          reportEmail: reportEmail || null,
         }
       : {
           managerName: managerName || null,
@@ -145,6 +148,7 @@ export async function updateCustomerAndPrimaryProperty(formData: FormData) {
           hoaManagerName: isHOA ? hoaManagerName || null : null,
           hoaManagerPhone: isHOA ? hoaManagerPhone || null : null,
           hoaManagerEmail: isHOA ? hoaManagerEmail || null : null,
+          reportEmail: reportEmail || null,
         };
 
   const customer = await prisma.customer.findFirst({
@@ -231,6 +235,8 @@ export async function updateProperty(formData: FormData) {
   const managerBusinessPhone = String(formData.get("managerBusinessPhone") ?? "").trim();
   const managerMobilePhone = String(formData.get("managerMobilePhone") ?? "").trim();
   const managerEmail = String(formData.get("managerEmail") ?? "").trim();
+  // Applies to both property types, so it is read outside the mutually-exclusive blocks below.
+  const reportEmail = String(formData.get("reportEmail") ?? "").trim();
   const maintenanceName = String(formData.get("maintenanceName") ?? "").trim();
   const maintenanceCellPhone = String(formData.get("maintenanceCellPhone") ?? "").trim();
   const maintenanceEmail = String(formData.get("maintenanceEmail") ?? "").trim();
@@ -259,6 +265,7 @@ export async function updateProperty(formData: FormData) {
           ownerEmail: String(formData.get("ownerEmail") ?? "").trim() || null,
           accessNotes: String(formData.get("accessNotes") ?? "").trim() || null,
           hasDog: formData.get("hasDog") != null,
+          reportEmail: reportEmail || null,
         }
       : {
           managerName: managerName || null,
@@ -273,6 +280,7 @@ export async function updateProperty(formData: FormData) {
           hoaManagerName: isHOA ? hoaManagerName || null : null,
           hoaManagerPhone: isHOA ? hoaManagerPhone || null : null,
           hoaManagerEmail: isHOA ? hoaManagerEmail || null : null,
+          reportEmail: reportEmail || null,
         };
 
   const property = await prisma.property.findFirst({

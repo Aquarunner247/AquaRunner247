@@ -1,0 +1,14 @@
+-- Where a property's service summaries and alerts are sent, when that is not the contact
+-- recorded in Property's existing blocks.
+--
+-- Until now every customer-facing email resolved to a single address: managerEmail for a
+-- commercial property, ownerEmail for a residential one, each falling back to the other
+-- (lib/property-contact.ts). That address is often whoever access is arranged with rather
+-- than whoever reads the chemistry -- an HOA's management company, a hotel's GM -- so the
+-- report reached a person who files it away.
+--
+-- Nullable with no default and no backfill, deliberately. NULL means "use the contact
+-- blocks", which is exactly what every existing row already did, so this migration changes
+-- the behaviour of nothing that is already stored. Safe to apply before the code that reads
+-- it deploys: no sender selects the column until then.
+ALTER TABLE "Property" ADD COLUMN "reportEmail" TEXT;

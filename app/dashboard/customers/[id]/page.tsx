@@ -455,6 +455,14 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       </>
                     )}
 
+                    {primaryProperty.reportEmail ? (
+                      <p className="mt-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+                          Reports go to
+                        </span>{" "}
+                        {primaryProperty.reportEmail}
+                      </p>
+                    ) : null}
                     {primaryProperty.addressLine1 || primaryProperty.city || primaryProperty.region || primaryProperty.postalCode ? (
                       <p className="mt-2 text-brand-muted">
                         {primaryProperty.addressLine1 ?? ""}
@@ -1254,6 +1262,14 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                         </>
                       )}
 
+                      {property.reportEmail ? (
+                        <p className="mt-2">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+                            Reports go to
+                          </span>{" "}
+                          {property.reportEmail}
+                        </p>
+                      ) : null}
                       {property.addressLine1 || property.city || property.region || property.postalCode ? (
                         <p className="mt-2 text-brand-muted">
                           {property.addressLine1 ?? ""}
