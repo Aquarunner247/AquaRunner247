@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { timeZoneForState, ymdInTimeZone, localDayBounds } from "@/lib/timezone";
 import { nextRouteSequenceForDay } from "@/lib/day-sequence";
+import { parseDueOn, parseRemindDaysBefore, reminderDayFor } from "@/lib/customer-task-due";
 
 export async function signOut() {
   const supabase = await createClient();
@@ -329,4 +330,56 @@ export async function clearMyEndLocation() {
   revalidatePath("/dashboard/more");
   revalidatePath("/dashboard/schedule");
   redirect("/dashboard/more/end-location?cleared=1");
+}
+
+/**
+ * Write a to-do from the dashboard notebook, against a customer picked from its dropdown.
+ *
+ * Separate from addCustomerTask (app/dashboard/customers/[id]/actions.ts) for two reasons, and
+ * neither is cosmetic. That one takes the customer from the page it is rendered on and is
+ * ADMIN-only; this one takes the customer from a dropdown, so the id arrives from the browser
+ * and has to be re-scoped to the caller's organization before it is trusted. And it is open to
+ * OFFICE as well, because the office is who keeps this list -- the same role that may already
+ * tick a to-do done through setCustomerTaskDone.
+ *
+ * relationshipEndedAt: null is part of the lookup rather than a check afterwards: a to-do owed
+ * to a former customer is not work, and findDueTasks would never show it again anyway.
+ */
+export async function addDashboardTask(formData: FormData) {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) redirect("/login");
+  if (appUser.role !== "ADMIN" && appUser.role !== "OFFICE") redirect("/dashboard");
+
+  const customerId = String(formData.get("customerId") ?? "").trim();
+  const title = String(formData.get("title") ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  // Both are required by the form. A submission missing either is a client that bypassed it,
+  // so it is dropped rather than saved as a blank line somebody has to work out later.
+  if (!customerId || !title) return;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: appUser.organizationId, relationshipEndedAt: null },
+    select: { id: true },
+  });
+  if (!customer) return;
+
+  // An empty or unparseable date is no deadline rather than a guess -- see parseDueOn.
+  const dueOn = parseDueOn(String(formData.get("dueOn") ?? ""));
+  const remindDaysBefore = parseRemindDaysBefore(String(formData.get("remindDaysBefore") ?? ""));
+
+  await prisma.customerTask.create({
+    data: {
+      customerId: customer.id,
+      title,
+      dueOn,
+      remindDaysBefore: dueOn ? remindDaysBefore : null,
+      // Stored, not computed, because the bell and the digest filter on it across every
+      // customer -- same helper as addCustomerTask so the two cannot drift.
+      remindOn: reminderDayFor(dueOn, remindDaysBefore),
+      createdByUserId: appUser.id,
+    },
+  });
+
+  revalidatePath("/dashboard");
+  // The customer's own page lists the same to-dos, so without this it shows a stale list.
+  revalidatePath(`/dashboard/customers/${customer.id}`);
 }

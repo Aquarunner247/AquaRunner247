@@ -111,6 +111,53 @@
     @apply rounded-xl border border-brand-border/70 bg-brand-foam/60 p-3 md:p-4;
   }
 
+  /* A ruled notebook page, for the office to-do module on the dashboard.
+     Decorative, but it does real work: this module is the list somebody keeps by hand, and the
+     paper says so at a glance instead of reading as one more data card.
+
+     Three things make it read as paper rather than as a table, and all three matter:
+       - White stock on the cream page. Cream paper was tried first and vanished: the
+         dashboard's own background is brand-surface, so the page had no edge at all.
+       - BLUE ruling, mixed from brand-primary. Ruling in brand-border -- the same hairline the
+         card edges and dividers already use -- read as row separators, which is the one thing
+         this module should not look like.
+       - Entries sit ON the line (items-end plus a baseline nudge) rather than floating in the
+         middle of the row, which is what writing on ruled paper actually does.
+
+     --app-notebook-line is the ruling pitch, and every row is sized to it. 44px because each row
+     holds a tappable control, which is the touch-target floor in DESIGN-SYSTEM.md.
+
+     The margin rule is brand-cta, not brand-danger: a ruled margin says nothing about a reading
+     and the status tokens are reserved (rule 3). Coral here is a 1px rule rather than small text
+     on light, so rule 2 is satisfied too. */
+  .app-notebook {
+    --app-notebook-line: 2.75rem;
+    @apply relative overflow-hidden rounded-2xl border border-brand-border bg-white shadow-soft;
+  }
+
+  /* Ruling and margin both live on the list area. Running them under the heading would strike a
+     line through the title and put the margin rule through the middle of it. */
+  .app-notebook-lines {
+    @apply relative;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--app-notebook-line) - 1px),
+      color-mix(in srgb, theme("colors.brand.primary") 45%, transparent) calc(var(--app-notebook-line) - 1px),
+      color-mix(in srgb, theme("colors.brand.primary") 45%, transparent) var(--app-notebook-line)
+    );
+  }
+
+  .app-notebook-lines::before {
+    content: "";
+    @apply pointer-events-none absolute inset-y-0 left-10 w-px bg-brand-cta;
+  }
+
+  .app-notebook-row {
+    min-height: var(--app-notebook-line);
+    @apply flex items-end gap-2 pb-2 pl-12 pr-3;
+  }
+
   .app-page-head {
     @apply border-b border-brand-border pb-5 md:pb-6;
   }

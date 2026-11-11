@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { AlertsBell } from "@/app/components/alerts-bell";
+import { TaskNotebook, type NotebookTask } from "@/app/components/task-notebook";
 import { autoArrivalPercent, autoArrivalHealth, techniciansNeedingAttention } from "@/lib/auto-arrival-health";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
 import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, organizationHasCommercialPools } from "@/lib/compliance";
@@ -14,6 +15,7 @@ import { TechnicianHome } from "./technician-home";
 import { timeZoneForState, formatLocalDate, startOfLocalDay } from "@/lib/timezone";
 import { taskDueState } from "@/lib/customer-task-due";
 import { findDueTasks } from "@/lib/customer-tasks";
+import { addDashboardTask } from "./actions";
 
 type ReadingParam = { key: string; label: string; value: number; unit: string; min: number; max: number; idealMin: number; idealMax: number };
 
@@ -84,6 +86,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   let activity: Array<{ id: string; label: string; detail: string; at: Date }> = [];
   let overdueVisits: Array<{ id: string; property: string; body: string; tech: string; scheduledStart: Date }> = [];
   let dueTasks: Array<{ id: string; customerId: string; customer: string; title: string; dueOn: Date | null }> = [];
+  // The notebook module, which unlike everything else here is for OFFICE as well as ADMIN.
+  let notebookTasks: NotebookTask[] = [];
+  let notebookCustomers: Array<{ id: string; name: string }> = [];
   let outOfRangeReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[]; params: ReadingParam[] }> = [];
   let closureHazardReadings: Array<{ id: string; property: string; body: string; completedAt: Date | null; issues: string[]; params: ReadingParam[] }> = [];
 
@@ -459,6 +464,44 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     };
   }
 
+  /**
+   * Notebook data, for ADMIN and OFFICE both.
+   *
+   * Separate from the bell's `dueTasks` on purpose: the bell is a dropdown and takes 10, the
+   * notebook is a page and shows more, and the digest email takes them all. One `findDueTasks`
+   * behind all three keeps "due" meaning the same thing in every place it is shown.
+   *
+   * OFFICE never entered the ADMIN block above, so its timezone was never resolved -- without
+   * this an office user's to-do due today would be labelled against UTC rather than the pool's
+   * own day, which is the exact bug lib/customer-task-due.ts exists to prevent.
+   */
+  if (appUser && (appUser.role === "ADMIN" || appUser.role === "OFFICE")) {
+    if (appUser.role === "OFFICE") {
+      const org = await prisma.organization.findUnique({
+        where: { id: appUser.organizationId },
+        select: { state: true },
+      });
+      tz = timeZoneForState(org?.state);
+    }
+
+    const [due, custs] = await Promise.all([
+      findDueTasks(appUser.organizationId, now, tz, 12),
+      prisma.customer.findMany({
+        where: { organizationId: appUser.organizationId, relationshipEndedAt: null },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+    ]);
+    notebookTasks = due.map((t) => ({
+      id: t.id,
+      title: t.title,
+      customerId: t.customerId,
+      customerName: t.customerName,
+      dueOn: t.dueOn,
+    }));
+    notebookCustomers = custs;
+  }
+
   const reportedIssues =
     appUser?.role === "ADMIN"
       ? await prisma.visitIssueFlag.findMany({
@@ -692,6 +735,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               />
             </div>
 
+            <TaskNotebook
+              tasks={notebookTasks}
+              customers={notebookCustomers}
+              now={now}
+              timeZone={tz}
+              addTask={addDashboardTask}
+              setTaskDone={setCustomerTaskDone}
+            />
+
             {closureHazardReadings.length > 0 ? (
               <div className="rounded-2xl border-2 border-brand-danger bg-brand-dangerFill p-4 shadow-soft md:p-5">
                 <p className="text-xs font-bold uppercase tracking-wide text-brand-danger">
@@ -920,6 +972,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <p className="app-metric text-xs font-semibold uppercase tracking-wide text-brand-accent">{appUser.role}</p>
               {appUser.name ? <p className="mt-1 font-display text-lg font-bold text-white">{appUser.name}</p> : null}
             </div>
+
+            {/* OFFICE has no week-progress card to sit under, so the notebook leads instead --
+                it is the only module this role has, rather than one card among several. */}
+            {appUser.role === "OFFICE" ? (
+            <TaskNotebook
+                tasks={notebookTasks}
+                customers={notebookCustomers}
+                now={now}
+                timeZone={tz}
+                addTask={addDashboardTask}
+                setTaskDone={setCustomerTaskDone}
+              />
+            ) : null}
           </>
         )}
       </section>
