@@ -35,6 +35,9 @@ export type DueTask = {
   dueOn: Date | null;
   customerId: string;
   customerName: string;
+  /** Carried so an edit form can re-show the lead time that was chosen, rather than silently
+   *  resetting every edited to-do to "on the day". Null whenever dueOn is null. */
+  remindDaysBefore: number | null;
 };
 
 /**
@@ -56,7 +59,13 @@ export async function findDueTasks(
     // Soonest deadline first, undated last -- they are the least time-critical by definition.
     orderBy: [{ dueOn: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     ...(limit != null ? { take: limit } : {}),
-    select: { id: true, title: true, dueOn: true, customer: { select: { id: true, name: true } } },
+    select: {
+      id: true,
+      title: true,
+      dueOn: true,
+      remindDaysBefore: true,
+      customer: { select: { id: true, name: true } },
+    },
   });
   return rows.map((t) => ({
     id: t.id,
@@ -64,5 +73,6 @@ export async function findDueTasks(
     dueOn: t.dueOn,
     customerId: t.customer.id,
     customerName: t.customer.name,
+    remindDaysBefore: t.remindDaysBefore,
   }));
 }

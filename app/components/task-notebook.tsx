@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { REMINDER_CHOICES, taskDueState } from "@/lib/customer-task-due";
 import { formatLocalDate } from "@/lib/timezone";
+import { RowActionsMenu } from "@/app/components/row-actions-menu";
+import { ConfirmSubmitButton } from "@/app/components/confirm-submit-button";
+
+/** `dueOn` is a @db.Date, handed back as UTC midnight -- read in any other zone it slips a day,
+ *  which is exactly the date the <input type="date"> would then be pre-filled with. */
+function dateInputValue(dueOn: Date | null): string {
+  return dueOn ? dueOn.toISOString().slice(0, 10) : "";
+}
 
 export type NotebookTask = {
   id: string;
@@ -8,6 +16,7 @@ export type NotebookTask = {
   customerId: string;
   customerName: string;
   dueOn: Date | null;
+  remindDaysBefore: number | null;
 };
 
 type Props = {
@@ -20,6 +29,15 @@ type Props = {
   timeZone: string;
   addTask: (formData: FormData) => void | Promise<void>;
   setTaskDone: (formData: FormData) => void | Promise<void>;
+  updateTask: (formData: FormData) => void | Promise<void>;
+  deleteTask: (formData: FormData) => void | Promise<void>;
+  /** The row the ?task= param has open for editing, if any. Edit state lives in the URL rather
+   *  than in component state, the same way the users page does it -- so this stays a server
+   *  component, and a saved edit lands on a freshly rendered list rather than a stale one. */
+  editingTaskId?: string | null;
+  /** Builds the href that opens (or closes, with null) the editor, preserving whatever filter
+   *  the dashboard already had -- clicking Edit should not silently drop a property-type filter. */
+  editHref: (taskId: string | null) => string;
 };
 
 /**
@@ -35,11 +53,22 @@ type Props = {
  * same glance. Overdue is a coral chip instead, which is the product's one "act now" accent,
  * and the label sits ON the coral in brand-ctaText so it clears AA.
  */
-export function TaskNotebook({ tasks, customers, now, timeZone, addTask, setTaskDone }: Props) {
+export function TaskNotebook({
+  tasks,
+  customers,
+  now,
+  timeZone,
+  addTask,
+  setTaskDone,
+  updateTask,
+  deleteTask,
+  editingTaskId,
+  editHref,
+}: Props) {
   const overdueCount = tasks.filter((t) => taskDueState(t.dueOn, now, timeZone) === "overdue").length;
 
   return (
-    <div data-tour="office-task-notebook" className="app-notebook">
+    <div id="todo" data-tour="office-task-notebook" className="app-notebook">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-brand-border px-4 py-3 md:px-5">
         <div>
           <h2 className="font-display text-lg font-bold text-brand-ink">To-do</h2>
@@ -63,6 +92,50 @@ export function TaskNotebook({ tasks, customers, now, timeZone, addTask, setTask
           <ul>
             {tasks.map((task) => {
               const state = taskDueState(task.dueOn, now, timeZone);
+
+              if (editingTaskId === task.id) {
+                return (
+                  <li key={task.id} className="app-notebook-row py-2">
+                    <form action={updateTask} className="flex w-full flex-wrap items-center gap-2">
+                      <input type="hidden" name="taskId" value={task.id} />
+                      <input
+                        name="title"
+                        required
+                        maxLength={200}
+                        defaultValue={task.title}
+                        aria-label="What needs doing"
+                        className="app-field-sm min-w-0 flex-1"
+                      />
+                      <input
+                        name="dueOn"
+                        type="date"
+                        defaultValue={dateInputValue(task.dueOn)}
+                        aria-label="Due date"
+                        className="app-field-sm w-[9.5rem]"
+                      />
+                      <select
+                        name="remindDaysBefore"
+                        defaultValue={String(task.remindDaysBefore ?? 0)}
+                        aria-label="Remind"
+                        className="app-field-sm w-[9.5rem]"
+                      >
+                        {REMINDER_CHOICES.map((choice) => (
+                          <option key={choice.days} value={choice.days}>
+                            {choice.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="app-btn-primary-sm">
+                        Save
+                      </button>
+                      <Link href={editHref(null)} className="app-btn-ghost-sm">
+                        Cancel
+                      </Link>
+                    </form>
+                  </li>
+                );
+              }
+
               return (
                 <li key={task.id} className="app-notebook-row">
                   {/* A form per row rather than one around the list: each tick is its own
@@ -105,6 +178,23 @@ export function TaskNotebook({ tasks, customers, now, timeZone, addTask, setTask
                       {formatLocalDate(task.dueOn, "UTC", { month: "short", day: "numeric" })}
                     </span>
                   ) : null}
+
+                  <RowActionsMenu label={`Actions for "${task.title}"`}>
+                    <Link href={editHref(task.id)} className="app-menu-item">
+                      Edit
+                    </Link>
+                    <Link href={`/dashboard/customers/${task.customerId}`} className="app-menu-item">
+                      Open {task.customerName}
+                    </Link>
+                    <form action={deleteTask}>
+                      <input type="hidden" name="taskId" value={task.id} />
+                      <ConfirmSubmitButton
+                        label="Delete"
+                        confirmMessage={`Delete "${task.title}"? Ticking it done instead keeps it in ${task.customerName}'s history; deleting removes it for good.`}
+                        className="app-menu-item-danger"
+                      />
+                    </form>
+                  </RowActionsMenu>
                 </li>
               );
             })}
@@ -112,7 +202,7 @@ export function TaskNotebook({ tasks, customers, now, timeZone, addTask, setTask
         )}
       </div>
 
-      <div className="border-t border-brand-border bg-brand-surface px-4 py-3 md:px-5">
+      <div className="rounded-b-2xl border-t border-brand-border bg-brand-surface px-4 py-3 md:px-5">
         {customers.length === 0 ? (
           <p className="text-sm text-brand-muted">
             Add a customer first and to-dos can be written against them.{" "}

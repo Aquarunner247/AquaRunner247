@@ -383,3 +383,70 @@ export async function addDashboardTask(formData: FormData) {
   // The customer's own page lists the same to-dos, so without this it shows a stale list.
   revalidatePath(`/dashboard/customers/${customer.id}`);
 }
+
+/**
+ * Shared guard for the notebook's write actions. The customer is never taken on trust: the id
+ * arrives from a dropdown or a hidden field, so the task is found THROUGH the caller's own
+ * organization rather than by id alone, and an id belonging to another organization matches
+ * nothing instead of being edited.
+ */
+async function notebookTaskFor(taskId: string) {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) redirect("/login");
+  if (appUser.role !== "ADMIN" && appUser.role !== "OFFICE") redirect("/dashboard");
+  if (!taskId) return null;
+
+  const task = await prisma.customerTask.findFirst({
+    where: { id: taskId, customer: { organizationId: appUser.organizationId, relationshipEndedAt: null } },
+    select: { id: true, customerId: true },
+  });
+  return task;
+}
+
+/** Edit a to-do in place from the notebook: its wording, its deadline, its reminder lead time. */
+export async function updateDashboardTask(formData: FormData) {
+  const task = await notebookTaskFor(String(formData.get("taskId") ?? "").trim());
+  if (!task) return;
+
+  const title = String(formData.get("title") ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  // A blank title would leave an unreadable line in the list, so an empty edit is discarded
+  // rather than saved -- the to-do keeps the wording it already had.
+  if (!title) return;
+
+  const dueOn = parseDueOn(String(formData.get("dueOn") ?? ""));
+  const remindDaysBefore = parseRemindDaysBefore(String(formData.get("remindDaysBefore") ?? ""));
+
+  await prisma.customerTask.update({
+    where: { id: task.id },
+    data: {
+      title,
+      dueOn,
+      // Clearing the date clears both of the fields derived from it, or the row would keep a
+      // reminder day for a deadline that no longer exists and surface at a date nobody set.
+      remindDaysBefore: dueOn ? remindDaysBefore : null,
+      remindOn: reminderDayFor(dueOn, remindDaysBefore),
+    },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/customers/${task.customerId}`);
+  // Back to the plain list: leaving ?task= set would re-open the editor on the row just saved.
+  redirect("/dashboard");
+}
+
+/**
+ * Delete a to-do from the notebook.
+ *
+ * Deliberately a real delete, matching deleteCustomerTask: completing is what the tick box is
+ * for and that keeps the row, so the only thing left for delete to mean is "this was typed by
+ * mistake" -- and a mistake should not sit in the customer's history forever.
+ */
+export async function deleteDashboardTask(formData: FormData) {
+  const task = await notebookTaskFor(String(formData.get("taskId") ?? "").trim());
+  if (!task) return;
+
+  await prisma.customerTask.delete({ where: { id: task.id } });
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/customers/${task.customerId}`);
+}

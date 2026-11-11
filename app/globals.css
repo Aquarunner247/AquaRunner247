@@ -124,15 +124,17 @@
        - Entries sit ON the line (items-end plus a baseline nudge) rather than floating in the
          middle of the row, which is what writing on ruled paper actually does.
 
-     --app-notebook-line is the ruling pitch, and every row is sized to it. 44px because each row
-     holds a tappable control, which is the touch-target floor in DESIGN-SYSTEM.md.
+     --app-notebook-line is the ruling pitch, and every row is sized to it -- a row that outgrows
+     it pushes the text off the ruling, because the gradient's period is fixed. 52px, so that
+     items-end plus pb-2 leaves exactly the 44px a row's overflow-menu trigger needs; 44px is the
+     touch-target floor in DESIGN-SYSTEM.md, and at a 44px pitch the trigger overflowed its row.
 
      The margin rule is brand-cta, not brand-danger: a ruled margin says nothing about a reading
      and the status tokens are reserved (rule 3). Coral here is a 1px rule rather than small text
      on light, so rule 2 is satisfied too. */
   .app-notebook {
-    --app-notebook-line: 2.75rem;
-    @apply relative overflow-hidden rounded-2xl border border-brand-border bg-white shadow-soft;
+    --app-notebook-line: 3.25rem;
+    @apply relative rounded-2xl border border-brand-border bg-white shadow-soft;
   }
 
   /* Ruling and margin both live on the list area. Running them under the heading would strike a

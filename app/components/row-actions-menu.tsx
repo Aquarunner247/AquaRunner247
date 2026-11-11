@@ -3,13 +3,13 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 type Props = {
-  /** Spoken label for the trigger, e.g. "Actions for Rodrigo Acevedo" — "⋯" alone says nothing. */
+  /** Spoken label for the trigger, e.g. "Actions for Rodrigo Acevedo" — "⋮" alone says nothing. */
   label: string;
   children: React.ReactNode;
 };
 
 /**
- * Overflow ("⋯") menu for a list row. Collapses a row's secondary actions so the row reads
+ * Overflow ("⋮") menu for a list row. Collapses a row's secondary actions so the row reads
  * as the person it describes rather than a strip of buttons.
  *
  * Children are rendered by the server component that uses this, so they can be <Link>s and
@@ -60,7 +60,7 @@ export function RowActionsMenu({ label, children }: Props) {
         aria-controls={open ? menuId : undefined}
         className="flex h-11 w-11 items-center justify-center rounded-lg border border-brand-border bg-white text-lg leading-none text-brand-ink transition hover:bg-brand-foam focus:outline-none focus:ring-2 focus:ring-brand-primary/35"
       >
-        <span aria-hidden="true">⋯</span>
+        <span aria-hidden="true">⋮</span>
       </button>
 
       {open ? (

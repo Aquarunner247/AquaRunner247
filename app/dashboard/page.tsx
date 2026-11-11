@@ -15,7 +15,7 @@ import { TechnicianHome } from "./technician-home";
 import { timeZoneForState, formatLocalDate, startOfLocalDay } from "@/lib/timezone";
 import { taskDueState } from "@/lib/customer-task-due";
 import { findDueTasks } from "@/lib/customer-tasks";
-import { addDashboardTask } from "./actions";
+import { addDashboardTask, updateDashboardTask, deleteDashboardTask } from "./actions";
 
 type ReadingParam = { key: string; label: string; value: number; unit: string; min: number; max: number; idealMin: number; idealMax: number };
 
@@ -28,7 +28,7 @@ const READING_GAUGE_RANGES: Record<string, { min: number; max: number; unit: str
 };
 
 type DashboardPageProps = {
-  searchParams?: Promise<{ month?: string; type?: string; from?: string; to?: string; propertyId?: string }>;
+  searchParams?: Promise<{ month?: string; type?: string; from?: string; to?: string; propertyId?: string; task?: string }>;
 };
 
 type ChemRow = { quantity: number; unit: string; cost: number; charge: number };
@@ -116,6 +116,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // what "today" is -- a to-do fetched as due today must not be labelled overdue because the render
   // happened a moment after midnight.
   const now = new Date();
+
+  /**
+   * Opens (or with null, closes) the notebook's inline editor, preserving the property-type
+   * filter. Clicking Edit should not quietly drop a filter the admin set, and #todo lands them
+   * back on the module rather than at the top of a long page.
+   */
+  const notebookEditHref = (taskId: string | null) => {
+    const params = new URLSearchParams();
+    if (selectedPropertyType) params.set("type", selectedPropertyType);
+    if (taskId) params.set("task", taskId);
+    const query = params.toString();
+    return `/dashboard${query ? `?${query}` : ""}#todo`;
+  };
 
   if (appUser?.role === "ADMIN") {
     const orgId = appUser.organizationId;
@@ -498,6 +511,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       customerId: t.customerId,
       customerName: t.customerName,
       dueOn: t.dueOn,
+      remindDaysBefore: t.remindDaysBefore,
     }));
     notebookCustomers = custs;
   }
@@ -742,6 +756,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               timeZone={tz}
               addTask={addDashboardTask}
               setTaskDone={setCustomerTaskDone}
+              updateTask={updateDashboardTask}
+              deleteTask={deleteDashboardTask}
+              editingTaskId={sp.task ?? null}
+              editHref={notebookEditHref}
             />
 
             {closureHazardReadings.length > 0 ? (
@@ -983,6 +1001,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 timeZone={tz}
                 addTask={addDashboardTask}
                 setTaskDone={setCustomerTaskDone}
+                updateTask={updateDashboardTask}
+                deleteTask={deleteDashboardTask}
+                editingTaskId={sp.task ?? null}
+                editHref={notebookEditHref}
               />
             ) : null}
           </>
