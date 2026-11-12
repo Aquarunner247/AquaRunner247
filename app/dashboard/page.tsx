@@ -708,24 +708,35 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         ) : appUser.role === "ADMIN" && stats ? (
           <>
-            {/* Quick stats — card grid */}
+            {/* Quick stats — each card is the way into the list behind its number.
+                Customers and the schedule already had pages; management companies and venues
+                did not, and a number with nowhere to go is the reason they were added.
+                The property-type filter is passed on only to Venues, which is the one
+                destination that reads it. Customers and the schedule are filtered in the
+                counts above but their pages take no type param, so with a filter active
+                those two lists show everything -- the number leads somewhere true, just
+                wider. Management companies are unfiltered in the count too, so that card
+                never had the question. */}
             <div data-tour="admin-quick-stats" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <div className="app-card app-card-hover">
+              <Link href="/dashboard/customers" className="app-card app-card-hover block">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Customers</p>
                 <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.customers}</p>
-              </div>
-              <div className="app-card app-card-hover">
+              </Link>
+              <Link href="/dashboard/management-companies" className="app-card app-card-hover block">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Property mgmt. cos.</p>
                 <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.managementCompanies}</p>
-              </div>
-              <div className="app-card app-card-hover">
+              </Link>
+              <Link
+                href={selectedPropertyType ? `/dashboard/venues?type=${selectedPropertyType}` : "/dashboard/venues"}
+                className="app-card app-card-hover block"
+              >
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Aquatic venues</p>
                 <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.bodiesOfWater}</p>
-              </div>
-              <div className="app-card app-card-hover">
+              </Link>
+              <Link href="/dashboard/schedule?tab=week" className="app-card app-card-hover block">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-icon">Scheduled this week</p>
                 <p className="app-metric mt-1 text-3xl font-semibold text-brand-ink">{stats.upcomingThisWeek}</p>
-              </div>
+              </Link>
             </div>
 
             {stats.customers === 0 ? (
