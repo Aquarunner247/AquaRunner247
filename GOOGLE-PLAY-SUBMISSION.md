@@ -40,26 +40,99 @@ phrases a reviewer looks for.
 
 ### 2. Data Safety form
 
-Answer it to match `ios/App/App/PrivacyInfo.xcprivacy`, so the two stores are not told different
-things. Collected, **linked to the user**, **none used for tracking**, none shared with third
-parties for advertising:
+**Corrected 2026-11-11.** The sheet the 2026-10-31 filing was made from was the previous version
+of this section, and it missed the three rows marked **bold** below. The operator reports the filed
+form also answers "no data shared with third parties," which Nominatim contradicts. Re-answer the
+form from this table before the next release.
 
-| Play category | What it is |
-|---|---|
-| Personal info → Name | Technician and customer names |
-| Personal info → Email address | Logins and report recipients |
-| Personal info → Phone number | Customer and technician contact |
-| Personal info → Address | Service property addresses |
-| Personal info → User IDs | Account identifiers |
-| Location → Precise location | The arrival position fix only |
-| Photos and videos → Photos | Proof-of-service photos |
-| App activity → Other user-generated content | Readings, notes, checklists, documents |
-| App performance → Crash logs | Sentry |
-| App performance → Diagnostics | Performance traces |
+Scope is narrower than the Privacy Policy and the two are *supposed* to differ. Play defines
+collection as "transmitting data from your app off a user's device" and sharing as "transferring
+user data collected from your app to a third party." The Privacy Policy covers the whole Service
+— web dashboard, inbound phone line, server-side processing — so it declares things this form
+must not. Over-declaring is not the safe direction: it prints on the public store label as data
+the app takes.
+
+Everything collected is **linked to the user**. **Nothing is used for tracking.**
+
+| Play category | What it is | Shared? |
+|---|---|---|
+| Personal info → Name | Technician and customer names | No |
+| Personal info → Email address | Logins and report recipients | No |
+| Personal info → Phone number | Customer and technician contact | No |
+| Personal info → Address | Service property addresses | **Yes — see Nominatim below** |
+| Personal info → User IDs | Account identifiers | No |
+| Location → Precise location | The arrival position fix only | No |
+| Photos and videos → Photos | Proof-of-service photos | No |
+| **Files and docs** | Inspection reports an admin uploads (`app/api/inspection-reports/[reportId]/extract`) — a PDF or scan, which is a file and not "other user-generated content" | No |
+| App activity → Other user-generated content | Readings, notes, checklists | No |
+| **App activity → App interactions** | Google Analytics 4 page and event hits. `app/layout.tsx` loads `gtag/js?id=G-T91TBD4WF1` plus `@vercel/analytics` and `SpeedInsights` in the **root** layout, unconditionally — so they run inside the Capacitor shell too, on every route | No |
+| **Device or other IDs** | The GA4 client ID, a pseudonymous browser identifier. Play's type covers an ID that "relate[s] to an individual device, browser or app" | No |
+| App performance → Crash logs | Sentry, client-side via `instrumentation-client.ts` | No |
+| App performance → Diagnostics | Sentry performance + Speed Insights | No |
+
+**Purpose** for every row: App functionality. GA4, Vercel Analytics and Speed Insights are
+additionally **Analytics**. Nothing is Advertising or personalisation.
+
+**One thing to check in the GA4 admin before answering "no" for those two rows.** Google counts
+an analytics provider as a service provider only while it processes "solely for you." If Google
+signals, ads personalisation, or the account-level data-sharing settings are switched on, GA4 is
+using the data for Google's own purposes as well, and **App interactions** and **Device or other
+IDs** become *shared* — and the tracking answer needs rethinking too. Those settings live in the
+GA4 property, not in this repo, so nothing here can verify them.
+
+**Why only Address is "shared".** Play excludes a transfer to a "service provider," defined as
+"an entity that processes user data on behalf of the developer and based on the developer's
+instructions." Supabase, Twilio, OpenAI, Dialogflow, Resend, Stripe, Sentry and Dash0 all meet
+that — contracted, processing on instruction — so they are collection, not sharing. **Nominatim
+(OpenStreetMap Foundation) and the OSRM demo server (FOSSGIS) do not.** DPA Section 5.2.1 says so
+in as many words: they operate under a published usage policy, not a negotiated agreement, so
+nobody is processing on our instructions. `app/components/address-fields.tsx` sends what an admin
+types to `/api/geocode/suggest`, which forwards it to Nominatim, and `lib/geocode.ts` and
+`lib/routing.ts` do the same server-side. An address collected through the app reaches a third
+party that is not a service provider. That is sharing, and the answer is yes.
+
+**Not declared, deliberately.** Each of these is a real feature of the *Service* that the app
+does not collect, so declaring it would describe the wrong product:
+
+- **Audio → Voice or sound recordings.** The app never opens the microphone. There is no
+  `RECORD_AUDIO` in `AndroidManifest.xml`, no `getUserMedia({audio})` anywhere
+  (`app/components/camera-capture.tsx:220` passes `audio: false`), and the Regia dictation
+  parser in `lib/reading-dictation.ts` is not wired to any speech API — `RegiaConfirm` is not
+  mounted on any page. Twilio records *inbound phone calls* server-side, from callers who are not
+  using the app at all; no audio is ever transmitted from a user's device. **A 2026-11-11 outside
+  review called this the riskiest mismatch on the form. It is not a mismatch** — it is the
+  Privacy Policy covering the phone line and the form covering the app. Revisit the moment
+  dictation is wired up or a voice note is added, and `ios/App/App/PrivacyInfo.xcprivacy` says
+  the same thing for the same reason.
+- **Photos and videos → Videos**, and the photo *library*. `camera-capture.tsx` uses
+  `CameraSource.Camera` only; the library is never read.
+- **Financial info.** No purchase flow exists in the app. `/portal/subscribe` sends anyone in the
+  shell out to a browser (`lib/native-shell.ts`), and Stripe has no production configuration.
+  Declare it the day an in-app checkout ships.
+- **Location → Approximate location.** `ACCESS_COARSE_LOCATION` is requested only because
+  Android pairs it with fine location; only the precise arrival fix is transmitted. The Leaflet
+  maps do fetch tiles straight from `tile.openstreetmap.org`, which discloses the area being
+  *viewed*, but the viewport is centred on a route or a property rather than on the device, and
+  Play's type is the user's or device's own position. Judgement call, recorded so it can be
+  revisited rather than rediscovered.
+- **Messages, Contacts, Calendar, Health and fitness, Web browsing history.** None are touched.
+
+**The rest of the form:**
 
 - **Is data encrypted in transit?** Yes.
-- **Can users request data deletion?** Yes — URL below.
+- **Can users request data deletion?** Yes — and the app also deletes in-app: `/billing` for an
+  organization, `/portal/account` for an end customer.
 - **Data deletion URL:** `https://aquarunner247.com/account-deletion`
+
+`lib/__tests__/play-data-safety-declaration.test.ts` fails if a client-side third-party data
+integration appears in the app without a line in this table, which is how the three missing rows
+got missed in the first place.
+
+> **`ios/App/App/PrivacyInfo.xcprivacy` has the same gap** and is not fixed by the above. It
+> declares precise location, photos and the rest, but nothing for GA4 — Apple's
+> `NSPrivacyCollectedDataTypeProductInteraction` and a device/browser identifier — and it sets
+> `NSPrivacyTracking` false with an empty `NSPrivacyTrackingDomains`. Settle that before the App
+> Store filing; the two stores must not be told different things.
 
 ---
 

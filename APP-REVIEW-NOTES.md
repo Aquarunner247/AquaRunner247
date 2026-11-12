@@ -124,8 +124,7 @@ than being a one-time fix.
 > departure is derived on the device and transmitted as a timestamp with no position attached,
 > so the service visit shows how long it took. The intervening positions are evaluated on the
 > device and discarded. We do not build a continuous location
-> trail, and we do not use location for advertising. Our privacy manifest declares every category
-> we collect.
+> trail, and we do not use location for advertising.
 
 ---
 
@@ -144,9 +143,14 @@ than being a one-time fix.
 - [ ] Confirm the bundle identifier `com.aquarunner247.pro` is still free on BOTH stores.
       App Store Connect rejects a collision when you register it, which is the real test; Play
       is the same. It is permanent on both once either has seen it
-- [ ] App Store Connect privacy answers match `ios/App/App/PrivacyInfo.xcprivacy` — ten data
-      types, all linked, none used for tracking
-- [ ] Google Play Data Safety form mirrors the same ten types
+- [ ] App Store Connect privacy answers match `ios/App/App/PrivacyInfo.xcprivacy` — all linked,
+      none used for tracking. **The manifest is known incomplete as of 2026-11-11:** it declares
+      nothing for the Google Analytics 4 tag that `app/layout.tsx` loads on every route, so
+      product-interaction data and a browser identifier go undeclared. Settle that first
+- [ ] Google Play Data Safety form — answer it from the table in `GOOGLE-PLAY-SUBMISSION.md`,
+      **not** by mirroring the iOS types. The two are supposed to differ in one direction (Play
+      asks about sharing, and an address collected in the app reaches Nominatim, which is not a
+      service provider) and to agree everywhere else
 
 ## If it gets rejected anyway
 
