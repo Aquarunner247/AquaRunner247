@@ -65,7 +65,7 @@ Everything collected is **linked to the user**. **Nothing is used for tracking.*
 | Photos and videos → Photos | Proof-of-service photos | No |
 | **Files and docs** | Inspection reports an admin uploads (`app/api/inspection-reports/[reportId]/extract`) — a PDF or scan, which is a file and not "other user-generated content" | No |
 | App activity → Other user-generated content | Readings, notes, checklists | No |
-| **App activity → App interactions** | Google Analytics 4 page and event hits. `app/layout.tsx` loads `gtag/js?id=G-T91TBD4WF1` plus `@vercel/analytics` and `SpeedInsights` in the **root** layout, unconditionally — so they run inside the Capacitor shell too, on every route | No |
+| **App activity → App interactions** | Google Analytics 4 page and event hits. `app/layout.tsx` loads `gtag/js?id=G-TLM1ZBM7FG` plus `@vercel/analytics` and `SpeedInsights` in the **root** layout, unconditionally — so they run inside the Capacitor shell too, on every route | No |
 | **Device or other IDs** | The GA4 client ID, a pseudonymous browser identifier. Play's type covers an ID that "relate[s] to an individual device, browser or app" | No |
 | App performance → Crash logs | Sentry, client-side via `instrumentation-client.ts` | No |
 | App performance → Diagnostics | Sentry performance + Speed Insights | No |

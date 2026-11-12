@@ -42,7 +42,7 @@ const CLIENT_INTEGRATIONS = [
     name: "Google Analytics 4",
     file: "app/layout.tsx",
     marker: "googletagmanager.com/gtag/js",
-    declaredAs: "G-T91TBD4WF1",
+    declaredAs: "G-TLM1ZBM7FG",
   },
   {
     name: "Vercel Analytics",

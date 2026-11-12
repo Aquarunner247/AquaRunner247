@@ -135,13 +135,13 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`${satoshi.variable} ${inter.variable} ${display.variable} ${mono.variable}`}>
       <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased">
-        <Script src="https://www.googletagmanager.com/gtag/js?id=G-T91TBD4WF1" strategy="afterInteractive" nonce={nonce} />
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-TLM1ZBM7FG" strategy="afterInteractive" nonce={nonce} />
         <Script id="google-analytics" strategy="afterInteractive" nonce={nonce}>
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', 'G-T91TBD4WF1');
+            gtag('config', 'G-TLM1ZBM7FG');
           `}
         </Script>
         <ServiceWorkerRegister />
