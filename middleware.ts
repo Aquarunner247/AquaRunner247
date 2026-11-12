@@ -5,9 +5,12 @@ import { updateSession } from "@/lib/supabase/middleware";
  * Content-Security-Policy, built from an actual inventory of every external domain this
  * app's client-side code touches (checked call-by-call, not guessed) -- see the plan this
  * shipped from for the full table. Nonce-based script-src (Next.js's own documented CSP
- * pattern) rather than a static 'unsafe-inline' allowlist: a fresh nonce per request,
- * forwarded to app/layout.tsx via the x-nonce request header below, which passes it to the
- * two <Script> tags there (GTM + the inline gtag() snippet).
+ * pattern) rather than a static 'unsafe-inline' allowlist: a fresh nonce per request, set on
+ * the REQUEST headers below so Next.js stamps it onto the scripts it generates. Nothing in
+ * app/layout.tsx reads it any more -- the two <Script> tags that did (GTM + the inline gtag()
+ * snippet) went with Google Analytics on 2026-11-12. The CSP goes on the request headers as
+ * well as the response, which is what Next.js's own documented pattern does and what the
+ * auto-nonce reads; x-nonce stays for any future script that has to carry it explicitly.
  *
  * style-src keeps 'unsafe-inline' deliberately -- React's style={{}} prop (used throughout
  * this app) and Leaflet's own dynamically-generated marker HTML (route-day-view.tsx's
@@ -25,7 +28,6 @@ function buildCsp(nonce: string): string {
     "'self'",
     `'nonce-${nonce}'`,
     "'strict-dynamic'",
-    "https://www.googletagmanager.com",
     // Next.js's dev server needs 'unsafe-eval' for React Refresh/HMR -- production stays
     // strict, this only ever applies to a local `next dev` run.
     isDev ? "'unsafe-eval'" : null,
@@ -44,10 +46,11 @@ function buildCsp(nonce: string): string {
     // local file preview (URL.createObjectURL, app/dashboard/settings/branding).
     `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://server.arcgisonline.com${supabaseUrl ? ` ${supabaseUrl}` : ""}`,
     // router.project-osrm.org: driving-route geometry, fetched client-side (lib/routing.ts).
-    // google-analytics/analytics.google.com: hit collection sent by the GTM script above.
     // Sentry: error reporting (instrumentation-client.ts) -- both ingest domain shapes,
     // since which one a given DSN uses depends on the Sentry org's region.
-    `connect-src 'self' https://router.project-osrm.org https://*.google-analytics.com https://*.analytics.google.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io${supabaseUrl ? ` ${supabaseUrl}` : ""}`,
+    // Vercel Analytics and Speed Insights post to /_vercel/* on this origin, so 'self' covers
+    // them; there is no third-party analytics endpoint to allow any more.
+    `connect-src 'self' https://router.project-osrm.org https://*.ingest.sentry.io https://*.ingest.us.sentry.io${supabaseUrl ? ` ${supabaseUrl}` : ""}`,
     // The branding settings page's welcome-email live preview uses <iframe srcDoc> --
     // inline content, not a cross-origin load, but explicit 'self' avoids any ambiguity.
     "frame-src 'self'",
@@ -99,6 +102,10 @@ export async function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  // Next.js reads the nonce out of the CSP on the REQUEST to stamp the scripts it generates.
+  // It was working without this while app/layout.tsx read x-nonce itself; that read is gone, so
+  // set it explicitly rather than depend on a mechanism nothing in this repo states.
+  requestHeaders.set("Content-Security-Policy", csp);
 
   // CSP is applied either way -- skipping the session refresh must not skip the header, or
   // the marketing pages would quietly lose their Content-Security-Policy.

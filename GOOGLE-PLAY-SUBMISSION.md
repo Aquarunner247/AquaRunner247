@@ -65,19 +65,11 @@ Everything collected is **linked to the user**. **Nothing is used for tracking.*
 | Photos and videos → Photos | Proof-of-service photos | No |
 | **Files and docs** | Inspection reports an admin uploads (`app/api/inspection-reports/[reportId]/extract`) — a PDF or scan, which is a file and not "other user-generated content" | No |
 | App activity → Other user-generated content | Readings, notes, checklists | No |
-| **App activity → App interactions** | Google Analytics 4 page and event hits. `app/layout.tsx` loads `gtag/js?id=G-TLM1ZBM7FG` plus `@vercel/analytics` and `SpeedInsights` in the **root** layout, unconditionally — so they run inside the Capacitor shell too, on every route | No |
+| **App activity → App interactions** | Page views, collected by `@vercel/analytics` and `SpeedInsights`, which `app/layout.tsx` loads in the **root** layout, unconditionally — so they run inside the Capacitor shell too, on every route | No |
 | App performance → Crash logs | Sentry, client-side via `instrumentation-client.ts` | No |
 | App performance → Diagnostics | Sentry performance + Speed Insights | No |
 
-**Purpose** for every row: App functionality. GA4, Vercel Analytics and Speed Insights are
-additionally **Analytics**. Nothing is Advertising or personalisation.
-
-**One thing to check in the GA4 admin before answering "no" for those two rows.** Google counts
-an analytics provider as a service provider only while it processes "solely for you." If Google
-signals, ads personalisation, or the account-level data-sharing settings are switched on, GA4 is
-using the data for Google's own purposes as well, and **App interactions** and **Device or other
-IDs** become *shared* — and the tracking answer needs rethinking too. Those settings live in the
-GA4 property, not in this repo, so nothing here can verify them.
+**Purpose** for every row: App functionality. Vercel Analytics and Speed Insights are additionally **Analytics**. Nothing is Advertising or personalisation.
 
 **Why only Address is "shared".** Play excludes a transfer to a "service provider," defined as
 "an entity that processes user data on behalf of the developer and based on the developer's
@@ -115,7 +107,7 @@ does not collect, so declaring it would describe the wrong product:
   Play's type is the user's or device's own position. Judgement call, recorded so it can be
   revisited rather than rediscovered.
 - **Messages, Contacts, Calendar, Health and fitness, Web browsing history.** None are touched.
-- **Device or other IDs.** Declared until 2026-11-12, then removed: GA4 is configured with `client_storage: 'none'` (`app/layout.tsx`), so it writes no `_ga` cookie and no persistent client ID. Verified in a clean browser against the live site. Google still receives an IP address, which is not one of Play's declared types. Restore this row the moment that config option comes off.
+- **Device or other IDs.** Declared until 2026-11-12, then removed with Google Analytics itself. GA4 was the only thing on the site setting a device or browser identifier — a persistent `_ga` client ID — and it contradicted Privacy Policy Section 9. `client_storage: 'none'` was tried first and does nothing: it is a Universal Analytics option that GA4 ignores, confirmed by loading the deployed site in a clean browser and finding a fresh `_ga` written anyway. Vercel Analytics and Speed Insights set no cookie and no identifier. Restore this row if any analytics SDK that identifies a device is ever added back.
 
 **The rest of the form:**
 
@@ -128,11 +120,11 @@ does not collect, so declaring it would describe the wrong product:
 integration appears in the app without a line in this table, which is how the three missing rows
 got missed in the first place.
 
-> **`ios/App/App/PrivacyInfo.xcprivacy` has the same gap** and is not fixed by the above. It
-> declares precise location, photos and the rest, but nothing for GA4 — Apple's
-> `NSPrivacyCollectedDataTypeProductInteraction` and a device/browser identifier — and it sets
-> `NSPrivacyTracking` false with an empty `NSPrivacyTrackingDomains`. Settle that before the App
-> Store filing; the two stores must not be told different things.
+> **`ios/App/App/PrivacyInfo.xcprivacy` is worth a second look.** It
+> declares precise location, photos and the rest, and sets `NSPrivacyTracking`
+> false with an empty `NSPrivacyTrackingDomains`. With Google Analytics gone the
+> gap is much smaller, but confirm it still matches before the App Store filing;
+> the two stores must not be told different things.
 
 ---
 

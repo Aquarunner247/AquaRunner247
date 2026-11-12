@@ -39,12 +39,6 @@ function dataSafetySection(): string {
  */
 const CLIENT_INTEGRATIONS = [
   {
-    name: "Google Analytics 4",
-    file: "app/layout.tsx",
-    marker: "googletagmanager.com/gtag/js",
-    declaredAs: "G-TLM1ZBM7FG",
-  },
-  {
     name: "Vercel Analytics",
     file: "app/layout.tsx",
     marker: "@vercel/analytics",
@@ -86,24 +80,27 @@ describe("Play Data safety declaration keeps up with the client", () => {
     }
   });
 
-  it("re-declares Device or other IDs if GA4 ever starts writing a client ID again", () => {
-    // GA4 runs with client_storage: 'none', so it sets no _ga cookie and no persistent client ID,
-    // and the category came off the form on 2026-11-12. That holds only while the option is in
-    // the config: the default writes _ga carrying an identifier that survives sessions, and
-    // Privacy Policy Section 9 tells readers our analytics set no identifier and that this is why
-    // the site has no consent banner. Losing the option breaks a published statement as well as
-    // the declaration, so fail loudly rather than quietly under-declaring.
-    // Matched on the gtag() call itself, NOT on the file containing the string anywhere: the
-    // comment above that line explains the option, so a plain .includes() passes even after the
-    // option is deleted from the code. Caught by deleting it and watching this test stay green.
+  it("stays free of analytics that identify a device", () => {
+    // Google Analytics was removed on 2026-11-12. It had run on every page since August and set
+    // a persistent _ga client ID, which contradicted Privacy Policy Section 9 ("our website
+    // analytics are cookieless and do not set or read an identifier on your device") -- the same
+    // sentence the site relies on for having no cookie consent banner.
+    //
+    // client_storage: 'none' was tried and does nothing: it is a Universal Analytics option that
+    // GA4 ignores. Verified against the deployed site, which wrote a fresh _ga anyway. So the
+    // check here is for the tag's presence, not for a configuration flag that can look right and
+    // do nothing.
+    //
+    // Adding any analytics SDK back means re-declaring Device or other IDs on the Play form, and
+    // deciding the consent-banner question that Section 9 currently answers by not needing one.
     const layout = fs.readFileSync(path.join(ROOT, "app/layout.tsx"), "utf8");
-    const configCall = layout.match(/gtag\('config',[^)]*\)/);
-    expect(configCall?.[0], "no gtag('config', ...) call found in app/layout.tsx").toBeTruthy();
-    expect(
-      configCall?.[0] ?? "",
-      "GA4 must stay cookieless, or Privacy Policy Section 9 and the Data safety answers are " +
-        "both wrong. Re-add the Device or other IDs row and revisit the consent-banner question.",
-    ).toContain("client_storage: 'none'");
+    for (const tag of ["googletagmanager.com", "gtag(", "google-analytics.com"]) {
+      expect(
+        layout,
+        `app/layout.tsx loads ${tag} again. Re-read Privacy Policy Section 9 before shipping it, ` +
+          "and re-add Device or other IDs to the Data safety answers.",
+      ).not.toContain(tag);
+    }
   });
 
   it("answers the address-sharing question rather than leaving it at 'none shared'", () => {

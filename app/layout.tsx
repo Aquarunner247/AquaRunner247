@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Inter, Roboto_Condensed } from "next/font/google";
 import localFont from "next/font/local";
-import Script from "next/script";
-import { headers } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -108,10 +106,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Set by middleware.ts alongside the Content-Security-Policy response header -- passed
-  // to the two <Script> tags below so they're allowed under the nonce-based script-src
-  // instead of needing 'unsafe-inline'.
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   const supabase = await createClient();
   const {
@@ -135,22 +129,6 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`${satoshi.variable} ${inter.variable} ${display.variable} ${mono.variable}`}>
       <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased">
-        <Script src="https://www.googletagmanager.com/gtag/js?id=G-TLM1ZBM7FG" strategy="afterInteractive" nonce={nonce} />
-        <Script id="google-analytics" strategy="afterInteractive" nonce={nonce}>
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            // client_storage: 'none' stops GA4 writing the _ga / _ga_<id> cookies, which carry
-            // a persistent client ID. Privacy Policy Section 9 states that our analytics are
-            // cookieless and set no identifier on the device, and that this is why the site has
-            // no consent banner -- so the default gtag config would make a published policy
-            // false, and would put a non-essential cookie on an EU visitor without consent.
-            // The cost is that every hit looks like a new user: page views, traffic sources and
-            // realtime still work, unique-user and returning-visitor counts do not.
-            gtag('config', 'G-TLM1ZBM7FG', { client_storage: 'none' });
-          `}
-        </Script>
         <ServiceWorkerRegister />
         <AndroidBackButton />
         <OnboardingCallBanner show={showOnboardingCallBanner} />

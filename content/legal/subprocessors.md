@@ -18,7 +18,6 @@ and notify organization admin contacts as Section 5.3 describes.
 | **Twilio** | Inbound phone call handling, recording, and transcription for calls to an organization's configured number | United States | Caller phone number, call audio recordings, call transcripts |
 | **OpenAI**, via Vercel AI Gateway | Parsing call transcripts into structured service requests; extracting structured data from uploaded inspection reports | United States | Call transcript text; inspection report document content |
 | **Google (Dialogflow)** | Conversational phone-agent fulfillment | United States | Caller conversation content relevant to the phone agent flow |
-| **Google (Analytics)** | Website and in-app usage measurement — page views, traffic sources, and device and browser type | United States | IP address, pages viewed, referring site, device and browser type. Configured not to store cookies or a persistent identifier on the device |
 | **Stripe** | Subscription billing and payment processing | United States | Billing contact name and email; tokenized payment method details, which we do not store |
 | **Sentry** | Application error monitoring | United States | Error reports, which may include an account or user identifier, the request involved, and IP address |
 | **Dash0** | Server log and performance-trace collection | United States | Server logs and request traces, which may include request paths and account identifiers |
