@@ -81,9 +81,29 @@ describe("Play Data safety declaration keeps up with the client", () => {
 
   it("declares the categories those integrations produce", () => {
     const section = dataSafetySection();
-    for (const category of ["App activity → App interactions", "Device or other IDs", "Files and docs"]) {
+    for (const category of ["App activity → App interactions", "Files and docs"]) {
       expect(section, `${category} missing from the Data safety answers`).toContain(category);
     }
+  });
+
+  it("re-declares Device or other IDs if GA4 ever starts writing a client ID again", () => {
+    // GA4 runs with client_storage: 'none', so it sets no _ga cookie and no persistent client ID,
+    // and the category came off the form on 2026-11-12. That holds only while the option is in
+    // the config: the default writes _ga carrying an identifier that survives sessions, and
+    // Privacy Policy Section 9 tells readers our analytics set no identifier and that this is why
+    // the site has no consent banner. Losing the option breaks a published statement as well as
+    // the declaration, so fail loudly rather than quietly under-declaring.
+    // Matched on the gtag() call itself, NOT on the file containing the string anywhere: the
+    // comment above that line explains the option, so a plain .includes() passes even after the
+    // option is deleted from the code. Caught by deleting it and watching this test stay green.
+    const layout = fs.readFileSync(path.join(ROOT, "app/layout.tsx"), "utf8");
+    const configCall = layout.match(/gtag\('config',[^)]*\)/);
+    expect(configCall?.[0], "no gtag('config', ...) call found in app/layout.tsx").toBeTruthy();
+    expect(
+      configCall?.[0] ?? "",
+      "GA4 must stay cookieless, or Privacy Policy Section 9 and the Data safety answers are " +
+        "both wrong. Re-add the Device or other IDs row and revisit the consent-banner question.",
+    ).toContain("client_storage: 'none'");
   });
 
   it("answers the address-sharing question rather than leaving it at 'none shared'", () => {

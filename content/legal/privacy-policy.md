@@ -1,8 +1,8 @@
 # AquaRunner247 Privacy Policy
 
-**Version:** 1.3  
+**Version:** 1.4  
 **Effective Date:** November 10, 2026  
-**Last Updated:** November 11, 2026
+**Last Updated:** November 12, 2026
 
 ## Contents
 
@@ -187,6 +187,7 @@ As of the Last Updated date above, our subprocessors are:
 | Twilio | Inbound phone call handling, recording, and transcription for calls to a Customer’s configured phone number | United States | Caller phone number, call audio recordings, call transcripts |
 | OpenAI, via Vercel AI Gateway | Parsing call transcripts into structured service requests; extracting structured data from uploaded inspection reports | United States | Call transcript text; inspection report document content |
 | Google (Dialogflow) | Conversational phone-agent fulfillment | United States | Caller conversation content relevant to the phone agent flow |
+| Google (Analytics) | Website and in-app usage measurement — page views, traffic sources, and device and browser type | United States | IP address, pages viewed, referring site, device and browser type. Configured not to store cookies or a persistent identifier on the device |
 | Stripe | Subscription billing and payment processing | United States | Billing contact name and email; tokenized payment method details (not stored by AquaRunner247) |
 | Sentry | Application error monitoring | United States | Error reports, which may include an account or user identifier, the page or request involved, and IP address |
 | Dash0 | Server log and performance-trace collection | United States | Server logs and request traces, which may include request paths and account identifiers |
@@ -404,6 +405,7 @@ An organization’s recorded acceptance names the version it agreed to, so each 
 | 1.1 | October 25, 2026 | Disclosed on-device GPS departure detection. |
 | 1.2 | November 10, 2026 | Added Section 7.3 (automated phone calls, recording, and artificial intelligence). Rewrote Section 13 to state field by field what survives a cancellation, to record the legal and regulatory retention override, and to set out the process for asking us to delete a retained compliance record. |
 | 1.3 | November 11, 2026 | Non-substantive corrections, with no change to the Effective Date or to any right or obligation: filled the privacy contact field in Sections 2, 18, and 23, which had been left as a placeholder; removed the sentences in Sections 16 and 17 that said our categories and sale practices were to be confirmed before publication, which read as unfinished drafting in a published policy; and stated in Section 8 that the public compliance log is published only for commercially regulated water, matching Section 2 of the Terms of Service. |
+| 1.4 | November 12, 2026 | Named Google (Analytics) in the sub-processor table, which had listed only Google (Dialogflow) although the analytics tag has run on every page since August 23, 2026. The tag was reconfigured on the same date to store no cookies and no persistent identifier, so the statement in Section 9 that our analytics are cookieless is accurate as written; it was not while the default configuration was in place. No change to the Effective Date or to any right or obligation. |
 
 ## 24. Attorney Review Notice
 

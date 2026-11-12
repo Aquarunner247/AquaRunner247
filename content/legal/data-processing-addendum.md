@@ -1,8 +1,8 @@
 # Data Processing Agreement
 
-**Version:** 1.2  
+**Version:** 1.3  
 **Effective Date:** November 10, 2026  
-**Last Updated:** November 11, 2026
+**Last Updated:** November 12, 2026
 
 This Data Processing Agreement (“**DPA**”) forms part of, and is incorporated into, the Terms of Service or other written agreement governing the use of the AquaRunner247 services (the “**Agreement**”) between **AquaRunner247 LLC**, with its address at **732 S 6th St, Ste N, Las Vegas, NV 89101** (“**AquaRunner247**”), and the customer identified in the Agreement (“**Customer**”). This DPA applies when AquaRunner247 Processes Personal Data on Customer’s behalf.
 
@@ -443,6 +443,7 @@ Customer authorizes AquaRunner247 to engage the Subprocessors listed below, subj
 | Twilio | Inbound phone call handling, recording, transcription | United States | Caller phone number, call audio recordings, call transcripts |
 | OpenAI, via Vercel AI Gateway | Parsing call transcripts into structured service requests; extracting structured data from uploaded inspection reports | United States | Call transcript text; inspection report document content |
 | Google (Dialogflow) | Conversational phone-agent fulfillment | United States | Caller conversation content relevant to the phone agent flow |
+| Google (Analytics) | Website and in-app usage measurement — page views, traffic sources, and device and browser type | United States | IP address, pages viewed, referring site, device and browser type. Configured not to store cookies or a persistent identifier on the device |
 | Stripe | Subscription billing | United States | Billing contact name and email; tokenized payment method details (not stored by AquaRunner247) |
 | Sentry | Application error monitoring | United States | Error reports, which may include an account or user identifier, the request involved, and IP address |
 | Dash0 | Server log and performance-trace collection | United States | Server logs and request traces, which may include request paths and account identifiers |
@@ -522,5 +523,6 @@ Date:  __________________________________
 | 1.0 | October 22, 2026 | Initial draft. Re-dated effective October 25, 2026, with no change to its terms, so that every document in the accepted bundle carried one effective date. |
 | 1.1 | November 10, 2026 | Added Section 6.5 (Data Subject requests reaching retained compliance records) and Sections 9.6–9.7. Rewrote Section 9.5 to minimize the retained set, list field by field what is erased on termination, and strengthen Customer’s documented instruction. Completed the open SCC and UK Addendum selections in Annex 3 and recorded that no Restricted Transfers are currently made. Replaced the remaining bracketed fill-in fields in Section 12.2 and the signature block with blank form lines, so no part of the published DPA reads as an unfinished draft. Added Section 5.2.1, which states that the three public mapping services in Annex 3 operate under published usage policies rather than a negotiated agreement, rather than leaving Section 5.2 to imply a contract that does not exist. |
 | 1.2 | November 11, 2026 | Non-substantive correction, with no change to the Effective Date or to any right or obligation: filled the data protection contact field in Section 12.1, which had been left as a placeholder. |
+| 1.3 | November 12, 2026 | Added Google (Analytics) to the Annex 3 sub-processor list, matching the Privacy Policy and the published sub-processor page. No change to the Effective Date or to any right or obligation. |
 
 *This document is for informational purposes only and should be reviewed by a licensed attorney before execution.*

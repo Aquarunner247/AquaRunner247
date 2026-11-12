@@ -66,7 +66,6 @@ Everything collected is **linked to the user**. **Nothing is used for tracking.*
 | **Files and docs** | Inspection reports an admin uploads (`app/api/inspection-reports/[reportId]/extract`) — a PDF or scan, which is a file and not "other user-generated content" | No |
 | App activity → Other user-generated content | Readings, notes, checklists | No |
 | **App activity → App interactions** | Google Analytics 4 page and event hits. `app/layout.tsx` loads `gtag/js?id=G-TLM1ZBM7FG` plus `@vercel/analytics` and `SpeedInsights` in the **root** layout, unconditionally — so they run inside the Capacitor shell too, on every route | No |
-| **Device or other IDs** | The GA4 client ID, a pseudonymous browser identifier. Play's type covers an ID that "relate[s] to an individual device, browser or app" | No |
 | App performance → Crash logs | Sentry, client-side via `instrumentation-client.ts` | No |
 | App performance → Diagnostics | Sentry performance + Speed Insights | No |
 
@@ -116,6 +115,7 @@ does not collect, so declaring it would describe the wrong product:
   Play's type is the user's or device's own position. Judgement call, recorded so it can be
   revisited rather than rediscovered.
 - **Messages, Contacts, Calendar, Health and fitness, Web browsing history.** None are touched.
+- **Device or other IDs.** Declared until 2026-11-12, then removed: GA4 is configured with `client_storage: 'none'` (`app/layout.tsx`), so it writes no `_ga` cookie and no persistent client ID. Verified in a clean browser against the live site. Google still receives an IP address, which is not one of Play's declared types. Restore this row the moment that config option comes off.
 
 **The rest of the form:**
 

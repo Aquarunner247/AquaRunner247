@@ -141,7 +141,14 @@ export default async function RootLayout({
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', 'G-TLM1ZBM7FG');
+            // client_storage: 'none' stops GA4 writing the _ga / _ga_<id> cookies, which carry
+            // a persistent client ID. Privacy Policy Section 9 states that our analytics are
+            // cookieless and set no identifier on the device, and that this is why the site has
+            // no consent banner -- so the default gtag config would make a published policy
+            // false, and would put a non-essential cookie on an EU visitor without consent.
+            // The cost is that every hit looks like a new user: page views, traffic sources and
+            // realtime still work, unique-user and returning-visitor counts do not.
+            gtag('config', 'G-TLM1ZBM7FG', { client_storage: 'none' });
           `}
         </Script>
         <ServiceWorkerRegister />
