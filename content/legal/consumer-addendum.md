@@ -93,7 +93,7 @@ An organization’s recorded acceptance names the version it agreed to, so each 
 
 | Version | Date | Description |
 |---|---|---|
-| 1.0 | November 10, 2026 | Initial version, added on outside legal review alongside the business-use statement in Section 2 of the Terms of Service. |
+| 1.0 | November 10, 2026 | Initial version. Incorporated into the Terms of Service by Section 2 of the Terms, which states that the Terms are written for business use and that this Addendum applies to a Customer who is in fact a consumer. |
 
 ---
 

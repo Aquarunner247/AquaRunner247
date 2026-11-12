@@ -1,8 +1,8 @@
 # AquaRunner247 Privacy Policy
 
-**Version:** 1.2  
+**Version:** 1.3  
 **Effective Date:** November 10, 2026  
-**Last Updated:** November 10, 2026
+**Last Updated:** November 11, 2026
 
 ## Contents
 
@@ -47,8 +47,7 @@ The company responsible for the Services is:
 
 **AquaRunner247 LLC, doing business as AquaRunner247**  
 Registered address: **732 S 6th St, Ste N, Las Vegas, NV 89101**  
-Privacy contact: **Privacy Contact**  
-Email: **privacy@aquarunner247.com**  
+Privacy contact: **privacy@aquarunner247.com**  
 Website: **https://aquarunner247.com**
 
 For information about the role AquaRunner247 and a business customer each play in processing customer data, see Section 11.
@@ -153,7 +152,7 @@ A Customer may connect a phone number to the Services. When it does, a call to t
 
 A Customer may create a QR code for a pool, spa, splash pad, fountain, or other body of water. Scanning the code may provide access to the records or information configured for that code, which may include time-stamped chemical logs, inspection histories, service information, or other compliance records. Depending on the Customer’s settings and the design of the feature, information may be available to people who scan the code, including inspectors, property managers, or others with access to the code or link.
 
-Customers determine what records are associated with each QR code and are responsible for reviewing those records before making them accessible. Do not include information in a QR-linked record that should not be visible to a person who can scan or access the code. Portal access may also expose information to Customer-selected users, such as customers, property managers, or inspectors, according to the Customer’s access settings.
+Customers determine what records are associated with each QR code and are responsible for reviewing those records before making them accessible. Do not include information in a QR-linked record that should not be visible to a person who can scan or access the code. The public compliance log — the page a scanned QR code opens for someone with no account — is published only for a commercially regulated body of water in a state whose compliance rules we support. It is not published for a residential property. Portal access may also expose information to Customer-selected users, such as customers, property managers, or inspectors, according to the Customer’s access settings.
 
 ## 9. Cookies and Similar Technologies
 
@@ -319,7 +318,7 @@ These rights apply only where and to the extent a qualifying state privacy law a
 
 If the California Consumer Privacy Act, as amended by the California Privacy Rights Act (“**CCPA**”), applies to our processing, California residents may have rights to know/access, delete, correct, opt out of the sale or sharing of Personal Information, limit certain uses and disclosures of sensitive Personal Information, and not be discriminated against for exercising applicable rights. California residents may also have rights to receive information about categories of Personal Information collected, sources, purposes, and categories of recipients.
 
-The categories of Personal Information potentially collected are described in Section 4. We collect these categories from the sources described in Section 5 and use them for the purposes described in Section 6. We may disclose these categories to the recipient types described in Section 10. The precise categories collected, disclosed, sold, or shared during the applicable statutory period depend on the Services used and must be confirmed for the period before publication.
+The categories of Personal Information potentially collected are described in Section 4. We collect these categories from the sources described in Section 5 and use them for the purposes described in Section 6. We may disclose these categories to the recipient types described in Section 10. The precise categories collected, disclosed, sold, or shared during the applicable statutory period depend on the Services used.
 
 **California sale/share disclosure:** AquaRunner247 has not sold Personal Information, and has not shared it for cross-context behavioral advertising, in the preceding 12 months.
 
@@ -343,7 +342,7 @@ We will not unlawfully discriminate against you for exercising privacy rights. W
 
 ## 17. Nevada Privacy Notice
 
-Nevada residents may have a right under Nevada law to direct certain website operators not to sell covered information, as that term is defined under applicable Nevada law. To submit a request, email **privacy@aquarunner247.com** with the subject line “Nevada Privacy Request.” We will process the request as required by law. This notice does not state that AquaRunner247 sells covered information; our actual practices should be confirmed before publication.
+Nevada residents may have a right under Nevada law to direct certain website operators not to sell covered information, as that term is defined under applicable Nevada law. To submit a request, email **privacy@aquarunner247.com** with the subject line “Nevada Privacy Request.” We will process the request as required by law. AquaRunner247 does not sell covered information.
 
 ## 18. Rights in the European Economic Area and United Kingdom
 
@@ -360,7 +359,7 @@ If the General Data Protection Regulation (“**GDPR**”) or UK GDPR applies to
 
 Our Services use automated features for operational functions, such as extracting information from documents, identifying potentially blurry images, and supporting workflow calculations. We do not intend to make decisions about individuals that produce legal or similarly significant effects solely through automated processing. Contact us if you believe this may apply to you.
 
-To exercise a right, contact our **Privacy Contact** at **privacy@aquarunner247.com**. If we process your information on behalf of a Customer, please contact that Customer, which is generally the Controller. You also have the right to lodge a complaint with your local supervisory authority, including in the country where you live, work, or believe an infringement occurred.
+To exercise a right, write to us at **privacy@aquarunner247.com**. If we process your information on behalf of a Customer, please contact that Customer, which is generally the Controller. You also have the right to lodge a complaint with your local supervisory authority, including in the country where you live, work, or believe an infringement occurred.
 
 ## 19. Marketing and Communication Choices
 
@@ -392,8 +391,7 @@ Questions, comments, and privacy requests may be sent to:
 
 **AquaRunner247 LLC, doing business as AquaRunner247**  
 **732 S 6th St, Ste N, Las Vegas, NV 89101**  
-Privacy contact: **Privacy Contact**  
-Email: **privacy@aquarunner247.com**  
+Privacy contact: **privacy@aquarunner247.com**  
 Website: **https://aquarunner247.com**
 
 ## Version History
@@ -405,6 +403,7 @@ An organization’s recorded acceptance names the version it agreed to, so each 
 | 1.0 | October 22, 2026 | Initial draft |
 | 1.1 | October 25, 2026 | Disclosed on-device GPS departure detection. |
 | 1.2 | November 10, 2026 | Added Section 7.3 (automated phone calls, recording, and artificial intelligence). Rewrote Section 13 to state field by field what survives a cancellation, to record the legal and regulatory retention override, and to set out the process for asking us to delete a retained compliance record. |
+| 1.3 | November 11, 2026 | Non-substantive corrections, with no change to the Effective Date or to any right or obligation: filled the privacy contact field in Sections 2, 18, and 23, which had been left as a placeholder; removed the sentences in Sections 16 and 17 that said our categories and sale practices were to be confirmed before publication, which read as unfinished drafting in a published policy; and stated in Section 8 that the public compliance log is published only for commercially regulated water, matching Section 2 of the Terms of Service. |
 
 ## 24. Attorney Review Notice
 

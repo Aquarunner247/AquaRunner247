@@ -1,8 +1,8 @@
 # Data Processing Agreement
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Effective Date:** November 10, 2026  
-**Last Updated:** November 10, 2026
+**Last Updated:** November 11, 2026
 
 This Data Processing Agreement (“**DPA**”) forms part of, and is incorporated into, the Terms of Service or other written agreement governing the use of the AquaRunner247 services (the “**Agreement**”) between **AquaRunner247 LLC**, with its address at **732 S 6th St, Ste N, Las Vegas, NV 89101** (“**AquaRunner247**”), and the customer identified in the Agreement (“**Customer**”). This DPA applies when AquaRunner247 Processes Personal Data on Customer’s behalf.
 
@@ -249,7 +249,6 @@ AquaRunner247 may create and use data derived from the operation of the Services
 
 12.1 **AquaRunner247 contact.** Customer may direct privacy and data protection inquiries to:
 
-**Data Protection Contact:** Privacy Contact  
 **Email:** privacy@aquarunner247.com  
 **Address:** 732 S 6th St, Ste N, Las Vegas, NV 89101  
 **Website:** https://aquarunner247.com/privacy
@@ -522,5 +521,6 @@ Date:  __________________________________
 |---|---|---|
 | 1.0 | October 22, 2026 | Initial draft. Re-dated effective October 25, 2026, with no change to its terms, so that every document in the accepted bundle carried one effective date. |
 | 1.1 | November 10, 2026 | Added Section 6.5 (Data Subject requests reaching retained compliance records) and Sections 9.6–9.7. Rewrote Section 9.5 to minimize the retained set, list field by field what is erased on termination, and strengthen Customer’s documented instruction. Completed the open SCC and UK Addendum selections in Annex 3 and recorded that no Restricted Transfers are currently made. Replaced the remaining bracketed fill-in fields in Section 12.2 and the signature block with blank form lines, so no part of the published DPA reads as an unfinished draft. Added Section 5.2.1, which states that the three public mapping services in Annex 3 operate under published usage policies rather than a negotiated agreement, rather than leaving Section 5.2 to imply a contract that does not exist. |
+| 1.2 | November 11, 2026 | Non-substantive correction, with no change to the Effective Date or to any right or obligation: filled the data protection contact field in Section 12.1, which had been left as a placeholder. |
 
 *This document is for informational purposes only and should be reviewed by a licensed attorney before execution.*

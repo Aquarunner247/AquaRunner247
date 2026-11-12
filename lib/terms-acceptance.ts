@@ -45,6 +45,17 @@
  *     retained indefinitely.
  *   - Privacy Policy Section 7.3 and the spoken RECORDING_NOTICE now disclose that the phone
  *     agent is an automated system rather than a person.
+ *
+ * 2026-11-11: deliberately NOT bumped, although the Privacy Policy went to 1.3 and the DPA to
+ * 1.2 on that date. Those revisions filled a contact field that had been left as the
+ * placeholder "Privacy Contact", removed two sentences that deferred our collection categories
+ * and sale practices to confirmation "before publication", and stated in Privacy Policy
+ * Section 8 what Terms of Service Section 2 and app/p/[publicSlug] already did -- that the
+ * public compliance log is published only for commercially regulated water. No right or
+ * obligation changed, so both documents kept their November 10 Effective Date and moved only
+ * Last Updated. Bumping this instead would have put a blocking acceptance screen in front of
+ * every admin to re-agree to text that says the same thing, which is the cost this comment
+ * warns about above.
  */
 export const TERMS_VERSION = "2026-11-10";
 
