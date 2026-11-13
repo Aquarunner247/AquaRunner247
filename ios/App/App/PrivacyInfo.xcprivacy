@@ -155,7 +155,19 @@
 
 		<!-- Error reports and server traces (Sentry, Dash0 — both named in the sub-processor
 		     list). Declared as linked because an error payload carries the request URL, which
-		     contains organization and visit identifiers that resolve to an account. -->
+		     contains organization and visit identifiers that resolve to an account.
+
+		     Two purposes, matching the "App performance -> Crash logs" row on the Play form,
+		     which is filed as App functionality + Analytics. AppFunctionality is the primary one
+		     — Apple's definition names "minimizing app crashes" outright — and Analytics belongs
+		     because Sentry is also read in aggregate, for crash-free rates and error trends
+		     rather than for fixing one report. Privacy Policy Section 6 authorizes both in the
+		     same list: "troubleshoot issues" and "Analyze usage and performance, develop and
+		     improve features".
+
+		     Analytics added 2026-11-13. The row predates the Play filing and carried
+		     AppFunctionality alone, so the two stores' public labels described the same Sentry
+		     SDK differently. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeCrashData</string>
@@ -166,8 +178,18 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
+		<!-- Performance traces and web vitals (Sentry tracing, Vercel Speed Insights).
+
+		     Play files the matching rows — Diagnostics, and Other app performance data — as
+		     Analytics ONLY, and that difference is deliberate rather than drift. Apple's
+		     AppFunctionality definition explicitly covers "improving scalability and
+		     performance", so a latency trace read to make a page faster is app functionality
+		     here, while Play's App functionality purpose is about features available in the app.
+		     Checked 2026-11-13 against both stores' definitions. Do not "reconcile" this by
+		     dropping AppFunctionality — that would under-describe what the traces are for. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePerformanceData</string>

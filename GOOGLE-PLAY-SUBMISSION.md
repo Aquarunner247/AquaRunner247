@@ -136,11 +136,31 @@ does not collect, so declaring it would describe the wrong product:
 integration appears in the app without a line in this table, which is how the three missing rows
 got missed in the first place.
 
-> **`ios/App/App/PrivacyInfo.xcprivacy` is worth a second look.** It
-> declares precise location, photos and the rest, and sets `NSPrivacyTracking`
-> false with an empty `NSPrivacyTrackingDomains`. With Google Analytics gone the
-> gap is much smaller, but confirm it still matches before the App Store filing;
-> the two stores must not be told different things.
+> **`ios/App/App/PrivacyInfo.xcprivacy` now matches this table**, type for type and
+> purpose for purpose, reconciled 2026-11-13. It declares eleven types, sets
+> `NSPrivacyTracking` false with an empty `NSPrivacyTrackingDomains`, and
+> `lib/__tests__/ios-privacy-manifest.test.ts` fails if either document gains a row the
+> other lacks or a purpose the other does not carry. Two fixes went in: the manifest was
+> missing **App interactions** (`ProductInteraction`, 2026-11-12), and its crash row
+> carried `AppFunctionality` alone while this table files **Crash logs** as App
+> functionality + Analytics (2026-11-13) — one Sentry SDK, two different public labels.
+>
+> Two differences are **deliberate** and recorded in the manifest's own comments, so do
+> not "fix" them:
+>
+> - Apple's purpose vocabulary has no **Account management** and no **Fraud
+>   prevention/security/compliance**. Apple's `AppFunctionality` definition covers both in
+>   as many words ("authenticating the user", "preventing fraud, implementing security
+>   measures"), so Name/Email/User IDs and Precise location map onto it.
+> - **Diagnostics** and **Other app performance data** are Analytics-only here, while
+>   Apple's `PerformanceData` also carries `AppFunctionality`. Apple's definition names
+>   "improving scalability and performance"; Play's App functionality is about features
+>   available in the app. Dropping it on the Apple side would under-describe the traces.
+>
+> No legal-document change was needed for either fix. Privacy Policy Section 4 already
+> lists "crash reports, and diagnostic information", and Section 6 authorizes both
+> purposes in one list — "troubleshoot issues" and "Analyze usage and performance, develop
+> and improve features".
 
 ---
 

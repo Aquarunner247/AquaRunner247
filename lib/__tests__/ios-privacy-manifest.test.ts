@@ -84,6 +84,37 @@ const CROSS_STORE_PAIRS = [
   { play: "Photos and videos → Photos", apple: "PhotosorVideos", why: "proof-of-service photos" },
 ];
 
+/**
+ * Purposes, exactly, per Apple type. A row missing from one store is the obvious drift; a row
+ * present on both but *labelled* differently is the quiet one — same SDK, two different public
+ * labels — so the purposes are pinned here too and the Play row each answers to is named.
+ *
+ * Apple's purpose vocabulary is smaller than Play's. Where Play adds a purpose Apple has no word
+ * for, Apple's AppFunctionality definition already covers it, which is why these are not
+ * mismatches:
+ *   - Account management (Name, Email address, User IDs) -> "authenticating the user".
+ *   - Fraud prevention/security/compliance (Precise location) -> "preventing fraud, implementing
+ *     security measures".
+ *
+ * The one deliberate difference is PerformanceData: Play files Diagnostics and Other app
+ * performance data as Analytics only, while Apple's AppFunctionality names "improving scalability
+ * and performance" outright, so a latency trace read to make a page faster is app functionality
+ * on Apple's definitions. Recorded in the manifest comment; do not collapse it.
+ */
+const EXPECTED_PURPOSES: Record<string, { purposes: string[]; play: string }> = {
+  PreciseLocation: { purposes: ["AppFunctionality"], play: "App functionality, Fraud prevention/security/compliance" },
+  PhysicalAddress: { purposes: ["AppFunctionality"], play: "App functionality" },
+  PhotosorVideos: { purposes: ["AppFunctionality"], play: "App functionality" },
+  Name: { purposes: ["AppFunctionality"], play: "App functionality, Account management" },
+  EmailAddress: { purposes: ["AppFunctionality"], play: "App functionality, Account management" },
+  PhoneNumber: { purposes: ["AppFunctionality"], play: "App functionality" },
+  UserID: { purposes: ["AppFunctionality"], play: "App functionality, Account management" },
+  OtherUserContent: { purposes: ["AppFunctionality"], play: "App functionality" },
+  CrashData: { purposes: ["AppFunctionality", "Analytics"], play: "App functionality, Analytics" },
+  PerformanceData: { purposes: ["AppFunctionality", "Analytics"], play: "Analytics only — see above" },
+  ProductInteraction: { purposes: ["Analytics"], play: "Analytics only" },
+};
+
 describe("iOS privacy manifest keeps up with the client and with Play", () => {
   it("is structurally intact", () => {
     // A hand-edited plist that no longer parses is rejected at upload, which is a slow way to
@@ -156,6 +187,43 @@ describe("iOS privacy manifest keeps up with the client and with Play", () => {
     for (const t of declaredTypes()) {
       expect(t.name, "an audio data type appeared in the manifest").not.toMatch(/Audio/i);
     }
+  });
+
+  it("gives each type the purposes its Play row was filed with", () => {
+    // Over-declaring a purpose prints on the store label as a use the app does not make;
+    // under-declaring one describes the app as taking data for less than it does. Both are
+    // inaccuracies. If a purpose genuinely changes, change it here and in the manifest comment.
+    for (const t of declaredTypes()) {
+      const expected = EXPECTED_PURPOSES[t.name];
+      expect(
+        expected,
+        `${t.name} is declared in ${MANIFEST_PATH} but has no entry in EXPECTED_PURPOSES. ` +
+          "Add it, with the Play row it corresponds to.",
+      ).toBeDefined();
+      expect([...t.purposes].sort(), `${t.name} purposes drifted (Play: ${expected?.play})`).toEqual(
+        [...expected!.purposes].sort(),
+      );
+    }
+    for (const name of Object.keys(EXPECTED_PURPOSES)) {
+      expect(
+        declaredTypes().some((t) => t.name === name),
+        `EXPECTED_PURPOSES lists ${name} but ${MANIFEST_PATH} no longer declares it.`,
+      ).toBe(true);
+    }
+  });
+
+  it("gives crash data the same two purposes Play was told", () => {
+    // Called out on its own because it was wrong until 2026-11-13: Apple said AppFunctionality
+    // alone while the Play form said App functionality + Analytics, for one Sentry SDK.
+    const crash = declaredTypes().find((t) => t.name === "CrashData");
+    expect(crash, "CrashData is no longer declared").toBeDefined();
+    expect(
+      crash!.purposes,
+      'Play files "App performance -> Crash logs" as App functionality + Analytics. Sentry is ' +
+        "read both per-report and in aggregate (crash-free rate, error trends), and Privacy " +
+        'Policy Section 6 covers both: "troubleshoot issues" and "Analyze usage and performance".',
+    ).toContain("Analytics");
+    expect(crash!.purposes).toContain("AppFunctionality");
   });
 
   it("declares no advertising or device identifier", () => {
