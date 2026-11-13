@@ -181,6 +181,37 @@
 				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
+
+		<!-- Page views, collected by @vercel/analytics, which app/layout.tsx loads in the ROOT
+		     layout unconditionally — so it runs on every route, including inside the Capacitor
+		     WebView. Privacy Policy Section 4, "Device and usage information" row: "interaction
+		     with features".
+
+		     Linked, for the same reason CrashData above is linked: what Vercel Analytics records
+		     is the pathname, and this app's paths carry organization, body-of-water and visit
+		     identifiers that resolve to an account. Vercel Analytics itself is cookieless and
+		     sets no device identifier — that is why Privacy Policy Section 9 can say the site
+		     runs no cookie consent banner — but "sets no identifier" is not the same question as
+		     "is linked to the user".
+
+		     Not tracking: first-party only, no ad network, no cross-app or cross-site
+		     measurement.
+
+		     Added 2026-11-12, after the Google Play Data safety form was read back from the
+		     console and found to be missing the same row (App activity -> App interactions).
+		     The two stores have to be told the same thing. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
 	</array>
 
 	<key>NSPrivacyAccessedAPITypes</key>
