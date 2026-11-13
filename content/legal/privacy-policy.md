@@ -1,6 +1,6 @@
 # AquaRunner247 Privacy Policy
 
-**Version:** 1.4  
+**Version:** 1.5  
 **Effective Date:** November 10, 2026  
 **Last Updated:** November 12, 2026
 
@@ -182,7 +182,7 @@ As of the Last Updated date above, our subprocessors are:
 | Subprocessor name | Service provided | Processing location | Categories of information processed |
 |---|---|---|---|
 | Supabase | Authentication, primary database, and file storage for visit photos, customer documents, and safety data sheets | United States | Account data, Customer Data, uploaded files, and usage data as described in this Policy |
-| Vercel | Application hosting, edge infrastructure, and Blob storage for post-cancellation data archives | United States | Customer Data in transit through the Services; archived Customer Data, including photo and inspection-report files |
+| Vercel | Application hosting, edge infrastructure, Blob storage for post-cancellation data archives, and cookieless product and performance analytics (Vercel Analytics, Speed Insights) | United States | Customer Data in transit through the Services; archived Customer Data, including photo and inspection-report files; aggregate page-view and page-performance data that sets no cookie and no device identifier |
 | Resend | Transactional email delivery | United States | Recipient email address and email content (service summaries, alerts, account and billing emails) |
 | Twilio | Inbound phone call handling, recording, and transcription for calls to a Customer’s configured phone number | United States | Caller phone number, call audio recordings, call transcripts |
 | OpenAI, via Vercel AI Gateway | Parsing call transcripts into structured service requests; extracting structured data from uploaded inspection reports | United States | Call transcript text; inspection report document content |
@@ -405,6 +405,7 @@ An organization’s recorded acceptance names the version it agreed to, so each 
 | 1.2 | November 10, 2026 | Added Section 7.3 (automated phone calls, recording, and artificial intelligence). Rewrote Section 13 to state field by field what survives a cancellation, to record the legal and regulatory retention override, and to set out the process for asking us to delete a retained compliance record. |
 | 1.3 | November 11, 2026 | Non-substantive corrections, with no change to the Effective Date or to any right or obligation: filled the privacy contact field in Sections 2, 18, and 23, which had been left as a placeholder; removed the sentences in Sections 16 and 17 that said our categories and sale practices were to be confirmed before publication, which read as unfinished drafting in a published policy; and stated in Section 8 that the public compliance log is published only for commercially regulated water, matching Section 2 of the Terms of Service. |
 | 1.4 | November 12, 2026 | Removed Google Analytics from the Services. The tag had run on every page since August 23, 2026 and set a persistent `_ga` identifier, which contradicted the statement in Section 9 that our analytics are cookieless and set no identifier on the device — the statement that is also the stated reason this site runs no cookie consent banner. Section 9 is accurate as written now that the tag is gone. Remaining analytics are Vercel Analytics and Speed Insights, which set no cookie and no device identifier. No change to the Effective Date or to any right or obligation. |
+| 1.5 | November 12, 2026 | Named the analytics function in the Vercel subprocessor row. Section 9 and the 1.4 note already disclosed that the remaining analytics are Vercel Analytics and Speed Insights, but the subprocessor table described Vercel only as hosting, storage, and edge infrastructure, while Section 10 says that table names every vendor supporting analytics. The row now says so, and names the page-view and page-performance data involved. Prompted by declaring App activity → App interactions on the Google Play Data safety form for the same collection. No change to the Effective Date, to what is collected, or to any right or obligation. |
 
 ## 24. Attorney Review Notice
 

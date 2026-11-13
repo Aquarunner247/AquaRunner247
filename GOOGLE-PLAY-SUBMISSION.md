@@ -68,8 +68,24 @@ Everything collected is **linked to the user**. **Nothing is used for tracking.*
 | **App activity → App interactions** | Page views, collected by `@vercel/analytics` and `SpeedInsights`, which `app/layout.tsx` loads in the **root** layout, unconditionally — so they run inside the Capacitor shell too, on every route | No |
 | App performance → Crash logs | Sentry, client-side via `instrumentation-client.ts` | No |
 | App performance → Diagnostics | Sentry performance + Speed Insights | No |
+| **App performance → Other app performance data** | Web-vitals measurements from `SpeedInsights` that are neither a crash nor a trace. Not in this table until 2026-11-12, when the filed form was read back and found to carry it; it is a fair reading of Speed Insights and it stays. | No |
 
-**Purpose** for every row: App functionality. Vercel Analytics and Speed Insights are additionally **Analytics**. Nothing is Advertising or personalisation.
+**Purpose**, exactly as filed. Nothing is Advertising or personalisation, and nothing is tracking.
+
+| Row | Purpose(s) | Optional on the label? |
+|---|---|---|
+| Name, Email address, User IDs | App functionality, Account management | No |
+| Address | App functionality (collected **and** shared) | No |
+| Phone number | App functionality | **Optional** |
+| Precise location | App functionality, Fraud prevention/security/compliance | **Optional** |
+| Photos | App functionality | No |
+| Files and docs | App functionality | **Optional** |
+| Other user-generated content | App functionality | No |
+| Crash logs | App functionality, Analytics | No |
+| Diagnostics, Other app performance data, App interactions | **Analytics only** | No |
+
+**Twelve data types**, not eleven — counted wrong in conversation on 2026-11-12 and corrected here
+against the filed form. Every row answers **No** to "processed ephemerally".
 
 **Why only Address is "shared".** Play excludes a transfer to a "service provider," defined as
 "an entity that processes user data on behalf of the developer and based on the developer's

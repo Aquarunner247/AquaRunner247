@@ -13,7 +13,7 @@ and notify organization admin contacts as Section 5.3 describes.
 | Sub-processor | Purpose | Processing location | Information involved |
 |---|---|---|---|
 | **Supabase** | Authentication, primary database, and file storage for visit photos, customer documents, and safety data sheets | United States | Account data, all customer data held in the service, uploaded files, usage data |
-| **Vercel** | Application hosting, edge infrastructure, and Blob storage for post-cancellation data archives | United States | Customer data in transit through the service; archived customer data, including photo and inspection-report files |
+| **Vercel** | Application hosting, edge infrastructure, Blob storage for post-cancellation data archives, and cookieless product and performance analytics (Vercel Analytics, Speed Insights) | United States | Customer data in transit through the service; archived customer data, including photo and inspection-report files; aggregate page-view and page-performance data that sets no cookie and no device identifier |
 | **Resend** | Transactional email delivery | United States | Recipient email address, email content (service summaries, alerts, account and billing emails) |
 | **Twilio** | Inbound phone call handling, recording, and transcription for calls to an organization's configured number | United States | Caller phone number, call audio recordings, call transcripts |
 | **OpenAI**, via Vercel AI Gateway | Parsing call transcripts into structured service requests; extracting structured data from uploaded inspection reports | United States | Call transcript text; inspection report document content |
