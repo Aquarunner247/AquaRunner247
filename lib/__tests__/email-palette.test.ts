@@ -129,12 +129,17 @@ beforeAll(async () => {
         m.sendAbandonedStopEmail({
           to: ["ops@example.com"],
           organizationName: "Lindley's Pool & Spa Service",
-          technicianName: "Rich",
           propertyName: "Paseo Del Prado",
-          bodyName: "Main Pool",
-          openFor: "4 hours",
-          arrivedAtLabel: "at 2:40 PM",
-          visitUrl: "https://aquarunner247.com/dashboard/visits/abc",
+          stops: [
+            {
+              bodyName: "Main Pool",
+              technicianName: "Rich",
+              openFor: "4 hours",
+              arrivedAtLabel: "at 2:40 PM",
+              visitUrl: "https://aquarunner247.com/dashboard/visits/abc",
+            },
+          ],
+          scheduleUrl: "https://aquarunner247.com/dashboard/schedule",
         }),
     },
     {
@@ -146,14 +151,79 @@ beforeAll(async () => {
         m.sendAbandonedStopEmail({
           to: ["ops@example.com"],
           organizationName: "Lindley's Pool & Spa Service",
-          technicianName: "Rich",
           propertyName: "Paseo Del Prado",
-          bodyName: "Main Pool",
-          openFor: "1 hour",
-          arrivedAtLabel: "at 2:40 PM",
-          departedAtLabel: "at 3:05 PM",
-          onSiteFor: "25 minutes",
-          visitUrl: "https://aquarunner247.com/dashboard/visits/abc",
+          stops: [
+            {
+              bodyName: "Main Pool",
+              technicianName: "Rich",
+              openFor: "1 hour",
+              arrivedAtLabel: "at 2:40 PM",
+              departedAtLabel: "at 3:05 PM",
+              onSiteFor: "25 minutes",
+              visitUrl: "https://aquarunner247.com/dashboard/visits/abc",
+            },
+          ],
+          scheduleUrl: "https://aquarunner247.com/dashboard/schedule",
+        }),
+    },
+    {
+      // The property-wide shape, which is the whole point of the grouping: several bodies of
+      // water at one address, mixed triggers, and more than one technician. Its own entry
+      // because the plural wording and the row table are strings the single-stop renders never
+      // reach.
+      name: "abandoned stop (property-wide, several stops)",
+      run: () =>
+        m.sendAbandonedStopEmail({
+          to: ["ops@example.com"],
+          organizationName: "Lindley's Pool & Spa Service",
+          propertyName: "Paseo Del Prado",
+          stops: [
+            {
+              bodyName: "Main Pool",
+              technicianName: "Rich",
+              openFor: "5 hours",
+              arrivedAtLabel: "at 9:10 AM",
+              visitUrl: "https://aquarunner247.com/dashboard/visits/abc",
+            },
+            {
+              bodyName: "Spa",
+              technicianName: "Dana",
+              openFor: "1 hour",
+              arrivedAtLabel: "at 1:05 PM",
+              departedAtLabel: "at 1:30 PM",
+              onSiteFor: "25 minutes",
+              visitUrl: "https://aquarunner247.com/dashboard/visits/def",
+            },
+          ],
+          scheduleUrl: "https://aquarunner247.com/dashboard/schedule",
+        }),
+    },
+    {
+      name: "abandoned stop (technician's own copy)",
+      run: () =>
+        m.sendTechnicianAbandonedStopEmail({
+          to: "rich@example.com",
+          technicianFirstName: "Rich",
+          propertyName: "Paseo Del Prado",
+          stops: [
+            {
+              bodyName: "Main Pool",
+              technicianName: "Rich",
+              openFor: "4 hours",
+              arrivedAtLabel: "at 2:40 PM",
+              visitUrl: "https://aquarunner247.com/dashboard/visits/abc",
+            },
+            {
+              bodyName: "Spa",
+              technicianName: "Rich",
+              openFor: "4 hours",
+              arrivedAtLabel: "at 2:40 PM",
+              departedAtLabel: "at 3:05 PM",
+              onSiteFor: "25 minutes",
+              visitUrl: "https://aquarunner247.com/dashboard/visits/def",
+            },
+          ],
+          scheduleUrl: "https://aquarunner247.com/dashboard/schedule",
         }),
     },
     {

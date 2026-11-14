@@ -151,3 +151,60 @@ export function formatOpenDuration(openHours: number): string {
   const days = Math.floor(whole / 24);
   return days === 1 ? "more than a day" : `more than ${days} days`;
 }
+
+/** A stop that is alerting, paired with the decision that fired. */
+export type AbandonedStopAlertDecision = Extract<AbandonedStopDecision, { alert: true }>;
+export type AbandonedStopAlert<V> = { visit: V; decision: AbandonedStopAlertDecision };
+
+export type AbandonedStopPropertyGroup<V> = {
+  propertyId: string;
+  stops: AbandonedStopAlert<V>[];
+};
+
+/**
+ * One notice per property, not one per body of water.
+ *
+ * A property is a place somebody drives to, and a pool and a spa at the same address are one
+ * occasion -- which is already how the capture screen treats them
+ * (app/dashboard/stops/[propertyId], grouped by property) and how the customer summary treats
+ * them (lib/service-summary-bundle.ts bundles a pool and spa into one email). The alert was the
+ * odd one out: a technician who left a front pool, a back pool and a spa unfinished sent three
+ * separate emails that said the same thing about the same address, and three of them is how a
+ * notice starts getting filtered rather than read.
+ *
+ * Input order is preserved, both between groups and inside them, so the cron's `orderBy` decides
+ * what the email lists first rather than a Map's insertion quirk.
+ */
+export function groupAbandonedStopsByProperty<V extends { propertyId: string }>(
+  alerts: AbandonedStopAlert<V>[],
+): AbandonedStopPropertyGroup<V>[] {
+  const groups = new Map<string, AbandonedStopPropertyGroup<V>>();
+  for (const alert of alerts) {
+    const existing = groups.get(alert.visit.propertyId);
+    if (existing) existing.stops.push(alert);
+    else groups.set(alert.visit.propertyId, { propertyId: alert.visit.propertyId, stops: [alert] });
+  }
+  return [...groups.values()];
+}
+
+/**
+ * The same group split by who was actually there, for the technician's own copy.
+ *
+ * Usually one technician per property, but not always -- a big commercial site can be split
+ * between two people, and in that case neither should be told about the other's stop. A stop with
+ * no technician never reaches here (abandonedStopDecision returns "no-technician"), so the key is
+ * narrowed to a string rather than carrying a null bucket nobody can email.
+ */
+export function splitAbandonedStopsByTechnician<V extends { technicianId: string | null }>(
+  stops: AbandonedStopAlert<V>[],
+): { technicianId: string; stops: AbandonedStopAlert<V>[] }[] {
+  const byTech = new Map<string, AbandonedStopAlert<V>[]>();
+  for (const stop of stops) {
+    const id = stop.visit.technicianId;
+    if (id == null) continue;
+    const existing = byTech.get(id);
+    if (existing) existing.push(stop);
+    else byTech.set(id, [stop]);
+  }
+  return [...byTech.entries()].map(([technicianId, s]) => ({ technicianId, stops: s }));
+}

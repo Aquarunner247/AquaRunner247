@@ -304,6 +304,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
             completedAt: true,
             departedAt: true,
             pushedAt: true,
+            abandonedAlertSentAt: true,
             movedToVisitId: true,
             routeSequence: true,
             // For the "why is this here" line (lib/visit-origin.ts). recurringStopId says the
@@ -329,6 +330,7 @@ export async function AdminSchedule({ appUser, searchParams }: Props) {
     id: v.id,
     status: v.status,
     pushedAt: v.pushedAt ? v.pushedAt.toISOString() : null,
+    abandonedAlertSentAt: v.abandonedAlertSentAt ? v.abandonedAlertSentAt.toISOString() : null,
     movedToVisitId: v.movedToVisitId,
     propertyId: v.property.id,
     propertyName: v.property.name,

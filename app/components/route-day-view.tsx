@@ -34,6 +34,11 @@ export type RouteStop = {
   /// Set by the nightly sweep when this stop was still IN_PROGRESS after its own local day ended.
   /// Serialized, since this is a client component. See lib/visit-pushed.ts for what counts as pushed.
   pushedAt?: string | null;
+  /// Set by app/api/cron/alert-abandoned-stops once this stop was reported as started and never
+  /// finished. The email goes to the office and to the technician; this is the same fact on the
+  /// screen they are already holding, which is the only one of the three they will see while
+  /// still standing at the property.
+  abandonedAlertSentAt?: string | null;
   /// Set when this stop was moved to another day. The row stays on its original day so the record
   /// is honest and visit-generation does not recreate it -- it reads "Moved", not "Skipped", and
   /// those are different things to tell a technician.
@@ -253,10 +258,12 @@ function StatusBadge({
   status,
   pushedAt = null,
   movedToVisitId = null,
+  abandonedAlertSentAt = null,
 }: {
   status: string;
   pushedAt?: string | null;
   movedToVisitId?: string | null;
+  abandonedAlertSentAt?: string | null;
 }) {
   // Before IN_PROGRESS, because a pushed stop is still IN_PROGRESS in the data -- that is the point of
   // the stamp. Completed is checked first of all, so a stop finished days after being pushed reads as
@@ -284,6 +291,22 @@ function StatusBadge({
     );
   }
   if (status === "IN_PROGRESS") {
+    // Still IN_PROGRESS in the data, like Pushed is -- but this one has been open long enough
+    // that the alert already went out, and "In Progress" is the wrong thing to tell the person
+    // who walked away from it. Ink rather than coral: coral is 3.0:1 on white and this is 11px
+    // text, so the urgency lives in the notice above the list instead (DESIGN-SYSTEM.md rule 2).
+    if (abandonedAlertSentAt) {
+      return (
+        <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-brand-ink">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4" strokeLinecap="round" />
+            <path d="M12 16h.01" strokeLinecap="round" />
+          </svg>
+          Not finished
+        </span>
+      );
+    }
     return (
       <span className="flex shrink-0 flex-col items-center text-[11px] font-semibold text-brand-ink">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1311,6 +1334,27 @@ export function RouteDayView({
   );
   const itemById = new Map(items.map((i) => [i.id, i]));
 
+  /**
+   * Stops the abandoned-stop sweep has already written home about, and which are still open.
+   *
+   * The email reaches the office and the technician's inbox; this is the same fact on the screen
+   * the technician is actually holding, which is the one place they might see it while still near
+   * the property. Read from the whole day rather than from displayedItems, deliberately -- a
+   * status filter of "Completed" must not be able to hide the fact that something was left open.
+   *
+   * COMPLETED and Pushed are both excluded: the first means somebody went back and the notice is
+   * stale, and the second means the day is over, which the badge already says and this notice
+   * would contradict.
+   */
+  const unfinishedStops = items.filter(
+    (i): i is { kind: "visit" } & RouteStop =>
+      i.kind === "visit" &&
+      Boolean(i.abandonedAlertSentAt) &&
+      i.status === "IN_PROGRESS" &&
+      !i.completedAt &&
+      !isPushedVisit({ status: i.status, pushedAt: i.pushedAt ?? null }),
+  );
+
   const capturePromptShown = new Set<string>();
 
   // Technician sub-headers for the list, multi-tech mode only — keyed by the id of the
@@ -1469,6 +1513,30 @@ export function RouteDayView({
                   <span className="shrink-0 text-xs text-brand-muted">No map pin yet</span>
                 )}
               </div>
+            </div>
+          ) : null}
+          {unfinishedStops.length > 0 ? (
+            // Coral fill, labelled in brand-ctaText: the one "act now" accent inside the product
+            // (DESIGN-SYSTEM.md rule 2 -- navy on coral is 4.8:1, white on it is 3.0:1 and fails).
+            // Not a status token: ok/warn/danger mean a reading result and an unfinished stop is
+            // not one.
+            <div role="status" className="mb-3 rounded-lg bg-brand-cta p-3 text-brand-ctaText">
+              <p className="text-sm font-semibold">
+                {unfinishedStops.length === 1
+                  ? "1 stop was never marked complete"
+                  : `${unfinishedStops.length} stops were never marked complete`}
+              </p>
+              <p className="mt-1 text-sm">
+                {unfinishedStops
+                  .slice(0, 3)
+                  .map((v) => `${v.propertyName} — ${v.bodyName}`)
+                  .join(", ")}
+                {unfinishedStops.length > 3 ? `, and ${unfinishedStops.length - 3} more` : ""}
+                .
+              </p>
+              <p className="mt-1 text-xs">
+                If the work is done, open the stop and tap Complete. Your office has been sent the same notice.
+              </p>
             </div>
           ) : null}
           <ul className="space-y-2">
@@ -1716,7 +1784,7 @@ export function RouteDayView({
                                 {m.bodyName}
                               </Link>
                               <span className="flex shrink-0 items-center gap-2">
-                                <StatusBadge status={m.status} pushedAt={m.pushedAt ?? null} movedToVisitId={m.movedToVisitId ?? null} />
+                                <StatusBadge status={m.status} pushedAt={m.pushedAt ?? null} movedToVisitId={m.movedToVisitId ?? null} abandonedAlertSentAt={m.abandonedAlertSentAt ?? null} />
                                 {!effectiveReadOnly ? (
                                   <button type="button" onClick={() => void toggleSkip(m)} className="app-btn-ghost-sm">
                                     Skip
@@ -1825,7 +1893,7 @@ export function RouteDayView({
                     </div>
                     {!effectiveReadOnly ? (
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} movedToVisitId={v.movedToVisitId ?? null} />
+                        <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} movedToVisitId={v.movedToVisitId ?? null} abandonedAlertSentAt={v.abandonedAlertSentAt ?? null} />
                         {/* A moved stop keeps no actions. Skipping or re-moving it here would act on
                             the row left behind as a record, not on the stop that now lives on
                             another day -- which is where it should be changed. */}
@@ -1865,7 +1933,7 @@ export function RouteDayView({
                         ) : null}
                       </div>
                     ) : (
-                      <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} movedToVisitId={v.movedToVisitId ?? null} />
+                      <StatusBadge status={v.status} pushedAt={v.pushedAt ?? null} movedToVisitId={v.movedToVisitId ?? null} abandonedAlertSentAt={v.abandonedAlertSentAt ?? null} />
                     )}
                   </li>
                 </Fragment>

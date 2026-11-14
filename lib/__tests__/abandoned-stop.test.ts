@@ -5,6 +5,9 @@ import {
   formatOnSiteDuration,
   ABANDONED_AFTER_HOURS,
   DEPARTED_GRACE_MINUTES,
+  groupAbandonedStopsByProperty,
+  splitAbandonedStopsByTechnician,
+  type AbandonedStopAlert,
   type AbandonedStopCandidate,
 } from "@/lib/abandoned-stop";
 
@@ -227,5 +230,97 @@ describe("formatOpenDuration", () => {
     expect(formatOpenDuration(23.9)).toBe("23 hours");
     expect(formatOpenDuration(25)).toBe("more than a day");
     expect(formatOpenDuration(72)).toBe("more than 3 days");
+  });
+});
+
+/**
+ * The grouping, which is what stops one address sending three near-identical emails.
+ *
+ * `alert` builds the shape the cron assembles: a visit row plus the decision that fired for it.
+ * Only the fields the grouping actually reads are set, so a change that starts depending on
+ * something else fails here rather than silently working on the real query's wider selection.
+ */
+function alert(
+  propertyId: string,
+  overrides: { technicianId?: string | null; openHours?: number; trigger?: "departed" | "elapsed" } = {},
+): AbandonedStopAlert<{ id: string; propertyId: string; technicianId: string | null }> {
+  const openHours = overrides.openHours ?? 5;
+  const trigger = overrides.trigger ?? "elapsed";
+  return {
+    visit: {
+      id: `${propertyId}-${overrides.technicianId ?? "tech-1"}-${openHours}`,
+      propertyId,
+      technicianId: overrides.technicianId === undefined ? "tech-1" : overrides.technicianId,
+    },
+    decision:
+      trigger === "departed"
+        ? { alert: true, trigger: "departed", openHours, onSiteMinutes: 25 }
+        : { alert: true, trigger: "elapsed", openHours },
+  };
+}
+
+describe("groupAbandonedStopsByProperty", () => {
+  it("puts every body of water at one address in a single group", () => {
+    const groups = groupAbandonedStopsByProperty([
+      alert("prop-a", { openHours: 5 }),
+      alert("prop-a", { openHours: 4 }),
+      alert("prop-a", { openHours: 6 }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].propertyId).toBe("prop-a");
+    expect(groups[0].stops).toHaveLength(3);
+  });
+
+  it("keeps separate addresses separate", () => {
+    const groups = groupAbandonedStopsByProperty([alert("prop-a"), alert("prop-b"), alert("prop-a")]);
+    expect(groups.map((g) => g.propertyId)).toEqual(["prop-a", "prop-b"]);
+    expect(groups.map((g) => g.stops.length)).toEqual([2, 1]);
+  });
+
+  it("preserves the order the cron queried in, between groups and inside them", () => {
+    // The cron orders by startedAt ascending so the longest-open stop is first, and the email
+    // reads stops[0] for the duration it puts in the subject. A Map that reordered would
+    // silently understate the oldest stop.
+    const groups = groupAbandonedStopsByProperty([
+      alert("prop-b", { openHours: 9 }),
+      alert("prop-a", { openHours: 7 }),
+      alert("prop-b", { openHours: 5 }),
+    ]);
+    expect(groups.map((g) => g.propertyId)).toEqual(["prop-b", "prop-a"]);
+    expect(groups[0].stops.map((s) => s.decision.openHours)).toEqual([9, 5]);
+  });
+
+  it("returns nothing when nothing is alerting", () => {
+    expect(groupAbandonedStopsByProperty([])).toEqual([]);
+  });
+});
+
+describe("splitAbandonedStopsByTechnician", () => {
+  it("gives one technician their whole property in one bucket", () => {
+    const split = splitAbandonedStopsByTechnician([
+      alert("prop-a", { openHours: 5 }),
+      alert("prop-a", { openHours: 4 }),
+    ]);
+    expect(split).toHaveLength(1);
+    expect(split[0].technicianId).toBe("tech-1");
+    expect(split[0].stops).toHaveLength(2);
+  });
+
+  it("never tells one technician about another's stop at the same address", () => {
+    // A big commercial site split between two people. Each notice has to be about only the
+    // stops its recipient actually left open.
+    const split = splitAbandonedStopsByTechnician([
+      alert("prop-a", { technicianId: "tech-1" }),
+      alert("prop-a", { technicianId: "tech-2" }),
+      alert("prop-a", { technicianId: "tech-1", openHours: 6 }),
+    ]);
+    expect(split.map((s) => s.technicianId)).toEqual(["tech-1", "tech-2"]);
+    expect(split.map((s) => s.stops.length)).toEqual([2, 1]);
+  });
+
+  it("drops a stop with no technician rather than inventing a bucket nobody can be emailed at", () => {
+    // abandonedStopDecision already refuses these ("no-technician"), so this is belt and braces
+    // for a caller that assembles alerts some other way.
+    expect(splitAbandonedStopsByTechnician([alert("prop-a", { technicianId: null })])).toEqual([]);
   });
 });

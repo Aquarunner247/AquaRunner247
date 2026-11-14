@@ -578,95 +578,160 @@ export async function sendTrialEndingEmail(input: TrialEndingEmailInput): Promis
   }
 }
 
-type AbandonedStopEmailInput = {
-  to: string[];
-  organizationName: string;
-  technicianName: string;
-  propertyName: string;
+/** One unfinished stop, as a row in an email about the property it belongs to. */
+type AbandonedStopLine = {
+  /** Null only for a visit whose body of water was deleted; normally "Pool", "Spa", "Back pool". */
   bodyName: string | null;
-  /** Already formatted ("4 hours"), from lib/abandoned-stop.ts. */
-  openFor: string;
+  technicianName: string;
   arrivedAtLabel: string;
   /**
    * Set only when the device recorded a departure. Both fields come together or not at all, and
-   * they change what this email claims: with them it says the technician left, without them it
-   * can only say the stop has been open a long time.
+   * they change what this row claims: with them it says the technician left, without them it can
+   * only say the stop has been open a long time.
    */
   departedAtLabel?: string | null;
   onSiteFor?: string | null;
+  /** Already formatted ("4 hours"), from lib/abandoned-stop.ts. */
+  openFor: string;
   visitUrl: string;
 };
 
+type AbandonedStopEmailInput = {
+  to: string[];
+  organizationName: string;
+  propertyName: string;
+  /**
+   * Every stop open at this ONE property, grouped by lib/abandoned-stop.ts. Never empty.
+   * Previously this email was per body of water, so a technician who left a pool and a spa
+   * unfinished sent two near-identical notices about the same address.
+   */
+  stops: AbandonedStopLine[];
+  /** Where the footer button goes when there is more than one stop to look at. */
+  scheduleUrl: string;
+};
+
 /**
- * "This stop was started and never finished."
+ * Renders the stop rows shared by the office and technician versions.
+ *
+ * A table rather than a list: Outlook drops `ul` margins unpredictably, and these rows carry two
+ * clock times each, which want a stable left edge to be scannable. Every value is escaped at the
+ * point of interpolation -- a body of water is named by a customer, and a technician by an admin.
+ */
+function abandonedStopRowsHtml(stops: AbandonedStopLine[]): string {
+  return stops
+    .map((stop) => {
+      const departed = Boolean(stop.departedAtLabel && stop.onSiteFor);
+      const name = escapeEmailHtml(stop.bodyName ?? "This stop");
+      const detail = departed
+        ? `Arrived ${escapeEmailHtml(stop.arrivedAtLabel)}, left ${escapeEmailHtml(stop.departedAtLabel ?? "")} after
+             ${escapeEmailHtml(stop.onSiteFor ?? "")} on site`
+        : `Arrived ${escapeEmailHtml(stop.arrivedAtLabel)}, open ${escapeEmailHtml(stop.openFor)}`;
+      return `
+        <tr>
+          <td style="padding:10px 0; border-top:1px solid ${COLOR.border}; font-size:14px; vertical-align:top;">
+            <strong>${name}</strong> &mdash; ${escapeEmailHtml(stop.technicianName)}
+            <div style="font-size:12px; color:${COLOR.muted}; margin-top:2px;">${detail}</div>
+          </td>
+          <td style="padding:10px 0; border-top:1px solid ${COLOR.border}; font-size:13px; text-align:right; vertical-align:top; white-space:nowrap;">
+            <a href="${stop.visitUrl}" style="color:${COLOR.primary}; text-decoration:none; font-weight:600;">Open &rsaquo;</a>
+          </td>
+        </tr>`;
+    })
+    .join("");
+}
+
+/**
+ * "These stops at this property were started and never finished."
  *
  * Operational, not customer-facing: it goes to whoever runs the day, while the technician could
  * still turn around. The nightly Pushed sweep says the same thing tomorrow, when it is a record
  * rather than something anyone can act on.
  *
- * Deliberately states what it does NOT know. The app sees that a stop was opened and never
- * closed; it does not see why, and a technician who finished the work and forgot to tap
- * Complete looks identical to one who left. Saying "left without finishing" as fact would put
- * the app in the middle of a conversation between an operator and their employee on evidence it
- * does not have.
+ * One email per property per sweep, not one per body of water. The wording still narrows to a
+ * single stop when there is only one, because that is the common case and the plural phrasing
+ * reads badly for it.
+ *
+ * Sent one recipient at a time rather than as one message with several `to` addresses: an
+ * organization's admins should not see each other's addresses, and one bad address should not
+ * take the whole send down with it.
  */
 export async function sendAbandonedStopEmail(input: AbandonedStopEmailInput): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    return { ok: false, error: "RESEND_API_KEY not set \u2014 email not sent." };
+    return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
   }
   if (input.to.length === 0) {
-    return { ok: false, error: "No recipient \u2014 organization has no support address or admin users." };
+    return { ok: false, error: "No recipient — organization has no support address or admin users." };
+  }
+  if (input.stops.length === 0) {
+    return { ok: false, error: "No stops — nothing to report." };
   }
   const resend = new Resend(apiKey);
   const fromAddress = resolveFromAddress();
 
-  const where = input.bodyName
-    ? `${escapeEmailHtml(input.propertyName)} \u2014 ${escapeEmailHtml(input.bodyName)}`
-    : escapeEmailHtml(input.propertyName);
-  const tech = escapeEmailHtml(input.technicianName);
+  const property = escapeEmailHtml(input.propertyName);
+  const count = input.stops.length;
+  const single = count === 1 ? input.stops[0] : null;
+  // Only when the device saw every one of them leave. Saying "left this stop" on the strength of
+  // elapsed time alone would be an accusation the app cannot support -- the stop may just be
+  // sitting unmarked. For a mixed group the weaker claim is the only true one.
+  const allDeparted = input.stops.every((s) => Boolean(s.departedAtLabel && s.onSiteFor));
+  // The caller orders stops longest-open first, so this is the oldest of the group rather than
+  // an average that would quietly understate it.
+  const longestOpen = input.stops[0].openFor;
+  const stopWord = count === 1 ? "stop" : "stops";
 
-  // Two different claims, and the stronger one is only available when the device actually saw
-  // the technician leave. Saying "left this stop" on the strength of elapsed time alone would be
-  // an accusation the app cannot support -- the stop may just be sitting unmarked.
-  const departed = Boolean(input.departedAtLabel && input.onSiteFor);
-  const eyebrow = departed
-    ? `Left without completing \u2014 on site ${escapeEmailHtml(input.onSiteFor ?? "")}`
-    : `Stop still open after ${escapeEmailHtml(input.openFor)}`;
-  const subject = departed
-    ? `${where} \u2014 left without being completed`
-    : `${where} \u2014 still open after ${input.openFor}`;
-  const lede = departed
-    ? `<strong>${tech}</strong> arrived at this stop ${escapeEmailHtml(input.arrivedAtLabel)}, left
-          ${escapeEmailHtml(input.departedAtLabel ?? "")} after ${escapeEmailHtml(input.onSiteFor ?? "")} on site, and it
-          was never marked complete.`
-    : `<strong>${tech}</strong> arrived at this stop ${escapeEmailHtml(input.arrivedAtLabel)} and it has not been
-          marked complete since.`;
-  const explainer = departed
+  const eyebrow = allDeparted
+    ? `Left without completing — ${count} ${stopWord}`
+    : `${count} ${stopWord} still open after ${escapeEmailHtml(longestOpen)}`;
+  const subject = allDeparted
+    ? `${input.propertyName} — ${count} ${stopWord} left without being completed`
+    : `${input.propertyName} — ${count} ${stopWord} still open after ${longestOpen}`;
+
+  const techNames = [...new Set(input.stops.map((s) => s.technicianName))];
+  const who =
+    techNames.length === 1 ? `<strong>${escapeEmailHtml(techNames[0])}</strong>` : `${techNames.length} technicians`;
+  const lede =
+    single !== null
+      ? allDeparted
+        ? `${who} arrived at this stop ${escapeEmailHtml(single.arrivedAtLabel)}, left
+             ${escapeEmailHtml(single.departedAtLabel ?? "")} after ${escapeEmailHtml(single.onSiteFor ?? "")} on site, and it
+             was never marked complete.`
+        : `${who} arrived at this stop ${escapeEmailHtml(single.arrivedAtLabel)} and it has not been
+             marked complete since.`
+      : `${who} arrived at ${count} stops at this property and none of them were marked complete.`;
+  const blocks = techNames.length === 1 ? escapeEmailHtml(techNames[0]) : "a technician";
+  const explainer = allDeparted
     ? `The app detected the departure from the technician's device, so the work is either unfinished or
           finished without anybody tapping Complete. Either way it is worth a call now rather than tomorrow,
-          because an open stop also blocks ${tech} from starting at another property.`
-    : `That usually means one of two things: the stop was left unfinished, or the work is done and
-          nobody tapped Complete. The app cannot tell which \u2014 worth a quick check either way, because an
-          open stop also blocks ${tech} from starting at another property.`;
+          because an open stop also blocks ${blocks} from starting at another property.`
+    : `That usually means one of two things: the ${stopWord} ${count === 1 ? "was" : "were"} left unfinished, or the
+          work is done and nobody tapped Complete. The app cannot tell which — worth a quick check either way,
+          because an open stop also blocks ${blocks} from starting at another property.`;
+
+  const buttonHref = single ? single.visitUrl : input.scheduleUrl;
+  const buttonLabel = single ? "Open this stop" : "Open the schedule";
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
       <div style="background:${COLOR.ink}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
         <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">${eyebrow}</p>
-        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${where}</h1>
+        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${property}</h1>
         <p style="color:${COLOR.mutedOnDark}; font-size:13px; margin:6px 0 0;">${escapeEmailHtml(input.organizationName)}</p>
       </div>
       <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
         <p style="font-size:14px; margin:0 0 12px;">${lede}</p>
         <p style="font-size:14px; margin:0 0 16px;">${explainer}</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%; border-collapse:collapse; margin:0 0 18px;">
+          ${abandonedStopRowsHtml(input.stops)}
+        </table>
         <p style="margin:0 0 16px;">
-          <a href="${input.visitUrl}" style="display:inline-block; background:${COLOR.primary}; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
-            Open this stop
+          <a href="${buttonHref}" style="display:inline-block; background:${COLOR.primary}; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+            ${buttonLabel}
           </a>
         </p>
         <p style="font-size:12px; color:${COLOR.muted}; margin-top:20px; border-top:1px solid ${COLOR.border}; padding-top:12px;">
-          One notice per stop. If it is still open tonight it will show as Pushed on tomorrow's schedule.
+          One notice per stop. If ${count === 1 ? "it is" : "they are"} still open tonight ${count === 1 ? "it will" : "they will"} show as Pushed on tomorrow's schedule.
         </p>
       </div>
     </div>
@@ -689,6 +754,89 @@ export async function sendAbandonedStopEmail(input: AbandonedStopEmailInput): Pr
     }
   }
   return anySent ? { ok: true } : { ok: false, error: lastError ?? "No recipient accepted the message." };
+}
+
+type TechnicianAbandonedStopEmailInput = {
+  to: string;
+  /** Null when the account has no name set; the greeting falls back to "Hi,". */
+  technicianFirstName: string | null;
+  propertyName: string;
+  /** This technician's own unfinished stops at this property. Never empty. */
+  stops: AbandonedStopLine[];
+  scheduleUrl: string;
+};
+
+/**
+ * The same fact, told to the person who can still fix it.
+ *
+ * The office alert goes to whoever runs the day, which assumes somebody there phones the
+ * technician. Often nobody does, and the technician is the only person who can still drive back --
+ * 68 of the 445 stops arrived at since September 2026 were never completed, roughly one in six,
+ * and an unfinished stop is usually forgotten rather than refused.
+ *
+ * Written as a reminder, not a reprimand. The app genuinely cannot tell "left unfinished" from
+ * "finished and nobody tapped Complete", and the second is the likelier of the two; a notice that
+ * assumed the first would be wrong most of the time it fired. So no "left without completing"
+ * wording here even when a departure was detected -- what the technician needs is the list and the
+ * tap, not the evidence.
+ *
+ * No suppression of its own: it sends alongside the office notice and is covered by the same
+ * `abandonedAlertSentAt` stamp, so a technician gets at most one of these per stop ever.
+ */
+export async function sendTechnicianAbandonedStopEmail(
+  input: TechnicianAbandonedStopEmailInput,
+): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY not set — email not sent." };
+  }
+  if (input.stops.length === 0) {
+    return { ok: false, error: "No stops — nothing to report." };
+  }
+  const resend = new Resend(apiKey);
+  const fromAddress = resolveFromAddress();
+
+  const count = input.stops.length;
+  const stopWord = count === 1 ? "stop" : "stops";
+  const property = escapeEmailHtml(input.propertyName);
+  const greeting = input.technicianFirstName ? `${escapeEmailHtml(input.technicianFirstName)},` : "Hi,";
+  const subject = count === 1 ? `Still open: ${input.propertyName}` : `Still open: ${input.propertyName} (${count} stops)`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: ${COLOR.ink};">
+      <div style="background:${COLOR.ink}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <p style="color:${COLOR.accent}; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0;">Not marked complete</p>
+        <h1 style="color:white; font-size:20px; margin:6px 0 0;">${property}</h1>
+      </div>
+      <div style="border:1px solid ${COLOR.border}; border-top:none; padding: 20px 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size:14px; margin:0 0 12px;">${greeting}</p>
+        <p style="font-size:14px; margin:0 0 16px;">
+          ${count === 1 ? "This stop is" : `These ${count} stops are`} still showing as in progress at
+          <strong>${property}</strong>. If the work is done, ${count === 1 ? "tap Complete on it" : "tap Complete on each of them"}
+          and nothing else happens. If it is not, this is the reminder while you can still get back.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%; border-collapse:collapse; margin:0 0 18px;">
+          ${abandonedStopRowsHtml(input.stops)}
+        </table>
+        <p style="margin:0 0 16px;">
+          <a href="${count === 1 ? input.stops[0].visitUrl : input.scheduleUrl}" style="display:inline-block; background:${COLOR.primary}; color:white; font-size:14px; font-weight:600; padding:10px 18px; border-radius:6px; text-decoration:none;">
+            ${count === 1 ? "Open this stop" : "Open my schedule"}
+          </a>
+        </p>
+        <p style="font-size:12px; color:${COLOR.muted}; margin-top:20px; border-top:1px solid ${COLOR.border}; padding-top:12px;">
+          An open ${stopWord} also stops you starting at another property. Your office has been sent the same notice.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({ from: fromAddress, to: input.to, subject, html });
+    if (result.error) return { ok: false, error: result.error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown email error" };
+  }
 }
 
 type CancellationScrubWarningEmailInput = {

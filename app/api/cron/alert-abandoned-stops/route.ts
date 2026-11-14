@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendAbandonedStopEmail } from "@/lib/email";
+import { sendAbandonedStopEmail, sendTechnicianAbandonedStopEmail } from "@/lib/email";
 import { timeZoneForState, formatLocalTime } from "@/lib/timezone";
 import {
   abandonedStopDecision,
+  groupAbandonedStopsByProperty,
+  splitAbandonedStopsByTechnician,
   formatOpenDuration,
   formatOnSiteDuration,
   ABANDONED_AFTER_HOURS,
+  type AbandonedStopAlert,
 } from "@/lib/abandoned-stop";
 
 export const runtime = "nodejs";
 
 /**
- * Tells an organization when a stop was started and never finished, while somebody could still
- * do something about it.
+ * Tells an organization -- and the technician -- when stops were started and never finished,
+ * while somebody could still do something about it.
  *
  * The nightly sweep already stamps `pushedAt` on these once the scheduled day is over, which is
  * how the org finds out today -- the next morning, as a record. Measured on 2026-10-25, 68 of
@@ -28,6 +31,11 @@ export const runtime = "nodejs";
  * Two rules, so two candidate shapes: open past four hours, OR a recorded departure at any
  * elapsed time. The second is why the query cannot simply filter on an old `startedAt` -- a stop
  * entered at 9am and departed at 9:25 must be picked up on the 10am run, not at 1pm.
+ *
+ * GROUPED BY PROPERTY as of 2026-11-14. One email per address per sweep, however many bodies of
+ * water were left open there, because a pool and a spa at one house are one occasion to go back
+ * to -- the same reasoning the capture screen and the customer summary already use. Three emails
+ * about one address is how a notice starts being filtered instead of read.
  */
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -51,6 +59,10 @@ export async function GET(req: Request) {
       technicianId: { not: null },
       OR: [{ startedAt: { lte: cutoff } }, { departedAt: { not: null } }],
     },
+    // Oldest arrival first, which is longest-open first. The email states the group's longest
+    // open duration by reading the first row, and a technician scanning the list should meet the
+    // stop they walked away from earliest at the top.
+    orderBy: { startedAt: "asc" },
     select: {
       id: true,
       status: true,
@@ -59,8 +71,9 @@ export async function GET(req: Request) {
       completedAt: true,
       pushedAt: true,
       abandonedAlertSentAt: true,
+      propertyId: true,
       technicianId: true,
-      technician: { select: { name: true } },
+      technician: { select: { name: true, email: true } },
       bodyOfWater: { select: { name: true } },
       property: { select: { name: true } },
       organization: {
@@ -76,9 +89,15 @@ export async function GET(req: Request) {
     },
   });
 
+  type Candidate = (typeof candidates)[number];
+
   let sent = 0;
+  let stopsCovered = 0;
   let skipped = 0;
   let failed = 0;
+  let technicianEmailsSent = 0;
+  let technicianEmailsFailed = 0;
+  let technicianEmailsSkipped = 0;
   const triggers: Record<string, number> = { departed: 0, elapsed: 0 };
   const reasons: Record<string, number> = {};
   const note = (reason: string) => {
@@ -86,21 +105,30 @@ export async function GET(req: Request) {
     reasons[reason] = (reasons[reason] ?? 0) + 1;
   };
 
-  // Sequential, like the other sweeps: the connection pool is capped deliberately in
-  // lib/prisma.ts and each iteration also makes a Resend call.
+  // Decide first, group second. Every suppression still happens per stop -- a property with one
+  // stop past the threshold and one that only arrived twenty minutes ago alerts about the first
+  // and keeps watching the second.
+  const alerting: AbandonedStopAlert<Candidate>[] = [];
   for (const visit of candidates) {
     const decision = abandonedStopDecision(visit, now);
     if (!decision.alert) {
       note(decision.reason);
       continue;
     }
-    const startedAt = visit.startedAt;
-    if (!startedAt) {
+    if (!visit.startedAt) {
       note("never-arrived");
       continue;
     }
+    alerting.push({ visit, decision });
+  }
 
-    const org = visit.organization;
+  // Sequential, like the other sweeps: the connection pool is capped deliberately in
+  // lib/prisma.ts and each iteration also makes Resend calls.
+  for (const group of groupAbandonedStopsByProperty(alerting)) {
+    const first = group.stops[0].visit;
+    const org = first.organization;
+    const timeZone = timeZoneForState(org.state);
+
     // Whoever runs the day. The org's support address when it has one -- that is where mail
     // about the day's work already goes -- otherwise every active admin. Same precedence as the
     // task digest, and the same reason: reach a person rather than nobody.
@@ -108,21 +136,17 @@ export async function GET(req: Request) {
       ? [org.welcomeEmailSupportEmail]
       : org.users.map((u) => u.email).filter((e): e is string => Boolean(e));
     if (recipients.length === 0) {
-      note("no-recipient");
+      group.stops.forEach(() => note("no-recipient"));
       continue;
     }
 
-    const timeZone = timeZoneForState(org.state);
-    const result = await sendAbandonedStopEmail({
-      to: recipients,
-      organizationName: org.businessName ?? org.name,
-      technicianName: visit.technician?.name ?? "A technician",
-      propertyName: visit.property.name,
+    const line = ({ visit, decision }: AbandonedStopAlert<Candidate>) => ({
       bodyName: visit.bodyOfWater?.name ?? null,
+      technicianName: visit.technician?.name ?? "A technician",
       openFor: formatOpenDuration(decision.openHours),
-      arrivedAtLabel: `at ${formatLocalTime(startedAt, timeZone)}`,
-      // Only when the device actually recorded it. Passed together, because the email only makes
-      // the stronger "they left" claim when it has both.
+      arrivedAtLabel: `at ${formatLocalTime(visit.startedAt as Date, timeZone)}`,
+      // Only when the device actually recorded it. Passed together, because a row only makes the
+      // stronger "they left" claim when it has both.
       departedAtLabel:
         decision.trigger === "departed" && visit.departedAt
           ? `at ${formatLocalTime(visit.departedAt, timeZone)}`
@@ -131,19 +155,65 @@ export async function GET(req: Request) {
       visitUrl: `${appUrl}/dashboard/visits/${visit.id}`,
     });
 
-    if (result.ok) {
-      triggers[decision.trigger]++;
-      // Stamped only after something actually sent, so a total failure retries next hour rather
-      // than being recorded as done.
-      await prisma.serviceVisit.update({
-        where: { id: visit.id },
-        data: { abandonedAlertSentAt: new Date() },
-      });
-      sent++;
-    } else {
+    const result = await sendAbandonedStopEmail({
+      to: recipients,
+      organizationName: org.businessName ?? org.name,
+      propertyName: first.property.name,
+      stops: group.stops.map(line),
+      scheduleUrl: `${appUrl}/dashboard/schedule`,
+    });
+
+    if (!result.ok) {
       failed++;
-      console.error("[cron alert-abandoned-stops] send failed for visit", visit.id, result.error);
+      console.error(
+        "[cron alert-abandoned-stops] send failed for property",
+        group.propertyId,
+        group.stops.length,
+        "stops:",
+        result.error,
+      );
+      continue;
     }
+
+    for (const stop of group.stops) triggers[stop.decision.trigger]++;
+    sent++;
+    stopsCovered += group.stops.length;
+
+    // The technician's own copy, split so that two people sharing a big commercial site are each
+    // told only about their own stops. Sent after the office notice and never allowed to fail the
+    // sweep: the office alert is the one that must go out, and a technician with no email address
+    // on the account is normal rather than an error.
+    for (const perTech of splitAbandonedStopsByTechnician(group.stops)) {
+      const tech = perTech.stops[0].visit.technician;
+      if (!tech?.email) {
+        technicianEmailsSkipped++;
+        continue;
+      }
+      const techResult = await sendTechnicianAbandonedStopEmail({
+        to: tech.email,
+        technicianFirstName: tech.name ? tech.name.trim().split(/\s+/)[0] : null,
+        propertyName: first.property.name,
+        stops: perTech.stops.map(line),
+        scheduleUrl: `${appUrl}/dashboard/schedule`,
+      });
+      if (techResult.ok) technicianEmailsSent++;
+      else {
+        technicianEmailsFailed++;
+        console.error(
+          "[cron alert-abandoned-stops] technician send failed for",
+          perTech.technicianId,
+          techResult.error,
+        );
+      }
+    }
+
+    // Stamped only after the office notice actually sent, so a total failure retries next hour
+    // rather than being recorded as done. Every stop in the group is stamped together, which is
+    // what makes the grouping safe: none of them can turn up in a second email next hour.
+    await prisma.serviceVisit.updateMany({
+      where: { id: { in: group.stops.map((s) => s.visit.id) } },
+      data: { abandonedAlertSentAt: new Date() },
+    });
   }
 
   return NextResponse.json({
@@ -151,9 +221,14 @@ export async function GET(req: Request) {
     thresholdHours: ABANDONED_AFTER_HOURS,
     triggers,
     candidates: candidates.length,
+    properties: sent,
     sent,
+    stopsCovered,
     skipped,
     failed,
+    technicianEmailsSent,
+    technicianEmailsFailed,
+    technicianEmailsSkipped,
     reasons,
   });
 }
