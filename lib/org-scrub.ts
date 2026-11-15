@@ -111,7 +111,7 @@ export async function runOrgScrub(organizationId: string, dryRun: boolean): Prom
     deletedCounts.adHocStop = await scrub(dryRun, prisma.adHocStop, { organizationId });
 
     // Payroll / dosing catalog / compliance-target overrides / phone agent.
-    deletedCounts.technicianPayRate = await scrub(dryRun, prisma.technicianPayRate, { organizationId });
+    deletedCounts.venuePayRate = await scrub(dryRun, prisma.venuePayRate, { organizationId });
     deletedCounts.orgPayrollSettings = await scrub(dryRun, prisma.orgPayrollSettings, { organizationId });
     deletedCounts.orgChemicalProductSetting = await scrub(dryRun, prisma.orgChemicalProductSetting, { organizationId });
     deletedCounts.orgComplianceTarget = await scrub(dryRun, prisma.orgComplianceTarget, { organizationId });

@@ -122,12 +122,13 @@ export function getPayPeriodBounds(settings: OrgPayrollSettingsLike, referenceDa
 
 type ActiveRate = { effectiveDate: Date; rateAmount: number; isBundled: boolean };
 
-/** Every one of this technician's active PER_PROPERTY rates, grouped by body of water and
- * sorted newest-effective-first -- fetched once per technician rather than once per visit
- * (see getTechnicianEarnings, the hot path this exists for). */
-async function loadActiveRatesByBody(organizationId: string, technicianId: string): Promise<Map<string, ActiveRate[]>> {
-  const rows = await prisma.technicianPayRate.findMany({
-    where: { organizationId, technicianId, isActive: true },
+/** Every active PER_PROPERTY rate in the org, grouped by body of water and sorted
+ * newest-effective-first -- fetched once rather than once per visit (see
+ * getTechnicianEarnings, the hot path this exists for). Not scoped to a technician: a rate
+ * belongs to the venue, so the same map answers for whoever worked the stop. */
+async function loadActiveRatesByBody(organizationId: string): Promise<Map<string, ActiveRate[]>> {
+  const rows = await prisma.venuePayRate.findMany({
+    where: { organizationId, isActive: true },
     orderBy: { effectiveDate: "desc" },
     select: { bodyOfWaterId: true, effectiveDate: true, rateAmount: true, isBundled: true },
   });
@@ -142,7 +143,7 @@ async function loadActiveRatesByBody(organizationId: string, technicianId: strin
 
 /** First rate (already sorted newest-first) whose effectiveDate is on or before asOf --
  * i.e. the rate that was actually in effect when the visit happened, not necessarily the
- * latest one on file (see TechnicianPayRate's doc comment on keeping history). */
+ * latest one on file (see VenuePayRate's doc comment on keeping history). */
 function pickRate(rates: ActiveRate[] | undefined, asOf: Date): { rateAmount: number; isBundled: boolean } | null {
   if (!rates) return null;
   const match = rates.find((r) => r.effectiveDate <= asOf);
@@ -153,23 +154,23 @@ export type ResolvedRate = { rateAmount: number; isBundled: boolean };
 
 /**
  * THE single place a visit's pay rate gets resolved -- funnel every rate lookup through
- * this function rather than querying TechnicianPayRate ad hoc from elsewhere, per
+ * this function rather than querying VenuePayRate ad hoc from elsewhere, per
  * tech-earnings-tracker-spec.md Section 8's "Note for CC". v1 only implements
  * PER_PROPERTY; adding a future pay structure (HOURLY, FLAT_PER_VISIT,
  * PROPERTY_TYPE_TIERED) means one new branch here, not a hunt across every call site.
- * Returns null when no active rate row covers this (technician, body of water) pair as of
- * visitDate at all -- never a fabricated $0 (see the "Unrated visits" admin surface).
+ * Takes no technician: the rate is the venue's, the same whoever serviced it. Returns null
+ * when no active rate row covers this body of water as of visitDate at all -- never a
+ * fabricated $0 (see the "Unrated visits" admin surface).
  */
 export async function resolveRateForVisit(
   organizationId: string,
-  technicianId: string,
   bodyOfWaterId: string,
   visitDate: Date,
 ): Promise<ResolvedRate | null> {
   const settings = await getOrgPayrollSettings(organizationId);
   switch (settings.payStructureType) {
     case "PER_PROPERTY": {
-      const ratesByBody = await loadActiveRatesByBody(organizationId, technicianId);
+      const ratesByBody = await loadActiveRatesByBody(organizationId);
       return pickRate(ratesByBody.get(bodyOfWaterId), visitDate);
     }
   }
@@ -183,18 +184,40 @@ export async function resolveRateForVisit(
  * org/customer-scoped auth check first, per this codebase's convention of never trusting a
  * server action bound to a form in a different route file -- this only holds the actual
  * write, not the scoping.
+ *
+ * Any ACTIVE rate already on this venue for the SAME effective date is voided in the same
+ * transaction, so there is never a day with two live rates for one venue and pickRate never
+ * has to choose between them arbitrarily. It stays a void plus an insert rather than an
+ * update-in-place because the table is an audit trail -- the superseded figure is still on
+ * record, in the venue's "past rates". The technician dimension used to keep these apart;
+ * with the rate on the venue, "I typed 20 and meant 30" lands on the same day as the row it
+ * is correcting, which is exactly the case this handles.
  */
 export async function createPayRateRow(input: {
   organizationId: string;
-  technicianId: string;
   bodyOfWaterId: string;
   rateAmount: number;
   isBundled: boolean;
   bundledIntoBodyOfWaterId: string | null;
   effectiveDate: Date;
-  createdByUserId: string;
+  /// Null for a rate written by a maintenance script rather than a person -- the column is
+  /// nullable, and "nobody" is more honest in the audit trail than attributing it to an admin
+  /// who did not type it. See scripts/set-venue-pay-rates.ts.
+  createdByUserId: string | null;
 }) {
-  return prisma.technicianPayRate.create({ data: input });
+  const [, created] = await prisma.$transaction([
+    prisma.venuePayRate.updateMany({
+      where: {
+        organizationId: input.organizationId,
+        bodyOfWaterId: input.bodyOfWaterId,
+        effectiveDate: input.effectiveDate,
+        isActive: true,
+      },
+      data: { isActive: false },
+    }),
+    prisma.venuePayRate.create({ data: input }),
+  ]);
+  return created;
 }
 
 export type TechnicianEarningsSummary = {
@@ -212,10 +235,10 @@ export type TechnicianEarningsSummary = {
  * rescheduled after being completed is automatically reflected on the next read with no
  * separate reversal hook -- see tech-earnings-tracker-spec.md Section 6 and 9.
  *
- * Unrated visits (a COMPLETED visit whose body of water has no active rate row for this
- * technician at all) are silently excluded from both totals rather than costing the tech a
- * dollar amount that was never estimated -- they're surfaced separately to admins instead
- * of the tech, per Section 6 ("missing pay rate ... admin-facing alert only").
+ * Unrated visits (a COMPLETED visit whose body of water has no active rate row at all) are
+ * silently excluded from both totals rather than costing the tech a dollar amount that was
+ * never estimated -- they're surfaced separately to admins instead of the tech, per Section
+ * 6 ("missing pay rate ... admin-facing alert only").
  */
 export async function getTechnicianEarnings(
   organizationId: string,
@@ -232,7 +255,7 @@ export async function getTechnicianEarnings(
       where: { organizationId, technicianId, status: "COMPLETED", completedAt: { gte: period.start, lte: period.end } },
       select: { bodyOfWaterId: true, completedAt: true },
     }),
-    settings.payStructureType === "PER_PROPERTY" ? loadActiveRatesByBody(organizationId, technicianId) : Promise.resolve(new Map<string, ActiveRate[]>()),
+    settings.payStructureType === "PER_PROPERTY" ? loadActiveRatesByBody(organizationId) : Promise.resolve(new Map<string, ActiveRate[]>()),
   ]);
 
   let todayTotal = 0;
@@ -272,6 +295,10 @@ export type PayrollExportRow = {
  * (isBundled: true, folded into another body's rate) is excluded for the same reason: its
  * real payout already shows up as the OTHER body's line, including it again here would
  * double-count that technician's total for the period.
+ *
+ * Still one row per technician per visit, even though the rate itself is no longer per
+ * technician: who to pay comes from the VISIT (whoever actually completed it), and only how
+ * much comes from the venue's rate. The bookkeeper's CSV is unchanged by that move.
  */
 export async function getPayrollExportRows(organizationId: string, start: Date, end: Date): Promise<PayrollExportRow[]> {
   const settings = await getOrgPayrollSettings(organizationId);
@@ -291,20 +318,14 @@ export async function getPayrollExportRows(organizationId: string, start: Date, 
   });
   if (visits.length === 0) return [];
 
-  // Loaded once per technician (not once per visit) -- same batching principle
-  // loadActiveRatesByBody itself exists for, just extended across every tech in the range.
-  const technicianIds = Array.from(new Set(visits.map((v) => v.technicianId).filter((id): id is string => id != null)));
-  const ratesByTechnician = new Map<string, Map<string, ActiveRate[]>>();
-  await Promise.all(
-    technicianIds.map(async (technicianId) => {
-      ratesByTechnician.set(technicianId, await loadActiveRatesByBody(organizationId, technicianId));
-    }),
-  );
+  // One query for the org's whole rate table, not one per technician -- the rate is the
+  // venue's, so every technician in the range reads the same map.
+  const ratesByBody = await loadActiveRatesByBody(organizationId);
 
   const rows: PayrollExportRow[] = [];
   for (const visit of visits) {
     if (!visit.completedAt || !visit.technicianId) continue;
-    const resolved = pickRate(ratesByTechnician.get(visit.technicianId)?.get(visit.bodyOfWaterId), visit.completedAt);
+    const resolved = pickRate(ratesByBody.get(visit.bodyOfWaterId), visit.completedAt);
     if (!resolved || resolved.isBundled) continue;
     rows.push({
       technicianName: visit.technician?.name ?? visit.technician?.email ?? "Unknown",

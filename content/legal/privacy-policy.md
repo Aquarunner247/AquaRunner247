@@ -1,8 +1,8 @@
 # AquaRunner247 Privacy Policy
 
-**Version:** 1.5  
+**Version:** 1.6  
 **Effective Date:** November 10, 2026  
-**Last Updated:** November 12, 2026
+**Last Updated:** November 14, 2026
 
 ## Contents
 
@@ -265,7 +265,7 @@ We minimize that retained set to what the compliance log actually needs. Retenti
 - The Organization’s notes and billing reference for a customer.
 - On every service visit: which technician performed it, their notes, and the GPS coordinates and accuracy recorded on arrival.
 
-**Deleted outright,** on the 30-day schedule in the table above: visit photos, uploaded customer documents and safety data sheets, chemical dosage entries, checklists, issue flags, chemistry recommendations, equipment and volume records, service schedules, routes and route plans, technician pay rates and payroll settings, staff logins, management-company records, customer alerts, and all phone-agent call records, recordings, and transcripts.
+**Deleted outright,** on the 30-day schedule in the table above: visit photos, uploaded customer documents and safety data sheets, chemical dosage entries, checklists, issue flags, chemistry recommendations, equipment and volume records, service schedules, routes and route plans, pay rates and payroll settings, staff logins, management-company records, customer alerts, and all phone-agent call records, recordings, and transcripts.
 
 The practical effect is that a retained compliance log identifies a property and the business that serviced it, and no longer identifies an individual person.
 
@@ -406,6 +406,7 @@ An organization’s recorded acceptance names the version it agreed to, so each 
 | 1.3 | November 11, 2026 | Non-substantive corrections, with no change to the Effective Date or to any right or obligation: filled the privacy contact field in Sections 2, 18, and 23, which had been left as a placeholder; removed the sentences in Sections 16 and 17 that said our categories and sale practices were to be confirmed before publication, which read as unfinished drafting in a published policy; and stated in Section 8 that the public compliance log is published only for commercially regulated water, matching Section 2 of the Terms of Service. |
 | 1.4 | November 12, 2026 | Removed Google Analytics from the Services. The tag had run on every page since August 23, 2026 and set a persistent `_ga` identifier, which contradicted the statement in Section 9 that our analytics are cookieless and set no identifier on the device — the statement that is also the stated reason this site runs no cookie consent banner. Section 9 is accurate as written now that the tag is gone. Remaining analytics are Vercel Analytics and Speed Insights, which set no cookie and no device identifier. No change to the Effective Date or to any right or obligation. |
 | 1.5 | November 12, 2026 | Named the analytics function in the Vercel subprocessor row. Section 9 and the 1.4 note already disclosed that the remaining analytics are Vercel Analytics and Speed Insights, but the subprocessor table described Vercel only as hosting, storage, and edge infrastructure, while Section 10 says that table names every vendor supporting analytics. The row now says so, and names the page-view and page-performance data involved. Prompted by declaring App activity → App interactions on the Google Play Data safety form for the same collection. No change to the Effective Date, to what is collected, or to any right or obligation. |
+| 1.6 | November 14, 2026 | Corrected one phrase in Section 13: the deletion list said “technician pay rates,” and a pay rate is no longer recorded against a technician. A rate is now held against the body of water it is paid for, the same amount whichever technician services it, so a pay-rate record no longer contains a reference to a member of staff at all. The records themselves are unchanged in kind and are still deleted on the same 30-day schedule. No change to the Effective Date, to what is collected, to how long anything is kept, or to any right or obligation. |
 
 ## 24. Attorney Review Notice
 

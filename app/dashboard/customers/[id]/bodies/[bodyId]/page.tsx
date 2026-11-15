@@ -95,26 +95,23 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
     );
   })();
 
-  // Pay rate -- tech-earnings-tracker-spec.md Section 4's inline entry point. The route
-  // assignment (if any) is shown for context since a rate is meaningless without knowing
-  // which technician actually services this venue; technicians list is the full org
-  // roster, not just the routed one, so an admin can still set a rate ahead of routing.
-  const [routedStop, technicians, payRates] = await Promise.all([
+  // Pay rate -- tech-earnings-tracker-spec.md Section 4's inline entry point. One rate per
+  // venue, whoever services it, so no technician is picked here. The route assignment is
+  // still shown for context (who this is currently landing on), and a rate can be set
+  // before the venue is routed at all.
+  const [routedStop, payRates] = await Promise.all([
     prisma.recurringStop.findFirst({
       where: { bodyOfWaterId: body.id, route: { active: true } },
       select: { route: { select: { name: true, technicianId: true, technician: { select: { name: true, email: true } } } } },
     }),
-    prisma.user.findMany({
-      where: { organizationId: appUser.organizationId, role: "TECHNICIAN" },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, email: true },
-    }),
-    prisma.technicianPayRate.findMany({
+    prisma.venuePayRate.findMany({
       where: { bodyOfWaterId: body.id, isActive: true },
       orderBy: { effectiveDate: "desc" },
-      include: { technician: { select: { name: true, email: true } } },
     }),
   ]);
+  // Newest effective date first, so the head of the list IS the rate in force now and the
+  // rest are the history behind it.
+  const currentRate = payRates[0] ?? null;
 
   const isResidential = body.property.propertyType === "RESIDENTIAL";
   const publicUrl = isResidential ? null : publicBodyOfWaterUrl(body.publicSlug);
@@ -376,9 +373,11 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
       <section className="app-card mt-6">
         <h2 className="text-base font-semibold text-brand-ink">Pay rate</h2>
         <p className="mt-1 text-sm text-brand-muted">
+          What completing a visit here pays — the same figure for whichever technician runs the
+          stop.{" "}
           {routedStop?.route.technician ? (
             <>
-              On route <span className="font-medium text-brand-ink">{routedStop.route.name}</span>, assigned to{" "}
+              Currently on route <span className="font-medium text-brand-ink">{routedStop.route.name}</span>, run by{" "}
               <span className="font-medium text-brand-ink">{routedStop.route.technician.name ?? routedStop.route.technician.email}</span>.
             </>
           ) : (
@@ -391,15 +390,18 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
           settings page.
         </p>
 
-        {payRates.length > 0 ? (
-          <ul className="mt-3 space-y-1 text-sm text-brand-ink">
-            {payRates.map((r) => (
-              <li key={r.id}>
-                {r.technician.name ?? r.technician.email}: {fmtMoney(Number(r.rateAmount))}
-                {r.isBundled ? " (bundled)" : ""}
-              </li>
-            ))}
-          </ul>
+        {currentRate ? (
+          <p className="mt-3 text-sm text-brand-ink">
+            <span className="app-metric text-base font-semibold">{fmtMoney(Number(currentRate.rateAmount))}</span> per
+            visit{currentRate.isBundled ? " — bundled into another body of water at this property" : ""}, whoever
+            services it.
+            {payRates.length > 1 ? (
+              <span className="text-brand-muted">
+                {" "}
+                ({payRates.length - 1} earlier rate{payRates.length === 2 ? "" : "s"} on record.)
+              </span>
+            ) : null}
+          </p>
         ) : (
           <p className="mt-3 text-sm text-brand-control">No pay rate set for this venue yet.</p>
         )}
@@ -408,16 +410,8 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
           <form action={setBodyPayRate} className="app-card-inset mt-4">
             <input type="hidden" name="bodyId" value={body.id} />
             <input type="hidden" name="customerId" value={customerId} />
-            <p className="text-sm font-medium text-brand-ink">Add a rate</p>
+            <p className="text-sm font-medium text-brand-ink">{currentRate ? "Change the rate" : "Set the rate"}</p>
             <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-              <select name="technicianId" required defaultValue={routedStop?.route.technicianId ?? ""} className="app-field-sm">
-                <option value="">Technician…</option>
-                {technicians.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name ?? t.email}
-                  </option>
-                ))}
-              </select>
               <input name="rateAmount" type="number" step="0.01" required placeholder="Rate ($)" className="app-field-sm" />
               <label className="flex items-center gap-1 text-xs text-brand-ink">
                 <input type="checkbox" name="isBundled" />
@@ -425,7 +419,7 @@ export default async function BodyOfWaterDetailPage({ params, searchParams }: Pa
               </label>
             </div>
             <button className="mt-2 rounded bg-brand-primary px-3 py-1.5 text-sm font-medium text-white" type="submit">
-              Add rate
+              {currentRate ? "Change rate" : "Set rate"}
             </button>
           </form>
         ) : null}

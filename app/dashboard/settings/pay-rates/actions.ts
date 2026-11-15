@@ -23,31 +23,28 @@ function toYmd(raw: FormDataEntryValue | null): Date | null {
 }
 
 /**
- * Adds a new effective-dated rate row for a (technician, body of water) pair. Always a
- * CREATE, never an update-in-place -- TechnicianPayRate keeps full history (see its schema
- * doc comment), so a rate change is a new row with a newer effectiveDate, not a mutation of
- * the old one. Fixing a data-entry mistake on an existing row is a separate action
- * (updateTechnicianPayRate) below.
+ * Adds a new effective-dated rate row for a body of water. Always a CREATE, never an
+ * update-in-place -- VenuePayRate keeps full history (see its schema doc comment), so a rate
+ * change is a new row with a newer effectiveDate, not a mutation of the old one. Fixing a
+ * data-entry mistake on an existing row is a separate action (updateVenuePayRate) below.
  */
-export async function createTechnicianPayRate(formData: FormData) {
+export async function createVenuePayRate(formData: FormData) {
   const appUser = await requireAdmin();
-  const technicianId = String(formData.get("technicianId") ?? "").trim();
   const bodyOfWaterId = String(formData.get("bodyOfWaterId") ?? "").trim();
   const rateAmount = parseFormNumber(formData.get("rateAmount"));
   const isBundled = formData.get("isBundled") != null;
   const bundledIntoBodyOfWaterId = String(formData.get("bundledIntoBodyOfWaterId") ?? "").trim() || null;
   const effectiveDate = toYmd(formData.get("effectiveDate")) ?? new Date();
-  if (!technicianId || !bodyOfWaterId || rateAmount == null) return;
+  if (!bodyOfWaterId || rateAmount == null) return;
 
-  const [technician, bodyOfWater] = await Promise.all([
-    prisma.user.findFirst({ where: { id: technicianId, organizationId: appUser.organizationId, role: "TECHNICIAN" }, select: { id: true } }),
-    prisma.bodyOfWater.findFirst({ where: { id: bodyOfWaterId, property: { organizationId: appUser.organizationId } }, select: { id: true } }),
-  ]);
-  if (!technician || !bodyOfWater) return;
+  const bodyOfWater = await prisma.bodyOfWater.findFirst({
+    where: { id: bodyOfWaterId, property: { organizationId: appUser.organizationId } },
+    select: { id: true },
+  });
+  if (!bodyOfWater) return;
 
   await createPayRateRow({
     organizationId: appUser.organizationId,
-    technicianId,
     bodyOfWaterId,
     rateAmount,
     isBundled,
@@ -60,9 +57,9 @@ export async function createTechnicianPayRate(formData: FormData) {
 }
 
 /** Corrects a mistake on an existing row (wrong amount typed, wrong bundled flag, etc.) --
- * an in-place edit, not a new historical version. Use createTechnicianPayRate instead when
- * the rate is genuinely changing going forward. */
-export async function updateTechnicianPayRate(formData: FormData) {
+ * an in-place edit, not a new historical version. Use createVenuePayRate instead when the
+ * rate is genuinely changing going forward. */
+export async function updateVenuePayRate(formData: FormData) {
   const appUser = await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   const rateAmount = parseFormNumber(formData.get("rateAmount"));
@@ -71,10 +68,10 @@ export async function updateTechnicianPayRate(formData: FormData) {
   const effectiveDate = toYmd(formData.get("effectiveDate"));
   if (!id || rateAmount == null || !effectiveDate) return;
 
-  const existing = await prisma.technicianPayRate.findFirst({ where: { id, organizationId: appUser.organizationId }, select: { id: true } });
+  const existing = await prisma.venuePayRate.findFirst({ where: { id, organizationId: appUser.organizationId }, select: { id: true } });
   if (!existing) return;
 
-  await prisma.technicianPayRate.update({
+  await prisma.venuePayRate.update({
     where: { id: existing.id },
     data: { rateAmount, isBundled, bundledIntoBodyOfWaterId, effectiveDate },
   });
@@ -86,18 +83,18 @@ export async function updateTechnicianPayRate(formData: FormData) {
   redirect("/dashboard/settings/pay-rates");
 }
 
-/** Voids a row (created by mistake, tech/body pair no longer applies) without deleting it
- * -- TechnicianPayRate is an audit trail (Section 3 of the spec); a hard delete would erase
- * the record of what a rate used to be. */
-export async function deactivateTechnicianPayRate(formData: FormData) {
+/** Voids a row (created by mistake, the venue no longer serviced) without deleting it --
+ * VenuePayRate is an audit trail (Section 3 of the spec); a hard delete would erase the
+ * record of what a rate used to be. */
+export async function deactivateVenuePayRate(formData: FormData) {
   const appUser = await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
 
-  const existing = await prisma.technicianPayRate.findFirst({ where: { id, organizationId: appUser.organizationId }, select: { id: true } });
+  const existing = await prisma.venuePayRate.findFirst({ where: { id, organizationId: appUser.organizationId }, select: { id: true } });
   if (!existing) return;
 
-  await prisma.technicianPayRate.update({ where: { id: existing.id }, data: { isActive: false } });
+  await prisma.venuePayRate.update({ where: { id: existing.id }, data: { isActive: false } });
   revalidatePath("/dashboard/settings/pay-rates");
 }
 

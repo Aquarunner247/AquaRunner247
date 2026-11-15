@@ -151,6 +151,7 @@ post-review build.
 - **Where:** `prisma/schema.prisma:2157` (TechnicianPayRate→User Cascade), `:1496` (ServiceVisit.technicianId SetNull); `app/dashboard/users/actions.ts:412-423`.
 - **What:** Removing a departed technician deletes every rate row and nulls their completed visits, so `getPayrollExportRows` silently drops their last pay period.
 - **Fix:** Deactivate (`active` flag) instead of delete, or `Restrict` the pay-rate FK.
+- **Half resolved 2026-11-14** by the move to per-venue rates: `TechnicianPayRate` became `VenuePayRate` and no longer references `User` for the technician at all, so deleting a staff user can no longer delete a single rate row. The `ServiceVisit.technicianId` SetNull half stands unchanged — a deleted technician's completed visits still lose their attribution and drop out of the export.
 
 ### M15. `NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"` in 14 customer-facing link builders
 - **Where:** `lib/qr.ts:27`, `app/api/qr/[slug]/route.ts:10`, `app/api/stripe/webhook/route.ts:298`, `app/signup/actions.ts:71`, `app/billing/actions.ts:27`, `customers/[id]/actions.ts:1176,1316,1361`, `lib/portal-activation.ts:64`, the four cron routes.

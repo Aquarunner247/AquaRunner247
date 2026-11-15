@@ -711,20 +711,19 @@ export async function saveVolumeCalculation(formData: FormData) {
 
 /**
  * The inline "Pay rate" entry point on a body of water's own detail page --
- * tech-earnings-tracker-spec.md Section 4's fast path, letting an admin set a technician's
- * rate for this venue in the same screen/moment as assigning them to it. Writes through
+ * tech-earnings-tracker-spec.md Section 4's fast path, letting an admin set what this venue
+ * pays in the same screen/moment as setting the venue up. Writes through
  * lib/technician-pay.ts's createPayRateRow, the same INSERT the dedicated Settings > Pay
  * Rates table uses, so a rate set here shows up there immediately and vice versa. Always a
- * new effective-dated row, never an overwrite -- see TechnicianPayRate's schema doc.
+ * new effective-dated row, never an overwrite -- see VenuePayRate's schema doc.
  */
 export async function setBodyPayRate(formData: FormData) {
   const appUser = await requireAdmin();
   const bodyId = String(formData.get("bodyId") ?? "").trim();
   const customerId = String(formData.get("customerId") ?? "").trim();
-  const technicianId = String(formData.get("technicianId") ?? "").trim();
   const rateAmount = numOrNull(formData.get("rateAmount"));
   const isBundled = formData.get("isBundled") != null;
-  if (!bodyId || !customerId || !technicianId || rateAmount == null) return;
+  if (!bodyId || !customerId || rateAmount == null) return;
 
   const body = await prisma.bodyOfWater.findFirst({
     where: { id: bodyId, property: { organizationId: appUser.organizationId, customerId, customer: { relationshipEndedAt: null } } },
@@ -732,15 +731,8 @@ export async function setBodyPayRate(formData: FormData) {
   });
   if (!body) return;
 
-  const technician = await prisma.user.findFirst({
-    where: { id: technicianId, organizationId: appUser.organizationId, role: "TECHNICIAN" },
-    select: { id: true },
-  });
-  if (!technician) return;
-
   await createPayRateRow({
     organizationId: appUser.organizationId,
-    technicianId,
     bodyOfWaterId: body.id,
     rateAmount,
     isBundled,

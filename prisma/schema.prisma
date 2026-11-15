@@ -256,7 +256,7 @@ model Organization {
   recurringRoutes       RecurringRoute[]
   serviceVisits         ServiceVisit[]
   adHocStops            AdHocStop[]
-  technicianPayRates    TechnicianPayRate[]
+  venuePayRates         VenuePayRate[]
   payrollSettings       OrgPayrollSettings?
   dosingProductSettings OrgChemicalProductSetting[]
   complianceTargets     OrgComplianceTarget[]
@@ -747,8 +747,7 @@ model User {
   adHocStops                     AdHocStop[]             @relation("AdHocStopTechnician")
   createdAdHocStops              AdHocStop[]             @relation("AdHocStopCreatedBy")
   recordedContaminationIncidents ContaminationIncident[]
-  payRatesAsTechnician           TechnicianPayRate[]     @relation("TechnicianPayRateTechnician")
-  payRatesCreated                TechnicianPayRate[]     @relation("TechnicianPayRateCreatedBy")
+  payRatesCreated                VenuePayRate[]          @relation("VenuePayRateCreatedBy")
   payrollSettingsUpdates         OrgPayrollSettings[]
   phoneAgentSettingsUpdates      OrgPhoneAgentSettings[]
   customerTasksCreated           CustomerTask[]          @relation("CustomerTaskCreatedBy")
@@ -1196,8 +1195,8 @@ model BodyOfWater {
   /// Other bodies of water closed as part of an incident cascade because they share this
   /// body's filtration system, without being the body where the incident was discovered.
   cascadedIncidents      ContaminationIncident[]     @relation("CascadedFiltrationClosure")
-  payRates               TechnicianPayRate[]         @relation("TechnicianPayRateBody")
-  bundledIntoPayRates    TechnicianPayRate[]         @relation("TechnicianPayRateBundledInto")
+  payRates               VenuePayRate[]              @relation("VenuePayRateBody")
+  bundledIntoPayRates    VenuePayRate[]              @relation("VenuePayRateBundledInto")
   volumeCalculation      VolumeCalculation?
   inspectionReports      InspectionReport[]
 
@@ -2170,8 +2169,9 @@ enum PayPeriodType {
   MONTHLY
 }
 
-/// How an org pays its technicians. PER_PROPERTY (flat rate per technician x body of
-/// water, via TechnicianPayRate) is the only value actually wired up in v1 -- see
+/// How an org pays its technicians. PER_PROPERTY (a flat rate per body of water, via
+/// VenuePayRate -- the same rate whoever services it) is the only value actually wired up
+/// in v1 -- see
 /// tech-earnings-tracker-spec.md Section 8. Deliberately not adding HOURLY/
 /// FLAT_PER_VISIT/PROPERTY_TYPE_TIERED members yet: those need their own tables and
 /// calculation-service branches (hourly in particular runs on elapsed time, not visits
@@ -2218,31 +2218,33 @@ model OrgPayrollSettings {
   @@index([updatedByUserId])
 }
 
-/// Per-(technician, body of water) flat pay rate -- what THIS tech is paid for completing
-/// a service visit at THIS body of water, admin-set and admin-only visible. Powers the
-/// technician's running "Estimated Earnings" total on TechnicianHome; the tech never sees
-/// this table directly, only the aggregate total -- see lib/technician-pay.ts. Only the v1
-/// PER_PROPERTY pay structure reads this table, and only through resolveRateForVisit()
-/// there, never ad hoc -- see that function's doc comment for why.
+/// Per-body-of-water flat pay rate -- what completing a service visit at THIS venue pays,
+/// admin-set and admin-only visible. The rate belongs to the venue, not to a person: the
+/// job is worth what it is worth, so whichever technician runs it that day is paid the same
+/// (changed 2026-11-14; it used to be keyed on (technician, body of water), which meant
+/// re-entering an identical figure for every technician who might ever cover the stop, and
+/// a stop silently paying nothing the first time somebody new covered it).
+///
+/// Powers the technician's running "Estimated Earnings" total on TechnicianHome; the tech
+/// never sees this table directly, only the aggregate total -- see lib/technician-pay.ts.
+/// Only the v1 PER_PROPERTY pay structure reads this table, and only through
+/// resolveRateForVisit() there, never ad hoc -- see that function's doc comment for why.
 ///
 /// History is kept rather than overwritten -- effectiveDate + isActive let a rate change
 /// apply going forward without altering what a past, already-completed visit should have
 /// paid. Earnings are always recomputed live from current ServiceVisit state (never an
 /// incremental counter), so a visit reverted/rescheduled after completion is reflected
 /// automatically with no separate reversal hook needed.
-model TechnicianPayRate {
+model VenuePayRate {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  technicianId String
-  technician   User   @relation("TechnicianPayRateTechnician", fields: [technicianId], references: [id], onDelete: Cascade)
-
   bodyOfWaterId String
-  bodyOfWater   BodyOfWater @relation("TechnicianPayRateBody", fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
+  bodyOfWater   BodyOfWater @relation("VenuePayRateBody", fields: [bodyOfWaterId], references: [id], onDelete: Cascade)
 
-  /// Flat $ paid to this tech for completing a service visit at this body of water. Can
-  /// legitimately be 0 -- see isBundled below.
+  /// Flat $ paid for completing a service visit at this body of water, whoever does it.
+  /// Can legitimately be 0 -- see isBundled below.
   rateAmount Decimal @db.Decimal(10, 2)
 
   /// True when this body of water's pay is folded into another body at the same property
@@ -2256,22 +2258,23 @@ model TechnicianPayRate {
   /// add, even if 0). Purely so an admin looking at the rate table later understands WHY a
   /// row is $0 instead of wondering if it was missed.
   bundledIntoBodyOfWaterId String?
-  bundledIntoBodyOfWater   BodyOfWater? @relation("TechnicianPayRateBundledInto", fields: [bundledIntoBodyOfWaterId], references: [id], onDelete: SetNull)
+  bundledIntoBodyOfWater   BodyOfWater? @relation("VenuePayRateBundledInto", fields: [bundledIntoBodyOfWaterId], references: [id], onDelete: SetNull)
 
   isActive      Boolean  @default(true)
   /// Date this rate takes effect. A visit's earnings use the rate that was active as of
-  /// the visit's OWN completion timestamp, not always the latest row.
+  /// the visit's OWN completion timestamp, not always the latest row. At most one ACTIVE
+  /// row per (body of water, effectiveDate) -- createPayRateRow voids any existing one for
+  /// the same day rather than leaving two rows the lookup would have to choose between.
   effectiveDate DateTime @db.Date
 
   createdByUserId String?
-  createdByUser   User?   @relation("TechnicianPayRateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByUser   User?   @relation("VenuePayRateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([organizationId])
-  @@index([technicianId, bodyOfWaterId, effectiveDate])
-  @@index([bodyOfWaterId])
+  @@index([bodyOfWaterId, effectiveDate])
   @@index([bundledIntoBodyOfWaterId])
   @@index([createdByUserId])
 }
