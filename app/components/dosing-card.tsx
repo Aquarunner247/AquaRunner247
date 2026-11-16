@@ -74,6 +74,10 @@ export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPref
               <div className="mt-1.5">
                 <p className="text-sm font-medium text-brand-ink">{r.productName}</p>
                 <p className="app-metric text-sm text-brand-ink">{r.formattedDose}</p>
+                {/* The note sits ABOVE the Apply button on purpose: it is what the dose is
+                    sized to last and where it falls short, which is worth reading before
+                    tapping rather than after. */}
+                {r.note ? <p className="mt-1.5 text-sm text-brand-ink">{r.note}</p> : null}
                 {r.rawAmount != null && r.dosingUnit != null ? (
                   <ApplyButton
                     rawAmount={r.rawAmount}
@@ -85,6 +89,8 @@ export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPref
                 ) : null}
               </div>
             ) : (
+              /* No dose to give -- the note IS the recommendation here ("no product
+                 configured", "partial drain and refill"), so it keeps the warn colour. */
               <p className="mt-1.5 text-sm text-brand-warn">{r.note}</p>
             )}
           </li>

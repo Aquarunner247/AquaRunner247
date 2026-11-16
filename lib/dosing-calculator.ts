@@ -7,6 +7,18 @@ import {
   type LinkedBillingProduct,
   type SettingWithCatalog,
 } from "@/lib/dose-product-selection";
+import {
+  estimateChlorineDemand,
+  projectCarryTarget,
+  needsCarryTopUp,
+  buildCarryNote,
+  DEMAND_LOOKBACK_DAYS,
+  DEMAND_STEADINESS_CAVEAT,
+  TABLET_FEEDER_CARRY_ACTION,
+  type ChlorineDemand,
+  type CarryProjection,
+  type DemandInterval,
+} from "@/lib/chlorine-demand";
 
 export { formatLiquidOz, formatWeightOz, convertToBillingUnit, daysUntilNextWeekday, computeTabletRecommendation } from "@/lib/dosing-units";
 
@@ -272,6 +284,80 @@ async function daysUntilNextVisit(bodyOfWaterId: string, organizationId: string)
   return daysUntilNextWeekday(todayIso, weekdays);
 }
 
+/** Matches a logged dose to chlorine by name when it has no link into the dosing catalog.
+ * "Shock" is the real case here -- 14 of this org's logged doses are an unlinked product by
+ * that name -- and missing it would count a shocked interval as pure decay and overstate the
+ * pool's standing demand. */
+const CHLORINE_PRODUCT_NAME = /chlor|shock|tablet|trichlor|cal.?hypo|bleach|dichlor/i;
+
+/**
+ * This body of water's own free-chlorine demand, measured from its recent service history.
+ *
+ * Only intervals that OPEN on a visit where no chlorine was logged are measured: with nothing
+ * added, the drop between two readings is decay and nothing else, so no assumption about what
+ * the technician poured has to be modelled. Chlorine is identified by a link into the dosing
+ * catalog where one exists and by name otherwise (see CHLORINE_PRODUCT_NAME).
+ *
+ * Returns the documented default when the pool has too little history -- a new property, or one
+ * whose readings mostly lack free chlorine -- so a brand-new body of water still gets a
+ * carry-aware dose rather than the old bring-to-target-and-hope one.
+ */
+async function loadChlorineDemand(bodyOfWaterId: string, organizationId: string): Promise<ChlorineDemand> {
+  const since = new Date(Date.now() - DEMAND_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+
+  const [visits, chlorineSettings] = await Promise.all([
+    prisma.serviceVisit.findMany({
+      where: {
+        bodyOfWaterId,
+        organizationId,
+        status: "COMPLETED",
+        completedAt: { gte: since },
+        reading: { freeChlorinePpm: { not: null } },
+      },
+      orderBy: { completedAt: "asc" },
+      select: {
+        completedAt: true,
+        reading: { select: { freeChlorinePpm: true } },
+        doses: { select: { productName: true, chemicalProductId: true } },
+      },
+    }),
+    prisma.orgChemicalProductSetting.findMany({
+      where: { organizationId, catalogProduct: { chemicalType: "FREE_CHLORINE" }, linkedBillingProductId: { not: null } },
+      select: { linkedBillingProductId: true },
+    }),
+  ]);
+
+  const chlorineBillingIds = new Set(
+    chlorineSettings.map((s) => s.linkedBillingProductId).filter((id): id is string => id != null),
+  );
+
+  const points = visits
+    .filter((v) => v.completedAt != null && v.reading?.freeChlorinePpm != null)
+    .map((v) => ({
+      at: v.completedAt as Date,
+      fc: Number(v.reading!.freeChlorinePpm),
+      chlorineAdded: v.doses.some(
+        (d) =>
+          (d.chemicalProductId != null && chlorineBillingIds.has(d.chemicalProductId)) ||
+          CHLORINE_PRODUCT_NAME.test(d.productName),
+      ),
+    }));
+
+  const intervals: DemandInterval[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const start = points[i];
+    const end = points[i + 1];
+    if (start.chlorineAdded) continue; // not pure decay -- see above
+    intervals.push({
+      startFc: start.fc,
+      endFc: end.fc,
+      gapDays: (end.at.getTime() - start.at.getTime()) / (24 * 60 * 60 * 1000),
+    });
+  }
+
+  return estimateChlorineDemand(intervals);
+}
+
 /** FREE_CHLORINE only ever raises via a product in this calculator (no "too high"
  * guidance existed in the prior version either, beyond what Table C -- sodium thiosulfate
  * -- now actually provides, so FC-too-high IS handled, unlike Salt-too-high which still
@@ -340,6 +426,16 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
   ]);
   const orgTargetByType = new Map((orgTargets as unknown as OrgTargetRow[]).map((t) => [t.chemicalType, t]));
 
+  // How much cyanuric acid room is left, for the chlorine note to reason with. Trichlor brings
+  // stabiliser in with it, so on a tablet-fed body this is the difference between "raise CYA so
+  // UV stops burning the chlorine off" being the fix and being impossible. Null when CYA was not
+  // read this visit or nothing caps it.
+  const cyaCurrent = readingValueFor("CYA", visit.reading as unknown as Record<string, unknown>);
+  const cyaBounds = await boundsFor("CYA", visit.organizationId, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod);
+  const cyaOrgMax = toNum(orgTargetByType.get("CYA")?.orgTargetMax ?? null);
+  const cyaCeiling = Math.min(cyaBounds.max ?? Number.POSITIVE_INFINITY, cyaOrgMax ?? Number.POSITIVE_INFINITY);
+  const cyaHeadroomPpm = cyaCurrent != null && Number.isFinite(cyaCeiling) ? cyaCeiling - cyaCurrent : null;
+
   const warnings: string[] = [];
   const recommendations: DosingRecommendation[] = [];
   let cyaOutOfRange = false;
@@ -354,9 +450,86 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     const resolved = resolveTarget(key, bounds, orgTarget, warnings);
     if (!resolved) continue; // no compliance bounds and no usable org override -- nothing to compare against
 
-    if (isInRange(current, resolved)) continue;
+    // Tablet-fed bodies are decided before the in-range check below, because a tablet
+    // recommendation already carries its own maintenance projection and must not also get the
+    // carry-aware handling added for liquid and granular.
+    const onTablets =
+      visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FEEDER" ||
+      visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER";
 
-    const direction: "UP" | "DOWN" = current < resolved.targetValue ? "UP" : "DOWN";
+    // CHLORINE THAT HAS TO LAST UNTIL THE NEXT VISIT.
+    //
+    // Every other chemical here is stable between visits: alkalinity does not evaporate and
+    // calcium does not get used up, so "bring it to target" is the whole job. Free chlorine is
+    // consumed continuously, which makes a dose correct at the moment of mixing and worthless
+    // four days later -- measured on this org's own history, a pool the calculator told a
+    // technician to chlorinate came back under the minimum 46.4% of the time. See
+    // lib/chlorine-demand.ts for the measurement and the arithmetic.
+    //
+    // PROJECTED FOR EVERY CHLORINE BODY, including tablet-fed ones -- but it changes the DOSE
+    // only for liquid and granular. That split is measured rather than assumed: tablet-fed
+    // bodies are 30 of this org's 42 and carry 224 of the 239 observed failures (43.8% of
+    // tablet recommendations came back under the minimum), so excluding them would have fixed
+    // the smaller half of the problem. What they get is the diagnosis and the right advice, not
+    // a bigger number: tablets already project a maintenance amount, how fast a puck dissolves
+    // is set by the feeder and not by how full it is, and CYA on these bodies already averages
+    // 38 ppm against a 40 ppm ceiling -- there is no room to push more trichlor through.
+    let carry: CarryProjection | null = null;
+    let demand: ChlorineDemand | null = null;
+    let carryTopUp = false;
+    let fcDaysUntilNextVisit: number | null = null;
+
+    if (key === "FREE_CHLORINE" && resolved.boundMin != null) {
+      // The ceiling is the LOWER of the regulatory maximum and this org's own band -- Nevada
+      // allows 10 ppm where Lindley's asks for 2-8, and the org's own standard is the one to
+      // respect. Dosing past what the operator asked for would be legal and still wrong.
+      const orgCeiling = toNum(orgTarget?.orgTargetMax ?? null);
+      const ceiling = Math.min(resolved.boundMax ?? Number.POSITIVE_INFINITY, orgCeiling ?? Number.POSITIVE_INFINITY);
+
+      // No usable ceiling means nothing bounds a projected dose, and an unbounded chlorine
+      // recommendation is not something to guess at -- fall through to the old behaviour.
+      if (Number.isFinite(ceiling)) {
+        const days = await daysUntilNextVisit(visit.bodyOfWater.id, visit.organizationId);
+        fcDaysUntilNextVisit = days;
+        if (days != null) {
+          demand = await loadChlorineDemand(visit.bodyOfWater.id, visit.organizationId);
+          carry = projectCarryTarget({
+            baselineTargetPpm: resolved.targetValue,
+            floorPpm: resolved.boundMin,
+            maxPpm: ceiling,
+            demandPpmPerDay: demand.ppmPerDay,
+            daysUntilNextVisit: days,
+          });
+          carryTopUp = needsCarryTopUp({
+            currentPpm: current,
+            floorPpm: resolved.boundMin,
+            demandPpmPerDay: demand.ppmPerDay,
+            daysUntilNextVisit: days,
+            maxPpm: ceiling,
+          });
+        }
+      }
+    }
+
+    // A reading inside the range still earns a recommendation when it will not survive the gap.
+    // This is where most of the failures were: 144 of the 239 pools that came back under the
+    // minimum were in range when the technician last stood over them, and the card said nothing.
+    const inRange = isInRange(current, resolved);
+    if (inRange && !carryTopUp) continue;
+
+    // "In range today, short by the next visit" -- the case that needs explaining rather than
+    // correcting. needsCarryTopUp is also true for a reading that is simply too low, so the
+    // in-range part has to be asked separately.
+    const carryShortfallOnly = inRange && carryTopUp;
+
+    // Direction comes from the BASELINE target so the too-high path (sodium thiosulfate) behaves
+    // exactly as before; a carry top-up is a raise by definition.
+    const direction: "UP" | "DOWN" = carryTopUp ? "UP" : current < resolved.targetValue ? "UP" : "DOWN";
+
+    // Carry can only ever raise a target, only on a raise, and never on a tablet body (see the
+    // projection block above). Nothing here can reduce a dose the calculator already recommended.
+    const effectiveTarget = direction === "UP" && carry && !onTablets ? carry.targetPpm : resolved.targetValue;
+
     const productChemicalType = productChemicalTypeFor(key, direction);
     const feedPrefix = key === "FREE_CHLORINE" ? feedMechanismPrefix(visit.bodyOfWater.chlorineFeedMechanism) : "";
 
@@ -380,13 +553,46 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     // and trichlor adds CYA exactly when the pool least needs it. That path must suppress the
     // TABLET recommendation instead, not sit alongside it -- the same two-doses problem in
     // reverse.
-    const onTablets =
-      visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FEEDER" ||
-      visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER";
     if (key === "FREE_CHLORINE" && direction === "UP" && onTablets) {
+      // In range today, short by the next visit, on a feeder. Deliberately an ADVISORY with no
+      // dose attached: more tablets is the one thing that cannot fix this. How fast a puck
+      // dissolves is set by the feeder's dial and the pump's run time, not by how full the
+      // feeder is, and CYA on these bodies averages 38 ppm against a 40 ppm ceiling -- so
+      // prescribing more trichlor would fail at the job and spend the stabiliser headroom doing
+      // it. The note says what to actually change.
+      if (carryShortfallOnly && carry && demand && resolved.boundMin != null) {
+        recommendations.push(
+          buildRecommendation({
+            chemicalKey: key,
+            currentValue: current,
+            targetValue: resolved.targetValue,
+            targetMin: resolved.boundMin,
+            targetMax: resolved.boundMax,
+            // When the projection itself falls short, buildCarryNote already carries the
+            // feeder action. When it does not -- the usual in-range case, where the shortfall
+            // is today's reading rather than the ceiling -- the note would otherwise state the
+            // problem and name no action, so it is appended here.
+            note: [
+              buildCarryNote({
+                carry,
+                demand,
+                floorPpm: resolved.boundMin,
+                currentlyInRange: true,
+                tabletFed: true,
+                cyaHeadroomPpm,
+              }),
+              carry.bridges ? TABLET_FEEDER_CARRY_ACTION : null,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          }),
+        );
+        continue;
+      }
+
       const tabletSetting = enabledProductsByType.get("FREE_CHLORINE")?.find((s) => s.catalogProduct.form === "TABLET");
       if (tabletSetting) {
-        const days = await daysUntilNextVisit(visit.bodyOfWater.id, visit.organizationId);
+        const days = fcDaysUntilNextVisit ?? (await daysUntilNextVisit(visit.bodyOfWater.id, visit.organizationId));
         const tablet = computeTabletRecommendation(gallons, current, resolved.targetValue, days, Number(tabletSetting.catalogProduct.dosingConstant));
         recommendations.push(
           buildRecommendation({
@@ -397,7 +603,23 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
             targetMax: resolved.boundMax,
             productName: tabletSetting.catalogProduct.name,
             formattedDose: formatDose(tablet.totalTablets, "TABLET"),
-            note: buildTabletNote(tablet, visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER" ? "floater" : "feeder"),
+            // The full carry explanation only when the feeder will not hold the pool -- that is
+            // the actionable case. When it will, the tablet note already explains its own
+            // maintenance projection, and only the steadiness caveat is added, so a technician
+            // in the sun is not handed six sentences with nothing to do about them.
+            note: [
+              buildTabletNote(tablet, visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER" ? "floater" : "feeder"),
+              carry && demand && resolved.boundMin != null && !carry.bridges
+                ? buildCarryNote({
+                    carry,
+                    demand,
+                    floorPpm: resolved.boundMin,
+                    currentlyInRange: false,
+                    tabletFed: true,
+                    cyaHeadroomPpm,
+                  })
+                : DEMAND_STEADINESS_CAVEAT,
+            ].join(" "),
             rawAmount: tablet.totalTablets,
             dosingUnit: "TABLET",
             billingLink: buildBillingLink(tabletSetting.linkedBillingProduct, tablet.totalTablets, "TABLET"),
@@ -432,6 +654,12 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
 
     const setting = pickPrimaryProduct(enabledProductsByType, productChemicalType, direction);
     if (!setting) {
+      // A carry shortfall on a reading that is still compliant, with nothing enabled to correct
+      // it, is the one case worth staying quiet about: the water is in range, and "no product
+      // configured" is not something a technician standing at the pool can act on. An
+      // out-of-range reading still gets the message below, exactly as before.
+      if (carryShortfallOnly) continue;
+
       recommendations.push(
         buildRecommendation({
           chemicalKey: key,
@@ -458,19 +686,39 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     }
 
     const catalog = setting.catalogProduct;
-    const delta = Math.abs(resolved.targetValue - current);
+    const delta = Math.abs(effectiveTarget - current);
     const rawDose = Number(catalog.dosingConstant) * delta * (gallons / 10000);
+
+    // The carry explanation replaces the old one-line feed note for chlorine, because it says
+    // the same thing with the actual numbers in it: what the dose is sized to last, measured
+    // from this pool, and where it falls short. Everything else keeps the note it had.
+    const carryNote =
+      carry && demand && resolved.boundMin != null && direction === "UP"
+        ? buildCarryNote({
+            carry,
+            demand,
+            floorPpm: resolved.boundMin,
+            currentlyInRange: carryShortfallOnly,
+            cyaHeadroomPpm,
+          })
+        : null;
 
     recommendations.push(
       buildRecommendation({
         chemicalKey: key,
         currentValue: current,
-        targetValue: resolved.targetValue,
+        targetValue: effectiveTarget,
         targetMin: resolved.boundMin,
         targetMax: resolved.boundMax,
         productName: catalog.name,
         formattedDose: formatDose(rawDose, catalog.dosingUnit),
-        note: feedPrefix ? `${feedPrefix}the dose below is a one-time correction on top of that.` : null,
+        note: carryNote
+          ? feedPrefix
+            ? `${feedPrefix}the dose below is on top of that. ${carryNote}`
+            : carryNote
+          : feedPrefix
+            ? `${feedPrefix}the dose below is a one-time correction on top of that.`
+            : null,
         rawAmount: rawDose,
         dosingUnit: catalog.dosingUnit,
         billingLink: buildBillingLink(setting.linkedBillingProduct, rawDose, catalog.dosingUnit),
