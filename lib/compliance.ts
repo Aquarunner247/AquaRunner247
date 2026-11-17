@@ -213,6 +213,40 @@ export function chlorineFamilyThreshold(
 }
 
 /**
+ * This body of water's temperature rule, as plain numbers, or null when its state has none.
+ *
+ * Per body of water rather than per account, for exactly the reason chlorineFamilyThreshold
+ * is: a spa's hard ceiling and a pool's comfort range are different rules, and 19 states
+ * scope their TEMPERATURE row to one body category and nothing else. The category's own row
+ * wins; the unconditional row is the fallback. Matching on null alone -- which this file did
+ * until 2026-11-16 -- found neither for those 19 states.
+ *
+ * Deliberately NOT folded into activeChemistryThresholds, which is the set of values that
+ * genuinely are one-per-account (see its doc comment).
+ */
+export function temperatureThreshold(
+  ruleset: ComplianceRulesetWithRules,
+  bodyOfWaterType: string,
+): { max: number | null; hazardMax: number | null; unit: string } | null {
+  const threshold = findTemperatureThreshold(ruleset, bodyOfWaterType === "SPA" ? "SPA" : "POOL");
+  if (!threshold) return null;
+  return {
+    max: toNumOrNull(threshold.maxValue),
+    hazardMax: toNumOrNull(threshold.hazardMax),
+    unit: threshold.unit || "°F",
+  };
+}
+
+/** The raw row behind temperatureThreshold, shared with activeReadingFields so the
+ * category-then-unconditional precedence is stated once. */
+function findTemperatureThreshold(ruleset: ComplianceRulesetWithRules, bodyCategory: string) {
+  return (
+    findThreshold(ruleset.chemistryThresholds, "TEMPERATURE", bodyCategory) ??
+    findThreshold(ruleset.chemistryThresholds, "TEMPERATURE", null)
+  );
+}
+
+/**
  * Chemistry target/hazard thresholds as plain numbers or null (Prisma Decimals aren't
  * directly comparable). Only call this once isComplianceActive(ruleset) is true --
  * callers gate on that first, so this never runs for an unsupported/unlinked account.
@@ -306,7 +340,11 @@ function fallbackReadingFields(bodyOfWaterType: string): ReadingFieldSpec[] {
     { key: "ph", label: "pH", unitLabel: "", required: true, zoneMin: 7.2, zoneMax: 7.6 },
     { key: "alkalinityPpm", label: "Total Alkalinity", unitLabel: "ppm", required: true, zoneMin: 60, zoneMax: 120 },
     { key: "cyanuricAcidPpm", label: "Cyanuric Acid", unitLabel: "ppm", required: true, zoneMin: 0, zoneMax: 40 },
-    { key: "temperatureF", label: "Water Temperature", unitLabel: "°F", required: true, zoneMin: 80, zoneMax: 104 },
+    // Not required, unlike the four chemistry fields above it: temperature never blocks
+    // completing a visit anywhere in this app (see activeReadingFields). The 80-104 band is
+    // this legacy set's own long-standing number and stays as-is -- these accounts have no
+    // state data to derive one from, which is the whole reason they land here.
+    { key: "temperatureF", label: "Water Temperature", unitLabel: "°F", required: false, zoneMin: 80, zoneMax: 104 },
     ...EQUIPMENT_FIELD_DEFS.map((def) => ({ key: def.key, label: def.label, unitLabel: def.unitLabel, required: true, zoneMin: null, zoneMax: null })),
   ];
 }
@@ -424,19 +462,36 @@ export function activeReadingFields(
     });
   }
 
-  const temperature = findThreshold(ruleset.chemistryThresholds, "TEMPERATURE", null);
-  if (temperature) {
-    fields.push({
-      key: "temperatureF",
-      label: "Water Temperature",
-      unitLabel: temperature.unit || "°F",
-      // No state's source data frames temperature as a pass/fail requirement, just an
-      // operating range -- shown when the state tracks it at all, never blocking.
-      required: false,
-      zoneMin: toNumOrNull(temperature.idealMin ?? temperature.minValue),
-      zoneMax: toNumOrNull(temperature.idealMax ?? temperature.maxValue),
-    });
-  }
+  // Temperature is the one field on this card that shows whether or not the state asks for
+  // it -- the deliberate exception to the "never a generic checklist" rule above, for two
+  // reasons.
+  //
+  // It is not a compliance parameter anywhere: no state's source data frames it as pass/fail
+  // (every row below is an operating range or a bare ceiling), and it is absent from
+  // activeChemistryThresholds entirely, so it can never fail a reading or block a visit the
+  // way a missing chlorine number can. And it is the physical driver of chlorine demand, so
+  // a reading taken without it leaves lib/chlorine-demand.ts measuring how fast chlorine
+  // burned off with nothing to attribute it to. Nevada -- this product's own home state --
+  // has no TEMPERATURE row at all, which is exactly why 1,783 of the 1,796 readings in
+  // production carried no temperature: the field was never on screen to fill in.
+  //
+  // CYANURIC_ACID and CALCIUM_HARDNESS have a smaller version of the same body-category gap
+  // findTemperatureThreshold closes -- 2 and 3 states respectively -- left alone on purpose:
+  // turning on a CYA field changes what a technician is REQUIRED to log, which is a bigger
+  // decision than a field that never blocks anything.
+  const temperature = findTemperatureThreshold(ruleset, bodyCategory);
+  fields.push({
+    key: "temperatureF",
+    label: "Water Temperature",
+    unitLabel: temperature?.unit || "°F",
+    required: false,
+    // No invented band when the state defines none: an "Ideal 80-104" on a pool gauge would
+    // be this app asserting a number no regulation gave it, and the sourced pool ranges are
+    // genuinely all over the place (Alabama 78-82, Utah 82-86, South Dakota 72-85). A
+    // zone-less gauge is the same thing the four gauge readings below already render.
+    zoneMin: toNumOrNull(temperature?.idealMin ?? temperature?.minValue),
+    zoneMax: toNumOrNull(temperature?.idealMax ?? temperature?.maxValue),
+  });
 
   // Gauge/meter readings -- presence of a row IS the requirement (see
   // EquipmentReadingRequirement's doc comment), unlike chemistry fields' zoneMin/zoneMax-

@@ -31,6 +31,7 @@ type Reading = {
   freeChlorinePpm: string;
   alkalinityPpm: string;
   cyanuricAcidPpm: string;
+  temperatureF: string;
 };
 
 type FieldConfig = {
@@ -66,6 +67,11 @@ function chemistryFieldsFor(props: {
       required: props.requiresCYA && props.cyaRequired,
       ...READING_BOUNDS.cyanuricAcidPpm,
     },
+    // Always shown, never required, and not driven by a per-customer toggle like the four
+    // above it -- temperature is not a chemistry test anybody opted into, it is one glance at
+    // the thermometer, and it is what explains why a pool burned through its chlorine. See
+    // activeReadingFields in lib/compliance.ts for the commercial side of the same reasoning.
+    { key: "temperatureF", label: "Water Temperature", unitLabel: "°F", required: false, ...READING_BOUNDS.temperatureF },
   ];
 }
 
@@ -179,6 +185,7 @@ export function ResidentialVisitForm({
     freeChlorinePpm: toInput(initialReading?.freeChlorinePpm),
     alkalinityPpm: toInput(initialReading?.alkalinityPpm),
     cyanuricAcidPpm: toInput(initialReading?.cyanuricAcidPpm),
+    temperatureF: toInput(initialReading?.temperatureF),
   });
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMsg, setSaveMsg] = useState("");
@@ -337,6 +344,7 @@ export function ResidentialVisitForm({
           freeChlorinePpm: sanitizeReading("freeChlorinePpm"),
           alkalinityPpm: sanitizeReading("alkalinityPpm"),
           cyanuricAcidPpm: sanitizeReading("cyanuricAcidPpm"),
+          temperatureF: sanitizeReading("temperatureF"),
         }),
       });
       if (!response.ok) throw new Error("Save failed");

@@ -86,7 +86,7 @@ type Plan = {
 };
 
 async function main() {
-  printDatabaseTarget(APPLY);
+  printDatabaseTarget(APPLY, "pay rates will be written");
 
   const override = parseEffectiveDate();
 

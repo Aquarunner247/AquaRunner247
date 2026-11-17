@@ -6,7 +6,7 @@ import { AlertsBell } from "@/app/components/alerts-bell";
 import { TaskNotebook, type NotebookTask } from "@/app/components/task-notebook";
 import { autoArrivalPercent, autoArrivalHealth, techniciansNeedingAttention } from "@/lib/auto-arrival-health";
 import { PropertyTypeFilterSelect } from "@/app/components/property-type-filter-select";
-import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, organizationHasCommercialPools } from "@/lib/compliance";
+import { getOrganizationRuleset, isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, temperatureThreshold, organizationHasCommercialPools } from "@/lib/compliance";
 import { WaveProgress } from "@/app/components/wave-progress";
 import { ChemGauge } from "@/app/components/chem-gauge";
 import { resolveIssue } from "./actions";
@@ -296,6 +296,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               ph: true,
               alkalinityPpm: true,
               cyanuricAcidPpm: true,
+              temperatureF: true,
               visit: {
                 select: {
                   id: true,
@@ -321,6 +322,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const ph = r.ph != null ? Number(r.ph) : null;
       const alk = r.alkalinityPpm != null ? Number(r.alkalinityPpm) : null;
       const cya = r.cyanuricAcidPpm != null ? Number(r.cyanuricAcidPpm) : null;
+      const temp = r.temperatureF != null ? Number(r.temperatureF) : null;
       const t = thresholds!;
 
       // disinfectionMethod is set per body of water, not per account -- one account can
@@ -338,6 +340,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           : r.freeChlorinePpm != null
             ? Number(r.freeChlorinePpm)
             : null;
+
+      // Per reading for the same reason as the chlorine family above, and a different one:
+      // a spa's temperature ceiling is not a pool's. Nevada scopes its 104 degF rule to
+      // spas and publishes no pool maximum, so a pool reading gets no temperature bound at
+      // all rather than a borrowed one.
+      const temperature = complianceActive ? temperatureThreshold(ruleset!, r.visit.bodyOfWater.type) : null;
 
       // Every bound below is checked independently and only when this state's data
       // actually defines it -- a null bound means this state's regulation doesn't have
@@ -383,6 +391,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       }
       if (cya != null && t.cyaHazardMaxPpm != null && cya > t.cyaHazardMaxPpm) {
         hazards.push(`Cyanuric acid ${cya} ppm (must be ≤${t.cyaHazardMaxPpm})`);
+      }
+      // Strictly above: a spa sitting at exactly the published ceiling is at the limit, not
+      // over it, same as every other bound here.
+      if (temp != null && temperature?.hazardMax != null && temp > temperature.hazardMax) {
+        hazards.push(`Water temperature ${temp}${temperature.unit} (must be ≤${temperature.hazardMax}${temperature.unit})`);
       }
 
       if (hazards.length) {

@@ -178,11 +178,11 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
    */
   /**
    * Which reading columns this visit's form will actually put on screen. Residential renders its
-   * own fixed four (chemistryFieldsFor in residential-visit-form.tsx); commercial renders whatever
+   * own fixed set (chemistryFieldsFor in residential-visit-form.tsx); commercial renders whatever
    * the state's ruleset derived above, chemistry and gauges together.
    */
   const relevantReadingKeys: readonly string[] = isResidential
-    ? ["freeChlorinePpm", "ph", "alkalinityPpm", "cyanuricAcidPpm"]
+    ? ["freeChlorinePpm", "ph", "alkalinityPpm", "cyanuricAcidPpm", "temperatureF"]
     : readingFields.map((field) => field.key);
 
   /**

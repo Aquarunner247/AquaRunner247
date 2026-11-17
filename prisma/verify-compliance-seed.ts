@@ -12,7 +12,7 @@
  * only ever run this against a local dev database, never production.)
  */
 
-import { activeChemistryThresholds, chlorineFamilyThreshold } from "@/lib/compliance";
+import { activeChemistryThresholds, chlorineFamilyThreshold, temperatureThreshold } from "@/lib/compliance";
 import { ALL_STATES } from "@/prisma/seed-compliance-data";
 
 type FakeThreshold = {
@@ -101,6 +101,26 @@ for (const seed of ALL_STATES) {
       if (!result || (result.min == null && result.max == null)) {
         issues.push(`${param}/${bodyType}/${method}: ${rowsForCombo.length} row(s) exist but chlorineFamilyThreshold resolved null min & max`);
       }
+    }
+  }
+
+  // The bug class this whole script exists for, found live on 2026-11-16: 19 states had
+  // real TEMPERATURE rows scoped to POOL or SPA that the lookup -- matching only on a null
+  // category -- resolved to nothing, so their technicians never saw the field and their
+  // inspector logs printed an empty Temp column. A row that exists and does not resolve is
+  // worse than no row, because nothing about it looks wrong in the seed.
+  for (const bodyType of ["POOL", "SPA"] as const) {
+    const rowsForBody = thresholds.filter(
+      (t) => t.parameter === "TEMPERATURE" && (t.bodyOfWaterCategory === bodyType || t.bodyOfWaterCategory == null),
+    );
+    if (rowsForBody.length === 0) continue;
+    if (!rowsForBody.some((t) => t.minValue != null || t.maxValue != null || t.idealMin != null || t.idealMax != null)) continue;
+
+    // Resolution, not completeness: Alabama's pool row is an ideal 78-82 degF range with no
+    // ceiling at all, and Utah's is 82-86 with a floor, both of which are the real rule. A
+    // null `max` on a resolved row is fine; a null ROW where numeric rows exist is the bug.
+    if (temperatureThreshold(ruleset, bodyType) == null) {
+      issues.push(`TEMPERATURE/${bodyType}: ${rowsForBody.length} numeric row(s) exist but temperatureThreshold resolved nothing`);
     }
   }
 

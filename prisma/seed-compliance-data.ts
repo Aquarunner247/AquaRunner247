@@ -109,12 +109,15 @@ this page documents them in one place rather than asserting new rules.
 - **pH:** 7.0 – 7.8
 - **Total alkalinity:** 60 – 180 ppm
 - **Cyanuric acid:** 30 – 50 ppm, tested at least once every 30 days
+- **Spa water temperature:** maximum 104°F. Pools have no maximum; the temperature is
+  still logged, because SNHD's log sheet has a column for it
 
 ### Closure-risk hazard thresholds
 Readings outside these ranges are flagged as an imminent health hazard requiring closure
 until resolved:
 - **pH:** below 6.5 or above 8.0
 - **Cyanuric acid:** above 100 ppm
+- **Spa water temperature:** above 104°F
 
 A closure carries a $909 reopening fee once triggered.
 
@@ -135,20 +138,41 @@ published code. Verify against the authoritative source for anything compliance-
     { parameter: "PH", idealMin: 7.0, idealMax: 7.8, hazardMin: 6.5, hazardMax: 8.0, unit: "", sourceConfidence: "confirmed" },
     { parameter: "TOTAL_ALKALINITY", idealMin: 60, idealMax: 180, unit: "ppm", sourceConfidence: "confirmed" },
     { parameter: "CYANURIC_ACID", idealMin: 30, idealMax: 50, hazardMax: 100, unit: "ppm", sourceConfidence: "confirmed" },
+    // Added 2026-11-16. SNHD's own paper log sheet has a Temp column -- confirmed by the
+    // operator who fills it in -- and this app's inspector log has mirrored that column
+    // since it was built, but no TEMPERATURE row existed, so activeReadingFields never put
+    // the field on a technician's screen. 1,776 of 1,788 log rows in production had a blank
+    // Temp box as a result.
+    //
+    // 104 degF is both the operating ceiling and the closure trigger: one number, unlike
+    // pH and CYA which have a routine range inside a wider hazard band. Spa only -- SNHD
+    // publishes no pool maximum, and a Las Vegas pool reading 95 degF in July is hot, not a
+    // violation. Marked an assumption, not confirmed: 104 is the figure 17 of the 19 states
+    // with a spa-scoped row in this file use, and the operator's own log sheet, but no SNHD
+    // section number backs it here the way one backs the chlorine and pH numbers above.
+    // See the ASSUMPTION note below.
+    { parameter: "TEMPERATURE", bodyOfWaterCategory: "SPA", maxValue: 104, hazardMax: 104, unit: "°F", sourceConfidence: "assumption" },
   ],
   frequencyRules: [{ parameter: "CYANURIC_ACID", cadence: "every 30 days", intervalMinutes: 43200 }],
   eventProtocols: [
     {
       triggerType: "CHEMISTRY_HAZARD_THRESHOLD",
-      triggerLabel: "pH or cyanuric acid outside the hazard range",
+      triggerLabel: "pH, cyanuric acid, or spa temperature outside the hazard range",
       closureKind: "CHEMISTRY_HAZARD_THRESHOLD",
-      reopeningCondition: "Return pH to 6.5–8.0 and cyanuric acid to ≤100 ppm.",
+      reopeningCondition: "Return pH to 6.5–8.0, cyanuric acid to ≤100 ppm, and spa temperature to ≤104°F.",
       feeAmount: 909,
       feeNote: "reopening fee",
       sourceConfidence: "confirmed",
     },
   ],
-  complianceNotes: [],
+  complianceNotes: [
+    {
+      kind: "ASSUMPTION",
+      summary: "Clark County's 104 °F spa temperature ceiling is the standard figure and the operator's own log sheet, not a cited SNHD section number.",
+      detail:
+        "104 °F is seeded as Clark County's spa ceiling and closure trigger on two grounds: it is the figure 17 of the 19 states with a spa-scoped TEMPERATURE row in this file publish, and the operator confirms SNHD's paper log sheet carries a Temp column. No SNHD section number is cited for it here, unlike the chlorine, pH, alkalinity and CYA numbers, which is why sourceConfidence is 'assumption'. Pools are deliberately left with no maximum rather than given a guessed one.",
+    },
+  ],
   // Matches AquaRunner's existing hardcoded equipment fields exactly -- this is the
   // regression-check state, see the file-level comment on NEVADA above.
   equipmentReadingRequirements: [{ parameter: "PUMP_PRESSURE" }, { parameter: "PUMP_VACUUM" }, { parameter: "FILTER_PRESSURE" }, { parameter: "FLOW_METER" }],

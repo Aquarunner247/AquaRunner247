@@ -33,11 +33,15 @@ export function describeDatabaseTarget(): DatabaseTarget {
 /**
  * Prints the target, and marks a local one as local. Call this FIRST, before any query, so the line
  * is above the report rather than below it -- a reader who stops at the first screen still sees it.
+ *
+ * `applyDescription` says what APPLY actually does, because the default -- written when both
+ * callers were prunes -- claims rows will be deleted, and a script that only inserts or updates
+ * saying "rows will be deleted" is the same class of misread this whole file exists to prevent.
  */
-export function printDatabaseTarget(apply: boolean): void {
+export function printDatabaseTarget(apply: boolean, applyDescription = "rows will be deleted"): void {
   const { label, isLocal } = describeDatabaseTarget();
   console.log(`Database: ${label}${isLocal ? "  (LOCAL dev stack, not production)" : ""}`);
-  console.log(apply ? "Mode:     APPLY -- rows will be deleted" : "Mode:     dry run -- nothing will change");
+  console.log(apply ? `Mode:     APPLY -- ${applyDescription}` : "Mode:     dry run -- nothing will change");
   if (isLocal && apply) {
     console.log(
       "\nThis is your local database. To act on production, set DATABASE_URL for this one command:\n" +

@@ -3,7 +3,7 @@ import { ReadingChart } from "@/app/components/reading-chart";
 import { BackwashCalendar } from "@/app/components/backwash-calendar";
 import { getMonthlyReadingRows } from "@/lib/reading-rows";
 import { DEFAULT_BUSINESS_NAME, DEFAULT_BUSINESS_PHONE } from "@/lib/service-company";
-import { isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, healthDepartmentLabel } from "@/lib/compliance";
+import { isComplianceActive, activeChemistryThresholds, chlorineFamilyThreshold, temperatureThreshold, healthDepartmentLabel } from "@/lib/compliance";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { INSPECTION_REPORTS_BUCKET } from "@/lib/inspection-reports";
 import { timeZoneForState, formatLocalDateTime } from "@/lib/timezone";
@@ -123,10 +123,10 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
   const maxFilterFlow = body.maximumFilterFlowGpm != null ? Number(body.maximumFilterFlowGpm) : undefined;
   const volumeGallons = body.volumeGallons != null ? Number(body.volumeGallons) : undefined;
 
-  const tempTarget =
-    body.type === "SPA"
-      ? { min: 100, max: 104, domainMin: 90, domainMax: 110 }
-      : { min: 78, max: 84, domainMin: 65, domainMax: 95 };
+  // The y-axis window, and only that -- a display choice about how to frame the line, not a
+  // claim about anyone's regulation, which is why it stays per body type while the bands
+  // below are derived from the state's own row.
+  const tempDomain = body.type === "SPA" ? { min: 90, max: 110 } : { min: 65, max: 95 };
 
   // ruleset is guaranteed non-null and isSupported here -- the gate above already
   // returned early otherwise.
@@ -134,6 +134,13 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
   // disinfectionMethod is per body of water -- this body's own configured method decides
   // whether the log shows Free Chlorine or Bromine, and against which state numbers.
   const chlorineFamily = chlorineFamilyThreshold(ruleset, body.type, body.disinfectionMethod);
+  // Per body type for the same reason: a spa's ceiling is not a pool's. Until 2026-11-16
+  // this chart drew a hardcoded "typical target" band -- 100-104 degF on spas, 78-84 on
+  // pools -- on the page an inspector reads, with nothing in any state's data behind it.
+  // Now it draws what the state actually publishes and nothing else: Nevada's 104 degF spa
+  // ceiling as a hazard band, and no band at all on a pool, because SNHD sets no pool
+  // maximum and a Las Vegas pool at 95 degF in July is hot rather than out of compliance.
+  const temperature = temperatureThreshold(ruleset, body.type);
   const chlorineFamilyLabel = chlorineFamily?.label ?? "Free Chlorine";
   const chlorineFamilyUnit = chlorineFamily?.unit ?? "ppm";
 
@@ -343,10 +350,9 @@ export default async function PublicBodyOfWaterLogPage({ params, searchParams }:
             unit="°F"
             daysInMonth={totalDays}
             points={seriesFor((r) => r.temperatureF)}
-            targetMin={tempTarget.min}
-            targetMax={tempTarget.max}
-            domainMin={tempTarget.domainMin}
-            domainMax={tempTarget.domainMax}
+            hazardMax={temperature?.hazardMax ?? undefined}
+            domainMin={tempDomain.min}
+            domainMax={tempDomain.max}
           />
         </section>
       ) : null}
