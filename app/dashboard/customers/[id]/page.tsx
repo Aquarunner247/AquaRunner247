@@ -38,6 +38,7 @@ import { NameInput } from "@/app/components/name-input";
 import { PhoneInput } from "@/app/components/phone-input";
 import { timeZoneForState, formatLocalDateTime, formatLocalTime, formatLocalDate } from "@/lib/timezone";
 import { taskDueState, REMINDER_CHOICES } from "@/lib/customer-task-due";
+import { describePortalInvite } from "@/lib/portal-invite-status";
 import { ALERT_PLACEHOLDER_HINT } from "@/lib/alert-placeholders";
 import { AlertOutcomeBadge } from "@/app/components/alert-outcome-badge";
 
@@ -1073,9 +1074,21 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                       <span className="font-medium text-brand-ink">{cu.name ?? cu.email}</span>
                       <span className="ml-2 text-brand-muted">{cu.email}</span>
                       {cu.role === "MAINTENANCE" ? <span className="app-badge ml-2">Maintenance log</span> : null}
-                      {/* Whether the welcome email was ever acted on. Until this is set, nobody has come
-                          through it -- which is the difference between a quiet customer and a dead address. */}
-                      {cu.activatedAt ? null : <span className="ml-2 text-xs text-brand-muted">not signed in yet</span>}
+                      {/* Whether the welcome email was ever acted on, and for how long it has not
+                          been -- an invite sent this morning needs no chasing, one sent nine days
+                          ago is somebody locked out and waiting on a call. It used to read "not
+                          signed in yet", which was wrong for three of Lindley's four: clicking the
+                          activation link signs you in and lands you on /reset-password, outside the
+                          portal route group that stamps activatedAt. See lib/portal-invite-status.ts. */}
+                      {(() => {
+                        const invite = describePortalInvite({ createdAt: cu.createdAt, activatedAt: cu.activatedAt, now });
+                        if (invite.label == null) return null;
+                        return (
+                          <span className={`ml-2 text-xs ${invite.stalled ? "text-brand-warn" : "text-brand-muted"}`}>
+                            {invite.label}
+                          </span>
+                        );
+                      })()}
                     </span>
                     {isEnded ? (
                       <button type="button" disabled aria-disabled="true" className="cursor-not-allowed rounded px-2 py-1 text-base text-brand-muted opacity-50">

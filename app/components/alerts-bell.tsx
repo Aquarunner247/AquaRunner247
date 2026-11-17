@@ -47,6 +47,16 @@ export type DueTaskItem = {
   overdue: boolean;
 };
 
+/** A portal login nobody has ever opened, old enough that its emailed activation link is dead. */
+export type StalledInviteItem = {
+  id: string;
+  customerId: string;
+  customer: string;
+  person: string;
+  /** e.g. "invited 10 days ago -- the emailed link expired after 48 hours". */
+  note: string;
+};
+
 type AlertsBellProps = {
   closureHazardReadings: ClosureHazardItem[];
   reportedIssues: ReportedIssueItem[];
@@ -54,6 +64,8 @@ type AlertsBellProps = {
   outOfRangeReadings: OutOfRangeItem[];
   /** Office to-dos against a customer that are due today or overdue (CustomerTask). */
   dueTasks: DueTaskItem[];
+  /** Customers invited to the portal who have never opened it. */
+  stalledInvites: StalledInviteItem[];
   resolveIssue: (formData: FormData) => void | Promise<void>;
   /** Ticks a CustomerTask off. ADMIN and OFFICE both, matching resolveIssue above -- a to-do
    *  somebody can see in this bell but not tick would be a dead control. */
@@ -88,6 +100,7 @@ export function AlertsBell({
   overdueVisits,
   outOfRangeReadings,
   dueTasks,
+  stalledInvites,
   resolveIssue,
   setCustomerTaskDone,
  
@@ -101,7 +114,8 @@ export function AlertsBell({
     reportedIssues.length +
     overdueVisits.length +
     outOfRangeReadings.length +
-    dueTasks.length;
+    dueTasks.length +
+    stalledInvites.length;
   const hasHazard = closureHazardReadings.length > 0;
 
   useEffect(() => {
@@ -228,6 +242,40 @@ export function AlertsBell({
                       </li>
                     ))}
                   </ul>
+                </div>
+              ) : null}
+
+              {/* Deliberately not in "Needs attention" below, and deliberately not a status colour:
+                  ok/warn/danger are reserved for a water reading (DESIGN-SYSTEM.md), and a customer
+                  who has not opened their portal is an errand, not a chemical hazard. */}
+              {stalledInvites.length > 0 ? (
+                /* brand-surface, not brand-foam: every line in here is text-xs or text-sm, and
+                   DESIGN-SYSTEM.md forbids small text on foam with brand-muted -- this is read on
+                   a phone in Nevada sun. Same container as the to-dos section above. */
+                <div className="rounded-xl border border-brand-border bg-brand-surface p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+                    Waiting on a portal invite
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {stalledInvites.map((i) => (
+                      <li key={i.id} className="text-sm text-brand-ink/80">
+                        <Link
+                          href={`/dashboard/customers/${i.customerId}?tab=overview`}
+                          className="app-link"
+                          onClick={() => setOpen(false)}
+                        >
+                          {i.person}
+                        </Link>{" "}
+                        · {i.customer} · {i.note}
+                      </li>
+                    ))}
+                  </ul>
+                  {/* The fix, stated once for the whole list rather than per row: they can do it
+                      themselves, which is faster than waiting for the office to resend. */}
+                  <p className="mt-2 text-xs text-brand-muted">
+                    Send a fresh link from the customer&rsquo;s page, or tell them to use{" "}
+                    <strong>Forgot password?</strong> at the portal sign-in — that works without you.
+                  </p>
                 </div>
               ) : null}
 

@@ -21,7 +21,7 @@
  * (lib/mail/send-welcome-email.ts) and the client-side settings preview.
  */
 
-import { COLOR } from "@/lib/design-tokens";
+import { COLOR, EMAIL_COLOR } from "@/lib/design-tokens";
 
 export interface WelcomeEmailData {
   orgName: string;
@@ -165,6 +165,33 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
 
 
   /**
+   * What to do once the link above has died -- which is the common case, not the edge one.
+   *
+   * It used to say only "you can request a new one from ${orgName}", which is a dead end in an
+   * inbox: it leaves the customer waiting on an office that has no idea they are stuck. A real
+   * customer sat locked out for ten days in exactly that gap, and nothing on either side showed it.
+   * The sign-in page's own Forgot password link does the same job with nobody in the middle, so
+   * that leads and the office is the fallback. Falls back to the old wording when there is no
+   * portalLoginUrl to point at, since it is optional on this type.
+   */
+  const expiredHtml = portalLoginUrl
+    ? `If that link has already expired by the time you get to it, you don't need to wait on anyone:
+       open <a href="${portalLoginUrl}" target="_blank" rel="noopener noreferrer" style="color:${primaryColor};">the sign-in page</a>,
+       choose <strong>Forgot password?</strong>, and enter this address to send yourself a fresh one.
+       ${orgName} can also send you another.`
+    : `If it expires, you can request a new one from ${orgName}.`;
+
+  const expiredText = data.portalLoginUrl
+    ? [
+        "Link already expired? You can send yourself a new one -- no need to wait on anyone:",
+        `  1. Open ${data.portalLoginUrl}`,
+        '  2. Choose "Forgot password?"',
+        `  3. Enter ${data.customerEmail ?? "this email address"}`,
+        `${data.orgName} can also send you another.`,
+      ]
+    : [`If it expires, you can request a new one from ${data.orgName}.`];
+
+  /**
    * The part of the email that gets the customer in.
    *
    * Without a temporary password this is exactly what it has always been: one activation button and
@@ -187,7 +214,11 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
               <p style="font-size:13px;line-height:20px;color:#6b7280;margin:0 0 24px;">
                 You pick the password yourself -- ${orgName} never sees it, and nobody emails you one.
                 This link is unique to you, can only be used once, and expires in ${expiryHours} hours.
-                Please don't forward it to anyone else. If it expires, you can request a new one from ${orgName}.
+                Please don't forward it to anyone else.
+              </p>
+
+              <p style="font-size:13px;line-height:20px;color:${EMAIL_COLOR.muted};margin:0 0 24px;">
+                ${expiredHtml}
               </p>`;
 
   const credentialsBlock = `              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #e5e7eb;border-radius:6px;background-color:#f9fafb;">
@@ -350,6 +381,8 @@ ${actionBlock}
         `Choose your password: ${data.activationUrl}`,
         `You pick it yourself -- ${data.orgName} never sees it, and nobody emails you one.`,
         `(This link is unique to you, single-use, and expires in ${expiryHours} hours. Don't forward it.)`,
+        "",
+        ...expiredText,
       ];
 
   const textUnexpectedNote = `Didn't expect this email? An account was set up for you at ${data.orgName}'s request. If that is a mistake, contact ${data.orgName} directly and ask them to remove it.`;

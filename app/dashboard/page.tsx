@@ -14,6 +14,7 @@ import { setCustomerTaskDone } from "./customers/[id]/actions";
 import { TechnicianHome } from "./technician-home";
 import { timeZoneForState, formatLocalDate, startOfLocalDay } from "@/lib/timezone";
 import { taskDueState } from "@/lib/customer-task-due";
+import { PORTAL_INVITE_STALLED_AFTER_DAYS, portalInviteAgeDays, stalledPortalInviteNote } from "@/lib/portal-invite-status";
 import { findDueTasks } from "@/lib/customer-tasks";
 import { addDashboardTask, updateDashboardTask, deleteDashboardTask } from "./actions";
 
@@ -86,6 +87,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   let activity: Array<{ id: string; label: string; detail: string; at: Date }> = [];
   let overdueVisits: Array<{ id: string; property: string; body: string; tech: string; scheduledStart: Date }> = [];
   let dueTasks: Array<{ id: string; customerId: string; customer: string; title: string; dueOn: Date | null }> = [];
+  let stalledInvites: Array<{ id: string; customerId: string; customer: string; person: string; days: number }> = [];
   // The notebook module, which unlike everything else here is for OFFICE as well as ADMIN.
   let notebookTasks: NotebookTask[] = [];
   let notebookCustomers: Array<{ id: string; name: string }> = [];
@@ -262,6 +264,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       customer: t.customerName,
       title: t.title,
       dueOn: t.dueOn,
+    }));
+
+    // Portal logins nobody has ever opened, long enough ago that the activation link in their
+    // welcome email is certainly dead. Nothing told the office this before: a customer sat locked
+    // out for ten days and the only signal was her eventually asking whether there was a password.
+    // The customer's own page has always carried it, but only if somebody thought to look.
+    const unopenedInvites = await prisma.customerUser.findMany({
+      where: {
+        active: true,
+        activatedAt: null,
+        createdAt: { lte: new Date(now.getTime() - PORTAL_INVITE_STALLED_AFTER_DAYS * 24 * 60 * 60 * 1000) },
+        customer: { organizationId: orgId, relationshipEndedAt: null },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 10,
+      select: { id: true, name: true, email: true, createdAt: true, customerId: true, customer: { select: { name: true } } },
+    });
+    stalledInvites = unopenedInvites.map((cu) => ({
+      id: cu.id,
+      customerId: cu.customerId,
+      customer: cu.customer.name,
+      person: cu.name ?? cu.email,
+      days: portalInviteAgeDays(cu.createdAt, now),
     }));
 
     overdueVisits = overdue.map((v) => ({
@@ -585,6 +610,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     dueLabel: formatLocalDate(v.scheduledStart, tz),
   }));
 
+  const stalledInviteItems = stalledInvites.map((i) => ({
+    id: i.id,
+    customerId: i.customerId,
+    customer: i.customer,
+    person: i.person,
+    note: stalledPortalInviteNote(i.days),
+  }));
+
   const dueTaskItems = dueTasks.map((t) => {
     const state = taskDueState(t.dueOn, now, tz);
     // Four cases now that a to-do can reach the bell ahead of its deadline, or without one at all.
@@ -679,6 +712,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               overdueVisits={overdueVisitItems}
               outOfRangeReadings={outOfRangeItems}
               dueTasks={dueTaskItems}
+              stalledInvites={stalledInviteItems}
               resolveIssue={resolveIssue}
               setCustomerTaskDone={setCustomerTaskDone}
               closureFeeLabel={closureFeeLabel}

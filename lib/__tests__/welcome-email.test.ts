@@ -164,3 +164,53 @@ describe("renderWelcomeEmail for a maintenance login", () => {
     expect(html).toContain("family of pool owners");
   });
 });
+
+/**
+ * A real customer was invited, never got in, and ten days later asked whether the portal had a
+ * password. The activation link in her email had expired after 48 hours, and the only thing the
+ * email said about that was "you can request a new one from <org>" -- which leaves her waiting on
+ * an office that has no idea she is stuck. The sign-in page's own Forgot password link does the
+ * same job with nobody in the middle.
+ */
+describe("what the email says once the activation link has expired", () => {
+  const withPortal = { ...base, portalLoginUrl: "https://app.example.com/portal/login", customerEmail: "jordan@example.com" };
+
+  it("tells them they can send themselves a new link", () => {
+    const { html, text } = renderWelcomeEmail(withPortal);
+
+    expect(html).toContain("Forgot password?");
+    expect(html).toContain("https://app.example.com/portal/login");
+    expect(text).toContain("Forgot password?");
+    expect(text).toContain("https://app.example.com/portal/login");
+  });
+
+  it("leads with self-service and keeps the office as the fallback, not the only option", () => {
+    const { html } = renderWelcomeEmail(withPortal);
+
+    const selfServe = html.indexOf("Forgot password?");
+    const askTheOffice = html.indexOf("can also send you another");
+    expect(selfServe).toBeGreaterThan(-1);
+    expect(askTheOffice).toBeGreaterThan(selfServe);
+  });
+
+  it("names the address to enter, so they don't guess which one the portal expects", () => {
+    const { text } = renderWelcomeEmail(withPortal);
+    expect(text).toContain("jordan@example.com");
+  });
+
+  it("falls back to asking the organization when there is no portal URL to point at", () => {
+    // portalLoginUrl is optional on the type, and a caller that omits it must still produce an
+    // email that says something true about recovery rather than nothing at all.
+    const { html, text } = renderWelcomeEmail(base);
+
+    expect(html).toContain("you can request a new one from");
+    expect(text).toContain("you can request a new one from");
+    expect(html).not.toContain("Forgot password?");
+  });
+
+  it("still states the 48-hour expiry the recovery advice depends on", () => {
+    const { html, text } = renderWelcomeEmail(withPortal);
+    expect(html).toContain("expires in 48 hours");
+    expect(text).toContain("expires in 48 hours");
+  });
+});
