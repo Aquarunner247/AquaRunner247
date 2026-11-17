@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { timeZoneForState, ymdInTimeZone, localDayBounds } from "@/lib/timezone";
+import { applyRequested, rerunWithApply } from "@/scripts/db-target";
 
 /**
  * Repairs AdHocStop.scheduledDate rows written before the timezone fix in
@@ -30,7 +31,7 @@ import { timeZoneForState, ymdInTimeZone, localDayBounds } from "@/lib/timezone"
  */
 async function main() {
   const args = process.argv.slice(2);
-  const apply = args.includes("--apply");
+  const apply = applyRequested(args);
   const orgArg = args.find((a) => a.startsWith("--org="));
   const organizationId = orgArg ? orgArg.slice("--org=".length) : undefined;
   const includeCompleted = args.includes("--include-completed");
@@ -88,7 +89,7 @@ async function main() {
   }
 
   if (!apply) {
-    console.log("\nDry run only — nothing written. Re-run with --apply to make these changes.");
+    console.log(`\nDry run only — nothing written. To make these changes:\n  ${rerunWithApply(args)}`);
     return;
   }
 

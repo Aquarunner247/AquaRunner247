@@ -22,6 +22,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { serviceGroupName } from "@/lib/service-group-name";
+import { applyRequested, rerunWithApply } from "./db-target";
 
 const RADIUS_METERS = 40;
 const MILES_TO_METERS = 1609.344;
@@ -39,7 +40,7 @@ function metersBetween(a: { lat: number; lng: number }, b: { lat: number; lng: n
 
 
 async function main() {
-  const apply = process.argv.includes("--apply");
+  const apply = applyRequested();
 
   const properties = await prisma.property.findMany({
     orderBy: { name: "asc" },
@@ -106,7 +107,7 @@ async function main() {
     byProperty.get(w.property)!.push(w);
   }
 
-  console.log(apply ? "APPLYING service groups\n" : "DRY RUN — nothing will be written. Pass --apply to write.\n");
+  console.log(apply ? "APPLYING service groups\n" : `DRY RUN — nothing will be written. To write:\n  ${rerunWithApply()}\n`);
   for (const [property, rows] of byProperty) {
     console.log(`${property}`);
     for (const row of rows) console.log(`    ${row.bodyName}  ->  "${row.group}"`);
@@ -119,7 +120,7 @@ async function main() {
   if (alreadySet > 0) console.log(`${alreadySet} already had a group and were left alone.`);
 
   if (!apply) {
-    console.log("\nNothing was written. Re-run with --apply once the groups above look right.");
+    console.log(`\nNothing was written. Once the groups above look right:\n  ${rerunWithApply()}`);
     return;
   }
 

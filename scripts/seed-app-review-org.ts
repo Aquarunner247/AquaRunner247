@@ -26,7 +26,7 @@
 import { BodyOfWaterType, VisitStatus } from "@/generated/prisma/client";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
-import { describeDatabaseTarget } from "./db-target";
+import { applyRequested, describeDatabaseTarget, rerunWithApply } from "./db-target";
 
 /** Everything this script owns. Nothing outside it is ever written. */
 const DEMO_PREFIX = "demo-appreview-";
@@ -35,7 +35,7 @@ const ORG_ID = `${DEMO_PREFIX}org`;
 const ADMIN_EMAIL = process.env.DEMO_ADMIN_EMAIL ?? "appreview@aquarunner247.com";
 const TECH_EMAIL = process.env.DEMO_TECH_EMAIL ?? "appreview-tech@aquarunner247.com";
 
-const APPLY = process.argv.includes("--apply");
+const APPLY = applyRequested();
 
 /**
  * The guard that makes this safe to run against production.
@@ -253,7 +253,10 @@ async function main() {
   note(`a daily compliance log for the Main Pool, 1st of this month to today`);
 
   if (!APPLY) {
-    console.log(`\n[demo-seed] Dry run complete — ${plan.length} things would be written. Re-run with --apply.\n`);
+    console.log(
+      `\n[demo-seed] Dry run complete — ${plan.length} things would be written. To write them:\n` +
+        `  DEMO_ADMIN_PASSWORD=... ${rerunWithApply()}\n`,
+    );
     return;
   }
 

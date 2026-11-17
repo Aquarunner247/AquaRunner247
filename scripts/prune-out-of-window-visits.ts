@@ -26,11 +26,11 @@
  * therefore never at risk here regardless of which flag you pass.
  */
 import { prisma } from "@/lib/prisma";
-import { printDatabaseTarget } from "./db-target";
+import { applyRequested, printDatabaseTarget } from "./db-target";
 import { timeZoneForState, formatLocalDate, ymdInTimeZone } from "@/lib/timezone";
 import { serviceWindowExclusionBounds, ymdOfDateColumn } from "@/lib/route-service-window";
 
-const APPLY = process.argv.includes("--apply");
+const APPLY = applyRequested();
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 

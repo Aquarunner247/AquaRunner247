@@ -36,9 +36,9 @@
  */
 import { prisma } from "@/lib/prisma";
 import { createPayRateRow, getOrgPayrollSettings, getPayPeriodBounds } from "@/lib/technician-pay";
-import { printDatabaseTarget } from "./db-target";
+import { applyRequested, printDatabaseTarget, rerunWithApply } from "./db-target";
 
-const APPLY = process.argv.includes("--apply");
+const APPLY = applyRequested();
 
 /**
  * Limits the run to organizations whose name contains this, case-insensitively. Always pass it
@@ -247,7 +247,7 @@ async function main() {
   if (APPLY) {
     console.log(`Wrote ${written} pay rate(s).`);
   } else {
-    console.log("Dry run -- nothing was written. Re-run with --apply to write these rates.");
+    console.log(`Dry run -- nothing was written. To write these rates:\n  ${rerunWithApply()}`);
   }
 }
 

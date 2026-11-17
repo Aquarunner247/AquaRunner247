@@ -39,11 +39,12 @@ import { prisma } from "@/lib/prisma";
 import { resequenceDay, type DaySequenceItem } from "@/lib/day-resequence";
 import { coalesceBundleMembers } from "@/lib/stop-grouping";
 import { addDaysToYmd, localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
+import { applyRequested, rerunWithApply } from "./db-target";
 
 async function main() {
-  const apply = process.argv.includes("--apply");
+  const apply = applyRequested();
   const includeToday = process.argv.includes("--include-today");
-  console.log(apply ? "APPLYING\n" : "DRY RUN — nothing will be written. Pass --apply to write.\n");
+  console.log(apply ? "APPLYING\n" : `DRY RUN — nothing will be written. To write:\n  ${rerunWithApply()}\n`);
 
   // ---- 1. route templates ----
   const routes = await prisma.recurringRoute.findMany({
@@ -188,7 +189,7 @@ async function main() {
 
   console.log(`\n${dayWrites} day positions ${apply ? "rewritten" : "would be rewritten"}.`);
   if (!includeToday) console.log("Today was skipped. Pass --include-today to reorder a day in progress.");
-  if (!apply) console.log("\nNothing was written. Re-run with --apply once this looks right.");
+  if (!apply) console.log(`\nNothing was written. Once this looks right:\n  ${rerunWithApply()}`);
 }
 
 main()

@@ -31,9 +31,9 @@
  * so the dose itself, its cost and its charge survive exactly as first recorded.
  */
 import { prisma } from "@/lib/prisma";
-import { printDatabaseTarget } from "./db-target";
+import { applyRequested, printDatabaseTarget, rerunWithApply } from "./db-target";
 
-const APPLY = process.argv.includes("--apply");
+const APPLY = applyRequested();
 
 /** Matches the server-side idempotency window in app/api/visits/[id]/doses/route.ts. */
 const WINDOW_SECONDS = 60;
@@ -126,7 +126,7 @@ async function main() {
   );
 
   if (!APPLY) {
-    console.log("\nNothing was changed. Re-run with --apply to delete the extra rows.");
+    console.log(`\nNothing was changed. To delete the extra rows:\n  ${rerunWithApply()}`);
     return;
   }
 

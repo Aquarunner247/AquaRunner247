@@ -27,7 +27,7 @@
  *   npm run db:seed-nevada-temperature -- --apply
  */
 import { prisma } from "@/lib/prisma";
-import { printDatabaseTarget } from "./db-target";
+import { applyRequested, printDatabaseTarget, rerunWithApply } from "./db-target";
 
 const STATE = "NV";
 const SPA_MAX_F = 104;
@@ -51,7 +51,7 @@ const HAZARD_ADDITION = `
 - **Spa water temperature:** above 104°F`;
 
 async function main() {
-  const apply = process.argv.includes("--apply");
+  const apply = applyRequested();
   // First, before any query: .env points DATABASE_URL at the LOCAL stack, so an unqualified
   // `npm run db:seed-nevada-temperature -- --apply` writes to localhost and reports success.
   printDatabaseTarget(apply, "Nevada's temperature rule will be written");
@@ -135,7 +135,7 @@ async function main() {
   }
 
   if (!apply) {
-    console.log(`\n${planned.length} change(s) pending. Re-run with --apply to write them.`);
+    console.log(`\n${planned.length} change(s) pending. To write them:\n  ${rerunWithApply()}`);
     return;
   }
 

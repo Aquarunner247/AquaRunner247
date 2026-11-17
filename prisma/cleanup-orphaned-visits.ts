@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { applyRequested, rerunWithApply } from "@/scripts/db-target";
 
 /**
  * One-time cleanup for visits orphaned by route/stop deletions made before the
@@ -17,7 +18,7 @@ import { prisma } from "@/lib/prisma";
  */
 async function main() {
   const args = process.argv.slice(2);
-  const apply = args.includes("--apply");
+  const apply = applyRequested(args);
   const orgArg = args.find((a) => a.startsWith("--org="));
   const organizationId = orgArg ? orgArg.slice("--org=".length) : undefined;
 
@@ -53,7 +54,7 @@ async function main() {
   }
 
   if (!apply) {
-    console.log("\nDry run only — re-run with --apply to delete these.");
+    console.log(`\nDry run only. To delete these:\n  ${rerunWithApply(args)}`);
     return;
   }
 

@@ -42,12 +42,54 @@ export function printDatabaseTarget(apply: boolean, applyDescription = "rows wil
   const { label, isLocal } = describeDatabaseTarget();
   console.log(`Database: ${label}${isLocal ? "  (LOCAL dev stack, not production)" : ""}`);
   console.log(apply ? `Mode:     APPLY -- ${applyDescription}` : "Mode:     dry run -- nothing will change");
+  // The whole command, not "pass --apply": through npm the bare `--` is the difference between
+  // writing and silently dry-running, and someone who just typed --apply needs to see why it
+  // did nothing. See rerunWithApply.
+  if (!apply) console.log(`To write: ${rerunWithApply()}`);
   if (isLocal && apply) {
     console.log(
       "\nThis is your local database. To act on production, set DATABASE_URL for this one command:\n" +
-        '  DATABASE_URL="<production connection string>" npm run <script> -- --apply\n' +
+        `  DATABASE_URL="<production connection string>" ${rerunWithApply()}\n` +
         "A shell value wins over .env, which node --env-file does not override.",
     );
   }
   console.log();
+}
+
+/**
+ * Whether --apply reached this script.
+ *
+ * One definition instead of nine copies of `process.argv.includes("--apply")`, so the flag and
+ * the instruction for passing it (rerunWithApply below) cannot drift apart.
+ */
+export function applyRequested(argv: string[] = process.argv.slice(2)): boolean {
+  return argv.includes("--apply");
+}
+
+/**
+ * The exact command to re-run this script with --apply, built from how it was actually launched.
+ *
+ * This exists because npm silently eats the flag. Verified on npm 10.9.7:
+ *
+ *   npm run db:seed-nevada-temperature --apply      -> script argv []          (dry run)
+ *   npm run db:seed-nevada-temperature -- --apply   -> script argv ["--apply"] (writes)
+ *
+ * The first form is not an error and leaves no trace: no argv entry, and no npm_config_apply
+ * either, so a script cannot detect the mistake and warn about it. What it CAN do is stop
+ * printing "re-run with --apply" -- true but useless, since that is what was just typed -- and
+ * print the whole command including the bare `--`. The operator hit this on a production run
+ * and read the dry-run banner as the script ignoring the flag.
+ *
+ * npm_lifecycle_event is npm's own name for the script it is running, so the npm form names
+ * itself and cannot go stale when a script is renamed in package.json. Args already passed are
+ * carried through, so a `--org=` or `--include-today` is not silently dropped from the re-run.
+ */
+export function rerunWithApply(argv: string[] = process.argv.slice(2)): string {
+  const args = [...argv.filter((a) => a !== "--apply"), "--apply"].join(" ");
+  const npmScript = process.env.npm_lifecycle_event;
+  if (npmScript) return `npm run ${npmScript} -- ${args}`;
+  // Launched directly. argv[1] is absolute; the repo-relative path is what the docs and the
+  // file headers use, and is what a reader can paste.
+  const script = (process.argv[1] ?? "this script").replace(`${process.cwd()}/`, "");
+  return `npx tsx ${script} ${args}`;
 }
