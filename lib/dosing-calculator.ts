@@ -201,6 +201,53 @@ function resolveTarget(key: DosingChemicalKey, bounds: Bounds, orgTarget: OrgTar
  * single-point org target (Salt). Not a regulatory figure. */
 const NO_RANGE_TOLERANCE_FRACTION = 0.05;
 
+/**
+ * Where the acid recommendation starts, regardless of how wide the state's own pH band is.
+ *
+ * A state's band answers "is this water acceptable", which is not the question the Dosing Card
+ * asks -- that one is "should the technician add acid today". Nevada's seeded band is 7.0-7.8,
+ * so a pool at exactly 7.8 sat inside the range and the card said nothing: 203 of this org's
+ * readings in the 90 days to 2026-11-17 were exactly 7.80, every one of them silent, against 81
+ * at 8.00 that did prompt. The operator asked for acid above 7.6 that day.
+ *
+ * This does not invent a standard. Connecticut, Colorado, Oklahoma and five others already
+ * publish 7.4-7.6 as their own ideal, activeChemistryThresholds prefers an ideal band over the
+ * legal one, and those states have therefore always prompted above 7.6. The cap gives the
+ * wide-band states the behaviour the narrow-band ones already had.
+ *
+ * ONLY THE CEILING MOVES. Tightening the floor to 7.4 would be the symmetric change, and it
+ * would start asking for a Base Demand test on 121 readings in those same 90 days (7.0-7.3).
+ * That is a different judgement the operator did not make -- a pool at 7.2 carrying 140 ppm
+ * alkalinity is usually left alone -- so the floor stays whatever the state says.
+ */
+export const PH_ACID_CEILING = 7.6;
+
+/**
+ * What to aim for once acid is going in: the endpoint a Taylor Acid Demand titration is run to,
+ * and the middle of the industry's 7.4-7.6. Display and direction only -- the dose itself comes
+ * from the technician's drop count (see computePhDose) and never from this number.
+ */
+export const PH_AIM = 7.5;
+
+/**
+ * Narrows a state-derived pH band to the aim band above. Never raises a ceiling (a state
+ * tighter than 7.6 keeps its own), never pushes the ceiling below the floor, and is applied
+ * only when the org has not set its own pH target -- an operator who states a band has
+ * answered this question themselves.
+ *
+ * Exported for lib/__tests__/ph-aim-band.test.ts -- the band decides whether a technician is
+ * told to add acid at all, which is worth asserting on directly rather than only through the
+ * Prisma-bound calculator around it.
+ */
+export function applyPhAimBand(resolved: ResolvedTarget): ResolvedTarget {
+  const capped = resolved.boundMax != null ? Math.min(resolved.boundMax, PH_ACID_CEILING) : PH_ACID_CEILING;
+  const boundMax = resolved.boundMin != null ? Math.max(capped, resolved.boundMin) : capped;
+  let targetValue = PH_AIM;
+  if (resolved.boundMin != null && targetValue < resolved.boundMin) targetValue = resolved.boundMin;
+  if (targetValue > boundMax) targetValue = boundMax;
+  return { targetValue, boundMin: resolved.boundMin, boundMax };
+}
+
 function isInRange(current: number, resolved: ResolvedTarget): boolean {
   if (resolved.boundMin != null || resolved.boundMax != null) {
     if (resolved.boundMin != null && current < resolved.boundMin) return false;
@@ -739,7 +786,10 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
   if (phCurrent != null) {
     const phBounds = await boundsFor("PH", visit.organizationId, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod);
     const phOrgTarget = orgTargetByType.get(orgTargetChemicalType("PH")) ?? null;
-    const phResolved = resolveTarget("PH", phBounds, phOrgTarget, warnings);
+    const stateResolved = resolveTarget("PH", phBounds, phOrgTarget, warnings);
+    // The state's band is what the water must stay inside; the aim band is where acid starts
+    // going in. See PH_ACID_CEILING for the measurement behind the difference.
+    const phResolved = stateResolved && phOrgTarget == null ? applyPhAimBand(stateResolved) : stateResolved;
     if (phResolved && !isInRange(phCurrent, phResolved)) {
       phStatus = {
         currentValue: phCurrent,
