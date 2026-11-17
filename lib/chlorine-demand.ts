@@ -236,8 +236,12 @@ export function needsCarryTopUp(input: {
 export const TABLET_FEEDER_CARRY_ACTION =
   "Check the feeder is stocked and not jammed first; if it is already full, its dissolve rate is the lever -- turn it up and check the pump's run time and flow, because adding pucks to a full feeder changes nothing.";
 
-export const DEMAND_STEADINESS_CAVEAT =
-  "This assumes demand holds steady; a heat spike, a storm or a heavy weekend burns it faster, so use your own read of the pool.";
+/* DEMAND_STEADINESS_CAVEAT used to be appended to every note here: "this assumes demand holds
+ * steady; a heat spike, a storm or a heavy weekend burns it faster, so use your own read of the
+ * pool." It says something true and it now says it once, on the Dosing Card itself, where it
+ * covers the pH prompt and every other recommendation rather than only the chlorine ones --
+ * see app/components/dosing-card.tsx. Repeating it per note was the thing this module keeps
+ * warning itself about: sentences a technician in the sun cannot act on. */
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
@@ -333,8 +337,6 @@ export function buildCarryNote(input: {
       "At least one recent interval ended at 0 ppm, so the real demand may be higher than measured -- the water may have run out of chlorine days before anyone arrived.",
     );
   }
-
-  parts.push(DEMAND_STEADINESS_CAVEAT);
 
   return parts.join(" ");
 }

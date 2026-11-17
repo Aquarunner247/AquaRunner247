@@ -29,63 +29,116 @@ describe("daysUntilNextWeekday", () => {
 });
 
 describe("computeTabletRecommendation", () => {
-  it("computes both an immediate-correction and a maintenance component", () => {
-    // 20,000 gal, FC 1.0 vs target 3.0, dosingConstant 1.48 (real Trichlor 90% value):
-    // immediateOz = 1.48 * 2 * (20000/10000) = 5.92 oz -> 5.92/8 = 0.74 tablets.
-    // 3 days to next visit: maintenanceTablets = (20000/10000) * (3/7) ≈ 0.857.
-    // total = round(0.74 + 0.857) = round(1.597) = 2.
-    const result = computeTabletRecommendation(20000, 1.0, 3.0, 3, 1.48);
-    expect(result.immediateTablets).toBeCloseTo(0.74, 2);
-    expect(result.maintenanceTablets).toBeCloseTo(0.857, 2);
+  // Office Pool at Cornerstone Park, the body that prompted this: 45,021 gal on a tablet
+  // feeder, 2 days to the next visit, measuring 0.37 ppm/day across its own 17 intervals.
+  // 0.37 * 2 = 0.73 ppm to replace -> 1.48 * 0.73 * 4.5021 = 4.87 oz -> 0.61 tablets -> 1.
+  it("sizes the feeder from measured demand over the interval", () => {
+    const result = computeTabletRecommendation({
+      volumeGallons: 45_021,
+      demandPpmPerDay: 0.37,
+      daysUntilNextVisit: 2,
+      dosingConstant: 1.48,
+    })!;
+    expect(result.intervalPpm).toBeCloseTo(0.74, 2);
+    expect(result.intervalTablets).toBeCloseTo(0.616, 2);
+    expect(result.totalTablets).toBe(1);
+  });
+
+  it("no longer charges for a same-day correction tablets cannot make", () => {
+    // The old shape added (target - current) as an "immediate" component, which on this pool
+    // at 1 ppm against a 5 ppm target was 3.3 tablets, and took the total to 5. Nothing about
+    // today's reading enters the figure now -- only demand, days and volume.
+    const low = computeTabletRecommendation({ volumeGallons: 45_021, demandPpmPerDay: 0.37, daysUntilNextVisit: 2, dosingConstant: 1.48 })!;
+    expect(low.totalTablets).toBe(1);
+    expect(low.totalTablets).toBeLessThan(5);
+  });
+
+  it("scales with the interval, so a week is not priced like two days", () => {
+    const twoDays = computeTabletRecommendation({ volumeGallons: 45_021, demandPpmPerDay: 0.37, daysUntilNextVisit: 2, dosingConstant: 1.48 })!;
+    const week = computeTabletRecommendation({ volumeGallons: 45_021, demandPpmPerDay: 0.37, daysUntilNextVisit: 7, dosingConstant: 1.48 })!;
+    expect(week.intervalTablets).toBeGreaterThan(twoDays.intervalTablets);
+    // 2.16 tablets of real demand, rounded up rather than down to 2 -- see the ceil in
+    // computeTabletRecommendation.
+    expect(week.totalTablets).toBe(3);
+  });
+
+  it("gives a hot busy pool more than a cold empty one of the same size", () => {
+    // The operator's point: season and bather load are the difference, and they arrive here as
+    // this pool's own measured demand rather than as a month multiplier.
+    const winter = computeTabletRecommendation({ volumeGallons: 20_000, demandPpmPerDay: 0.5, daysUntilNextVisit: 7, dosingConstant: 1.48 })!;
+    const summer = computeTabletRecommendation({ volumeGallons: 20_000, demandPpmPerDay: 1.3, daysUntilNextVisit: 7, dosingConstant: 1.48 })!;
+    expect(winter.totalTablets).toBe(2);
+    expect(summer.totalTablets).toBe(4);
+  });
+
+  it("rounds a partial tablet up, so the feeder is not left short on day six", () => {
+    // 20,000 gal at 0.5 ppm/day over 7 days is 1.29 tablets of real demand. Rounding to
+    // nearest would hand over 1 and leave the feeder 22% short.
+    const result = computeTabletRecommendation({ volumeGallons: 20_000, demandPpmPerDay: 0.5, daysUntilNextVisit: 7, dosingConstant: 1.48 })!;
+    expect(result.intervalTablets).toBeCloseTo(1.295, 2);
     expect(result.totalTablets).toBe(2);
-    expect(result.daysUntilNextVisit).toBe(3);
   });
 
-  it("skips the maintenance component when no recurring schedule was found", () => {
-    const result = computeTabletRecommendation(20000, 1.0, 3.0, null, 1.48);
-    expect(result.maintenanceTablets).toBe(0);
-    expect(result.daysUntilNextVisit).toBeNull();
-    // Immediate-only still recommends at least 1 tablet, never 0, once called.
-    expect(result.totalTablets).toBeGreaterThanOrEqual(1);
+  it("never recommends 0 tablets once the calculator has decided this pool needs chlorine", () => {
+    const tiny = computeTabletRecommendation({ volumeGallons: 1_588, demandPpmPerDay: 0.2, daysUntilNextVisit: 2, dosingConstant: 1.48 })!;
+    expect(tiny.intervalTablets).toBeLessThan(0.5);
+    expect(tiny.totalTablets).toBe(1);
   });
 
-  it("never recommends 0 tablets once FC is confirmed low, even for a tiny deficit", () => {
-    const result = computeTabletRecommendation(5000, 2.9, 3.0, null, 1.48);
-    expect(result.totalTablets).toBe(1);
+  it("returns nothing at all when there is no interval to size against", () => {
+    // A body with no upcoming visit on a route. The caller gives advice with no dose rather
+    // than printing a count it cannot stand behind.
+    expect(
+      computeTabletRecommendation({ volumeGallons: 20_000, demandPpmPerDay: 0.5, daysUntilNextVisit: null, dosingConstant: 1.48 }),
+    ).toBeNull();
   });
 
-  it("is maintenance-only when FC is already at or above target but days remain", () => {
-    const result = computeTabletRecommendation(10000, 3.0, 3.0, 7, 1.48);
-    expect(result.immediateTablets).toBe(0);
-    expect(result.maintenanceTablets).toBeCloseTo(1, 5);
-    expect(result.totalTablets).toBe(1);
+  it("returns nothing when volume, demand or the constant is missing", () => {
+    const base = { volumeGallons: 20_000, demandPpmPerDay: 0.5, daysUntilNextVisit: 7, dosingConstant: 1.48 };
+    expect(computeTabletRecommendation({ ...base, volumeGallons: 0 })).toBeNull();
+    expect(computeTabletRecommendation({ ...base, demandPpmPerDay: 0 })).toBeNull();
+    expect(computeTabletRecommendation({ ...base, dosingConstant: 0 })).toBeNull();
   });
 });
 
-describe("buildTabletNote names the right holder", () => {
-  const rec = computeTabletRecommendation(27_000, 1, 3, 7, 1.48);
+describe("buildTabletNote", () => {
+  const rec = computeTabletRecommendation({ volumeGallons: 27_000, demandPpmPerDay: 0.5, daysUntilNextVisit: 7, dosingConstant: 1.48 })!;
 
-  it("says feeder by default, for a plumbed chlorinator", () => {
-    expect(buildTabletNote(rec)).toContain("keep the feeder stocked");
-    expect(buildTabletNote(rec)).not.toContain("floater");
+  it("leads with liquid when the pool is short today, because tablets cannot fix that", () => {
+    const note = buildTabletNote(rec, { shortToday: true, demandSource: "measured", sampleSize: 17 });
+    expect(note).toMatch(/^Free chlorine is below the minimum now, and tablets will not raise it today/);
+    expect(note).toContain("Chlorinate with liquid now");
   });
 
-  it("says floater for a floating dispenser", () => {
-    expect(buildTabletNote(rec, "floater")).toContain("keep the floater stocked");
-    expect(buildTabletNote(rec, "floater")).not.toContain("keep the feeder");
+  it("says nothing about liquid when the pool is not short today", () => {
+    const note = buildTabletNote(rec, { demandSource: "measured", sampleSize: 17 });
+    expect(note).not.toContain("liquid");
+  });
+
+  it("quotes the measured demand and how many intervals it rests on", () => {
+    const note = buildTabletNote(rec, { demandSource: "measured", sampleSize: 17 });
+    expect(note).toContain("0.5 ppm a day");
+    expect(note).toContain("17 service intervals");
+  });
+
+  it("says so plainly when there was too little history to measure", () => {
+    const note = buildTabletNote(rec, { demandSource: "default", sampleSize: 0 });
+    expect(note).toContain("isn't enough history on this pool to measure it");
+    expect(note).not.toContain("service intervals");
+  });
+
+  it("names the holder it is talking about", () => {
+    expect(buildTabletNote(rec, { shortToday: true })).toContain("stock the feeder");
+    expect(buildTabletNote(rec, { shortToday: true, holder: "floater" })).toContain("stock the floater");
   });
 
   it("keeps the CYA caveat whichever holder it is -- the chemistry is the same", () => {
-    for (const note of [buildTabletNote(rec), buildTabletNote(rec, "floater")]) {
+    for (const note of [buildTabletNote(rec), buildTabletNote(rec, { holder: "floater" })]) {
       expect(note).toContain("3 ppm of CYA per 10,000 gal");
     }
   });
 
-  it("drops the holder wording entirely when there is no schedule to project to", () => {
-    const noSchedule = computeTabletRecommendation(27_000, 1, 3, null, 1.48);
-    for (const note of [buildTabletNote(noSchedule), buildTabletNote(noSchedule, "floater")]) {
-      expect(note).toContain("no recurring schedule found");
-      expect(note).not.toContain("stocked");
-    }
+  it("leaves the judgement line to the card rather than repeating it here", () => {
+    expect(buildTabletNote(rec, { shortToday: true })).not.toMatch(/your own judgement|your own read/i);
   });
 });

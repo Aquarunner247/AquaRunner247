@@ -118,6 +118,20 @@ export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPref
           </li>
         ) : null}
       </ul>
+
+      {/* ONE judgement line for the whole card, not per recommendation.
+          Asked for by the operator (2026-11-17) in the same breath as the tablet fix: every
+          figure here is arithmetic over the readings a technician typed and this body's own
+          service history, and none of it can see the pool they are standing in front of. The
+          notes above used to each end with a version of this sentence; stating it once covers
+          the pH prompt and the bromine advisory too, which those notes never reached.
+          text-sm, not text-xs: this is meant to be read, on a phone, outdoors. brand-muted is
+          legible here because .app-card is white -- it would not be on brand-foam. */}
+      <p className="mt-3 border-t border-brand-border pt-3 text-sm text-brand-muted">
+        These are estimates, worked out from the readings you entered and this pool&rsquo;s own service history. They
+        can&rsquo;t see a heavy weekend, a heat spike, a storm, or anything you know about this body of water that the log
+        doesn&rsquo;t. Use your own judgement — adjust or skip any of it when what&rsquo;s in front of you says otherwise.
+      </p>
     </div>
   );
 }

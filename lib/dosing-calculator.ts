@@ -13,7 +13,6 @@ import {
   needsCarryTopUp,
   buildCarryNote,
   DEMAND_LOOKBACK_DAYS,
-  DEMAND_STEADINESS_CAVEAT,
   TABLET_FEEDER_CARRY_ACTION,
   type ChlorineDemand,
   type CarryProjection,
@@ -640,7 +639,43 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
       const tabletSetting = enabledProductsByType.get("FREE_CHLORINE")?.find((s) => s.catalogProduct.form === "TABLET");
       if (tabletSetting) {
         const days = fcDaysUntilNextVisit ?? (await daysUntilNextVisit(visit.bodyOfWater.id, visit.organizationId));
-        const tablet = computeTabletRecommendation(gallons, current, resolved.targetValue, days, Number(tabletSetting.catalogProduct.dosingConstant));
+        // The carry block above skips the demand lookup on a body with no usable floor or
+        // ceiling, but the feeder amount is sized from demand either way, so it is loaded here
+        // when that happened. One query per visit, on an uncommon path.
+        const tabletDemand = demand ?? (await loadChlorineDemand(visit.bodyOfWater.id, visit.organizationId));
+        const tablet = computeTabletRecommendation({
+          volumeGallons: gallons,
+          demandPpmPerDay: tabletDemand.ppmPerDay,
+          daysUntilNextVisit: days,
+          dosingConstant: Number(tabletSetting.catalogProduct.dosingConstant),
+        });
+        // Below the regulatory floor right now, which is the case tablets cannot answer -- the
+        // note leads with liquid. Reaching this branch at all means the reading was out of
+        // range (the in-range-but-fading case returned above), so this is the usual state here.
+        const shortToday = resolved.boundMin != null && current < resolved.boundMin;
+        const holder = visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER" ? "floater" : "feeder";
+
+        if (!tablet) {
+          // No next visit on the schedule, or no volume on file: there is no interval to size
+          // the feeder against. Advisory with no dose rather than a fabricated count.
+          recommendations.push(
+            buildRecommendation({
+              chemicalKey: key,
+              currentValue: current,
+              targetValue: resolved.targetValue,
+              targetMin: resolved.boundMin,
+              targetMax: resolved.boundMax,
+              note: [
+                shortToday
+                  ? `Free chlorine is below the minimum now, and tablets will not raise it today -- a puck dissolves over days. Chlorinate with liquid now, then stock the ${holder} to hold it.`
+                  : `Free chlorine is low for this body. Check the ${holder} is stocked and not jammed.`,
+                "How much to leave in it could not be projected -- this body has no upcoming visit on a route, or no volume on file -- so size it from what you know of the pool.",
+              ].join(" "),
+            }),
+          );
+          continue;
+        }
+
         recommendations.push(
           buildRecommendation({
             chemicalKey: key,
@@ -651,22 +686,29 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
             productName: tabletSetting.catalogProduct.name,
             formattedDose: formatDose(tablet.totalTablets, "TABLET"),
             // The full carry explanation only when the feeder will not hold the pool -- that is
-            // the actionable case. When it will, the tablet note already explains its own
-            // maintenance projection, and only the steadiness caveat is added, so a technician
-            // in the sun is not handed six sentences with nothing to do about them.
+            // the actionable case. When it will, the tablet note already quotes the demand it
+            // was sized from, so a technician in the sun is not handed six sentences with
+            // nothing to do about them.
             note: [
-              buildTabletNote(tablet, visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER" ? "floater" : "feeder"),
-              carry && demand && resolved.boundMin != null && !carry.bridges
+              buildTabletNote(tablet, {
+                holder,
+                demandSource: tabletDemand.source,
+                sampleSize: tabletDemand.sampleSize,
+                shortToday,
+              }),
+              carry && resolved.boundMin != null && !carry.bridges
                 ? buildCarryNote({
                     carry,
-                    demand,
+                    demand: tabletDemand,
                     floorPpm: resolved.boundMin,
                     currentlyInRange: false,
                     tabletFed: true,
                     cyaHeadroomPpm,
                   })
-                : DEMAND_STEADINESS_CAVEAT,
-            ].join(" "),
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" "),
             rawAmount: tablet.totalTablets,
             dosingUnit: "TABLET",
             billingLink: buildBillingLink(tabletSetting.linkedBillingProduct, tablet.totalTablets, "TABLET"),

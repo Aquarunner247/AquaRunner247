@@ -16,7 +16,6 @@ import {
   DEFAULT_DEMAND_PPM_PER_DAY,
   MAX_CREDIBLE_DEMAND_PPM_PER_DAY,
   MIN_USEFUL_TOP_UP_PPM,
-  DEMAND_STEADINESS_CAVEAT,
   TABLET_FEEDER_CARRY_ACTION,
 } from "@/lib/chlorine-demand";
 
@@ -166,7 +165,7 @@ describe("needsCarryTopUp", () => {
 describe("buildCarryNote", () => {
   const demand = { ppmPerDay: 0.68, source: "measured" as const, sampleSize: 12, floorCensored: false };
 
-  it("states what the dose is sized for, and always ends on the technician's own judgement", () => {
+  it("states what the dose is sized for and where the figure came from", () => {
     const carry = projectCarryTarget({
       baselineTargetPpm: 5,
       floorPpm: 2,
@@ -178,7 +177,6 @@ describe("buildCarryNote", () => {
     expect(note).toContain("0.7 ppm/day");
     expect(note).toContain("12 recent service intervals");
     expect(note).toContain("from this pool's own history");
-    expect(note).toContain("use your own read of the pool");
     expect(note).not.toContain("cannot carry");
   });
 
@@ -332,9 +330,12 @@ describe("tablet-fed bodies", () => {
     expect(note).not.toContain("cyanuric acid");
   });
 
-  it("keeps one wording for the judgement caveat, wherever it is attached", () => {
+  it("leaves the judgement caveat to the card instead of repeating it per note", () => {
+    // It used to end every note. The Dosing Card now states it once for everything on it,
+    // including the pH prompt, which these notes never reached.
     const note = buildCarryNote({ carry: shortCarry, demand, floorPpm: 2, currentlyInRange: false });
-    expect(note).toContain(DEMAND_STEADINESS_CAVEAT);
+    expect(note).not.toMatch(/use your own read of the pool/i);
+    expect(note).not.toMatch(/heat spike/i);
   });
 });
 

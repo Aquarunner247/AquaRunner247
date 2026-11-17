@@ -125,13 +125,16 @@ export function convertToBillingUnit(amount: number, dosingUnit: DosingUnit, bil
  * than left as an invisible assumption. */
 const TABLET_WEIGHT_OZ = 8;
 
-/** Standard starting-point ratio manufacturers publish for sizing a 3" trichlor feeder --
- * roughly one tablet sustains 10,000 gallons for about a week under normal bather load.
- * A heuristic, not a Taylor-table figure like every other dosingConstant in
- * dosing-calculator.ts -- every source that publishes it also says to adjust from actual
- * test results, which is why it's surfaced as its own labeled component in the note
- * (buildTabletNote) instead of folded silently into one opaque number. */
-const TABLET_MAINTENANCE_GALLONS_PER_WEEK = 10_000;
+/* The feeder sizing ratio manufacturers publish -- one tablet per 10,000 gallons per week --
+ * used to size the maintenance half of this recommendation. It is gone deliberately. At
+ * trichlor's 1.48 oz/ppm/10k gal, 8 oz a week over 10,000 gallons implies a demand of 0.77
+ * ppm/day, applied to every pool in every month of the year. This org's tablet-fed bodies
+ * actually measure 0.50 ppm/day (median of 126 clean intervals across 26 bodies in the 120
+ * days to 2026-11-17), and the pool that prompted the change measures 0.37 across its own 17
+ * intervals -- so the fixed ratio ran about 50% high going into winter. The operator put it
+ * plainly: a cold empty pool in November is not the same pool at 100 degrees with everybody
+ * in it. Demand is measured per body now (see lib/chlorine-demand.ts), which answers season
+ * and bather load together as observed fact rather than as a month multiplier. */
 
 function roundOneDecimal(n: number): number {
   return Math.round(n * 10) / 10;
@@ -154,52 +157,107 @@ export function daysUntilNextWeekday(todayIso: number, scheduledWeekdays: number
 }
 
 export type TabletRecommendation = {
-  immediateTablets: number;
-  maintenanceTablets: number;
+  /** ppm the feeder has to replace across the interval: demand x days. */
+  intervalPpm: number;
+  /** Unrounded tablets covering intervalPpm -- what the note quotes, so the rounding is visible. */
+  intervalTablets: number;
+  /** What the technician is actually handed: intervalTablets rounded, never below 1. */
   totalTablets: number;
-  daysUntilNextVisit: number | null;
+  daysUntilNextVisit: number;
+  demandPpmPerDay: number;
 };
 
-/** Tablet-feeder equivalent of the ppm-delta dose computed for every other product in
- * dosing-calculator.ts. Two components, kept separate rather than blended into one number:
- *  - immediateTablets: today's actual measured deficit, converted with the SAME
- *    Taylor-sourced dosing constant used for granular Trichlor 90% (tablet and granular
- *    are the same chemical at the same concentration) -- exact chemistry, not a guess.
- *  - maintenanceTablets: a heuristic projection (TABLET_MAINTENANCE_GALLONS_PER_WEEK) for
- *    keeping the feeder stocked until the next scheduled visit -- 0 when
- *    daysUntilNextVisit is null (no recurring schedule found for this body).
- * Never returns 0 total once called -- callers only call this when FC is confirmed low.
+/**
+ * What to stock the feeder with to cover the interval to the next visit.
+ *
+ * This used to carry a second component as well: today's measured deficit converted to
+ * tablets, so a pool at 1 ppm against a 5 ppm target was told to add 3.3 tablets "to correct
+ * today's reading". That component was fiction, and the operator said so -- a puck dissolves
+ * over days, so no number of them raises free chlorine this afternoon. The file already made
+ * the same argument against itself: dosing-calculator.ts's in-range-but-fading branch
+ * deliberately gives advice with no tablet count at all, on the grounds that "more tablets is
+ * the one thing that cannot fix this". Both branches now agree. A pool that is short TODAY
+ * needs liquid today, which the note says in words rather than as a second dose the technician
+ * could add on top of this one (see the two-doses note in dosing-calculator.ts).
+ *
+ * So one component, sized from this pool's own measured demand rather than a published ratio:
+ * the chemistry constant is the same Taylor figure used for granular Trichlor 90%, since a
+ * tablet and the granular are the same chemical at the same concentration.
+ *
+ * Returns null rather than a number when there is nothing to project from -- no next visit on
+ * the schedule, no volume on file, no demand. The caller says so instead of printing a figure
+ * it cannot stand behind.
  */
-export function computeTabletRecommendation(
-  volumeGallons: number,
-  currentPpm: number,
-  targetPpm: number,
-  daysUntilNextVisit: number | null,
-  dosingConstant: number,
-): TabletRecommendation {
-  const immediateOz = dosingConstant * Math.max(0, targetPpm - currentPpm) * (volumeGallons / 10_000);
-  const immediateTablets = immediateOz / TABLET_WEIGHT_OZ;
-  const maintenanceTablets =
-    daysUntilNextVisit != null ? (volumeGallons / TABLET_MAINTENANCE_GALLONS_PER_WEEK) * (daysUntilNextVisit / 7) : 0;
+export function computeTabletRecommendation(params: {
+  volumeGallons: number;
+  demandPpmPerDay: number;
+  daysUntilNextVisit: number | null;
+  dosingConstant: number;
+}): TabletRecommendation | null {
+  const { volumeGallons, demandPpmPerDay, daysUntilNextVisit, dosingConstant } = params;
+  if (daysUntilNextVisit == null || !(daysUntilNextVisit > 0)) return null;
+  if (!(volumeGallons > 0) || !(demandPpmPerDay > 0) || !(dosingConstant > 0)) return null;
+
+  const intervalPpm = demandPpmPerDay * daysUntilNextVisit;
+  const intervalTablets = (dosingConstant * intervalPpm * (volumeGallons / 10_000)) / TABLET_WEIGHT_OZ;
+
   return {
-    immediateTablets,
-    maintenanceTablets,
-    totalTablets: Math.max(1, Math.round(immediateTablets + maintenanceTablets)),
+    intervalPpm,
+    intervalTablets,
+    // Rounded UP, with a floor of 1. A feeder is a reservoir, not a one-shot dose: a spare puck
+    // sitting in it costs nothing, while a feeder that runs dry on day six is the failure
+    // lib/chlorine-demand.ts was written to fix -- 46.4% of chlorinated pools came back under
+    // the minimum. Rounding to nearest would have turned a measured 1.29 tablets into 1 and
+    // left the feeder 22% short, which is the same under-dosing in a new place. Half a puck is
+    // not something a technician can carry out either way.
+    totalTablets: Math.max(1, Math.ceil(intervalTablets)),
     daysUntilNextVisit,
+    demandPpmPerDay,
   };
 }
 
-/** Assembles the tablet recommendation's note -- both precision caveats (tablet weight,
- * CYA buildup) stated directly rather than left implicit, per this feature's whole reason
- * for existing as a heuristic-flagged estimate instead of an exact Taylor-table dose. */
-export function buildTabletNote(t: TabletRecommendation, holder: "feeder" | "floater" = "feeder"): string {
-  const breakdown =
-    t.daysUntilNextVisit != null
-      ? `Roughly ${roundOneDecimal(t.immediateTablets)} tablet(s) to correct today's reading, plus ${roundOneDecimal(t.maintenanceTablets)} to keep the ${holder} stocked for the ${t.daysUntilNextVisit} day${t.daysUntilNextVisit === 1 ? "" : "s"} until the next visit.`
-      : "Covers only today's correction -- no recurring schedule found for this body, so a maintenance amount couldn't be projected.";
+/**
+ * Assembles the tablet recommendation's note. Both precision caveats (tablet weight, CYA
+ * buildup) are stated directly rather than left implicit, and the demand the figure rests on
+ * is quoted with its sample size, because a technician who can see where a number came from
+ * can tell when it does not match the pool in front of them.
+ *
+ * `shortToday` is the case the old note got wrong: free chlorine below the minimum right now.
+ * It leads, because what to do about it is not "add these tablets".
+ *
+ * No general "use your own judgement" line here -- the Dosing Card states that once for every
+ * recommendation on it, which is better than each note repeating it at a technician standing
+ * in the sun.
+ */
+export function buildTabletNote(
+  t: TabletRecommendation,
+  opts: { holder?: "feeder" | "floater"; demandSource?: "measured" | "default"; sampleSize?: number; shortToday?: boolean } = {},
+): string {
+  const holder = opts.holder ?? "feeder";
+  const days = `${t.daysUntilNextVisit} day${t.daysUntilNextVisit === 1 ? "" : "s"}`;
+
+  const basis =
+    opts.demandSource === "measured" && opts.sampleSize
+      ? `This pool has been using about ${roundOneDecimal(t.demandPpmPerDay)} ppm a day across its last ${opts.sampleSize} service interval${opts.sampleSize === 1 ? "" : "s"}.`
+      : `There isn't enough history on this pool to measure its demand, so this assumes about ${roundOneDecimal(t.demandPpmPerDay)} ppm a day.`;
+
+  // Below half a tablet the figure IS the floor of 1, not a calculation, and saying "1 tablet
+  // covers the 2 days" would claim a precision it does not have -- on a 1,588 gal spa over two
+  // days the real answer is four hundredths of a puck.
+  const amount =
+    t.intervalTablets < 0.5
+      ? `${formatDose(t.totalTablets, "TABLET")} is the practical minimum -- the ${days} to the next visit need less than half of one.`
+      : `${formatDose(t.totalTablets, "TABLET")} ${t.totalTablets === 1 ? "covers" : "cover"} the ${days} to the next visit.`;
+
   return [
-    breakdown,
+    opts.shortToday
+      ? `Free chlorine is below the minimum now, and tablets will not raise it today -- a puck dissolves over days. Chlorinate with liquid now, then stock the ${holder} to hold it.`
+      : null,
+    amount,
+    basis,
     `Assumes a standard ${TABLET_WEIGHT_OZ} oz 3" tablet (some brands run closer to 7 oz -- check your product's label).`,
     "Each dissolved tablet adds roughly 3 ppm of CYA per 10,000 gal -- watch cumulative stabilizer levels against your state's compliance max.",
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
