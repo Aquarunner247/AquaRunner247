@@ -5,6 +5,7 @@ import {
   formatOnSiteDuration,
   ABANDONED_AFTER_HOURS,
   DEPARTED_GRACE_MINUTES,
+  QUIET_AFTER_MINUTES,
   groupAbandonedStopsByProperty,
   splitAbandonedStopsByTechnician,
   type AbandonedStopAlert,
@@ -33,6 +34,8 @@ function visit(openHours: number, overrides: Partial<AbandonedStopCandidate> = {
     pushedAt: null,
     abandonedAlertSentAt: null,
     technicianId: "tech-1",
+    lastActivityAt: null,
+    siblingLastActivityAt: null,
     ...overrides,
   };
 }
@@ -127,6 +130,8 @@ describe("abandonedStopDecision", () => {
           pushedAt: null,
           abandonedAlertSentAt: sentAt,
           technicianId: "t",
+          lastActivityAt: null,
+          siblingLastActivityAt: null,
         },
         at,
       );
@@ -322,5 +327,89 @@ describe("splitAbandonedStopsByTechnician", () => {
     // abandonedStopDecision already refuses these ("no-technician"), so this is belt and braces
     // for a caller that assembles alerts some other way.
     expect(splitAbandonedStopsByTechnician([alert("prop-a", { technicianId: null })])).toEqual([]);
+  });
+});
+
+/**
+ * The quiet rule, measured on production 2026-11-17.
+ *
+ * Of 48 stops left open, 34 had photos, 26 had readings, 12 had doses and only 10 had nothing at
+ * all -- four in five are finished work with an untapped button. Capture-to-Complete runs a
+ * median of ZERO minutes on visits that do get tapped, so silence after a capture means done.
+ *
+ * It matters because the elapsed rule is slow on exactly these: departure detection saw only 6
+ * of the 48 leave (the app is shut for the day by then), so the average alert waited 4.3 hours
+ * and landed at 8pm, where 1 of 15 stops was ever closed.
+ */
+describe("abandonedStopDecision — the quiet rule", () => {
+  const MINUTE = 60 * 1000;
+  /** Captured something `ago` minutes back, on a stop opened well inside the elapsed threshold. */
+  const quiet = (ago: number, overrides: Partial<AbandonedStopCandidate> = {}) =>
+    visit(1.5, { lastActivityAt: new Date(NOW.getTime() - ago * MINUTE), ...overrides });
+
+  it("alerts once the address has been quiet for the threshold, hours before the elapsed rule", () => {
+    const d = abandonedStopDecision(quiet(QUIET_AFTER_MINUTES), NOW);
+    expect(d.alert).toBe(true);
+    expect(d).toMatchObject({ trigger: "quiet" });
+    // The point of the rule: it fires at 1.5 hours open, not 4.
+    if (d.alert && d.trigger === "quiet") {
+      expect(d.openHours).toBeCloseTo(1.5, 5);
+      expect(d.quietMinutes).toBeCloseTo(QUIET_AFTER_MINUTES, 5);
+    }
+  });
+
+  it("says nothing while he is still capturing", () => {
+    expect(abandonedStopDecision(quiet(QUIET_AFTER_MINUTES - 1), NOW)).toEqual({
+      alert: false,
+      reason: "still-working",
+    });
+  });
+
+  it("stays quiet while another body of water at the same address is still being worked", () => {
+    // The Alcove case: four stops tapped Arrive within 18 seconds, worked one at a time. The
+    // first one finished must not alert while he is standing at the fourth.
+    const d = abandonedStopDecision(
+      quiet(90, { siblingLastActivityAt: new Date(NOW.getTime() - 5 * MINUTE) }),
+      NOW,
+    );
+    expect(d).toEqual({ alert: false, reason: "still-working" });
+  });
+
+  it("alerts once the whole address goes quiet, counting the latest capture anywhere on it", () => {
+    const d = abandonedStopDecision(
+      quiet(200, { siblingLastActivityAt: new Date(NOW.getTime() - QUIET_AFTER_MINUTES * MINUTE) }),
+      NOW,
+    );
+    expect(d).toMatchObject({ alert: true, trigger: "quiet" });
+  });
+
+  it("leaves a stop with nothing captured to the elapsed rule, which is the slower path", () => {
+    // 10 of the 48 look like this -- arrived and recorded nothing. The quiet rule must not fire
+    // on a technician who has not started capturing yet, so this waits the full four hours.
+    expect(abandonedStopDecision(visit(1.5), NOW)).toEqual({ alert: false, reason: "too-soon" });
+    expect(abandonedStopDecision(visit(ABANDONED_AFTER_HOURS), NOW)).toMatchObject({
+      alert: true,
+      trigger: "elapsed",
+    });
+  });
+
+  it("reports the quiet trigger rather than elapsed when both would fire", () => {
+    // Same email either way; the trigger is what the cron counts, and attributing it to the rule
+    // that actually caught it first is what makes those counts worth reading.
+    const d = abandonedStopDecision(visit(9, { lastActivityAt: new Date(NOW.getTime() - 8 * 60 * MINUTE) }), NOW);
+    expect(d).toMatchObject({ alert: true, trigger: "quiet" });
+  });
+
+  it("still prefers a recorded departure, which is the strongest signal of the three", () => {
+    const d = abandonedStopDecision(
+      quiet(QUIET_AFTER_MINUTES, { departedAt: new Date(NOW.getTime() - DEPARTED_GRACE_MINUTES * MINUTE) }),
+      NOW,
+    );
+    expect(d).toMatchObject({ alert: true, trigger: "departed" });
+  });
+
+  it("does not re-alert a stop the sweep already told somebody about", () => {
+    const d = abandonedStopDecision(quiet(300, { abandonedAlertSentAt: new Date(NOW.getTime() - HOUR) }), NOW);
+    expect(d).toEqual({ alert: false, reason: "already-alerted" });
   });
 });

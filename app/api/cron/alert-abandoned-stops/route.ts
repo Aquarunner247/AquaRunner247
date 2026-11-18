@@ -57,7 +57,16 @@ export async function GET(req: Request) {
       abandonedAlertSentAt: null,
       startedAt: { not: null },
       technicianId: { not: null },
-      OR: [{ startedAt: { lte: cutoff } }, { departedAt: { not: null } }],
+      // Three ways in, one per rule: open past four hours, a recorded departure, or any capture
+      // on it (the quiet rule, which can fire well inside the first hour). The decision function
+      // re-checks all of it -- this only avoids loading stops no rule could possibly pick.
+      OR: [
+        { startedAt: { lte: cutoff } },
+        { departedAt: { not: null } },
+        { reading: { isNot: null } },
+        { photos: { some: {} } },
+        { doses: { some: {} } },
+      ],
     },
     // Oldest arrival first, which is longest-open first. The email states the group's longest
     // open duration by reading the first row, and a technician scanning the list should meet the
@@ -74,6 +83,11 @@ export async function GET(req: Request) {
       propertyId: true,
       technicianId: true,
       technician: { select: { name: true, email: true } },
+      // Newest capture of each kind. Taken as one row apiece rather than counting, because the
+      // quiet rule needs the timestamp; see QUIET_AFTER_MINUTES for why all three count.
+      reading: { select: { createdAt: true } },
+      photos: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+      doses: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
       bodyOfWater: { select: { name: true } },
       property: { select: { name: true } },
       organization: {
@@ -98,19 +112,47 @@ export async function GET(req: Request) {
   let technicianEmailsSent = 0;
   let technicianEmailsFailed = 0;
   let technicianEmailsSkipped = 0;
-  const triggers: Record<string, number> = { departed: 0, elapsed: 0 };
+  const triggers: Record<string, number> = { departed: 0, quiet: 0, elapsed: 0 };
   const reasons: Record<string, number> = {};
   const note = (reason: string) => {
     skipped++;
     reasons[reason] = (reasons[reason] ?? 0) + 1;
   };
 
+  /** Newest of this stop's own captures -- reading, photo or dose. Null when it has none. */
+  const lastActivityOf = (visit: Candidate): Date | null => {
+    const times = [visit.reading?.createdAt, visit.photos[0]?.createdAt, visit.doses[0]?.createdAt].filter(
+      (d): d is Date => d != null,
+    );
+    return times.length === 0 ? null : new Date(Math.max(...times.map((d) => d.getTime())));
+  };
+
+  // The quiet rule asks whether the ADDRESS has gone quiet, not just the stop, so each candidate
+  // needs to see its siblings' captures. Keyed by property AND technician: two people splitting a
+  // commercial site are working separately, and one still capturing says nothing about the other
+  // having gone home. Built from the candidates already loaded -- no extra query.
+  const activityByPropertyTech = new Map<string, number>();
+  for (const visit of candidates) {
+    const at = lastActivityOf(visit);
+    if (at == null) continue;
+    const key = `${visit.propertyId}:${visit.technicianId}`;
+    const best = activityByPropertyTech.get(key);
+    if (best == null || at.getTime() > best) activityByPropertyTech.set(key, at.getTime());
+  }
+
   // Decide first, group second. Every suppression still happens per stop -- a property with one
   // stop past the threshold and one that only arrived twenty minutes ago alerts about the first
   // and keeps watching the second.
   const alerting: AbandonedStopAlert<Candidate>[] = [];
   for (const visit of candidates) {
-    const decision = abandonedStopDecision(visit, now);
+    const lastActivityAt = lastActivityOf(visit);
+    // The sibling figure is the address maximum, which includes this stop; passing it is harmless
+    // because the rule takes the later of the two anyway.
+    const siblingMs = activityByPropertyTech.get(`${visit.propertyId}:${visit.technicianId}`);
+    const decision = abandonedStopDecision(
+      { ...visit, lastActivityAt, siblingLastActivityAt: siblingMs == null ? null : new Date(siblingMs) },
+      now,
+    );
     if (!decision.alert) {
       note(decision.reason);
       continue;

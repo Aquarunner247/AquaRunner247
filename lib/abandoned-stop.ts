@@ -41,6 +41,53 @@ export const ABANDONED_AFTER_HOURS = 4;
  */
 export const DEPARTED_GRACE_MINUTES = 30;
 
+/**
+ * How long a stop that has readings on it may sit quiet before the technician is reminded.
+ *
+ * Forty-five minutes, and this is the rule that catches the case the elapsed one is bad at:
+ * the work was done and nobody tapped Complete.
+ *
+ * Measured against production on 2026-11-17. Capturing something -- a reading, a photo, a dose --
+ * is what a technician does while working, and tapping Complete follows the last capture
+ * immediately: across 566 completed visits since 2026-10-01 the median gap from last capture to
+ * Complete was ZERO minutes, p75 three minutes, p90 twenty-four. So a stop with captures on it
+ * that has gone quiet for 45 minutes is finished work waiting on a tap, not a job in progress.
+ * Only 39 of those 566 visits had a gap longer than 45 minutes, so the cost of the rule is well
+ * under one needless nudge a day.
+ *
+ * That is a far better signal than elapsed time here. The same measurement put the median
+ * finished visit at 41 minutes on the last stop of the day, so "45 minutes since arrival" would
+ * have nudged him mid-job about half the time; 45 minutes since his last capture would not.
+ *
+ * All three capture kinds count, because readings alone would have missed a quarter of the work.
+ * Of the 48 stops left open on production, 34 had photos and only 26 had readings -- photos are
+ * the commoner trace -- 12 had doses, and just 10 had nothing recorded at all. Four in five of
+ * these stops are finished work with an untapped button.
+ *
+ * Why this matters more than the four-hour rule: of the 1,023 stops the operator's technicians
+ * have started, those left open cluster hard at the end of the day -- 15.3% of the last stop a
+ * technician started, against 7.5% second or third from last and 2.7% earlier. A forgotten tap
+ * mid-route gets corrected at the next stop, because an open stop blocks starting elsewhere.
+ * On the last stop of the day nothing forces the correction, and nothing sees him leave either:
+ * departure detection recorded a departure on only 6 of those 48 stops, though it covers about
+ * half of all stops, because the app is closed for the day by then. So the elapsed rule is all
+ * that fires, averaging 4.3 hours -- the reminder lands at 8pm for work forgotten at 4pm, and
+ * of the 15 alerts that went out at 8pm or later exactly one stop was ever closed.
+ *
+ * REPLAYED OVER THE 48 STOPS, this rule plus the untouched four-hour backstop fires sooner on
+ * 16 of them -- three hours sooner on average, 4h11m at best -- and changes nothing on the other
+ * 32, because on those he was still capturing past the four-hour mark and the elapsed rule gets
+ * there first. Nothing alerts later than it does today. What moves is when they land: 11 of the
+ * 38 stops carrying captures were alerted after 8pm, and only 1 would be now, with 36 falling
+ * inside the 11am-7pm window where 66% of alerted stops actually get closed.
+ *
+ * The p90 of one hour is the cost side: a technician who takes longer than 45 minutes between
+ * his last reading and the tap gets a nudge he did not need. The email is written to be safe to
+ * receive while still working ("if the work is done, tap Complete and nothing else happens"),
+ * so that is a wasted notice rather than a wrong one.
+ */
+export const QUIET_AFTER_MINUTES = 45;
+
 const MS_PER_HOUR = 60 * 60 * 1000;
 const MS_PER_MINUTE = 60 * 1000;
 
@@ -54,11 +101,33 @@ export type AbandonedStopCandidate = {
   pushedAt: Date | null;
   abandonedAlertSentAt: Date | null;
   technicianId: string | null;
+  /**
+   * Newest capture on THIS stop -- reading, photo or chemical dose -- or null when nothing was
+   * ever recorded on it.
+   *
+   * Null is not a quiet stop, it is a stop nobody recorded anything on; 10 of the 48 alerted
+   * stops on production look like this. That is a different problem (arrived, captured nothing)
+   * and is deliberately left to the elapsed rule, so the quiet rule can never fire on a
+   * technician who simply has not started capturing yet.
+   */
+  lastActivityAt: Date | null;
+  /**
+   * Newest capture on any OTHER still-open stop the same technician has at the same property,
+   * or null when there are none.
+   *
+   * Properties here routinely hold several bodies of water and he taps Arrive on all of them at
+   * once -- four stops in this data were started within 18 seconds of each other -- then works
+   * through them one at a time. Without this, the first body he finished would alert while he
+   * was still standing at the fourth. The whole address has to be quiet, not just the stop.
+   */
+  siblingLastActivityAt: Date | null;
 };
 
 export type AbandonedStopDecision =
   /** The device saw them leave. `onSiteMinutes` is arrival to departure. */
   | { alert: true; trigger: "departed"; openHours: number; onSiteMinutes: number }
+  /** Work was captured, then nothing happened for QUIET_AFTER_MINUTES -- a forgotten tap. */
+  | { alert: true; trigger: "quiet"; openHours: number; quietMinutes: number }
   /** No departure was recorded; the stop has simply been open too long. */
   | { alert: true; trigger: "elapsed"; openHours: number }
   | {
@@ -71,7 +140,8 @@ export type AbandonedStopDecision =
         | "already-alerted"
         | "no-technician"
         | "too-soon"
-        | "departed-too-recently";
+        | "departed-too-recently"
+        | "still-working";
     };
 
 /**
@@ -116,6 +186,27 @@ export function abandonedStopDecision(
     }
     // Departed just now. Fall through rather than returning: a stop that ALSO passed four hours
     // should still alert on the elapsed rule instead of being held back by a fresh departure.
+  }
+
+  // Work was captured and then everything went quiet: he did the job and never tapped Complete.
+  // Checked before the elapsed rule because it is the faster and more specific of the two -- it
+  // fires inside the hour rather than averaging 4.3 hours, which is the whole point of it.
+  //
+  // The quiet clock runs from the newest capture at the ADDRESS, not on this stop alone, so a
+  // technician working his way through four bodies of water at one property is not told about
+  // the first one while he is still on the fourth.
+  if (visit.lastActivityAt != null) {
+    const quietSince = Math.max(
+      visit.lastActivityAt.getTime(),
+      visit.siblingLastActivityAt?.getTime() ?? visit.lastActivityAt.getTime(),
+    );
+    const quietMinutes = (now.getTime() - quietSince) / MS_PER_MINUTE;
+    if (quietMinutes >= QUIET_AFTER_MINUTES) {
+      return { alert: true, trigger: "quiet", openHours, quietMinutes };
+    }
+    // Still capturing. Fall through: a stop past four hours alerts on the elapsed rule anyway,
+    // same as a fresh departure does not hold back an old stop.
+    if (openHours < ABANDONED_AFTER_HOURS) return { alert: false, reason: "still-working" };
   }
 
   if (openHours < ABANDONED_AFTER_HOURS) {
