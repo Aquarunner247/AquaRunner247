@@ -119,6 +119,62 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   // else on a completed visit stays read-only for everyone.
   const canCorrectCompleted = isAdminOrOffice;
 
+  const tz = timeZoneForState(visit.organization.state);
+
+  /**
+   * This body of water's neighbouring service days, so the office can walk a pool's history from
+   * here -- the way the Schedule tab's day arrows step through a route -- instead of going back to
+   * the schedule, picking a date, and finding the stop again.
+   *
+   * Scoped to the BODY, not the property, for the same reason the previous-reading lookup below is:
+   * a property with a front pool and a back pool is two bodies of water, and stepping across them
+   * would put a different pool's chemistry under the same heading.
+   *
+   * Ordered on scheduledStart, the one timestamp every visit has (an imported log-only record has
+   * no completedAt and no capturedAt) and the day anchor the rest of the app sorts a service day
+   * by. Strictly before/after, so a second visit sharing the exact same anchor is stepped over
+   * rather than looped on.
+   *
+   * CANCELLED is excluded: a skipped stop carries no readings, no doses and no photos, so landing
+   * on one is a dead end mid-walk. A future SCHEDULED visit is kept -- it is already reachable by
+   * paging the schedule forward, and an empty form for next week is a truthful answer to "what is
+   * next here".
+   *
+   * Technicians don't get these. They can only open their own visits (canAccess above), so the
+   * chain would silently skip whatever a colleague serviced and read as history with holes in it.
+   */
+  const [previousVisit, nextVisit] = isAdminOrOffice
+    ? await Promise.all([
+        prisma.serviceVisit.findFirst({
+          where: {
+            organizationId: visit.organizationId,
+            bodyOfWaterId: visit.bodyOfWaterId,
+            status: { not: "CANCELLED" },
+            scheduledStart: { lt: visit.scheduledStart },
+          },
+          orderBy: { scheduledStart: "desc" },
+          select: { id: true, scheduledStart: true },
+        }),
+        prisma.serviceVisit.findFirst({
+          where: {
+            organizationId: visit.organizationId,
+            bodyOfWaterId: visit.bodyOfWaterId,
+            status: { not: "CANCELLED" },
+            scheduledStart: { gt: visit.scheduledStart },
+          },
+          orderBy: { scheduledStart: "asc" },
+          select: { id: true, scheduledStart: true },
+        }),
+      ])
+    : [null, null];
+
+  /**
+   * Carries the back link's destination along, so paging through four visits still returns to
+   * wherever the walk started instead of quietly falling back to the dashboard. Only the one value
+   * this page recognizes is forwarded -- never sp.from verbatim, which is caller-supplied.
+   */
+  const stepQuery = sp.from === "schedule" ? "?from=schedule" : "";
+
   // Cyanuric acid only needs checking once every N days per body of water (state-
   // configurable via ComplianceRuleset, 30 days by default) — skip requiring it again if a
   // recent reading already covers this period.
@@ -430,8 +486,45 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
         {/* scheduledStart's time-of-day isn't a real target time -- see
             lib/visit-generation.ts -- so only the date is shown here. */}
         <p className="mt-1 text-sm text-brand-border">
-          {visit.bodyOfWater.name} • {formatLocalDate(visit.scheduledStart, timeZoneForState(visit.organization.state), { weekday: "long", year: "numeric" })}
+          {visit.bodyOfWater.name} • {formatLocalDate(visit.scheduledStart, tz, { weekday: "long", year: "numeric" })}
         </p>
+
+        {/* Each arrow names the day it lands on rather than the day being viewed, which is already
+            on the line above it. An exhausted direction keeps its side of the row and says so, so
+            the remaining arrow can't be mistaken for the other one. */}
+        {isAdminOrOffice ? (
+          <nav
+            className="mt-3 flex items-center justify-between gap-2 border-t border-white/15 pt-1"
+            aria-label="Other service days for this body of water"
+          >
+            {previousVisit ? (
+              <Link
+                href={`/dashboard/visits/${previousVisit.id}${stepQuery}`}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded px-2 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                <span aria-hidden="true" className="text-lg leading-none">
+                  ‹
+                </span>
+                {formatLocalDate(previousVisit.scheduledStart, tz, { weekday: "short" })}
+              </Link>
+            ) : (
+              <span className="inline-flex min-h-[44px] items-center px-2 text-sm text-brand-border/70">No earlier visit</span>
+            )}
+            {nextVisit ? (
+              <Link
+                href={`/dashboard/visits/${nextVisit.id}${stepQuery}`}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded px-2 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                {formatLocalDate(nextVisit.scheduledStart, tz, { weekday: "short" })}
+                <span aria-hidden="true" className="text-lg leading-none">
+                  ›
+                </span>
+              </Link>
+            ) : (
+              <span className="inline-flex min-h-[44px] items-center px-2 text-sm text-brand-border/70">No later visit</span>
+            )}
+          </nav>
+        ) : null}
       </header>
 
       {/* Getting in comes before anything else on a backyard pool: a locked gate stops the visit
