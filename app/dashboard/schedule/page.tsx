@@ -39,12 +39,18 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   if (!appUser) redirect("/login");
 
   const spPromise: NonNullable<PageProps["searchParams"]> = searchParams ?? Promise.resolve({});
-  if (appUser.role === "ADMIN") {
+  // Office sees exactly what an admin sees here. AdminSchedule was written as the
+  // "admin/office-facing counterpart" to this page from the start and every endpoint it
+  // writes through -- reorder, status, arrival, departure, reschedule, delete, and the
+  // ad-hoc stop actions -- already authorizes OFFICE (see its own doc comment). Only the
+  // routing was missing, which left the office with no day-scoped view of a technician's
+  // route at all and no way to page between days.
+  if (appUser.role === "ADMIN" || appUser.role === "OFFICE") {
     return <AdminSchedule appUser={appUser} searchParams={spPromise} />;
   }
-  // This tabbed schedule view is built for a technician's day-to-day use. Office keeps
-  // using the dense dashboard at /dashboard for now (the admin gating above is consistent
-  // with every other admin-only nav item — see side-nav.tsx).
+  // The tabbed view below is built for a technician's own day-to-day use: it is scoped to
+  // appUser.id with no technician filter, so it is only meaningful for someone who carries
+  // a route themselves.
   if (appUser.role !== "TECHNICIAN") redirect("/dashboard");
 
   const sp = (await spPromise) ?? {};

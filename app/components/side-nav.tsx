@@ -44,9 +44,12 @@ function linksForRole(role: UserRole | null): NavLink[] {
   // OFFICE (and any future role): most dashboard sections redirect non-admins away
   // server-side (see e.g. customers/page.tsx), so only link what's actually reachable
   // today instead of pointing at pages that immediately bounce back. Help has no
-  // role restriction, so it's safe to include here too.
+  // role restriction, so it's safe to include here too. Schedule is reachable as of
+  // 2026-11-18 -- it serves OFFICE the same AdminSchedule view as ADMIN, which every
+  // write endpoint behind it already authorized for OFFICE (see schedule/page.tsx).
   return [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+    { href: "/dashboard/schedule", label: "Schedule", icon: "schedule" },
     { href: "/dashboard/help", label: "Help", icon: "help" },
   ];
 }
