@@ -184,6 +184,12 @@ export type TabletRecommendation = {
  * the chemistry constant is the same Taylor figure used for granular Trichlor 90%, since a
  * tablet and the granular are the same chemical at the same concentration.
  *
+ * `demandPpmPerDay` is ppm the feeder must REPLACE each day, which is the caller's job to
+ * derive and not the same thing as this pool's decay constant. Chlorine decays proportionally
+ * (see lib/chlorine-demand.ts), so a pool losing k of its chlorine daily while held at L ppm
+ * consumes k x L ppm/day. Passing a bare decay constant here would under-stock the feeder by
+ * whatever factor L is -- five-fold on a pool held at 5 ppm.
+ *
  * Returns null rather than a number when there is nothing to project from -- no next visit on
  * the schedule, no volume on file, no demand. The caller says so instead of printing a figure
  * it cannot stand behind.
@@ -238,8 +244,8 @@ export function buildTabletNote(
 
   const basis =
     opts.demandSource === "measured" && opts.sampleSize
-      ? `This pool has been using about ${roundOneDecimal(t.demandPpmPerDay)} ppm a day across its last ${opts.sampleSize} service interval${opts.sampleSize === 1 ? "" : "s"}.`
-      : `There isn't enough history on this pool to measure its demand, so this assumes about ${roundOneDecimal(t.demandPpmPerDay)} ppm a day.`;
+      ? `Held at target, this pool gets through about ${roundOneDecimal(t.demandPpmPerDay)} ppm a day, from its own last ${opts.sampleSize} service interval${opts.sampleSize === 1 ? "" : "s"}.`
+      : `There isn't enough history on this pool to measure its demand, so this assumes about ${roundOneDecimal(t.demandPpmPerDay)} ppm a day at target.`;
 
   // Below half a tablet the figure IS the floor of 1, not a calculation, and saying "1 tablet
   // covers the 2 days" would claim a precision it does not have -- on a 1,588 gal spa over two

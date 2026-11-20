@@ -85,6 +85,20 @@ describe("computeTabletRecommendation", () => {
     expect(tiny.totalTablets).toBe(1);
   });
 
+  it("would under-stock the feeder fivefold if handed a decay constant instead of ppm/day", () => {
+    // Guards the trap named in this function's doc comment. Chlorine decays proportionally, so
+    // a pool losing k of its chlorine a day while held at L ppm gets through k x L ppm/day.
+    // Passing the bare k is a silent five-fold shortfall on a pool held at 5 ppm -- the same
+    // under-dosing lib/chlorine-demand.ts exists to stop, reintroduced one layer down.
+    const k = 0.15;
+    const heldAtPpm = 5;
+    const shared = { volumeGallons: 27_000, daysUntilNextVisit: 7, dosingConstant: 1.48 };
+    const correct = computeTabletRecommendation({ ...shared, demandPpmPerDay: k * heldAtPpm })!;
+    const mistake = computeTabletRecommendation({ ...shared, demandPpmPerDay: k })!;
+    expect(correct.intervalPpm / mistake.intervalPpm).toBeCloseTo(heldAtPpm, 5);
+    expect(mistake.intervalTablets).toBeLessThan(correct.intervalTablets / 4);
+  });
+
   it("returns nothing at all when there is no interval to size against", () => {
     // A body with no upcoming visit on a route. The caller gives advice with no dose rather
     // than printing a count it cannot stand behind.
@@ -125,6 +139,14 @@ describe("buildTabletNote", () => {
     const note = buildTabletNote(rec, { demandSource: "default", sampleSize: 0 });
     expect(note).toContain("isn't enough history on this pool to measure it");
     expect(note).not.toContain("service intervals");
+  });
+
+  it("says the demand figure is the one at target, not the pool's bare decay rate", () => {
+    // Under proportional decay those are two different numbers, and the one that sizes a
+    // feeder is consumption at the level the feeder holds -- see computeTabletRecommendation's
+    // doc comment. Printing "ppm a day" without saying at what level is what invites the mix-up.
+    expect(buildTabletNote(rec, { demandSource: "measured", sampleSize: 17 })).toContain("Held at target");
+    expect(buildTabletNote(rec, { demandSource: "default", sampleSize: 0 })).toContain("a day at target");
   });
 
   it("names the holder it is talking about", () => {

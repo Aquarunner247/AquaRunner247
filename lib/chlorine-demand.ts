@@ -11,33 +11,56 @@
  * strongest predictor of a failed pool, because it was the only one that reset the clock
  * without covering the interval.
  *
- * THE NUMBERS BELOW ARE MEASURED, NOT ASSUMED. 455 intervals where no chlorine was logged at
- * the opening visit -- pure decay, no dosing to model -- give a median demand of 0.667 ppm/day
- * overall, 0.676 in April-September and 0.513 in October-March, with a warm-season 75th
- * percentile of 1.30 and 90th of 2.00. That spread is the whole argument for measuring each
- * pool instead of picking one constant: a shaded courtyard pool and a hotel pool on the Strip
- * are not the same problem, and the same pool is not the same problem in May as in December.
+ * CHLORINE DECAYS PROPORTIONALLY, NOT BY A FIXED PPM/DAY. This module's first version modelled
+ * demand as a flat ppm/day per pool. That is the wrong law, and the org's own 159 dosed
+ * intervals -- which the demand estimate itself throws away, so they are a free test set --
+ * say so plainly (measured 2026-11-20):
+ *
+ *   - A flat ppm/day rate correlates with the free chlorine the interval STARTED at, r = 0.544
+ *     across 418 pure-decay intervals. A constant that moves with its own input is not a
+ *     constant. The proportional rate below correlates at r = 0.116: flat, as a real one should.
+ *   - Predicting the next visit's reading on the 41 believable pool doses, a flat ppm/day is off
+ *     by 7.02 ppm on average. The proportional law, same inputs, is off by 3.46. Half the error.
+ *
+ * So a pool loses a PERCENTAGE of what is in the water each day: FC(t) = FC(0) * e^(-k*t). The
+ * practical consequence is that dosing higher buys less than it looks like it should, because a
+ * higher level burns off faster -- which is why one dose cannot carry a thirsty pool a week, and
+ * why the honest answer there is a feeder rather than a bigger number.
+ *
+ * THE NUMBERS BELOW ARE MEASURED, NOT ASSUMED. 418 usable intervals across 23 bodies with
+ * enough history: median pool loses 12.1% of its free chlorine per day (k = 0.129), quartiles
+ * 7.4% and 17.4%, the thirstiest real pool 30.6%. That is a half-life of about five days for a
+ * typical pool here, and the spread is the whole argument for measuring each pool rather than
+ * picking one constant: a shaded courtyard pool and a hotel pool on the Strip are not the same
+ * problem, and the same pool is not the same problem in May as in December.
  *
  * WHAT THIS CANNOT DO, stated here because the calculator relies on it being honest. Holding a
- * 2 ppm floor for 7 days at 1.3 ppm/day needs about 11 ppm left in the water, which is above
- * any sane band and unpleasant to swim in. For those pools there IS no dose -- the answer is a
- * feeder, stabiliser to slow the UV loss, or another visit. projectCarryTarget therefore
- * reports how far the capped dose actually gets, and the caller says so rather than printing a
- * number it knows is short.
+ * 2 ppm floor for 7 days at 17%/day needs about 6.6 ppm left in the water; at 30%/day it needs
+ * 16 ppm, which is above any sane band and unpleasant to swim in. For those pools there IS no
+ * dose -- the answer is a feeder, stabiliser to slow the UV loss, or another visit.
+ * projectCarryTarget therefore reports how far the capped dose actually gets, and the caller
+ * says so rather than printing a number it knows is short.
+ *
+ * WHAT IT ALSO CANNOT DO: be precise. Within a single pool, interval-to-interval scatter is
+ * about 70% of that pool's own mean under either law -- weather, bather load and test-kit error
+ * dominate, and no amount of history fixes that. Switching laws removes a bias; it does not buy
+ * precision. Every number this module produces is a ballpark with a shortfall flag attached, and
+ * that is the most the data supports.
  *
  * Deliberately Prisma-free so the arithmetic is unit-testable on its own, the same split
  * dosing-units.ts has against dosing-calculator.ts.
  */
 
 /**
- * Fallback demand for a body with too little history to measure, and the median of this org's
- * own 455 undosed intervals rather than a figure from a manufacturer's chart. Rounded up from
- * 0.667 to leave the fallback slightly on the generous side: under-dosing is the failure this
- * module exists to fix, and the target is clamped to the compliance ceiling regardless.
+ * Decay constant for a body with too little history to measure: k in FC(t) = FC(0)*e^(-k*t),
+ * per day. 0.15 is a touch above this org's measured median pool (0.129, i.e. 12.1%/day) and
+ * sits between that median and the 75th percentile, leaving the fallback slightly on the
+ * generous side -- under-dosing is the failure this module exists to fix, and the target is
+ * clamped to the compliance ceiling regardless.
  */
-export const DEFAULT_DEMAND_PPM_PER_DAY = 0.7;
+export const DEFAULT_DECAY_CONSTANT_PER_DAY = 0.15;
 
-/** Below this many usable intervals the median is noise, so DEFAULT_DEMAND_PPM_PER_DAY stands. */
+/** Below this many usable intervals the median is noise, so DEFAULT_DECAY_CONSTANT_PER_DAY stands. */
 export const MIN_OBSERVATIONS_FOR_MEASURED_DEMAND = 3;
 
 /**
@@ -53,12 +76,13 @@ export const DEMAND_MIN_GAP_DAYS = 2;
 export const DEMAND_MAX_GAP_DAYS = 14;
 
 /**
- * Ceiling on a measured estimate. A single mistyped reading (30 instead of 3.0) would otherwise
- * produce a demand that makes the technician-facing note absurd. It cannot cause an unsafe dose
- * -- the target is clamped to the compliance maximum either way -- so this is about the estimate
- * staying believable, not about safety.
+ * Ceiling on a measured estimate, as a decay constant. 0.5/day is 39% of the water's chlorine
+ * gone daily -- comfortably above the thirstiest real pool measured here (0.366, 30.6%/day) and
+ * below what a mistyped reading produces (30 instead of 3.0 over a 3-day gap gives 0.90). It
+ * cannot cause an unsafe dose -- the target is clamped to the compliance maximum either way --
+ * so this is about the estimate staying believable, not about safety.
  */
-export const MAX_CREDIBLE_DEMAND_PPM_PER_DAY = 3;
+export const MAX_CREDIBLE_DECAY_CONSTANT_PER_DAY = 0.5;
 
 /** One observed service interval: the free chlorine measured at each end and the days between.
  * The caller supplies only intervals where NO chlorine was added at the opening visit, which is
@@ -66,16 +90,26 @@ export const MAX_CREDIBLE_DEMAND_PPM_PER_DAY = 3;
 export type DemandInterval = { startFc: number; endFc: number; gapDays: number };
 
 export type ChlorineDemand = {
-  ppmPerDay: number;
+  /** k in FC(t) = FC(0)*e^(-k*t), per day. Use dailyLossPercent to show it to a human. */
+  decayConstantPerDay: number;
   /** "measured" means this pool's own readings; "default" means there were too few to use. */
   source: "measured" | "default";
   /** Usable intervals behind a measured figure -- 0 whenever source is "default". */
   sampleSize: number;
-  /** True when at least one interval ended at exactly 0 ppm, so the real demand is at least
-   * this and possibly higher: the pool may have hit zero days before the technician arrived.
-   * Worth surfacing, because it changes a borderline "this just about holds" into a maybe. */
+  /** True when at least one recent interval ended at exactly 0 ppm. Those intervals cannot be
+   * measured at all -- ln(start/0) is undefined, and the water may have hit zero days before
+   * anyone arrived -- so they are dropped from the median and reported here instead. 59 of this
+   * org's 477 otherwise-usable intervals ended at 0, so this is not a rare branch: it turns a
+   * borderline "this just about holds" into a maybe. */
   floorCensored: boolean;
 };
+
+/** The decay constant as the percentage of the water's chlorine lost per day, which is the form
+ * a human can act on: k = 0.129 is "loses about 12% a day". Kept next to the constant it
+ * converts so the two cannot drift. */
+export function dailyLossPercent(decayConstantPerDay: number): number {
+  return (1 - Math.exp(-decayConstantPerDay)) * 100;
+}
 
 function median(sorted: number[]): number {
   const mid = Math.floor(sorted.length / 2);
@@ -83,42 +117,47 @@ function median(sorted: number[]): number {
 }
 
 /**
- * Median demand across a body's recent undosed intervals.
+ * Median decay constant across a body's recent undosed intervals.
  *
  * Median rather than mean on purpose: one holiday weekend or one algae bloom should not set the
- * standing dose for a pool, and the distribution measured here has a long right tail (median
- * 0.667, 90th percentile 1.75).
+ * standing dose for a pool, and the distribution measured here has a long right tail (the 99th
+ * percentile single interval is 0.96/day against a median pool of 0.129).
  *
  * An interval where chlorine ROSE is dropped rather than counted as zero demand. Chlorine does
  * not appear on its own, so that interval means something was added that was not logged, and
  * averaging it in would understate demand for the pool -- the exact direction of error this
  * module exists to correct.
+ *
+ * An interval ending at exactly 0 ppm is dropped too, because the proportional law has nothing
+ * to say about it: the pool reached zero at some unknown point in the gap, so the rate is only
+ * bounded below. It sets floorCensored instead, and the note tells the technician.
  */
 export function estimateChlorineDemand(intervals: DemandInterval[]): ChlorineDemand {
-  const usable = intervals.filter(
-    (i) =>
-      i.gapDays >= DEMAND_MIN_GAP_DAYS &&
-      i.gapDays <= DEMAND_MAX_GAP_DAYS &&
-      i.startFc > i.endFc,
+  const inWindow = intervals.filter(
+    (i) => i.gapDays >= DEMAND_MIN_GAP_DAYS && i.gapDays <= DEMAND_MAX_GAP_DAYS && i.startFc > i.endFc,
   );
+  // Separated from the filter above so a censored interval still counts as evidence of a
+  // thirsty pool even when it cannot be measured.
+  const floorCensored = inWindow.some((i) => i.endFc <= 0);
+  const usable = inWindow.filter((i) => i.endFc > 0 && i.startFc > 0);
 
   if (usable.length < MIN_OBSERVATIONS_FOR_MEASURED_DEMAND) {
     return {
-      ppmPerDay: DEFAULT_DEMAND_PPM_PER_DAY,
+      decayConstantPerDay: DEFAULT_DECAY_CONSTANT_PER_DAY,
       source: "default",
       sampleSize: 0,
-      floorCensored: false,
+      floorCensored,
     };
   }
 
-  const rates = usable.map((i) => (i.startFc - i.endFc) / i.gapDays).sort((a, b) => a - b);
+  const rates = usable.map((i) => Math.log(i.startFc / i.endFc) / i.gapDays).sort((a, b) => a - b);
   const raw = median(rates);
 
   return {
-    ppmPerDay: Math.min(raw, MAX_CREDIBLE_DEMAND_PPM_PER_DAY),
+    decayConstantPerDay: Math.min(raw, MAX_CREDIBLE_DECAY_CONSTANT_PER_DAY),
     source: "measured",
     sampleSize: usable.length,
-    floorCensored: usable.some((i) => i.endFc === 0),
+    floorCensored,
   };
 }
 
@@ -143,10 +182,16 @@ export type CarryProjection = {
  * The target that carries a pool to its next service day, or as close as the ceiling allows.
  *
  * Three rules, in order:
- *  1. Aim to still be at floorPpm when the technician next arrives: floor + demand x days.
+ *  1. Aim to still be at floorPpm when the technician next arrives. Under proportional decay
+ *     that is floor * e^(k*days), not floor + rate*days -- the level needed grows with the gap
+ *     rather than climbing a fixed amount per day, which is exactly why a long gap on a thirsty
+ *     pool asks for a number no band allows.
  *  2. Never go below the target the calculator already used, so this can only ever raise a
  *     dose. A change that could quietly lower chlorine on a commercial pool is not one worth
- *     the risk of getting wrong.
+ *     the risk of getting wrong. Worth knowing that this rule now does more work than it used
+ *     to: on a short gap the proportional law asks for slightly LESS than the flat-rate one did
+ *     (floor 2 over 3 days needs 2.9 ppm at 12%/day, where a 0.83 ppm/day flat rate asked 4.5),
+ *     and rule 2 is what stops that from becoming a quiet reduction.
  *  3. Never exceed maxPpm, which the caller sets from the compliance maximum and the org's own
  *     band -- whichever is lower. Rule 3 beats rule 1 every time; that is what makes a
  *     shortfall something to report instead of something to dose through.
@@ -155,22 +200,27 @@ export function projectCarryTarget(input: {
   baselineTargetPpm: number;
   floorPpm: number;
   maxPpm: number;
-  demandPpmPerDay: number;
+  decayConstantPerDay: number;
   daysUntilNextVisit: number;
 }): CarryProjection {
-  const { baselineTargetPpm, floorPpm, maxPpm, demandPpmPerDay, daysUntilNextVisit } = input;
+  const { baselineTargetPpm, floorPpm, maxPpm, decayConstantPerDay, daysUntilNextVisit } = input;
 
-  const desired = floorPpm + demandPpmPerDay * daysUntilNextVisit;
+  const desired = floorPpm * Math.exp(decayConstantPerDay * daysUntilNextVisit);
   // Rounded to 0.1 ppm because the Dosing Card prints this figure straight to the technician,
-  // and 6.199999999999999 is what floating point produces for floor 2 + 0.7 x 6. Rounded DOWN
-  // on the half so the ceiling can never be exceeded by rounding.
+  // and floating point does not hand back round numbers from an exponential. Rounded DOWN on
+  // the half so the ceiling can never be exceeded by rounding.
   const rounded = Math.ceil(Math.min(Math.max(baselineTargetPpm, desired), maxPpm) * 10 - 0.5) / 10;
   const targetPpm = Math.min(rounded, maxPpm);
 
+  // How long the capped target actually holds the floor: solving floor = target*e^(-k*t) for t.
   // A pool with no measurable demand holds indefinitely; reporting Infinity days would be true
   // and useless, so it simply bridges.
   const daysCovered =
-    demandPpmPerDay > 0 ? Math.max(0, (targetPpm - floorPpm) / demandPpmPerDay) : daysUntilNextVisit;
+    decayConstantPerDay > 0 && targetPpm > floorPpm
+      ? Math.log(targetPpm / floorPpm) / decayConstantPerDay
+      : decayConstantPerDay > 0
+        ? 0
+        : daysUntilNextVisit;
 
   return {
     targetPpm,
@@ -202,19 +252,19 @@ export const MIN_USEFUL_TOP_UP_PPM = 0.5;
 export function needsCarryTopUp(input: {
   currentPpm: number;
   floorPpm: number;
-  demandPpmPerDay: number;
+  decayConstantPerDay: number;
   daysUntilNextVisit: number;
   maxPpm: number;
 }): boolean {
-  const { currentPpm, floorPpm, demandPpmPerDay, daysUntilNextVisit, maxPpm } = input;
+  const { currentPpm, floorPpm, decayConstantPerDay, daysUntilNextVisit, maxPpm } = input;
 
   // Already above anything we would dose to -- adding more is wrong regardless of the gap.
   if (currentPpm >= maxPpm) return false;
 
-  const projectedAtNextVisit = currentPpm - demandPpmPerDay * daysUntilNextVisit;
+  const projectedAtNextVisit = currentPpm * Math.exp(-decayConstantPerDay * daysUntilNextVisit);
   if (projectedAtNextVisit >= floorPpm) return false;
 
-  const target = Math.min(floorPpm + demandPpmPerDay * daysUntilNextVisit, maxPpm);
+  const target = Math.min(floorPpm * Math.exp(decayConstantPerDay * daysUntilNextVisit), maxPpm);
   return target - currentPpm >= MIN_USEFUL_TOP_UP_PPM;
 }
 
@@ -279,7 +329,10 @@ export function buildCarryNote(input: {
   const { carry, demand, floorPpm, currentlyInRange, tabletFed = false, cyaHeadroomPpm = null } = input;
   const parts: string[] = [];
 
-  const rate = round1(demand.ppmPerDay);
+  // Shown as a percentage per day, not as the decay constant: "loses about 12% a day" is
+  // something a technician can sanity-check against the pool in front of them, and k = 0.129 is
+  // not. See dailyLossPercent.
+  const rate = round1(dailyLossPercent(demand.decayConstantPerDay));
   const gapLabel = `${carry.daysUntilNextVisit} ${dayWord(carry.daysUntilNextVisit)}`;
 
   // Its own sentence, rather than a clause inside the one above it. Spliced in mid-sentence the
@@ -287,8 +340,8 @@ export function buildCarryNote(input: {
   // measure its own demand yet it drops below 2 ppm...", which is not English.
   const basis =
     demand.source === "measured"
-      ? `Demand measured at ${rate} ppm/day from this pool's own history (median of ${demand.sampleSize} recent service ${demand.sampleSize === 1 ? "interval" : "intervals"}).`
-      : `Demand estimated at ${rate} ppm/day -- the default, until this pool has enough history of its own to measure.`;
+      ? `This pool loses about ${rate}% of its chlorine a day, measured from its own history (median of ${demand.sampleSize} recent service ${demand.sampleSize === 1 ? "interval" : "intervals"}).`
+      : `Assuming a loss of about ${rate}% a day -- the default, until this pool has enough history of its own to measure.`;
 
   parts.push(
     currentlyInRange
@@ -334,7 +387,7 @@ export function buildCarryNote(input: {
 
   if (demand.floorCensored) {
     parts.push(
-      "At least one recent interval ended at 0 ppm, so the real demand may be higher than measured -- the water may have run out of chlorine days before anyone arrived.",
+      "At least one recent interval ended at 0 ppm. Those cannot be measured at all -- the water may have run out days before anyone arrived -- so they are left out of the figure above, and the real loss may be higher than it says.",
     );
   }
 

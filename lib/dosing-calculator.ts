@@ -344,6 +344,13 @@ const CHLORINE_PRODUCT_NAME = /chlor|shock|tablet|trichlor|cal.?hypo|bleach|dich
  * the technician poured has to be modelled. Chlorine is identified by a link into the dosing
  * catalog where one exists and by name otherwise (see CHLORINE_PRODUCT_NAME).
  *
+ * The intervals this discards are not wasted -- they are what the decay law was validated
+ * against, since a dosed interval is a prediction the model never trained on. See the measured
+ * comparison in chlorine-demand.ts's header.
+ *
+ * Every interval in range is passed through, including ones ending at 0 ppm: the estimator
+ * drops those from its median itself but needs to see them to report floorCensored.
+ *
  * Returns the documented default when the pool has too little history -- a new property, or one
  * whose readings mostly lack free chlorine -- so a brand-new body of water still gets a
  * carry-aware dose rather than the old bring-to-target-and-hope one.
@@ -543,13 +550,13 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
             baselineTargetPpm: resolved.targetValue,
             floorPpm: resolved.boundMin,
             maxPpm: ceiling,
-            demandPpmPerDay: demand.ppmPerDay,
+            decayConstantPerDay: demand.decayConstantPerDay,
             daysUntilNextVisit: days,
           });
           carryTopUp = needsCarryTopUp({
             currentPpm: current,
             floorPpm: resolved.boundMin,
-            demandPpmPerDay: demand.ppmPerDay,
+            decayConstantPerDay: demand.decayConstantPerDay,
             daysUntilNextVisit: days,
             maxPpm: ceiling,
           });
@@ -643,9 +650,17 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
         // ceiling, but the feeder amount is sized from demand either way, so it is loaded here
         // when that happened. One query per visit, on an uncommon path.
         const tabletDemand = demand ?? (await loadChlorineDemand(visit.bodyOfWater.id, visit.organizationId));
+        // A feeder is sized in ppm it must REPLACE over the interval, which is the one place a
+        // ppm/day figure is still the right unit -- but under proportional decay that rate is
+        // not a property of the pool alone. A pool losing k of its chlorine daily while held at
+        // L ppm consumes k x L ppm/day, so the level the feeder is meant to hold is part of the
+        // arithmetic. The baseline target is that level: it is what the feeder exists to
+        // maintain, and sizing against the floor instead would stock it to hold the pool at the
+        // bottom of its own band.
+        const tabletDemandPpmPerDay = tabletDemand.decayConstantPerDay * resolved.targetValue;
         const tablet = computeTabletRecommendation({
           volumeGallons: gallons,
-          demandPpmPerDay: tabletDemand.ppmPerDay,
+          demandPpmPerDay: tabletDemandPpmPerDay,
           daysUntilNextVisit: days,
           dosingConstant: Number(tabletSetting.catalogProduct.dosingConstant),
         });
