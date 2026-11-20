@@ -827,21 +827,35 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </p>
                 <ul className="mt-3 space-y-3">
                   {closureHazardReadings.map((r) => (
-                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-danger/30 bg-white/70 p-3">
-                      <div>
-                        <p className="text-sm font-semibold text-brand-ink">
-                          {r.property} — {r.body}
-                        </p>
-                        {r.completedAt ? <p className="text-xs text-brand-icon">{formatLocalDate(r.completedAt, tz)}</p> : null}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        {r.params.map((p) => (
-                          <span key={p.key} className="flex items-center gap-1.5">
-                            <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
-                            <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
-                          </span>
-                        ))}
-                      </div>
+                    <li key={r.id}>
+                      {/* The whole row is the link, not the name inside it: the row is three
+                          things wide (name, date, gauges) and the one thing anybody wants from
+                          it is the visit that produced the reading. r.id IS the visit id -- see
+                          where these are pushed. */}
+                      <Link
+                        href={`/dashboard/visits/${r.id}`}
+                        className="group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-danger/30 bg-white/70 p-3 transition hover:border-brand-danger hover:bg-white"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-brand-ink group-hover:underline">
+                            {r.property} — {r.body}{" "}
+                            {/* The chevron is the only cue that survives a touch screen, where
+                                there is no hover to discover. */}
+                            <span aria-hidden="true" className="text-brand-icon">
+                              ›
+                            </span>
+                          </p>
+                          {r.completedAt ? <p className="text-xs text-brand-icon">{formatLocalDate(r.completedAt, tz)}</p> : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {r.params.map((p) => (
+                            <span key={p.key} className="flex items-center gap-1.5">
+                              <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
+                              <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -894,21 +908,31 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               ) : (
                 <ul className="mt-3 space-y-3">
                   {outOfRangeReadings.map((r) => (
-                    <li key={r.id} className="app-card-inset flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-brand-ink">
-                          {r.property} — {r.body}
-                        </p>
-                        {r.completedAt ? <p className="text-xs text-brand-icon">{formatLocalDate(r.completedAt, tz)}</p> : null}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        {r.params.map((p) => (
-                          <span key={p.key} className="flex items-center gap-1.5">
-                            <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
-                            <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
-                          </span>
-                        ))}
-                      </div>
+                    <li key={r.id}>
+                      {/* Same reasoning as the closure-risk rows above: the row is the target,
+                          and r.id is the visit id these readings were taken on. */}
+                      <Link
+                        href={`/dashboard/visits/${r.id}`}
+                        className="app-card-inset group flex flex-wrap items-center justify-between gap-3 transition hover:border-brand-primary hover:bg-white"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-brand-ink group-hover:underline">
+                            {r.property} — {r.body}{" "}
+                            <span aria-hidden="true" className="text-brand-icon">
+                              ›
+                            </span>
+                          </p>
+                          {r.completedAt ? <p className="text-xs text-brand-icon">{formatLocalDate(r.completedAt, tz)}</p> : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {r.params.map((p) => (
+                            <span key={p.key} className="flex items-center gap-1.5">
+                              <ChemGauge value={p.value} min={p.min} max={p.max} idealMin={p.idealMin} idealMax={p.idealMax} unit={p.unit} />
+                              <span className="text-xs font-medium text-brand-ink/70">{p.label}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </Link>
                     </li>
                 ))}
               </ul>

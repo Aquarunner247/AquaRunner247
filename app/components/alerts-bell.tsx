@@ -30,6 +30,7 @@ export type OverdueVisitItem = {
 };
 
 export type OutOfRangeItem = {
+  /** The ServiceVisit the reading was taken on -- both reading lists link straight to it. */
   id: string;
   property: string;
   body: string;
@@ -170,7 +171,10 @@ export function AlertsBell({
                   <ul className="mt-2 space-y-1">
                     {closureHazardReadings.map((r) => (
                       <li key={r.id} className="text-sm font-medium text-brand-danger">
-                        {r.property} — {r.body}: {r.issues.join(", ")}
+                        <Link href={`/dashboard/visits/${r.id}`} className="underline" onClick={() => setOpen(false)}>
+                          {r.property} — {r.body}
+                        </Link>
+                        : {r.issues.join(", ")}
                         {r.completedAtLabel ? ` (${r.completedAtLabel})` : ""}
                       </li>
                     ))}
@@ -305,7 +309,14 @@ export function AlertsBell({
                       <ul className="mt-1 space-y-1">
                         {outOfRangeReadings.map((r) => (
                           <li key={r.id} className="text-sm text-brand-ink/80">
-                            {r.property} — {r.body}: {r.issues.join(", ")}
+                            <Link
+                              href={`/dashboard/visits/${r.id}`}
+                              className="font-medium text-brand-ink underline"
+                              onClick={() => setOpen(false)}
+                            >
+                              {r.property} — {r.body}
+                            </Link>
+                            : {r.issues.join(", ")}
                             {r.completedAtLabel ? ` (${r.completedAtLabel})` : ""}
                           </li>
                         ))}
