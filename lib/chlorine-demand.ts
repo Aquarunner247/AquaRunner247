@@ -86,8 +86,56 @@ export const MAX_CREDIBLE_DECAY_CONSTANT_PER_DAY = 0.5;
 
 /** One observed service interval: the free chlorine measured at each end and the days between.
  * The caller supplies only intervals where NO chlorine was added at the opening visit, which is
- * what makes the drop pure decay. */
+ * what makes the drop pure decay. Build these with buildDecayIntervals rather than by hand. */
 export type DemandInterval = { startFc: number; endFc: number; gapDays: number };
+
+/**
+ * One free-chlorine reading on this body of water, as buildDecayIntervals needs to see it.
+ *
+ * `chlorineAdded` and `doseDataMissing` are not the same thing and must not be collapsed into
+ * one boolean: the first says chlorine WAS logged, the second says nothing could have been. Both
+ * disqualify a reading from opening an interval, for opposite reasons.
+ */
+export type DemandReading = {
+  at: Date;
+  fc: number;
+  /** Chlorine was logged at this visit, so the interval it opens is not pure decay. */
+  chlorineAdded: boolean;
+  /** This visit carries no dose rows by construction -- a log-only record, i.e. a reading
+   * transcribed from a paper logbook or entered with no technician dispatched. An absent dose
+   * here is silence, not evidence. */
+  doseDataMissing: boolean;
+};
+
+/**
+ * Consecutive readings turned into the intervals estimateChlorineDemand measures.
+ *
+ * A reading may only OPEN an interval when we know chlorine did not go in. Two separate things
+ * break that, and conflating them is the bug this function exists to make untestable-by-accident
+ * impossible: a visit that logged chlorine (not pure decay) and a visit that could not have
+ * logged any (log-only -- no dose rows exist for it either way, so its empty dose list means
+ * "unrecorded", not "none"). Before this was pulled out of dosing-calculator.ts, the second case
+ * was simply absent and every uploaded paper-log interval was measured as if it were pure decay.
+ *
+ * Either kind may still CLOSE an interval. The closing reading is a reading like any other, and
+ * a dose logged at the closing visit is poured after that reading is taken.
+ *
+ * Readings must already be in ascending time order, which is how the caller queries them.
+ */
+export function buildDecayIntervals(readings: DemandReading[]): DemandInterval[] {
+  const intervals: DemandInterval[] = [];
+  for (let i = 0; i < readings.length - 1; i++) {
+    const start = readings[i];
+    const end = readings[i + 1];
+    if (start.chlorineAdded || start.doseDataMissing) continue;
+    intervals.push({
+      startFc: start.fc,
+      endFc: end.fc,
+      gapDays: (end.at.getTime() - start.at.getTime()) / (24 * 60 * 60 * 1000),
+    });
+  }
+  return intervals;
+}
 
 export type ChlorineDemand = {
   /** k in FC(t) = FC(0)*e^(-k*t), per day. Use dailyLossPercent to show it to a human. */

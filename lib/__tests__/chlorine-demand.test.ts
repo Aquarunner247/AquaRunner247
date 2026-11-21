@@ -21,6 +21,8 @@ import {
   needsCarryTopUp,
   buildCarryNote,
   dailyLossPercent,
+  buildDecayIntervals,
+  type DemandReading,
   DEFAULT_DECAY_CONSTANT_PER_DAY,
   MAX_CREDIBLE_DECAY_CONSTANT_PER_DAY,
   MIN_USEFUL_TOP_UP_PPM,
@@ -130,6 +132,90 @@ describe("estimateChlorineDemand", () => {
     expect(d.source).toBe("default");
     expect(d.sampleSize).toBe(0);
     expect(d.floorCensored).toBe(true);
+  });
+});
+
+describe("buildDecayIntervals", () => {
+  const day = 24 * 60 * 60 * 1000;
+  const at = (n: number) => new Date(Date.UTC(2026, 8, 1) + n * day);
+  /** A plain serviced visit: dose data exists and no chlorine was in it. */
+  const serviced = (n: number, fc: number): DemandReading => ({
+    at: at(n),
+    fc,
+    chlorineAdded: false,
+    doseDataMissing: false,
+  });
+
+  it("pairs each reading with the next one", () => {
+    const intervals = buildDecayIntervals([serviced(0, 6), serviced(3, 4), serviced(6, 3)]);
+    expect(intervals).toEqual([
+      { startFc: 6, endFc: 4, gapDays: 3 },
+      { startFc: 4, endFc: 3, gapDays: 3 },
+    ]);
+  });
+
+  it("will not open an interval on a visit that logged chlorine", () => {
+    const intervals = buildDecayIntervals([
+      { ...serviced(0, 6), chlorineAdded: true },
+      serviced(3, 4),
+      serviced(6, 3),
+    ]);
+    expect(intervals).toEqual([{ startFc: 4, endFc: 3, gapDays: 3 }]);
+  });
+
+  it("will not open an interval on a log-only record", () => {
+    // The defect this function was extracted to fix. A log-only record -- a paper logbook
+    // reading, or one entered with no technician dispatched -- has no dose rows AT ALL, so
+    // chlorineAdded is false for a reason that proves nothing. Measured as pure decay, it reports
+    // whatever the uploaded history happens to show.
+    const intervals = buildDecayIntervals([
+      { ...serviced(0, 6), doseDataMissing: true },
+      serviced(3, 4),
+      serviced(6, 3),
+    ]);
+    expect(intervals).toEqual([{ startFc: 4, endFc: 3, gapDays: 3 }]);
+  });
+
+  it("still lets a log-only record CLOSE an interval", () => {
+    // The end reading is a reading like any other, and a dose at the closing visit is poured
+    // after it is taken. Dropping these too would throw away the one interval that spans the
+    // changeover from paper to app, which is real decay and measurable.
+    const intervals = buildDecayIntervals([serviced(0, 6), { ...serviced(4, 3), doseDataMissing: true }]);
+    expect(intervals).toEqual([{ startFc: 6, endFc: 3, gapDays: 4 }]);
+  });
+
+  it("measures nothing at all from a history that is entirely uploaded", () => {
+    // Four bodies here are mostly paper. Before the fix this returned three measurable
+    // intervals and estimateChlorineDemand called the result "measured".
+    const uploaded = [0, 3, 6, 9].map((n) => ({ ...serviced(n, 8 - n / 3), doseDataMissing: true }));
+    expect(buildDecayIntervals(uploaded)).toEqual([]);
+    expect(estimateChlorineDemand(buildDecayIntervals(uploaded)).source).toBe("default");
+  });
+
+  it("does not treat a skipped opener as a gap to bridge", () => {
+    // A dosed or log-only reading is skipped as an OPENER, not spliced out of the series: the
+    // interval after it still starts where it ends, so the 6 ppm reading is never paired with
+    // the 3 ppm one six days later as though nothing sat between them.
+    const intervals = buildDecayIntervals([
+      serviced(0, 6),
+      { ...serviced(3, 5), chlorineAdded: true },
+      serviced(6, 3),
+    ]);
+    expect(intervals).toEqual([{ startFc: 6, endFc: 5, gapDays: 3 }]);
+    expect(intervals).not.toContainEqual({ startFc: 6, endFc: 3, gapDays: 6 });
+  });
+
+  it("returns nothing for a body with a single reading", () => {
+    expect(buildDecayIntervals([serviced(0, 5)])).toEqual([]);
+    expect(buildDecayIntervals([])).toEqual([]);
+  });
+
+  it("reports fractional gaps rather than rounding to whole days", () => {
+    const [interval] = buildDecayIntervals([
+      { ...serviced(0, 6), at: new Date(Date.UTC(2026, 8, 1, 6)) },
+      { ...serviced(0, 4), at: new Date(Date.UTC(2026, 8, 3, 18)) },
+    ]);
+    expect(interval.gapDays).toBeCloseTo(2.5, 6);
   });
 });
 

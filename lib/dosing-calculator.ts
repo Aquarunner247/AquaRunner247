@@ -9,6 +9,7 @@ import {
 } from "@/lib/dose-product-selection";
 import {
   estimateChlorineDemand,
+  buildDecayIntervals,
   projectCarryTarget,
   needsCarryTopUp,
   buildCarryNote,
@@ -16,7 +17,7 @@ import {
   TABLET_FEEDER_CARRY_ACTION,
   type ChlorineDemand,
   type CarryProjection,
-  type DemandInterval,
+  type DemandReading,
 } from "@/lib/chlorine-demand";
 
 export { formatLiquidOz, formatWeightOz, convertToBillingUnit, daysUntilNextWeekday, computeTabletRecommendation } from "@/lib/dosing-units";
@@ -344,6 +345,15 @@ const CHLORINE_PRODUCT_NAME = /chlor|shock|tablet|trichlor|cal.?hypo|bleach|dich
  * the technician poured has to be modelled. Chlorine is identified by a link into the dosing
  * catalog where one exists and by name otherwise (see CHLORINE_PRODUCT_NAME).
  *
+ * logOnlyRecord is passed through to buildDecayIntervals, which is where the rule that a
+ * log-only record may close an interval but never open one is stated and tested. It matters
+ * because those records carry no dose rows by construction: all 1,299 of this org's have zero
+ * doses against 252 of 764 real visits, so an empty dose list there means "unrecorded", not
+ * "none". This org's uploads turn out to be benign -- excluding them moves the four affected
+ * bodies by at most 2.4 percentage points, and only Borgata's Gym (NE) Pool loses its measured
+ * status (4 usable intervals to 2). The next org to upload a year of history for a pool it was
+ * shocking weekly is the one this protects.
+ *
  * The intervals this discards are not wasted -- they are what the decay law was validated
  * against, since a dosed interval is a prediction the model never trained on. See the measured
  * comparison in chlorine-demand.ts's header.
@@ -370,6 +380,7 @@ async function loadChlorineDemand(bodyOfWaterId: string, organizationId: string)
       orderBy: { completedAt: "asc" },
       select: {
         completedAt: true,
+        logOnlyRecord: true,
         reading: { select: { freeChlorinePpm: true } },
         doses: { select: { productName: true, chemicalProductId: true } },
       },
@@ -384,7 +395,7 @@ async function loadChlorineDemand(bodyOfWaterId: string, organizationId: string)
     chlorineSettings.map((s) => s.linkedBillingProductId).filter((id): id is string => id != null),
   );
 
-  const points = visits
+  const readings: DemandReading[] = visits
     .filter((v) => v.completedAt != null && v.reading?.freeChlorinePpm != null)
     .map((v) => ({
       at: v.completedAt as Date,
@@ -394,21 +405,10 @@ async function loadChlorineDemand(bodyOfWaterId: string, organizationId: string)
           (d.chemicalProductId != null && chlorineBillingIds.has(d.chemicalProductId)) ||
           CHLORINE_PRODUCT_NAME.test(d.productName),
       ),
+      doseDataMissing: v.logOnlyRecord,
     }));
 
-  const intervals: DemandInterval[] = [];
-  for (let i = 0; i < points.length - 1; i++) {
-    const start = points[i];
-    const end = points[i + 1];
-    if (start.chlorineAdded) continue; // not pure decay -- see above
-    intervals.push({
-      startFc: start.fc,
-      endFc: end.fc,
-      gapDays: (end.at.getTime() - start.at.getTime()) / (24 * 60 * 60 * 1000),
-    });
-  }
-
-  return estimateChlorineDemand(intervals);
+  return estimateChlorineDemand(buildDecayIntervals(readings));
 }
 
 /** FREE_CHLORINE only ever raises via a product in this calculator (no "too high"
