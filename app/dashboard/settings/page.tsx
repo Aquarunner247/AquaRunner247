@@ -50,6 +50,12 @@ const CUSTOMIZATION_LINKS: SettingsLink[] = [
 
 const COMPANY_LINKS: SettingsLink[] = [
   {
+    href: "/dashboard/settings/smart-dosing",
+    title: "Smart dosing",
+    description:
+      "By default every dose is sized to meet your state's range today. Turn this on to also size chlorine to last until the next visit, measured from each pool's own history.",
+  },
+  {
     href: "/dashboard/settings/optional-readings",
     title: "Optional readings",
     description:

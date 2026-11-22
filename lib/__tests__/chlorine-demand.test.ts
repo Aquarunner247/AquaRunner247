@@ -22,6 +22,7 @@ import {
   buildCarryNote,
   dailyLossPercent,
   buildDecayIntervals,
+  carryApplies,
   type DemandReading,
   DEFAULT_DECAY_CONSTANT_PER_DAY,
   MAX_CREDIBLE_DECAY_CONSTANT_PER_DAY,
@@ -230,6 +231,40 @@ describe("dailyLossPercent", () => {
     // as a percentage would overstate every thirsty pool.
     expect(dailyLossPercent(0.2282)).toBeLessThan(22.82);
     expect(dailyLossPercent(0.2282)).toBeCloseTo(20.403, 2);
+  });
+});
+
+describe("carryApplies", () => {
+  it("projects only when the org asked for it and the body has no automation", () => {
+    expect(carryApplies({ smartDosingEnabled: true, onAutomation: false })).toEqual({ projects: true });
+  });
+
+  it("does not project for an org on the compliance-first default", () => {
+    expect(carryApplies({ smartDosingEnabled: false, onAutomation: false })).toEqual({
+      projects: false,
+      reason: "smart-dosing-off",
+    });
+  });
+
+  it("does not project on an automation body, even with smart dosing switched on", () => {
+    // The point of step 1. An automation system is built to hold a level between visits, so the
+    // gap the projection exists to cover is already covered -- which is not something an org
+    // setting can make untrue. A refactor that reordered these two clauses would silently put
+    // carry dosing back on every liquid-feed-pump pool in the account, which is what this pins.
+    expect(carryApplies({ smartDosingEnabled: true, onAutomation: true })).toEqual({
+      projects: false,
+      reason: "automation-covers-the-gap",
+    });
+  });
+
+  it("blames the automation, not the setting, when both would stop it", () => {
+    // Both reasons apply; the one reported is the one the settings page cannot offer to change.
+    // Reporting "smart-dosing-off" here would invite an admin to switch something on that would
+    // not alter this body's advice at all.
+    expect(carryApplies({ smartDosingEnabled: false, onAutomation: true })).toEqual({
+      projects: false,
+      reason: "automation-covers-the-gap",
+    });
   });
 });
 

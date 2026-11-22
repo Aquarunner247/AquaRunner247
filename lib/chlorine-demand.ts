@@ -209,6 +209,36 @@ export function estimateChlorineDemand(intervals: DemandInterval[]): ChlorineDem
   };
 }
 
+/**
+ * Whether the carry projection below applies to a body of water at all.
+ *
+ * Pulled out as its own function for the same reason buildDecayIntervals was: the rule it states
+ * is one sentence, it is the whole of what "automation bodies stop getting carry dosing" means,
+ * and left as a two-clause boolean inside the Prisma-bound calculator nothing could assert on it.
+ * The last rule in this module that lived there went a year with a case missing.
+ *
+ * The two reasons are not interchangeable and the ORDER between them is the part worth pinning.
+ * An automation body does not get a projection even when the org has smart dosing switched on,
+ * because the reason is physical rather than preferential: the projection exists to leave enough
+ * chlorine behind to cover an unattended gap, and on these bodies a feed pump is already covering
+ * it. No setting makes that question meaningful again. So automation is reported first.
+ */
+export type CarryApplicability =
+  | { projects: true }
+  | {
+      projects: false;
+      /** "automation-covers-the-gap" cannot be changed by a setting; "smart-dosing-off" is the
+       * org's own choice and the settings page can offer to change it. Callers that explain
+       * themselves to a technician need to tell those two apart. */
+      reason: "automation-covers-the-gap" | "smart-dosing-off";
+    };
+
+export function carryApplies(input: { smartDosingEnabled: boolean; onAutomation: boolean }): CarryApplicability {
+  if (input.onAutomation) return { projects: false, reason: "automation-covers-the-gap" };
+  if (!input.smartDosingEnabled) return { projects: false, reason: "smart-dosing-off" };
+  return { projects: true };
+}
+
 export type CarryProjection = {
   /** What to dose to. Never below the caller's existing target, never above maxPpm. */
   targetPpm: number;

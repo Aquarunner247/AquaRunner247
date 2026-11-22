@@ -1,0 +1,28 @@
+-- Carry-aware chlorine dosing becomes opt-in, and compliance-first becomes the default.
+--
+-- WHY. The carry projection (lib/chlorine-demand.ts) sizes a chlorine dose to still be above
+-- the floor when the technician next arrives, from a decay constant measured out of that pool's
+-- own undosed intervals. That is good advice on a pool with history and a guess on one without:
+-- below MIN_OBSERVATIONS_FOR_MEASURED_DEMAND usable intervals it falls back to a single
+-- org-wide constant, and this org's own measured pools span 4.2%/day to 30.6%/day -- a sevenfold
+-- spread, so one constant is not a stand-in for any particular pool. Shipping that as the
+-- default meant a company on its first week got projections built on a number from somebody
+-- else's pools.
+--
+-- What they get instead, with no history at all, is the dose that puts the water inside the
+-- range its OWN state requires today, named in that state's name on the card. Every number
+-- behind that already comes from ComplianceRuleset per state (lib/compliance.ts) -- nothing
+-- here is Nevada-specific, and an org in a state with no supported ruleset still falls back to
+-- its own configured targets exactly as before.
+--
+-- WHAT THIS DOES TO EXISTING DATA: every existing organization defaults to FALSE, which turns
+-- the carry projection OFF for them until an admin enables it under
+-- Settings > Smart dosing. That is deliberate rather than an oversight -- a flag that silently
+-- grandfathers in the behaviour it was added to make optional is not an opt-in. The one org
+-- running this today (22 bodies with measured demand) re-enables it with one click on the page
+-- this migration exists to serve, and nothing about their stored recommendations changes;
+-- ChemistryRecommendation rows are point-in-time records and are not recomputed.
+--
+-- No index: this is read once per visit alongside the organization row the dosing calculator
+-- already loads.
+ALTER TABLE "Organization" ADD COLUMN "smartDosingEnabled" BOOLEAN NOT NULL DEFAULT false;

@@ -83,3 +83,27 @@ export async function updateOptionalReadings(formData: FormData) {
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/settings/optional-readings");
 }
+
+/**
+ * Whether this organization's dosing recommendations project past today.
+ *
+ * Off is the default and off is the compliance-first recommendation -- see
+ * Organization.smartDosingEnabled for why this is opt-in rather than unlocked after a number of
+ * days of readings. Same unticked-checkbox trap as updateOptionalReadings above: an unticked box
+ * submits nothing, so this reads "=== 'on'" rather than trusting a value to arrive, which is what
+ * makes the toggle capable of turning the feature OFF again.
+ *
+ * Nothing already saved changes. ChemistryRecommendation rows are point-in-time records of what a
+ * technician was told at the time and are never recomputed; this governs the next visit onward.
+ */
+export async function updateSmartDosing(formData: FormData) {
+  const appUser = await requireAdmin();
+
+  await prisma.organization.update({
+    where: { id: appUser.organizationId },
+    data: { smartDosingEnabled: String(formData.get("smartDosingEnabled") ?? "") === "on" },
+  });
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/settings/smart-dosing");
+}

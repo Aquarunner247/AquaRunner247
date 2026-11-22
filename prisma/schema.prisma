@@ -237,6 +237,32 @@ model Organization {
   trackCalciumHardness Boolean @default(false)
   trackSaltPpm         Boolean @default(false)
 
+  /// Whether this organization's dosing recommendations project past today.
+  ///
+  /// OFF is the default, and off is not a degraded mode -- it is the compliance-first
+  /// recommendation: every dose is sized to put the water inside the range its own state
+  /// requires, today, and the Dosing Card says so in that state's name. That is the answer a
+  /// company on its first week can act on and defend to an inspector, and it needs no service
+  /// history at all.
+  ///
+  /// ON adds the carry projection in lib/chlorine-demand.ts: free chlorine is sized to still be
+  /// above the floor when the technician next arrives, from a decay constant measured out of
+  /// THIS pool's own undosed intervals. That is strictly better advice once a pool has enough
+  /// of its own history and strictly worse before -- with fewer than
+  /// MIN_OBSERVATIONS_FOR_MEASURED_DEMAND intervals it falls back to a single org-wide
+  /// constant, which is a guess dressed as a measurement. Hence opt-in rather than default-on.
+  ///
+  /// Deliberately NOT gated on a number of days. The obvious design was "unlock after N days of
+  /// readings", and it was dropped because no honest N could be derived: tested on the only two
+  /// bodies here with eight or more usable intervals, the estimate's distance from its own final
+  /// value ran 54.9%, 8%, 36%, 31%, 36%, 15%, 29%, 12% as intervals accumulated -- not
+  /// monotonic, so there is no point at which it has "settled". What the estimator can state
+  /// truthfully is per-pool coverage (how many of this org's bodies have measured their own
+  /// demand versus sitting on the default), which is what the settings page shows instead.
+  ///
+  /// Reads off this flag belong in lib/dosing-calculator.ts and nowhere else.
+  smartDosingEnabled   Boolean @default(false)
+
   /// Set when someone at this org clicks "Book a free onboarding call" on the
   /// site-wide banner (see OnboardingCallBanner) -- a best-effort "they've engaged"
   /// signal, not a verified attendance record (no Setmore webhook integration exists).

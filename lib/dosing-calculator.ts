@@ -10,6 +10,8 @@ import {
 import {
   estimateChlorineDemand,
   buildDecayIntervals,
+  dailyLossPercent,
+  carryApplies,
   projectCarryTarget,
   needsCarryTopUp,
   buildCarryNote,
@@ -86,6 +88,26 @@ export type DosingRecommendation = {
   billingLink: DosingBillingLink | null;
 };
 
+/**
+ * What the numbers on this card are measured against, so the card can say it rather than
+ * leaving a technician to assume.
+ *
+ * The operator's requirement (2026-11-22): a company on its first week should be recommended
+ * what gets and keeps it compliant with its OWN state today, and the recommendation should say
+ * that plainly. Every target already comes from that state's ComplianceRuleset -- this type is
+ * what carries the state's name out to the screen so the claim can be made in it.
+ */
+export type DosingBasis = {
+  /** The state whose rules set the ranges on this card, by name -- "Nevada", "Arkansas".
+   * Null when no supported ruleset is linked, in which case the targets are whatever the org
+   * configured for itself and the card must not claim a state behind them. */
+  stateName: string | null;
+  /** False on the compliance-first default: every dose here is sized to put the water inside
+   * that range today and projects nothing past this visit. True once an admin has enabled
+   * smart dosing, which adds the carry projection for free chlorine. */
+  smartDosing: boolean;
+};
+
 export type DosingResult = {
   visitId: string;
   bodyOfWaterId: string;
@@ -93,6 +115,15 @@ export type DosingResult = {
   phStatus: PhRangeStatus | null;
   warnings: string[];
   computedAt: string;
+  /** Null on recommendations persisted before 2026-11-22, which is why every reader must treat
+   * it as optional -- ChemistryRecommendation rows are point-in-time records and are never
+   * backfilled or recomputed. */
+  basis?: DosingBasis;
+  /** Said about a body whose chlorine is held by an automation system and is currently where it
+   * should be: there is no dose, and the REASON there is no dose is worth stating, because it is
+   * the equipment doing its job rather than nothing having been checked. Null for every other
+   * body and whenever a chlorine dose is being recommended anyway. */
+  chlorineSystemNote?: string | null;
 };
 
 function toNum(v: unknown): number | null {
@@ -290,7 +321,11 @@ async function loadEnabledProductsByType(organizationId: string): Promise<Map<Ch
 
 /** Prefixes a FREE_CHLORINE recommendation's note with mechanism-specific guidance -- a low
  * reading at a feeder- or pump-fed body usually means "check/refill it," not "here's how
- * much to pour in right now." Empty for MANUAL, which keeps today's behavior unchanged. */
+ * much to pour in right now." Empty for MANUAL, which keeps today's behavior unchanged.
+ *
+ * LIQUID_FEED_PUMP is handled by AUTOMATION_CORRECTION_NOTE / AUTOMATION_OVER_FEED_NOTE instead
+ * of here, because on those bodies the mechanism does not merely qualify the dose -- it decides
+ * what kind of dose is correct. See the automation block in computeAndSaveDosingRecommendation. */
 function feedMechanismPrefix(mechanism: ChlorineFeedMechanism): string {
   if (mechanism === "TABLET_FEEDER") {
     return "This body uses a tablet feeder for chlorine -- check/refill the feeder first. If FC is still low after that, ";
@@ -298,11 +333,42 @@ function feedMechanismPrefix(mechanism: ChlorineFeedMechanism): string {
   if (mechanism === "TABLET_FLOATER") {
     return "This body uses a floating tablet dispenser -- check it is not empty or stuck in a corner first. If FC is still low after that, ";
   }
-  if (mechanism === "LIQUID_FEED_PUMP") {
-    return "This body uses a liquid chlorine feed pump -- check the tank level and pump operation first. If FC is still low after that, ";
-  }
   return "";
 }
+
+/**
+ * AN AUTOMATION SYSTEM HOLDS A LEVEL; IT DOES NOT REACH ONE.
+ *
+ * The operator's own diagnosis, 2026-11-22, and it is the reason these three notes exist. A
+ * plumbed chlorinator or liquid feed pump is set to maintain the water where it already is: it
+ * trickles in roughly what the pool consumes. Nothing about it is sized to climb 3 ppm, so when
+ * the water is out of range the technician hand-doses it to target and the system takes over
+ * from there. Which means the carry projection -- the whole point of which is to leave enough
+ * chlorine behind to cover an unattended gap -- is answering a question these bodies do not
+ * have. Something is already covering the gap.
+ *
+ * So on an automation body the dose is a one-time correction to the state's own target, computed
+ * from today's reading and nothing else, and the projection is skipped rather than quietly
+ * folded in. Measured consequence of NOT doing this: the 74 chlorine and acid rows logged on
+ * this org's automation bodies over 120 days are every one of them a whole number of gallons,
+ * because what a technician logs on these bodies is a barrel refill, not a dose into the water
+ * -- 2.0 GAL against a 1,470-gallon spa is +163 ppm, which is impossible, and it was being fed
+ * back in as evidence about demand.
+ */
+const AUTOMATION_CORRECTION_NOTE =
+  "This body's chlorine is held by an automation system, which is built to keep a level rather than to reach one -- so the water has to be brought to target by hand and the system holds it from there. Check the tank is not empty and the system is actually running, then dose the amount below. It is a one-time correction sized for today, not a reserve for the gap: covering the gap is the system's job.";
+
+/** Free chlorine ABOVE target on an automation body, which is a different fault from a pool
+ * that drifted up in the sun -- something is feeding it. Dosing it down without turning the feed
+ * down first corrects a number and leaves the cause running. */
+const AUTOMATION_OVER_FEED_NOTE =
+  "Free chlorine is above target on an automation system, which usually means the system is over-feeding -- turn the feed rate down or shut it off before correcting the water, or it will push it straight back up.";
+
+/** An automation body whose chlorine is where it should be. Worth one line rather than silence:
+ * the absence of a dose here is the equipment doing its job, and a technician who is told nothing
+ * cannot tell that from a card that failed to compute. */
+const AUTOMATION_HOLDING_NOTE =
+  "Free chlorine is in range and this body is on an automation system, which is what keeps it there between visits -- nothing to dose. Worth a look at the tank level while you are here, since the system can only hold the level while it has something to feed.";
 
 /** Resolves how many days until this body of water's next regularly-scheduled visit, used
  * to project a tablet-feeder maintenance dose (see computeTabletRecommendation).
@@ -458,6 +524,19 @@ function buildRecommendation(input: {
  * version of this feature used, which survived that removal since it isn't
  * dosing-schema-specific). Returns null when there's no reading yet or the body of water
  * has no configured volume. Safe to call on every reading save.
+ *
+ * TWO THINGS DECIDE HOW FAR AHEAD THIS LOOKS, and by default it looks no further than today.
+ *
+ *  - Organization.smartDosingEnabled, off by default. Off means every dose here is sized to put
+ *    the water inside the range its own state requires, now, and `basis` says so on the card in
+ *    that state's name. On adds the carry projection for free chlorine.
+ *  - BodyOfWater.chlorineFeedMechanism === LIQUID_FEED_PUMP, which skips the projection whatever
+ *    the org has chosen, because an automation system is already covering the gap the projection
+ *    exists to cover. See AUTOMATION_CORRECTION_NOTE.
+ *
+ * Nothing in either path is specific to one state: every bound comes from the org's own
+ * ComplianceRuleset via boundsFor, and an org whose state has no supported ruleset falls back to
+ * its own configured targets with `basis.stateName` left null so the card claims no state.
  */
 export async function computeAndSaveDosingRecommendation(visitId: string): Promise<DosingResult | null> {
   const visit = await prisma.serviceVisit.findUnique({
@@ -473,11 +552,32 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
 
   const gallons = Number(visit.bodyOfWater.volumeGallons);
 
-  const [orgTargets, enabledProductsByType] = await Promise.all([
+  const [orgTargets, enabledProductsByType, org, ruleset] = await Promise.all([
     prisma.orgComplianceTarget.findMany({ where: { organizationId: visit.organizationId } }),
     loadEnabledProductsByType(visit.organizationId),
+    prisma.organization.findUnique({
+      where: { id: visit.organizationId },
+      select: { smartDosingEnabled: true },
+    }),
+    getOrganizationRuleset(visit.organizationId),
   ]);
   const orgTargetByType = new Map((orgTargets as unknown as OrgTargetRow[]).map((t) => [t.chemicalType, t]));
+
+  // WHAT THIS CARD IS ALLOWED TO CLAIM.
+  //
+  // Compliance-first is the default and the only thing an org with no history can honestly be
+  // told: these targets are its own state's, and the dose puts the water inside them today. The
+  // state's name comes from the ruleset rather than from the org's `state` code so the card can
+  // write "Nevada" and not "NV", and it is null unless the ruleset is actually supported --
+  // claiming a state behind numbers that came from the org's own OrgComplianceTarget rows would
+  // be the one untrue sentence on the screen. See Organization.smartDosingEnabled for why the
+  // projection is opt-in rather than unlocked after N days.
+  const smartDosing = org?.smartDosingEnabled ?? false;
+  const basis: DosingBasis = {
+    stateName: isComplianceActive(ruleset) ? ruleset.stateName : null,
+    smartDosing,
+  };
+  let chlorineSystemNote: string | null = null;
 
   // How much cyanuric acid room is left, for the chlorine note to reason with. Trichlor brings
   // stabiliser in with it, so on a tablet-fed body this is the difference between "raise CYA so
@@ -510,6 +610,13 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
       visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FEEDER" ||
       visit.bodyOfWater.chlorineFeedMechanism === "TABLET_FLOATER";
 
+    // Two independent reasons the forward projection does not run, and they are kept separate
+    // because they are different claims. smartDosing is the org saying "I have not asked for
+    // projections"; onAutomation is the equipment saying "there is nothing to project" (see
+    // AUTOMATION_CORRECTION_NOTE). Either one alone is enough.
+    const onAutomation = visit.bodyOfWater.chlorineFeedMechanism === "LIQUID_FEED_PUMP";
+    const projectCarry = carryApplies({ smartDosingEnabled: smartDosing, onAutomation }).projects;
+
     // CHLORINE THAT HAS TO LAST UNTIL THE NEXT VISIT.
     //
     // Every other chemical here is stable between visits: alkalinity does not evaporate and
@@ -532,7 +639,7 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     let carryTopUp = false;
     let fcDaysUntilNextVisit: number | null = null;
 
-    if (key === "FREE_CHLORINE" && resolved.boundMin != null) {
+    if (key === "FREE_CHLORINE" && resolved.boundMin != null && projectCarry) {
       // The ceiling is the LOWER of the regulatory maximum and this org's own band -- Nevada
       // allows 10 ppm where Lindley's asks for 2-8, and the org's own standard is the one to
       // respect. Dosing past what the operator asked for would be legal and still wrong.
@@ -568,6 +675,13 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     // This is where most of the failures were: 144 of the 239 pools that came back under the
     // minimum were in range when the technician last stood over them, and the card said nothing.
     const inRange = isInRange(current, resolved);
+
+    // Nothing to dose, and on an automation body that is a statement rather than a silence --
+    // see AUTOMATION_HOLDING_NOTE. Set before the skip below, which is what actually suppresses
+    // the recommendation: this is deliberately NOT a recommendation, so it never gets the
+    // warn-coloured treatment an action does.
+    if (key === "FREE_CHLORINE" && onAutomation && inRange) chlorineSystemNote = AUTOMATION_HOLDING_NOTE;
+
     if (inRange && !carryTopUp) continue;
 
     // "In range today, short by the next visit" -- the case that needs explaining rather than
@@ -585,6 +699,12 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
 
     const productChemicalType = productChemicalTypeFor(key, direction);
     const feedPrefix = key === "FREE_CHLORINE" ? feedMechanismPrefix(visit.bodyOfWater.chlorineFeedMechanism) : "";
+
+    // Replaces the note entirely on an automation body rather than prefixing it, because there
+    // is no carry note to prefix (projectCarry is false above) and the two directions need
+    // genuinely different advice: bring it to target by hand, or turn the feed down first.
+    const automationNote =
+      key === "FREE_CHLORINE" && onAutomation ? (direction === "UP" ? AUTOMATION_CORRECTION_NOTE : AUTOMATION_OVER_FEED_NOTE) : null;
 
     // A tablet-fed body gets the TABLET recommendation and nothing else.
     //
@@ -643,6 +763,15 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
         continue;
       }
 
+      // THE FEEDER COUNT IS NOT GATED ON smartDosingEnabled, and that is a considered line
+      // rather than an omission. What smartDosingEnabled governs is the carry PROJECTION: the
+      // part that raises a target above what compliance asks for, and the part that flags an
+      // in-range reading as one that will not last. Both of those are skipped above when it is
+      // off. How many pucks to leave in a holder is a different question with no alternative
+      // answer -- a feeder exists to replace what the pool consumes between visits, so some
+      // consumption figure has to size it or there is no number to give at all -- and
+      // buildTabletNote already states in the technician's own words whether that figure was
+      // measured from this pool or is the default standing in for one.
       const tabletSetting = enabledProductsByType.get("FREE_CHLORINE")?.find((s) => s.catalogProduct.form === "TABLET");
       if (tabletSetting) {
         const days = fcDaysUntilNextVisit ?? (await daysUntilNextVisit(visit.bodyOfWater.id, visit.organizationId));
@@ -777,11 +906,15 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
           note:
             direction === "DOWN"
               ? key === "FREE_CHLORINE"
-                ? "Free chlorine is ABOVE target -- do not add chlorine. It falls on its own in sunlight; partially draining and refilling brings it down faster. Sodium thiosulfate lowers it chemically if you stock it (enable it under Settings > Chemicals)."
+                ? onAutomation
+                  ? `${AUTOMATION_OVER_FEED_NOTE} Chlorine also falls on its own in sunlight once the feed is off; sodium thiosulfate lowers it chemically if you stock it (enable it under Settings > Chemicals).`
+                  : "Free chlorine is ABOVE target -- do not add chlorine. It falls on its own in sunlight; partially draining and refilling brings it down faster. Sodium thiosulfate lowers it chemically if you stock it (enable it under Settings > Chemicals)."
                 : `${CHEMICAL_LABELS[key]} is above target. No enabled product lowers it -- partial drain and refill is the usual correction.`
-              : feedPrefix
-                ? `${feedPrefix}no enabled primary product is configured for a manual correction -- set one on the Chemicals admin page.`
-                : `No enabled primary product configured for ${CHEMICAL_LABELS[key]} -- set one on the Chemicals admin page.`,
+              : automationNote
+                ? `${automationNote} No enabled primary product is configured to dose with -- set one on the Chemicals admin page.`
+                : feedPrefix
+                  ? `${feedPrefix}no enabled primary product is configured for a manual correction -- set one on the Chemicals admin page.`
+                  : `No enabled primary product configured for ${CHEMICAL_LABELS[key]} -- set one on the Chemicals admin page.`,
         }),
       );
       if (key === "CYA") cyaOutOfRange = true;
@@ -816,13 +949,15 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
         targetMax: resolved.boundMax,
         productName: catalog.name,
         formattedDose: formatDose(rawDose, catalog.dosingUnit),
-        note: carryNote
-          ? feedPrefix
-            ? `${feedPrefix}the dose below is on top of that. ${carryNote}`
-            : carryNote
-          : feedPrefix
-            ? `${feedPrefix}the dose below is a one-time correction on top of that.`
-            : null,
+        note:
+          automationNote ??
+          (carryNote
+            ? feedPrefix
+              ? `${feedPrefix}the dose below is on top of that. ${carryNote}`
+              : carryNote
+            : feedPrefix
+              ? `${feedPrefix}the dose below is a one-time correction on top of that.`
+              : null),
         rawAmount: rawDose,
         dosingUnit: catalog.dosingUnit,
         billingLink: buildBillingLink(setting.linkedBillingProduct, rawDose, catalog.dosingUnit),
@@ -868,6 +1003,8 @@ export async function computeAndSaveDosingRecommendation(visitId: string): Promi
     phStatus,
     warnings,
     computedAt: new Date().toISOString(),
+    basis,
+    chlorineSystemNote,
   };
 
   await prisma.chemistryRecommendation.upsert({
@@ -928,5 +1065,135 @@ export function computePhDose(
     rawAmount: rawDose,
     dosingUnit: product.dosingUnit,
     billingLink: buildBillingLink(linkedBillingProduct ?? null, rawDose, product.dosingUnit),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Smart-dosing readiness
+// ---------------------------------------------------------------------------
+
+/** One chlorine body of water and whether its own demand is measurable yet. */
+export type BodyDemandReadiness = {
+  bodyOfWaterId: string;
+  bodyName: string;
+  propertyName: string;
+  chlorineFeedMechanism: ChlorineFeedMechanism;
+  /** "measured" from this pool's own undosed intervals, or "default" -- the org-wide constant. */
+  source: ChlorineDemand["source"];
+  sampleSize: number;
+  /** The loss rate as a percentage per day, for display. Null when source is "default", so a
+   * figure that came from a shared constant is never printed as if it described this pool. */
+  dailyLossPercent: number | null;
+};
+
+export type SmartDosingReadiness = {
+  enabled: boolean;
+  /** Null when no supported ruleset is linked -- the settings page must then not name a state. */
+  stateName: string | null;
+  /** Automation bodies are excluded from both counts below: the projection never applies to
+   * them whatever the org chooses (see AUTOMATION_CORRECTION_NOTE), so counting them as "not
+   * ready" would report a gap that enabling the feature could not close. */
+  bodies: BodyDemandReadiness[];
+  measuredCount: number;
+  /** Bodies on an automation system, reported separately so the page can say why they are not
+   * in the list rather than appearing to have lost them. */
+  automationCount: number;
+};
+
+/**
+ * How much of this organization's own history the carry projection would actually rest on.
+ *
+ * This exists because the obvious gate -- "unlock smart dosing after N days of readings" -- could
+ * not be derived honestly. On the only two bodies here with eight or more usable intervals, the
+ * estimate's distance from its own final value went 54.9%, 8%, 36%, 31%, 36%, 15%, 29%, 12% as
+ * intervals accumulated. That is not a curve settling, so there is no N at which it has settled,
+ * and picking one would have been a number invented to make a toggle feel earned.
+ *
+ * What CAN be stated truthfully is per-pool: this body has three or more of its own undosed
+ * intervals in the last DEMAND_LOOKBACK_DAYS days, so its rate is its own, or it does not, so its
+ * rate is the org-wide default. An admin deciding whether to turn the projection on is better
+ * served by "19 of your 31 pools measure their own demand; the other 12 would use a shared
+ * default" than by a progress bar counting down to a threshold nobody can justify.
+ *
+ * One query over the org's recent visits rather than one per body -- the same rows
+ * loadChlorineDemand reads, grouped in memory instead of filtered in SQL, which is what makes
+ * this cheap enough for a settings page.
+ */
+export async function loadSmartDosingReadiness(organizationId: string): Promise<SmartDosingReadiness> {
+  const since = new Date(Date.now() - DEMAND_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+
+  const [org, ruleset, bodies, visits, chlorineSettings] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: organizationId }, select: { smartDosingEnabled: true } }),
+    getOrganizationRuleset(organizationId),
+    prisma.bodyOfWater.findMany({
+      where: { property: { organizationId }, disinfectionMethod: "CHLORINE" },
+      select: { id: true, name: true, chlorineFeedMechanism: true, property: { select: { name: true } } },
+      orderBy: [{ property: { name: "asc" } }, { name: "asc" }],
+    }),
+    prisma.serviceVisit.findMany({
+      where: {
+        organizationId,
+        status: "COMPLETED",
+        completedAt: { gte: since },
+        reading: { freeChlorinePpm: { not: null } },
+      },
+      orderBy: { completedAt: "asc" },
+      select: {
+        bodyOfWaterId: true,
+        completedAt: true,
+        logOnlyRecord: true,
+        reading: { select: { freeChlorinePpm: true } },
+        doses: { select: { productName: true, chemicalProductId: true } },
+      },
+    }),
+    prisma.orgChemicalProductSetting.findMany({
+      where: { organizationId, catalogProduct: { chemicalType: "FREE_CHLORINE" }, linkedBillingProductId: { not: null } },
+      select: { linkedBillingProductId: true },
+    }),
+  ]);
+
+  const chlorineBillingIds = new Set(
+    chlorineSettings.map((s) => s.linkedBillingProductId).filter((id): id is string => id != null),
+  );
+
+  // Already in ascending completedAt order from the query, so pushing in iteration order keeps
+  // each body's readings sorted -- which buildDecayIntervals requires and does not verify.
+  const readingsByBody = new Map<string, DemandReading[]>();
+  for (const v of visits) {
+    if (v.bodyOfWaterId == null || v.completedAt == null || v.reading?.freeChlorinePpm == null) continue;
+    const list = readingsByBody.get(v.bodyOfWaterId) ?? [];
+    list.push({
+      at: v.completedAt,
+      fc: Number(v.reading.freeChlorinePpm),
+      chlorineAdded: v.doses.some(
+        (d) =>
+          (d.chemicalProductId != null && chlorineBillingIds.has(d.chemicalProductId)) ||
+          CHLORINE_PRODUCT_NAME.test(d.productName),
+      ),
+      doseDataMissing: v.logOnlyRecord,
+    });
+    readingsByBody.set(v.bodyOfWaterId, list);
+  }
+
+  const projectable = bodies.filter((b) => b.chlorineFeedMechanism !== "LIQUID_FEED_PUMP");
+  const readiness: BodyDemandReadiness[] = projectable.map((b) => {
+    const demand = estimateChlorineDemand(buildDecayIntervals(readingsByBody.get(b.id) ?? []));
+    return {
+      bodyOfWaterId: b.id,
+      bodyName: b.name,
+      propertyName: b.property.name,
+      chlorineFeedMechanism: b.chlorineFeedMechanism,
+      source: demand.source,
+      sampleSize: demand.sampleSize,
+      dailyLossPercent: demand.source === "measured" ? dailyLossPercent(demand.decayConstantPerDay) : null,
+    };
+  });
+
+  return {
+    enabled: org?.smartDosingEnabled ?? false,
+    stateName: isComplianceActive(ruleset) ? ruleset.stateName : null,
+    bodies: readiness,
+    measuredCount: readiness.filter((r) => r.source === "measured").length,
+    automationCount: bodies.length - projectable.length,
   };
 }

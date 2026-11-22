@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { DosingResult, DosingBillingLink, PhRangeStatus } from "@/lib/dosing-calculator";
+import type { DosingResult, DosingBasis, DosingBillingLink, PhRangeStatus } from "@/lib/dosing-calculator";
 import type { DosingUnit } from "@/generated/prisma/enums";
 
 type BromineStatus = { current: number; min: number | null; max: number | null } | null;
@@ -40,8 +40,15 @@ type Props = {
  */
 export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPrefillDoseForm }: Props) {
   const phStatus = dosing?.phStatus ?? null;
+  // Both optional on purpose: recommendations persisted before 2026-11-22 carry neither, and a
+  // completed visit's card is a point-in-time record that is never recomputed.
+  const basis = dosing?.basis ?? null;
+  const chlorineSystemNote = dosing?.chlorineSystemNote ?? null;
   const nothingToShow =
-    (!dosing || (dosing.recommendations.length === 0 && dosing.warnings.length === 0)) && !bromineStatus && !phStatus;
+    (!dosing || (dosing.recommendations.length === 0 && dosing.warnings.length === 0)) &&
+    !bromineStatus &&
+    !phStatus &&
+    !chlorineSystemNote;
   if (nothingToShow) return null;
 
   return (
@@ -96,8 +103,19 @@ export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPref
           </li>
         ))}
 
-        {dosing && dosing.recommendations.length === 0 && !phStatus && !bromineStatus ? (
+        {dosing && dosing.recommendations.length === 0 && !phStatus && !bromineStatus && !chlorineSystemNote ? (
           <p className="text-sm text-brand-muted">Every reading is within target range.</p>
+        ) : null}
+
+        {/* Not a recommendation and deliberately not styled like one: there is nothing to dose.
+            It is here because "no dose" on an automation body means the equipment is holding the
+            level, which a technician cannot tell apart from a card that computed nothing.
+            brand-ink rather than brand-muted because this sits on brand-foam -- 14px muted text
+            on foam is the combination this app's outdoor-legibility rule rules out. */}
+        {chlorineSystemNote ? (
+          <li className="rounded-lg border border-brand-border bg-brand-foam p-3">
+            <p className="text-sm text-brand-ink">{chlorineSystemNote}</p>
+          </li>
         ) : null}
 
         {phStatus ? <PhDemandPrompt visitId={visitId} phStatus={phStatus} onApplyDose={onApplyDose} onPrefillDoseForm={onPrefillDoseForm} /> : null}
@@ -119,6 +137,8 @@ export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPref
         ) : null}
       </ul>
 
+      {basis ? <BasisLine basis={basis} /> : null}
+
       {/* ONE judgement line for the whole card, not per recommendation.
           Asked for by the operator (2026-11-17) in the same breath as the tablet fix: every
           figure here is arithmetic over the readings a technician typed and this body's own
@@ -134,6 +154,33 @@ export function DosingCard({ visitId, dosing, bromineStatus, onApplyDose, onPref
       </p>
     </div>
   );
+}
+
+/**
+ * What the targets on this card are, and in whose name.
+ *
+ * The operator's requirement, 2026-11-22: a company on its first week should be recommended what
+ * gets and keeps it compliant with its own state, today, and the card should SAY that rather than
+ * leave it to be inferred from a number. So this line names the state and says how far ahead the
+ * figures above it look -- which is the one thing the card could not previously be read to tell
+ * you, since a dose sized to last until Friday and a dose sized to be correct now look identical
+ * once they are a number of ounces.
+ *
+ * Three states, and the third is the one that matters most to get right: with no supported
+ * ruleset the targets came from whatever the org configured for itself, and claiming a state
+ * behind them would be the only untrue sentence on the screen.
+ *
+ * Sits above the judgement line, not below it: this is what the numbers ARE, and that is what
+ * they cannot see. Read in that order.
+ */
+function BasisLine({ basis }: { basis: DosingBasis }) {
+  const text = basis.stateName
+    ? basis.smartDosing
+      ? `Targets are ${basis.stateName}\u2019s required ranges. Chlorine is also sized to still be above the minimum at the next visit, measured from this pool\u2019s own service history.`
+      : `Targets are ${basis.stateName}\u2019s required ranges, and the doses above are sized to put this water inside them today \u2014 nothing here projects past this visit.`
+    : "No state compliance rules are linked to this account, so these targets are the ones your company configured for itself.";
+
+  return <p className="mt-3 border-t border-brand-border pt-3 text-sm text-brand-muted">{text}</p>;
 }
 
 /**
