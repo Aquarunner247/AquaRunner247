@@ -1275,11 +1275,33 @@ async function main() {
   // -------------------------------------------------------------------------
 
   const chemicalIds = new Map<string, string>();
+  const ownedChemicalIds: string[] = [];
   for (const chem of CHEMICALS) {
+    /**
+     * Adopt a same-named row rather than insisting on our own id.
+     *
+     * `ChemicalProduct` is unique on `(organizationId, name)`, not on id alone, so upserting by
+     * id against an org that already has a product of that name fails the constraint instead of
+     * updating it. That is exactly what happened on the first production apply: the demo org had
+     * a hand-made "Soda Ash" under a cuid, and `demo-appreview-chem-soda-ash` could not be
+     * created alongside it. Locally there was nothing to collide with, which is why twelve weeks
+     * of seeding passed here and broke there -- the shape of the data differed, not the code.
+     *
+     * Taking over the existing row keeps whatever already points at it (doses, billing links)
+     * attached, which renaming or deleting would not. The id we end up writing can therefore be
+     * a cuid rather than a `demo-appreview-` one, so `assertOwnedId` is deliberately not in this
+     * path. That is safe for a narrower reason than the prefix: the lookup is keyed on
+     * `organizationId: org.id`, so it can only ever return a row already inside the demo org.
+     */
+    const existingByName = await prisma.chemicalProduct.findUnique({
+      where: { organizationId_name: { organizationId: org.id, name: chem.name } },
+      select: { id: true },
+    });
+    const productId = existingByName?.id ?? id("chem", chem.key);
     const product = await prisma.chemicalProduct.upsert({
-      where: { id: id("chem", chem.key) },
+      where: { id: productId },
       create: {
-        id: id("chem", chem.key),
+        id: productId,
         organizationId: org.id,
         name: chem.name,
         unit: chem.unit,
@@ -1290,6 +1312,7 @@ async function main() {
       update: { name: chem.name, unit: chem.unit, costPerUnit: chem.cost, chargePerUnit: chem.charge, active: true },
     });
     chemicalIds.set(chem.key, product.id);
+    ownedChemicalIds.push(product.id);
 
     // The dosing-catalog side. Without an enabled OrgChemicalProductSetting the Dosing Card has
     // no product to recommend and prints "no enabled primary product configured" instead of a
@@ -1311,6 +1334,23 @@ async function main() {
     });
   }
   console.log(`  + ${CHEMICALS.length} chemical products, dosing catalog wired`);
+
+  /**
+   * Products in the demo org that this script does not own.
+   *
+   * Deactivated rather than deleted, same reasoning as the retired routes below: a delete would
+   * cascade into any dose or billing line that referenced them, and an inactive product is
+   * already invisible on the chemical picker. Production's demo org had six of these left over
+   * from hand-entry -- "Liquid Chlorine" alongside our "Liquid Chlorine 12.5%", "Trichlor"
+   * alongside the tablets -- which is a confusing list to hand a reviewer.
+   */
+  const retiredChemicals = await prisma.chemicalProduct.updateMany({
+    where: { organizationId: org.id, id: { notIn: ownedChemicalIds }, active: true },
+    data: { active: false },
+  });
+  if (retiredChemicals.count) {
+    console.log(`  + deactivated ${retiredChemicals.count} chemical product(s) this seeder does not own`);
+  }
 
   for (const [index, item] of CHECKLIST.entries()) {
     await prisma.checklistItemDefinition.upsert({
@@ -1804,6 +1844,33 @@ async function main() {
   });
   if (retiredRoutes.count || strayStops.count) {
     console.log(`  + retired ${retiredRoutes.count} foreign route(s), removed ${strayStops.count} stray stop(s)`);
+  }
+
+  /**
+   * Visits the generator made for days nobody serviced.
+   *
+   * `lib/visit-generation.ts` runs daily and creates a visit for every active stop, so a demo org
+   * that sits idle accumulates SCHEDULED rows for days that came and went -- production had 25 of
+   * them spanning 12-18 November when this was written. They are not ours: the generator assigns
+   * cuids, so the `demo-appreview-` guard that makes this script safe is also what stops it
+   * replacing them, and a reseed leaves them sitting behind the fresh history as a week of
+   * apparently missed work. For a store reviewer that reads as the app failing rather than as a
+   * dormant demo.
+   *
+   * Scoped to this org, to SCHEDULED only, and to dates already past: a future SCHEDULED visit is
+   * real upcoming work, and a COMPLETED one carries readings worth keeping. Children cascade, but
+   * these have none by definition -- a visit with a reading on it was serviced.
+   */
+  const abandoned = await prisma.serviceVisit.deleteMany({
+    where: {
+      organizationId: org.id,
+      status: "SCHEDULED",
+      scheduledStart: { lt: visitAnchor(0, 0) },
+      id: { not: { startsWith: DEMO_PREFIX } },
+    },
+  });
+  if (abandoned.count) {
+    console.log(`  + cleared ${abandoned.count} abandoned generated visit(s) from days already past`);
   }
 
   /**
