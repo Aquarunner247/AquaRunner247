@@ -3,6 +3,8 @@ import { getCurrentCustomerUser } from "@/lib/auth/current-customer-user";
 import { redirect } from "next/navigation";
 import { deletePortalAccountAction } from "@/app/portal/actions";
 import { RETAINED_AFTER_PORTAL_DELETION } from "@/lib/account-deletion-confirm";
+import { TourSectionPicker } from "@/app/components/tour-section-picker";
+import { portalTourSectionsFor } from "@/lib/onboarding-tour-steps";
 
 const ERROR_MESSAGES: Record<string, string> = {
   "confirmation-mismatch": "That didn't match your email address, so nothing was deleted.",
@@ -62,6 +64,17 @@ export default async function PortalAccountPage({
             <dd className="text-brand-ink">{companyName}</dd>
           </div>
         </dl>
+      </section>
+
+      {/* Here rather than in the side nav, which is a narrow dark rail with no room for a list.
+          The nav keeps a single Replay tour that runs the whole thing; this is where someone
+          picks out the one page they want explained again. */}
+      <section className="app-card mt-6">
+        <h2 className="font-display text-base font-semibold text-brand-ink">Portal tour</h2>
+        <p className="mt-1 text-sm text-brand-muted">
+          The walkthrough shown the first time you opened each page. It runs again as often as you like.
+        </p>
+        <TourSectionPicker sections={portalTourSectionsFor(customerUser.role === "MAINTENANCE")} />
       </section>
 
       {/* The distinction this page exists to make: the login is theirs, the service records are

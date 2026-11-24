@@ -5,9 +5,12 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { updateBusinessIdentity, updateComplianceProfile } from "./actions";
 import { US_STATES } from "@/lib/us-states";
 import { organizationHasCommercialPools } from "@/lib/compliance";
-import { ReplayTourButton } from "@/app/components/replay-tour-button";
+import { TourSectionPicker } from "@/app/components/tour-section-picker";
+import { ADMIN_TOUR_SECTIONS } from "@/lib/onboarding-tour-steps";
 
-type SettingsLink = { href: string; title: string; description: string };
+/** `tour` tags this card with a data-tour handle so a tour step can point at one specific
+ *  destination in the grid rather than at the whole grid. */
+type SettingsLink = { href: string; title: string; description: string; tour?: string };
 
 /**
  * Two groups, because Settings was doing two unrelated jobs: shaping what customers and
@@ -51,6 +54,7 @@ const CUSTOMIZATION_LINKS: SettingsLink[] = [
 const COMPANY_LINKS: SettingsLink[] = [
   {
     href: "/dashboard/settings/smart-dosing",
+    tour: "settings-smart-dosing",
     title: "Smart dosing",
     description:
       "By default every dose is sized to meet your state's range today. Turn this on to also size chlorine to last until the next visit, measured from each pool's own history.",
@@ -88,7 +92,7 @@ const COMPANY_LINKS: SettingsLink[] = [
 
 function SettingsCard({ link }: { link: SettingsLink }) {
   return (
-    <Link href={link.href} className="app-card app-card-hover flex flex-col">
+    <Link href={link.href} data-tour={link.tour} className="app-card app-card-hover flex flex-col">
       <span className="font-display text-base font-semibold text-brand-ink">{link.title}</span>
       <span className="mt-1 text-sm text-brand-muted">{link.description}</span>
       <span className="mt-3 text-sm font-medium text-brand-primary">Open →</span>
@@ -121,7 +125,7 @@ export default async function SettingsPage() {
         </p>
       </header>
 
-      <section className="app-card mt-6">
+      <section data-tour="settings-identity" className="app-card mt-6">
         <h2 className="font-display text-base font-semibold text-brand-ink">Business identity</h2>
         <form action={updateBusinessIdentity} className="mt-3 space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
@@ -215,7 +219,7 @@ export default async function SettingsPage() {
 
       <h2 className="app-kicker mt-8">Customization</h2>
       <p className="mt-1 text-sm text-brand-muted">What your customers and technicians see.</p>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
+      <div data-tour="settings-customization" className="mt-3 grid gap-3 md:grid-cols-2">
         {CUSTOMIZATION_LINKS.map((link) => (
           <SettingsCard key={link.href} link={link} />
         ))}
@@ -223,7 +227,7 @@ export default async function SettingsPage() {
 
       <h2 className="app-kicker mt-8">Company</h2>
       <p className="mt-1 text-sm text-brand-muted">Your account, pay and exports.</p>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
+      <div data-tour="settings-company" className="mt-3 grid gap-3 md:grid-cols-2">
         {COMPANY_LINKS.map((link) => (
           <SettingsCard key={link.href} link={link} />
         ))}
@@ -241,8 +245,11 @@ export default async function SettingsPage() {
 
       <section className="app-card mt-4">
         <h2 className="font-display text-base font-semibold text-brand-ink">Getting-started tour</h2>
-        <p className="mt-1 text-sm text-brand-muted">Revisit the dashboard walkthrough shown when you first signed in.</p>
-        <ReplayTourButton returnTo="/dashboard" className="app-btn-secondary-sm mt-3" />
+        <p className="mt-1 text-sm text-brand-muted">
+          The walkthrough shown when you first signed in. Each section explains one page, and runs again as
+          often as you like.
+        </p>
+        <TourSectionPicker sections={ADMIN_TOUR_SECTIONS} />
       </section>
     </main>
   );

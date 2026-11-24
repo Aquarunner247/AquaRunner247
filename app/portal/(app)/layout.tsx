@@ -72,7 +72,10 @@ export default async function PortalAppLayout({ children }: { children: React.Re
         isMaintenance={customerUser.role === "MAINTENANCE"}
       />
       <div className="min-w-0 flex-1">{children}</div>
-      <PortalOnboardingTourLauncher seenPages={customerUser.seenTourPages} />
+      <PortalOnboardingTourLauncher
+        seenPages={customerUser.seenTourPages}
+        isMaintenance={customerUser.role === "MAINTENANCE"}
+      />
     </div>
   );
 }

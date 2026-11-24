@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ReplayTourButton } from "@/app/components/replay-tour-button";
+import { portalTourSectionsFor } from "@/lib/onboarding-tour-steps";
 
 function isActive(currentPath: string, href: string) {
   return currentPath === href || (href !== "/portal" && currentPath.startsWith(`${href}/`));
@@ -118,10 +118,15 @@ export function PortalNav({
         </nav>
 
         <div className="border-t border-white/10 px-3 py-3">
-          <ReplayTourButton
-            returnTo={isMaintenance ? "/portal/log" : "/portal"}
-            className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-brand-border hover:bg-white/5 hover:text-white"
-          />
+          {/* Starts a full run rather than one page: this is a narrow dark rail, and five section
+              buttons belong on a page, not here -- the account page carries the per-section list.
+              `?tour=all` walks only the sections this login may actually open. */}
+          <Link
+            href={`${portalTourSectionsFor(isMaintenance)[0].path}?tour=all`}
+            className="flex min-h-[44px] w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-brand-border hover:bg-white/5 hover:text-white"
+          >
+            Replay tour
+          </Link>
           {/* Down here with Sign out rather than in the nav list above: it is not somewhere
               anyone visits to read their pool's records, but it has to be reachable, because
               deleting the login lives on it. Shown to maintenance logins too -- that is a

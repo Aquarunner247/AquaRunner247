@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { UserRole } from "@/generated/prisma/enums";
 import { OnboardingTour } from "./onboarding-tour";
 import { OnboardingWelcome } from "./onboarding-welcome";
-import { ADMIN_TOURS, TECHNICIAN_TOURS, VISIT_DETAIL_TOUR_STEPS } from "@/lib/onboarding-tour-steps";
+import { ADMIN_TOURS, TECHNICIAN_TOURS, VISIT_DETAIL_TOUR_STEPS, tourSectionsForRole } from "@/lib/onboarding-tour-steps";
 import { REPLAY_LOCATION } from "@/lib/onboarding-replay-location";
 import {
   markOnboardingTourPageSeen,
@@ -45,6 +45,7 @@ const WELCOME_PAGE = "/dashboard";
  */
 export function OnboardingTourLauncher({ role, seenPages, welcomeSeenAt, toursDismissedAt, orgName }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [closed, setClosed] = useState(false);
 
@@ -54,7 +55,38 @@ export function OnboardingTourLauncher({ role, seenPages, welcomeSeenAt, toursDi
 
   useEffect(() => setClosed(false), [pathname]);
 
-  const forced = searchParams.get("tour") === "1";
+  /**
+   * `?tour=1` replays this page alone; `?tour=all` is a full run that walks the role's sections in
+   * order, each page handing off to the next when its tour is read to the end. The queue is not
+   * stored anywhere -- the parameter says "still touring" and the position is simply where this
+   * pathname sits in the ordered list, so a refresh, a back button or a link opened mid-run cannot
+   * leave a half-finished sequence behind in session state.
+   */
+  const tourParam = searchParams.get("tour");
+  const forced = tourParam === "1" || tourParam === "all";
+  const chaining = tourParam === "all";
+
+  /** The current page without `tour`, so clearing it cannot drop a real parameter -- the schedule
+   *  carries ?date=, and sending someone back to an unqualified /dashboard/schedule would silently
+   *  move them to today. */
+  const pathWithoutTourParam = () => {
+    const rest = new URLSearchParams(searchParams.toString());
+    rest.delete("tour");
+    const qs = rest.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  };
+
+  /**
+   * Where a full run goes after this page. Null ends it: the last section, or a page that is not a
+   * listed section at all (the dynamic visit-detail tour, which a run never enters).
+   */
+  const nextSectionPath = (): string | null => {
+    const sections = tourSectionsForRole(role);
+    if (!sections) return null;
+    const here = sections.findIndex((s) => s.path === pathname);
+    if (here < 0) return null;
+    return sections[here + 1]?.path ?? null;
+  };
   const isVisitDetail = role === "TECHNICIAN" && pathname.startsWith("/dashboard/visits/");
   const pageKey = isVisitDetail ? VISIT_DETAIL_PAGE_KEY : pathname;
 
@@ -94,7 +126,15 @@ export function OnboardingTourLauncher({ role, seenPages, welcomeSeenAt, toursDi
       {showTour ? (
         <OnboardingTour
           steps={steps}
-          onFinish={() => setClosed(true)}
+          onFinish={({ dismissed }) => {
+            setClosed(true);
+            if (!chaining) return;
+            // Skipping one section ends the whole run. Someone who opts out has opted out of the
+            // tour, not just of the page they happened to be standing on.
+            const next = dismissed ? null : nextSectionPath();
+            if (next) router.push(`${next}?tour=all`);
+            else router.replace(pathWithoutTourParam());
+          }}
           markSeenAction={() => markOnboardingTourPageSeen(pageKey)}
           // Null on a replay: they pressed Replay tour to get here, so being told where that button is
           // would be telling them what they just did. OFFICE never reaches here (no steps), but it has

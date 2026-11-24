@@ -24,7 +24,14 @@ export type TourStep = {
 
 type Props = {
   steps: TourStep[];
-  onFinish: () => void;
+  /**
+   * Called once the tour is off the screen, told how it ended.
+   *
+   * `dismissed` is true when the person opted out (Skip, Escape) rather than reading to the end.
+   * A caller chaining several tours together needs that distinction: advancing to the next section
+   * after someone pressed Skip would turn one "no thanks" into a tour that will not stop.
+   */
+  onFinish: (outcome: { dismissed: boolean }) => void;
   markSeenAction: () => Promise<void>;
   /**
    * Where this person's "Replay tour" button lives -- "Settings", "More", "the menu" (see
@@ -113,7 +120,7 @@ export function OnboardingTour({ steps, onFinish, markSeenAction, replayLocation
         setSkipNote(true);
         return;
       }
-      onFinish();
+      onFinish({ dismissed });
     },
     [markSeenOnFinish, markSeenAction, onFinish, replayLocation],
   );
@@ -145,7 +152,9 @@ export function OnboardingTour({ steps, onFinish, markSeenAction, replayLocation
       if (missingRequired) setMarkSeenOnFinish(false);
 
       if (present.length === 0) {
-        onFinish();
+        // Not dismissed: the page simply had nothing to point at on this load. A chained run should
+        // move to the next section rather than stop on a tour the person never actually saw.
+        onFinish({ dismissed: false });
         return;
       }
       setResolvedSteps(present);
@@ -195,7 +204,7 @@ export function OnboardingTour({ steps, onFinish, markSeenAction, replayLocation
       // Escape dismisses the tour, then dismisses the note -- a second press always gets you out,
       // rather than the note becoming something Escape cannot close.
       if (e.key !== "Escape") return;
-      if (skipNote) onFinish();
+      if (skipNote) onFinish({ dismissed: true });
       else finish({ dismissed: true });
     }
     window.addEventListener("keydown", onKeyDown);
@@ -222,7 +231,12 @@ export function OnboardingTour({ steps, onFinish, markSeenAction, replayLocation
             the beginning, as often as you want.
           </p>
           <div className="mt-5">
-            <button type="button" onClick={onFinish} className="app-btn-primary-sm min-h-[44px]" autoFocus>
+            <button
+              type="button"
+              onClick={() => onFinish({ dismissed: true })}
+              className="app-btn-primary-sm min-h-[44px]"
+              autoFocus
+            >
               Got it
             </button>
           </div>

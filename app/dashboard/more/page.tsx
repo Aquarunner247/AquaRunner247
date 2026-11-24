@@ -3,7 +3,8 @@ import Link from "next/link";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { prisma } from "@/lib/prisma";
 import { signOut } from "@/app/dashboard/actions";
-import { ReplayTourButton } from "@/app/components/replay-tour-button";
+import { TourSectionPicker } from "@/app/components/tour-section-picker";
+import { TECHNICIAN_TOUR_SECTIONS } from "@/lib/onboarding-tour-steps";
 import { OnboardingHelpContent } from "@/app/components/onboarding-help-content";
 
 export default async function MorePage() {
@@ -58,10 +59,11 @@ export default async function MorePage() {
         What&rsquo;s new
       </Link>
 
-      <ReplayTourButton
-        returnTo="/dashboard/schedule"
-        className="mt-4 block w-full rounded-lg border border-brand-border bg-white px-4 py-2.5 text-left text-sm font-semibold text-brand-ink shadow-sm"
-      />
+      {/* Same defect as the admin button this replaces: it went to one hardcoded page, so the
+          Dashboard and Alerts tours could only ever be seen once, on first arrival. */}
+      <div className="mt-4">
+        <TourSectionPicker sections={TECHNICIAN_TOUR_SECTIONS} />
+      </div>
 
       <div className="mt-4">
         <OnboardingHelpContent />

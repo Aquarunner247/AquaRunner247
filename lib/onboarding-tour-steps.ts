@@ -164,6 +164,34 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
       body: "Update your card, view invoices, or change plans through Stripe's billing portal.",
     },
   ],
+  /**
+   * Written 2026-11-24, after the audit that prompted this: the dosing recommendation had changed
+   * from "what gets this pool to target" to "what your state requires today, and only projects
+   * past today if you ask" -- and the switch that governs it had no mention anywhere a person
+   * would look. A setting nobody can find is a setting that does not exist.
+   */
+  "/dashboard/settings": [
+    {
+      target: "settings-identity",
+      title: "What inspectors and customers see",
+      body: "Your business name and phone appear on the public QR and inspector-log pages and on every CSV export — so this is the name an inspector reads, not just a label in the app.",
+    },
+    {
+      target: "settings-customization",
+      title: "Customization",
+      body: "What the people outside your office see: your branding on the portal and emails, the messages technicians pick from at completion, and which readings they are asked for.",
+    },
+    {
+      target: "settings-company",
+      title: "Your account, pay and exports",
+      body: "Billing, pay rates, the QuickBooks export, and the account itself.",
+    },
+    {
+      target: "settings-smart-dosing",
+      title: "How doses get sized",
+      body: "By default every recommended dose is sized to put the water inside your state's required range today, and the dosing card says so by name. Turn Smart dosing on and chlorine is also sized to still be above the minimum at your next visit, measured from each pool's own service history — the page shows you how many of your pools have enough history to measure, so you can judge it before switching it on.",
+    },
+  ],
   "/dashboard/phone-agent": [
     {
       target: "phone-agent-setup",
@@ -175,6 +203,22 @@ export const ADMIN_TOURS: Record<string, TourStep[]> = {
       target: "phone-agent-calls",
       title: "Calls that reached the agent",
       body: "Every call that fell through to the interactive voicemail — after-hours or a busy line — lands here as a ticket.",
+    },
+  ],
+  // Shares app/dashboard/alerts/page.tsx with the technician tour below -- same two sections, read
+  // differently: a technician sees what they reported and what they missed, an admin sees what the
+  // company has outstanding. No new anchors needed, which is why this went unwritten for so long
+  // rather than for any good reason.
+  "/dashboard/alerts": [
+    {
+      target: "tech-alerts-issues",
+      title: "Open issues",
+      body: "Anything a technician flagged on a visit stays here until someone resolves it — a torn liner, a pump that would not prime, a gate nobody could open.",
+    },
+    {
+      target: "tech-alerts-overdue",
+      title: "Overdue stops",
+      body: "Stops that missed their scheduled window. Worth a look before a customer notices first.",
     },
   ],
   "/dashboard/schedule": [
@@ -208,12 +252,6 @@ export const TECHNICIAN_TOURS: Record<string, TourStep[]> = {
       target: "schedule-stat-tiles",
       title: "Tap a tile to filter",
       body: "Total, Completed, In Progress, and Pending — tap any of these to filter your stop list down to just that group.",
-      optional: true,
-    },
-    {
-      target: "schedule-optimize-route",
-      title: "Optimize stop order",
-      body: "Reorders today's stops by real driving time so you're not backtracking across town. Falls back to straight-line distance if the routing service can't be reached. Your manual order is replaced, so reorder by hand afterwards if you need a specific stop first.",
       optional: true,
     },
     {
@@ -370,7 +408,12 @@ export const VISIT_DETAIL_TOUR_STEPS: TourStep[] = [
   {
     target: "visit-doses",
     title: "Chemical doses",
-    body: "Record what you added. Recommended amounts (when available) are calculated from the pool's volume and current readings.",
+    body: "Record what you added. A recommended amount is sized from this pool's volume and today's readings to land inside the range your state requires — the card itself says which state, and whether it is also carrying the pool to your next visit.",
+  },
+  {
+    target: "visit-service-message",
+    title: "Message to the customer",
+    body: "Pick the preset that matches what actually happened. The one you choose is what the customer reads in their service summary email, so it is the part of this visit they will actually see.",
   },
   {
     target: "visit-photos",
@@ -383,3 +426,86 @@ export const VISIT_DETAIL_TOUR_STEPS: TourStep[] = [
     body: "Once every required reading and at least one photo are in, this finishes the visit and logs it to the customer's record.",
   },
 ];
+
+/**
+ * The tours offered for replay, in the order a full run walks them.
+ *
+ * Separate from the maps above because those are keyed for lookup, where order carries no meaning
+ * and nothing says which pages have a tour at all. That was the whole defect this fixes: ten admin
+ * tours existed, each fired once on first visit to its own page and was then unreachable forever,
+ * because the one "Replay tour" button hardcoded a single destination (`/dashboard`). A list that
+ * states the sections is also the only way someone finds out the other nine exist.
+ *
+ * Order is the sequence a full replay follows, so it reads as a walkthrough of the product rather
+ * than the arbitrary order the map literal happens to be written in: what you see when you sign in,
+ * then the work, then the people and the setup behind it.
+ *
+ * Labels match the navigation, because a section called something the sidebar doesn't say is a
+ * section nobody can find afterwards.
+ *
+ * `/dashboard/visits/[id]` is deliberately absent. Its tour is real (VISIT_DETAIL_TOUR_STEPS) but it
+ * needs a concrete visit id, and there is no honest way to pick one on someone's behalf -- a replay
+ * that opened a stranger's visit, or an old one, would be worse than not offering it. It still runs
+ * by itself the first time a technician opens any visit.
+ *
+ * ONBOARDING_SECTIONS_MATCH_TOURS in lib/__tests__/onboarding-tour-sections.test.ts asserts these
+ * lists stay in step with the maps, so adding a tour without listing it here fails the suite rather
+ * than silently shipping another unreachable one.
+ */
+export type TourSection = { path: string; label: string };
+
+export const ADMIN_TOUR_SECTIONS: TourSection[] = [
+  { path: "/dashboard", label: "Dashboard" },
+  { path: "/dashboard/schedule", label: "Schedule" },
+  { path: "/dashboard/routes", label: "Routes" },
+  { path: "/dashboard/customers", label: "Customers" },
+  { path: "/dashboard/alerts", label: "Alerts" },
+  { path: "/dashboard/chemicals", label: "Chemicals" },
+  { path: "/dashboard/checklist", label: "Checklist" },
+  { path: "/dashboard/compliance", label: "Compliance" },
+  { path: "/dashboard/billing", label: "Billing" },
+  { path: "/dashboard/users", label: "Users" },
+  { path: "/dashboard/phone-agent", label: "Phone Agent" },
+  { path: "/dashboard/settings", label: "Settings" },
+];
+
+export const TECHNICIAN_TOUR_SECTIONS: TourSection[] = [
+  { path: "/dashboard", label: "Dashboard" },
+  { path: "/dashboard/schedule", label: "Schedule" },
+  { path: "/dashboard/alerts", label: "Alerts" },
+];
+
+/**
+ * The portal's replayable sections, split by what the login is actually allowed to open.
+ *
+ * This split is not cosmetic. `lib/portal-access.ts` serves a MAINTENANCE login only the daily log,
+ * the chemical safety sheets and its own account page -- everything else redirects. A full run that
+ * walked the customer list would therefore bounce a maintenance person out of the tour at
+ * `/portal`, so each audience gets the sections it can reach and nothing else. Keep these in step
+ * with MAINTENANCE_PATHS there and with the nav lists in app/portal/components/portal-nav.tsx; the
+ * tests assert the two portal lists together cover PORTAL_TOURS exactly.
+ */
+export const PORTAL_TOUR_SECTIONS: TourSection[] = [
+  { path: "/portal", label: "Dashboard" },
+  { path: "/portal/documents", label: "Documents" },
+  { path: "/portal/chemicals", label: "Chemicals" },
+  { path: "/portal/alerts", label: "Alerts" },
+  { path: "/portal/compliance", label: "Compliance" },
+];
+
+export const MAINTENANCE_TOUR_SECTIONS: TourSection[] = [
+  { path: "/portal/log", label: "Daily log" },
+  { path: "/portal/chemicals", label: "Chemicals" },
+];
+
+/** The ordered sections a portal login may replay. */
+export function portalTourSectionsFor(isMaintenance: boolean): TourSection[] {
+  return isMaintenance ? MAINTENANCE_TOUR_SECTIONS : PORTAL_TOUR_SECTIONS;
+}
+
+/** The ordered sections for a role, or null for one with no tours at all (OFFICE). */
+export function tourSectionsForRole(role: "ADMIN" | "TECHNICIAN" | "OFFICE"): TourSection[] | null {
+  if (role === "ADMIN") return ADMIN_TOUR_SECTIONS;
+  if (role === "TECHNICIAN") return TECHNICIAN_TOUR_SECTIONS;
+  return null;
+}
