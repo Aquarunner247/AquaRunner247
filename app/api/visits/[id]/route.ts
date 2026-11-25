@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { visitDeletionRefusal, DELETION_REFUSAL_MESSAGE } from "@/lib/visit-deletable";
+import { getVisitFormData } from "@/lib/visit-form-data";
 
 /**
  * Delete a stop somebody added by hand and immediately regretted.
@@ -90,4 +91,79 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   }
 
   return NextResponse.json({ ok: true, deleted: visit.id });
+}
+
+/**
+ * GET /api/visits/[id] -- one stop, as the props its form already takes.
+ *
+ * Phase 1b of NATIVE-REBUILD-PLAN.md. Returns the assembled form props rather than raw Prisma
+ * rows, from the same lib/visit-form-data.ts that app/dashboard/visits/[id]/page.tsx renders
+ * from. That is the point: `readingFields` is derived from the organization's compliance ruleset,
+ * and a second copy of that derivation living on the client is a technician being asked for the
+ * wrong readings the first time the two drift. Neither caller computes it.
+ *
+ * It also fixes a shape bug in the first cut, which returned `reading` straight off Prisma:
+ * JSON.stringify renders a Decimal as an object, so a client would have received something
+ * structurally different from what the page passes its form. serializeReading is now applied on
+ * both paths.
+ *
+ * Access is decided inside getVisitFormData so it cannot be decided twice -- org mismatch is
+ * NOT_FOUND rather than FORBIDDEN, so another company's visit id is not confirmable as real by
+ * the shape of the refusal.
+ */
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const appUser = await getCurrentAppUser();
+  if (!appUser) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+
+  const { id } = await context.params;
+  const result = await getVisitFormData({
+    visitId: id,
+    caller: { id: appUser.id, role: appUser.role, organizationId: appUser.organizationId },
+  });
+
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.reason === "FORBIDDEN" ? 403 : 404 });
+  }
+
+  const { visit, isResidential, timeZone, form } = result.data;
+
+  /**
+   * A projection of the visit, not the whole row. The page has the full record in hand for its own
+   * chrome; a client only needs what it will show -- where this is, what water it is, and the
+   * access details for the person standing at the gate. Sending the rest would put fields on the
+   * wire that nothing reads, which is how a payload quietly becomes an API contract.
+   */
+  return NextResponse.json({
+    visit: {
+      id: visit.id,
+      status: visit.status,
+      scheduledStart: visit.scheduledStart.toISOString(),
+      startedAt: visit.startedAt ? visit.startedAt.toISOString() : null,
+      completedAt: visit.completedAt ? visit.completedAt.toISOString() : null,
+      departedAt: visit.departedAt ? visit.departedAt.toISOString() : null,
+      technicianId: visit.technicianId,
+      property: {
+        id: visit.property.id,
+        name: visit.property.name,
+        propertyType: visit.property.propertyType,
+        address: [visit.property.addressLine1, visit.property.city, visit.property.region].filter(Boolean).join(", "),
+        latitude: visit.property.latitude != null ? Number(visit.property.latitude) : null,
+        longitude: visit.property.longitude != null ? Number(visit.property.longitude) : null,
+        geofenceMeters: visit.property.geofenceMeters,
+        accessNotes: visit.property.accessNotes,
+        ownerName: visit.property.ownerName,
+        ownerMobilePhone: visit.property.ownerMobilePhone,
+      },
+      bodyOfWater: {
+        id: visit.bodyOfWater.id,
+        name: visit.bodyOfWater.name,
+        type: visit.bodyOfWater.type,
+        disinfectionMethod: visit.bodyOfWater.disinfectionMethod,
+        volumeGallons: visit.bodyOfWater.volumeGallons != null ? Number(visit.bodyOfWater.volumeGallons) : null,
+      },
+    },
+    isResidential,
+    timeZone,
+    form,
+  });
 }

@@ -1,7 +1,9 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
+import { bearerTokenFrom } from "@/lib/auth/bearer-token";
 
 /**
  * Memoized per request with React's cache(), because this is the most-called function in the
@@ -19,12 +21,31 @@ import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
  * nothing is shared between users or across requests, so there is no staleness window: a
  * change to the user's row is picked up by the next request either way. The middleware's own
  * getUser() call can't be deduped from here (separate runtime, before rendering starts).
+ *
+ * TWO WAYS IN, ONE IDENTITY. A browser sends cookies; a native client sends
+ * `Authorization: Bearer <access_token>`. This is the single place that difference lives, which
+ * is the whole reason it is done here rather than per route: every caller of
+ * getCurrentAppUser() -- the 78 modules, and in particular the eighteen technician write
+ * endpoints under app/api/visits/ and app/api/routes/ -- becomes reachable from native without
+ * being touched. See NATIVE-REBUILD-PLAN.md, Phase 1a.
+ *
+ * The bearer path is no weaker than the cookie path, because both end in the same call:
+ * supabase.auth.getUser(jwt) is a round trip that re-validates the JWT against the Auth server
+ * rather than decoding and trusting it. An expired, forged or revoked token yields no user, and
+ * the org scoping every route applies on top of the User row is unchanged. If anything the
+ * bearer path is the sturdier of the two, since a header cannot be sent cross-site by a
+ * browser the way a cookie can.
  */
 const lookupAppUser = cache(async () => {
   const supabase = await createClient();
+
+  // Read once: headers() is request-scoped, and a bearer token present here means this is an
+  // API call from a native client, where there are no cookies to fall back on.
+  const token = bearerTokenFrom((await headers()).get("authorization"));
+
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = token ? await supabase.auth.getUser(token) : await supabase.auth.getUser();
 
   if (!user) return null;
   return getAppUserForAuthUser(user);

@@ -1,20 +1,14 @@
 import Link from "next/link";
-import { applyServiceMessagePlaceholders } from "@/lib/default-service-messages";
 import { NextStopRibbon, type NextStopInfo } from "@/app/components/next-stop-ribbon";
 import { pickNextStop } from "@/lib/next-stop";
 import { coalesceCoord } from "@/lib/geocode";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
-import { VISIT_PHOTOS_BUCKET } from "@/lib/visit-photos";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getVisitFormData, serializeReading } from "@/lib/visit-form-data";
 import { VisitForm } from "./visit-form";
 import { ResidentialVisitForm } from "./residential-visit-form";
-import { getOrganizationRuleset, cyaTestFrequencyDays, activeReadingFields } from "@/lib/compliance";
-import { getSavedDosingRecommendation } from "@/lib/dosing-calculator";
-import type { VisitWaterReading } from "@/generated/prisma/client";
 import { formatLocalDate, formatLocalDateTime, localDayBounds, timeZoneForState, ymdInTimeZone } from "@/lib/timezone";
-import { describeRecency, readingProvenance, readingTakenAt } from "@/lib/last-reading";
 import { propertyContactEmail } from "@/lib/property-contact";
 import { resendServiceSummaryEmail } from "./actions";
 
@@ -22,36 +16,6 @@ type PageProps = {
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ from?: string; resendError?: string; resentTo?: string }>;
 };
-
-/**
- * VisitWaterReading straight off Prisma carries Decimal instances (ph, freeChlorinePpm,
- * etc.) and Date instances (backwashAt, capturedAt, createdAt, updatedAt) -- neither is a
- * plain object, so passing the row as-is into a "use client" component (VisitForm /
- * ResidentialVisitForm below) throws "Only plain objects can be passed to Client
- * Components from Server Components" from React's RSC serializer on every visit that has
- * a reading. Both consuming forms already just coerce every field through String(v)
- * (see their own toInput/toTimeInput helpers), so numbers/ISO-strings serialize
- * identically to what they were already doing via Decimal/Date's own toString() -- this
- * only removes the class-instance violation, it doesn't change any consumed value.
- */
-function serializeReading(reading: VisitWaterReading | null) {
-  if (!reading) return null;
-  return {
-    ph: reading.ph != null ? Number(reading.ph) : null,
-    freeChlorinePpm: reading.freeChlorinePpm != null ? Number(reading.freeChlorinePpm) : null,
-    totalChlorinePpm: reading.totalChlorinePpm != null ? Number(reading.totalChlorinePpm) : null,
-    brominePpm: reading.brominePpm != null ? Number(reading.brominePpm) : null,
-    alkalinityPpm: reading.alkalinityPpm != null ? Number(reading.alkalinityPpm) : null,
-    cyanuricAcidPpm: reading.cyanuricAcidPpm != null ? Number(reading.cyanuricAcidPpm) : null,
-    temperatureF: reading.temperatureF != null ? Number(reading.temperatureF) : null,
-    filterPressurePsi: reading.filterPressurePsi != null ? Number(reading.filterPressurePsi) : null,
-    vacGaugeReading: reading.vacGaugeReading != null ? Number(reading.vacGaugeReading) : null,
-    pumpPressurePsi: reading.pumpPressurePsi != null ? Number(reading.pumpPressurePsi) : null,
-    filterGaugeReading: reading.filterGaugeReading != null ? Number(reading.filterGaugeReading) : null,
-    flowMeterGpm: reading.flowMeterGpm != null ? Number(reading.flowMeterGpm) : null,
-    backwashAt: reading.backwashAt ? reading.backwashAt.toISOString() : null,
-  };
-}
 
 export default async function VisitPage({ params, searchParams }: PageProps) {
   const appUser = await getCurrentAppUser();
@@ -66,60 +30,33 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
   // falls back to the Dashboard tab, which was this link's only destination before.
   const backHref = sp.from === "schedule" ? "/dashboard/schedule" : "/dashboard";
   const backLabel = sp.from === "schedule" ? "Back to schedule" : "Back to dashboard";
-  const visit = await prisma.serviceVisit.findUnique({
-    where: { id },
-    include: {
-      // `name` for interpolating {{orgName}} into the service messages the technician picks from.
-      organization: { select: { state: true, name: true, trackCalciumHardness: true, trackSaltPpm: true } },
-      property: {
-        select: {
-          name: true,
-          propertyType: true,
-          customerId: true,
-          managerEmail: true,
-          ownerEmail: true,
-          // Residential access details. Stored since the property form existed but read only on the
-          // admin customer page until 2026-10-14 -- a page a TECHNICIAN cannot open at all, since it
-          // redirects anything but ADMIN. So the gate code lived where the person at the gate could
-          // never see it.
-          accessNotes: true,
-          ownerName: true,
-          ownerMobilePhone: true,
-        },
-      },
-      bodyOfWater: {
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          disinfectionMethod: true,
-          requiresFC: true,
-          requiresPH: true,
-          requiresAlkalinity: true,
-          requiresCYA: true,
-          requiresComplianceReadings: true,
-          volumeGallons: true,
-        },
-      },
-      reading: true,
-      doses: { orderBy: { createdAt: "desc" } },
-      photos: { orderBy: { createdAt: "desc" }, select: { id: true, createdAt: true, takenAt: true, storagePath: true } },
-      checklistCompletions: { select: { checklistItemId: true, completed: true } },
-      issues: { orderBy: { createdAt: "desc" }, select: { id: true, description: true, severity: true, createdAt: true } },
-    },
+  /**
+   * One call for the record, the authorization and every derived value this page and
+   * GET /api/visits/[id] both need -- see lib/visit-form-data.ts. It used to all live here, which
+   * meant the API either duplicated it or returned raw rows and made its caller duplicate it.
+   *
+   * Both of the old refusals (no visit / another org's visit, and a technician opening somebody
+   * else's stop) are decided in there now and both still land on notFound, unchanged.
+   */
+  const visitData = await getVisitFormData({
+    visitId: id,
+    caller: { id: appUser.id, role: appUser.role, organizationId: appUser.organizationId },
   });
+  if (!visitData.ok) notFound();
 
-  if (!visit || visit.organizationId !== appUser.organizationId) notFound();
-
+  const { visit, isResidential, timeZone: tz, form } = visitData.data;
   const isAdminOrOffice = appUser.role === "ADMIN" || appUser.role === "OFFICE";
-  const canAccess = isAdminOrOffice || visit.technicianId === appUser.id;
-  if (!canAccess) notFound();
-
-  // Lets the office correct a dose after the fact -- see canRemoveDose in the forms. Everything
-  // else on a completed visit stays read-only for everyone.
-  const canCorrectCompleted = isAdminOrOffice;
-
-  const tz = timeZoneForState(visit.organization.state);
+  const {
+    canCorrectCompleted,
+    readingFields,
+    cyaRequired,
+    previousReading,
+    chemicalProducts,
+    checklistItems,
+    initialDosing: dosing,
+    initialPhotos: photosWithUrls,
+    serviceMessages,
+  } = form;
 
   /**
    * This body of water's neighbouring service days, so the office can walk a pool's history from
@@ -175,198 +112,7 @@ export default async function VisitPage({ params, searchParams }: PageProps) {
    */
   const stepQuery = sp.from === "schedule" ? "?from=schedule" : "";
 
-  // Cyanuric acid only needs checking once every N days per body of water (state-
-  // configurable via ComplianceRuleset, 30 days by default) — skip requiring it again if a
-  // recent reading already covers this period.
-  const ruleset = await getOrganizationRuleset(visit.organizationId);
-  const cyaWindowStart = new Date();
-  cyaWindowStart.setDate(cyaWindowStart.getDate() - cyaTestFrequencyDays(ruleset));
-  const recentCya = await prisma.visitWaterReading.findFirst({
-    where: {
-      visit: {
-        bodyOfWaterId: visit.bodyOfWaterId,
-        id: { not: visit.id },
-        completedAt: { gte: cyaWindowStart },
-      },
-      cyanuricAcidPpm: { not: null },
-    },
-    select: { id: true },
-  });
-  const cyaRequired = !recentCya;
 
-  // Which chemistry fields this commercial visit's log sheet shows/requires, derived
-  // entirely from the org's own linked state and this body of water's own disinfection
-  // method -- see activeReadingFields's doc comment. Not used by the residential form,
-  // which keeps its own simpler per-body requiresFC/PH/Alkalinity/CYA toggle system.
-  // requiresComplianceReadings false means this client's own staff handles chemistry/
-  // gauges -- an empty array here is what makes the tech's form show only the checklist.
-  const readingFields = visit.bodyOfWater.requiresComplianceReadings
-    ? activeReadingFields(ruleset, visit.bodyOfWater.type, visit.bodyOfWater.disinfectionMethod, cyaRequired)
-    : [];
-
-  const chemicalProducts = await prisma.chemicalProduct.findMany({
-    where: { organizationId: appUser.organizationId, active: true },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, unit: true },
-  });
-
-  const dosing = await getSavedDosingRecommendation(visit.id);
-
-  const isResidential = visit.property.propertyType === "RESIDENTIAL";
-
-
-  /**
-   * The last reading anyone recorded for this body of water, for the technician to compare today's
-   * numbers against. Nothing on this screen showed it before -- a tech standing at the pool had no
-   * idea whether the pH they just read was a change or a repeat of last week.
-   *
-   * Scoped to the BODY, not the property. Borgata's gym pool and its clubhouse pool are different
-   * water, and a property-wide stop (bodyOfWaterId null) only compares against other property-wide
-   * stops for the same reason.
-   *
-   * Imported logbook rows and readings the property logged through the portal both count: they are
-   * real recorded readings and are exactly what makes this useful on a body serviced before the app
-   * existed. Where they came from is shown, since they were not taken with this company's test kit.
-   *
-   * Ordered by scheduledStart because that is the one timestamp every row has -- an imported row has
-   * no completedAt and no capturedAt. It is a day anchor, not a clock time, which is fine for
-   * ordering by service day and is why readingTakenAt refuses to render its time of day.
-   */
-  /**
-   * Which reading columns this visit's form will actually put on screen. Residential renders its
-   * own fixed set (chemistryFieldsFor in residential-visit-form.tsx); commercial renders whatever
-   * the state's ruleset derived above, chemistry and gauges together.
-   */
-  const relevantReadingKeys: readonly string[] = isResidential
-    ? ["freeChlorinePpm", "ph", "alkalinityPpm", "cyanuricAcidPpm", "temperatureF"]
-    : readingFields.map((field) => field.key);
-
-  /**
-   * The last reading anyone recorded for this body of water, for the technician to compare today's
-   * numbers against. Nothing on this screen carried it before: a tech standing at the pool could not
-   * tell whether the pH they just measured was a change or last week's number again.
-   *
-   * Scoped to the BODY, not the property. Borgata's gym pool and its clubhouse pool are different
-   * water, and a property-wide stop (bodyOfWaterId null) compares only against other property-wide
-   * stops for the same reason.
-   *
-   * Imported logbook rows and readings a property logged through the portal both count -- they are
-   * real recorded readings, and they are what makes this useful at all on a body serviced long
-   * before the app existed. Where the reading came from is shown, since it was not taken with this
-   * company's test kit.
-   *
-   * Ordered by scheduledStart because it is the one timestamp every row has: an imported row has no
-   * completedAt and no capturedAt. It is a day anchor rather than a clock time, which is right for
-   * ordering by service day and is why readingTakenAt refuses to render its time of day.
-   */
-  const previousReadingRow =
-    relevantReadingKeys.length === 0
-      ? null
-      : await prisma.visitWaterReading.findFirst({
-          where: {
-            visit: {
-              id: { not: visit.id },
-              propertyId: visit.propertyId,
-              bodyOfWaterId: visit.bodyOfWaterId,
-              scheduledStart: { lte: visit.scheduledStart },
-            },
-            // Skip rows holding nothing FOR THE FIELDS THIS FORM SHOWS. A VisitWaterReading is
-            // created alongside its visit and stays all-null until someone types a number, so the
-            // most recent row is routinely empty -- and a row can also carry only a field this form
-            // never displays. Both were real on production on 2026-10-15: Tailgate Beach Club's
-            // newest rows were blank, and Cornerstone's Office Pool had one holding nothing but a
-            // calcium hardness of 500, which no log sheet here shows. Either would answer "what did
-            // it last read?" with silence, on bodies with two years of readings behind them.
-            OR: relevantReadingKeys.map((field) => ({ [field]: { not: null } })),
-          },
-          orderBy: [{ visit: { scheduledStart: "desc" } }, { createdAt: "desc" }],
-          include: {
-            visit: {
-              select: {
-                scheduledStart: true,
-                completedAt: true,
-                logOnlyRecord: true,
-                loggedByCustomerUserId: true,
-                technician: { select: { name: true } },
-              },
-            },
-          },
-        });
-
-  const previousReading = previousReadingRow
-    ? (() => {
-        const timeZone = timeZoneForState(visit.organization.state);
-        const { at, hasTimeOfDay } = readingTakenAt({
-          capturedAt: previousReadingRow.capturedAt,
-          completedAt: previousReadingRow.visit.completedAt,
-          scheduledStart: previousReadingRow.visit.scheduledStart,
-        });
-        const recency = describeRecency(at, hasTimeOfDay, new Date(), timeZone);
-        return {
-          values: serializeReading(previousReadingRow),
-          relative: recency.relative,
-          absolute: recency.absolute,
-          daysAgo: recency.daysAgo,
-          provenance: readingProvenance(previousReadingRow.visit),
-          technicianName: previousReadingRow.visit.technician?.name ?? null,
-        };
-      })()
-    : null;
-
-  // Residential gets its own list as of 2026-10-14 -- it used to get an empty array, which is why a
-  // residential visit had no checklist at all. Commercial items default to scope COMMERCIAL, so
-  // commercial sees exactly what it saw before.
-  const checklistItemDefs = await prisma.checklistItemDefinition.findMany({
-    where: {
-      organizationId: appUser.organizationId,
-      active: true,
-      scope: isResidential ? "RESIDENTIAL" : "COMMERCIAL",
-      // Opt-out per customer -- an item applies unless this customer has excluded it.
-      // property.customerId can be null (no customer linked), in which case nothing
-      // is ever excluded and every active item still shows, matching prior behavior.
-      customerExclusions: visit.property.customerId ? { none: { customerId: visit.property.customerId } } : undefined,
-    },
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, label: true, category: true, required: true, billable: true, chargeAmount: true },
-  });
-  const completionById = new Map(visit.checklistCompletions.map((c) => [c.checklistItemId, c.completed]));
-  const checklistItems = checklistItemDefs.map((item) => ({
-    id: item.id,
-    label: item.label,
-    completed: completionById.get(item.id) ?? false,
-    category: item.category,
-    required: item.required,
-    billable: item.billable,
-    // Decimal does not survive the server/client boundary -- send it as a number, or null when no
-    // price has been set yet (the seed deliberately sets none).
-    chargeAmount: item.chargeAmount != null ? Number(item.chargeAmount) : null,
-  }));
-
-  const supabaseAdmin = createSupabaseAdminClient();
-  const photosWithUrls = await Promise.all(
-    visit.photos.map(async (p) => {
-      const { data } = await supabaseAdmin.storage.from(VISIT_PHOTOS_BUCKET).createSignedUrl(p.storagePath, 3600);
-      return { id: p.id, url: data?.signedUrl ?? null, takenAt: p.takenAt ? p.takenAt.toISOString() : null };
-    }),
-  );
-
-  // Active service messages for the picker. Ordered as the admin arranged them; an empty result
-  // means this org has none configured, and the form then requires no selection (see the
-  // completion API's matching fallback -- a config gap must never strand a technician).
-  const serviceMessageTemplates = await prisma.serviceMessageTemplate.findMany({
-    where: { organizationId: appUser.organizationId, active: true },
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, label: true, body: true },
-  });
-  // Interpolated HERE, not in the form: a technician choosing between messages has to read what
-  // the customer will actually receive, and a literal "{{orgName}}" in the picker is both
-  // confusing and indistinguishable from a message that would send broken. The form still posts
-  // the template id, and the completion API re-interpolates from the database, so this is purely
-  // for display and can't be tampered with client-side.
-  const serviceMessages = serviceMessageTemplates.map((msg) => ({
-    ...msg,
-    body: applyServiceMessagePlaceholders(msg.body, { orgName: visit.organization.name }),
-  }));
 
   // Where to head next, shown as a ribbon once this visit is finished. Only for the technician
   // whose day it is: an admin reviewing a completed visit from the office isn't about to drive

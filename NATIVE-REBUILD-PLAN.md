@@ -1,7 +1,8 @@
 # Native rebuild plan
 
-Status: **Phase 0a, 0b and the Capacitor half of 0c are built and tested. The OS-geofence half
-of 0c and everything from Phase 1 on is plan only.**
+Status: **Phase 0a, 0b, the Capacitor half of 0c, and Phase 1a/1b/1c are built and tested.**
+Outstanding: the OS-geofence half of 0c, the new **Phase 1d** below (which Phase 1's own
+"done when" turns out to depend on), and Phases 2-4.
 Written 2026-11-24.
 
 Supersedes the sizing done 2026-11-17, which deferred this work. Two of that assessment's
@@ -235,7 +236,7 @@ go from 1.9% to roughly the other bucket's rate, and if it does not, 0a was not 
 **Built inside the current Capacitor app. Ships and is useful on its own, with no native code.**
 This is the phase that matters; everything after it is comparatively mechanical.
 
-### 1a. Bearer-token auth — one change point unlocks all eighteen endpoints
+### 1a. DONE — bearer-token auth, one change point unlocking all eighteen endpoints
 
 Today every API route resolves the user through `getCurrentAppUser()` →
 `lib/supabase/server.ts` → `createServerClient` reading `cookies()`. Native clients cannot send
@@ -257,7 +258,7 @@ Two things to be careful of:
   Vercel project, no migration.** The native app is another consumer of this backend; the API is
   more `app/api/*/route.ts` files in this repo, deployed by the same Vercel project.
 
-### 1b. The read endpoints
+### 1b. DONE — the read endpoints
 
 Enough to open a day and work a stop offline. Field shapes come from the queries already feeding
 `app/dashboard/schedule/page.tsx`, `app/components/route-day-view.tsx` (1,971 lines — the real
@@ -267,13 +268,40 @@ spec) and `app/dashboard/visits/[id]/page.tsx`:
   water, ETA offsets, status, and the sequence rules from `lib/day-sequence.ts`
 - `GET /api/visits/[id]` — one stop in full: body, volume, feed mechanism, required readings,
   checklist definitions, last readings, dosing targets
-- `GET /api/technician/reference` — the slow-changing set the forms need: checklist definitions,
-  enabled chemical products, service messages, compliance bounds
+- `GET /api/technician/reference` — the slow-changing org-wide set: enabled chemical products,
+  service messages (interpolated), and the org's own flags (state, `trackCalciumHardness`,
+  `trackSaltPpm`)
+
+**The endpoints return the props the forms already take, not rows.** The first cut returned raw
+Prisma rows, which pushed the derivation onto the caller — and `readingFields` comes out of the
+organization's compliance ruleset, so a second copy of that derivation is a technician being
+asked for the wrong readings the first time the two drift. `lib/visit-form-data.ts` now assembles
+it once, and **`app/dashboard/visits/[id]/page.tsx` renders from the same function** rather than
+keeping its own copy: that page lost 279 lines and no prop at either form's call site changed.
+TypeScript checks all 18 props of `VisitForm` and 21 of `ResidentialVisitForm` against the
+assembled bundle, so a wrong shape fails the build rather than the field.
+
+This also closes the drift risk this plan previously only documented — with one still open:
+`lib/technician-day.ts` and the schedule page's own day query remain two copies, and that page
+has ad-hoc stops, the week tab and the admin view mixed into it, so unpicking it is Phase 3.
+
+It fixed a quieter bug too. The first cut sent `reading` straight off Prisma; `JSON.stringify`
+renders a Decimal as an object, so a client would have received something structurally different
+from what the page passes its form, with nothing failing to say so. `serializeReading` now
+applies on both paths and lives in a Prisma-free module so it can be tested — a module importing
+`lib/prisma` cannot even be loaded in the node test environment.
+
+**Correction to this plan's own list:** checklist definitions were listed under `reference` and
+do not belong there. The query in `app/dashboard/visits/[id]/page.tsx` scopes them per visit —
+`RESIDENTIAL` or `COMMERCIAL` by the property's type, minus any item that customer has opted out
+of — so they are part of the stop, not of the organization, and they ship inside
+`GET /api/visits/[id]`. Had they gone in the shared set, a residential technician would have been
+handed the commercial checklist.
 
 Deliberately coarse rather than REST-pure. A technician in a dead zone needs the whole day in one
 round trip while they still have signal, not twelve chatty requests.
 
-### 1c. The local store
+### 1c. DONE — the local store
 
 Mirror those three responses into IndexedDB, alongside the existing outbound queue, and have the
 day view and stop list read from the store with the network as refresh rather than as the source
@@ -283,6 +311,42 @@ of truth. Writes continue through `offline-queue.ts` untouched.
 log readings, doses, checklist and photos, and have it all sync on reconnect. That is the entire
 business case for this project, and it is reached here — before any native code exists. If the
 native shell never follows, nothing is wasted and the WebView was never the problem.
+
+---
+
+## Phase 1d — Serve the app with no network at all
+
+**This phase was missing from the plan, and Phase 1's "done when" cannot be met without it.**
+
+Found while building 1c. `public/sw.js` is a deliberate no-op, and says so in its own first
+comment: it exists only so browsers treat the app as installable, and it caches nothing — "every
+request still goes to the network." Meanwhile `capacitor.config.ts` points `server.url` at
+`https://aquarunner247.com`, so the native binary contains no app at all.
+
+Put together: **with no network the WebView cannot load a single document.** Not the day view,
+not a stop. The three read endpoints and the IndexedDB mirror from 1a–1c are necessary but not
+sufficient — they ensure the *data* is on the device, and nothing yet ensures there is an
+*application* to display it.
+
+So airplane mode needs a cached app shell, and that forces a choice this plan should not make
+silently, because the two options differ by an order of magnitude:
+
+- **Stale-document fallback.** The service worker keeps the last successful HTML response for the
+  technician routes and serves it on a navigation that fails. Small, and touches no screen. But
+  the served HTML is a *previous* server render, so it carries whatever stops it had when it was
+  cached, and a client-side reconciliation against the mirror has to correct it after boot. The
+  risk is a technician briefly reading a stale day as though it were current.
+- **Client-rendered technician shell.** The day view and stop detail become client components
+  that read the mirror and treat the network as refresh — which is what 1c's own description
+  assumed ("read from the store with the network as refresh rather than as the source of
+  truth"). Correct by construction and no staleness ambiguity, but `route-day-view.tsx` is 2,067
+  lines and `visit-form.tsx` 1,542, and converting them is Phase 3's work pulled forward.
+
+The second is the real answer and the first is the cheap one. Worth deciding against a measured
+need rather than in the abstract — which is also the honest reading of the open question at the
+bottom of this document.
+
+---
 
 ---
 

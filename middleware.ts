@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { bearerTokenFrom } from "@/lib/auth/bearer-token";
 
 /**
  * Content-Security-Policy, built from an actual inventory of every external domain this
@@ -96,6 +97,22 @@ function needsSessionRefresh(pathname: string): boolean {
   return !PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+/**
+ * A bearer-token request has no cookie session to refresh, so updateSession's getUser() round
+ * trip is pure latency -- and it is latency paid TWICE per call, because the route handler then
+ * validates the same token again through getCurrentAppUser(). That doubling is exactly the cost
+ * NATIVE-REBUILD-PLAN.md flags for a native client hitting a dozen endpoints per stop.
+ *
+ * Safe because refreshing is only ever about cookies: updateSession exists to rotate an expiring
+ * access token and write the new one onto the response. A native client holds its own session and
+ * refreshes it against Supabase directly, and there is no cookie here to write to. The route
+ * handler still validates the token itself, so skipping this cannot let an unauthenticated
+ * request through -- only /dashboard pages are gated here, and those are cookie-based.
+ */
+function carriesBearerToken(request: NextRequest): boolean {
+  return bearerTokenFrom(request.headers.get("authorization")) != null;
+}
+
 export async function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csp = buildCsp(nonce);
@@ -109,9 +126,10 @@ export async function middleware(request: NextRequest) {
 
   // CSP is applied either way -- skipping the session refresh must not skip the header, or
   // the marketing pages would quietly lose their Content-Security-Policy.
-  const response = needsSessionRefresh(request.nextUrl.pathname)
-    ? await updateSession(request, requestHeaders)
-    : NextResponse.next({ request: { headers: requestHeaders } });
+  const response =
+    needsSessionRefresh(request.nextUrl.pathname) && !carriesBearerToken(request)
+      ? await updateSession(request, requestHeaders)
+      : NextResponse.next({ request: { headers: requestHeaders } });
 
   response.headers.set("Content-Security-Policy", csp);
   return response;
