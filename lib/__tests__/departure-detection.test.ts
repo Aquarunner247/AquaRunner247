@@ -3,9 +3,13 @@ import {
   departureDecision,
   nextAwaySince,
   isAwayFix,
+  awaitsDeparture,
+  dayNeedsLocationWatch,
   DEPARTURE_MARGIN_METERS,
   DEPARTURE_SUSTAINED_MS,
+  DEPARTURE_WATCH_GRACE_MS,
   type DepartureCandidate,
+  type WatchCandidate,
 } from "@/lib/departure-detection";
 
 /**
@@ -155,5 +159,119 @@ describe("isAwayFix", () => {
     const boundary = RADIUS + DEPARTURE_MARGIN_METERS;
     expect(isAwayFix({ distanceMeters: boundary, accuracyBufferMeters: 0, radiusMeters: RADIUS })).toBe(false);
     expect(isAwayFix({ distanceMeters: boundary + 1, accuracyBufferMeters: 0, radiusMeters: RADIUS })).toBe(true);
+  });
+});
+
+/**
+ * The watch window -- why the last stop of the day never recorded a departure.
+ *
+ * These lock in the fix for a bug that was invisible in the detection logic above, because the
+ * logic was right: the watcher was simply switched off before it could run. route-day-view.tsx
+ * tore it down as soon as every stop read COMPLETED or CANCELLED, and the last stop reads
+ * COMPLETED while the technician is still standing at the pool. No further fixes, so the dwell
+ * never elapsed, so no departure -- which looked for months like Android killing the app.
+ *
+ * The pull in the other direction is battery: every "false" below is a case where keeping GPS and
+ * Android's persistent tracking notification alive would cost a technician their phone for
+ * nothing.
+ */
+describe("awaitsDeparture", () => {
+  const NOON = new Date("2026-11-24T12:00:00Z");
+  const base: WatchCandidate = {
+    status: "COMPLETED",
+    startedAt: new Date("2026-11-24T11:30:00Z"),
+    completedAt: new Date("2026-11-24T11:55:00Z"),
+    departedAt: null,
+    latitude: 36.1,
+    longitude: -115.2,
+  };
+
+  it("keeps watching a completed stop that has not been left yet -- the whole bug", () => {
+    expect(awaitsDeparture(base, NOON)).toBe(true);
+  });
+
+  it("stops once the departure is recorded", () => {
+    expect(awaitsDeparture({ ...base, departedAt: new Date("2026-11-24T11:58:00Z") }, NOON)).toBe(false);
+  });
+
+  it("never watches a stop that was never arrived at", () => {
+    expect(awaitsDeparture({ ...base, status: "SCHEDULED", startedAt: null, completedAt: null }, NOON)).toBe(false);
+  });
+
+  it("never watches a cancelled stop, even one that was arrived at", () => {
+    expect(awaitsDeparture({ ...base, status: "CANCELLED" }, NOON)).toBe(false);
+  });
+
+  it("never watches an unpinned venue, which could never conclude anything", () => {
+    // departureDecision returns "no-pin" on every fix for the rest of the day, so holding the
+    // watcher open for this would drain the phone to no purpose whatsoever.
+    expect(awaitsDeparture({ ...base, latitude: null, longitude: null }, NOON)).toBe(false);
+  });
+
+  it("gives up after the grace window rather than tracking until midnight", () => {
+    const justInside = new Date(base.completedAt!.getTime() + DEPARTURE_WATCH_GRACE_MS - 1000);
+    const justOutside = new Date(base.completedAt!.getTime() + DEPARTURE_WATCH_GRACE_MS + 1000);
+    expect(awaitsDeparture(base, justInside)).toBe(true);
+    expect(awaitsDeparture(base, justOutside)).toBe(false);
+  });
+
+  it("does not time out a stop still being worked, however long it takes", () => {
+    // A long stop must not stop being watched just because it ran past the grace window -- that
+    // window is about waiting for someone to drive off, not about how long a pool takes.
+    const longStop: WatchCandidate = { ...base, status: "IN_PROGRESS", completedAt: null };
+    const hoursLater = new Date(base.startedAt!.getTime() + 5 * 60 * 60 * 1000);
+    expect(awaitsDeparture(longStop, hoursLater)).toBe(true);
+  });
+
+  it("is still bounded for a COMPLETED row with no completedAt", () => {
+    // Defensive: nothing should produce this, but an unbounded path here is a phone tracked all
+    // night, so the grace window falls back to arrival rather than to forever.
+    const noFinish: WatchCandidate = { ...base, completedAt: null };
+    const wayLater = new Date(base.startedAt!.getTime() + DEPARTURE_WATCH_GRACE_MS + 60_000);
+    expect(awaitsDeparture(noFinish, wayLater)).toBe(false);
+  });
+});
+
+describe("dayNeedsLocationWatch", () => {
+  const NOON = new Date("2026-11-24T12:00:00Z");
+  const completedAwaitingDeparture: WatchCandidate = {
+    status: "COMPLETED",
+    startedAt: new Date("2026-11-24T11:30:00Z"),
+    completedAt: new Date("2026-11-24T11:55:00Z"),
+    departedAt: null,
+    latitude: 36.1,
+    longitude: -115.2,
+  };
+  const settled: WatchCandidate = { ...completedAwaitingDeparture, departedAt: new Date("2026-11-24T11:58:00Z") };
+  const upcoming: WatchCandidate = {
+    status: "SCHEDULED",
+    startedAt: null,
+    completedAt: null,
+    departedAt: null,
+    latitude: 36.2,
+    longitude: -115.3,
+  };
+
+  it("THE REGRESSION: a day whose every stop is complete still needs the watcher if a departure is open", () => {
+    // This is the exact state that broke it. The old check was `every(COMPLETED || CANCELLED)`,
+    // which is true here, so the watcher was removed and the departure could never be detected.
+    expect(dayNeedsLocationWatch([settled, completedAwaitingDeparture], NOON)).toBe(true);
+  });
+
+  it("stands down once every departure is settled", () => {
+    expect(dayNeedsLocationWatch([settled, settled], NOON)).toBe(false);
+  });
+
+  it("keeps watching while there is still a stop to arrive at", () => {
+    expect(dayNeedsLocationWatch([settled, upcoming], NOON)).toBe(true);
+  });
+
+  it("stands down on a day of skipped stops", () => {
+    const cancelled: WatchCandidate = { ...upcoming, status: "CANCELLED" };
+    expect(dayNeedsLocationWatch([cancelled, cancelled], NOON)).toBe(false);
+  });
+
+  it("stands down on an empty day rather than tracking a technician who has no route", () => {
+    expect(dayNeedsLocationWatch([], NOON)).toBe(false);
   });
 });

@@ -24,14 +24,21 @@
  *
  * The rest is what makes it honest rather than merely compliant, and it matches what the Privacy
  * Policy and EULA already promise: only the arrival fix leaves the phone, a departure is a time
- * with no position attached, and the watch ends when the day does.
+ * with no position attached, and the watch ends on its own within a bounded window.
+ *
+ * The third sentence used to say tracking stopped "once the day's stops are done". That was both
+ * a promise we broke and the cause of a bug: the watcher really was torn down at the final
+ * Complete, which is why the last stop of the day never recorded a departure (see
+ * lib/departure-detection.ts, dayNeedsLocationWatch). It now runs on into a bounded grace window,
+ * so this had to say so -- an inaccurate prominent disclosure is a Play policy violation in its
+ * own right, quite apart from being untrue to the technician reading it.
  */
 export const BACKGROUND_LOCATION_DISCLOSURE = {
   title: "AquaRunner needs your location in the background",
   body: [
     "AquaRunner 24/7 Pro collects location data to log when you arrive at each stop on your route, and when you leave a stop you haven't finished — even when the app is closed or not in use.",
     "Only the position that records an arrival is sent to your company. Leaving is worked out on this phone and sent as a time, with no position attached. The positions in between are checked here and discarded.",
-    "This runs only while you have unfinished stops for the day. It stops on its own once the day's stops are done.",
+    "This runs while you have unfinished stops, and for a short while after you finish the last one so that leaving it can be logged too. It stops on its own — within half an hour of your last stop at the latest.",
   ],
   accept: "Allow location",
   decline: "Not now",

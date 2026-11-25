@@ -15,14 +15,34 @@ import { getCurrentAppUser } from "@/lib/auth/current-app-user";
  * there", which a timestamp alone answers completely. Sending a position would be collecting
  * something nothing reads, and would widen what the Privacy Policy has to promise.
  *
+ * A TIME in the body, however, is now accepted and preferred. The client sends the moment it
+ * decided, because as of 2026-11-24 this call goes through the offline queue: a departure
+ * detected in a dead zone is replayed when coverage returns, which may be an hour later and
+ * halfway home. Stamping receipt time there would write that hour into a customer's report.
+ * Omitting it still works -- an older cached client, or anything calling this by hand, falls
+ * back to now exactly as before.
+ *
  * Idempotent. The watcher may fire more than once -- a retry, a remount, two fixes landing
  * together -- and the FIRST departure is the true one: a later call would push the time outward
  * and quietly lengthen the visit. So an already-departed stop returns its existing value and
  * changes nothing.
  */
-export async function PATCH(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const appUser = await getCurrentAppUser();
   if (!appUser) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+
+  // Optional, same best-effort parse as the arrival route's location body: no body, a malformed
+  // one, or an unparseable date all fall through to the server's own clock below.
+  let claimedAt: Date | null = null;
+  try {
+    const body = await request.json();
+    if (typeof body?.departedAt === "string") {
+      const parsed = new Date(body.departedAt);
+      if (!Number.isNaN(parsed.getTime())) claimedAt = parsed;
+    }
+  } catch {
+    // No/invalid JSON body -- use the server clock.
+  }
 
   const { id } = await context.params;
   const visit = await prisma.serviceVisit.findUnique({
@@ -57,7 +77,15 @@ export async function PATCH(_request: Request, context: { params: Promise<{ id: 
     return NextResponse.json({ ok: false, reason: "NEVER_ARRIVED" }, { status: 409 });
   }
 
-  const departedAt = new Date();
+  const now = new Date();
+
+  /**
+   * The device's time is trusted only where it can only ever be more accurate than ours, which is
+   * backwards in time. A claim in the FUTURE is a wrong clock on the phone, not a replay, and
+   * honouring it would end a visit before it happened and leave a duration nothing can explain --
+   * so the server's own clock caps it.
+   */
+  const departedAt = claimedAt != null && claimedAt.getTime() <= now.getTime() ? claimedAt : now;
 
   // Refuse a departure that precedes arrival. Cannot happen from the watcher, but a clock set
   // wrong on a device would otherwise write a negative duration into a customer's report.

@@ -26,7 +26,8 @@ import { sameEndpoint } from "@/lib/route-endpoints";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 import { isPushedVisit } from "@/lib/visit-pushed";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
-import { departureDecision, isAwayFix, nextAwaySince } from "@/lib/departure-detection";
+import { dayNeedsLocationWatch, departureDecision, isAwayFix, nextAwaySince } from "@/lib/departure-detection";
+import { initOfflineSync, queuedSubmitJson } from "@/lib/client/offline-queue";
 
 export type RouteStop = {
   id: string;
@@ -432,22 +433,53 @@ export function RouteDayView({
     itemsRef.current = items;
   }, [items]);
 
-  async function stampDeparture(visitId: string) {
+  /**
+   * Queued departures are replayed from here, not only from the visit form.
+   *
+   * initOfflineSync was called exclusively by visit-form.tsx, which is the screen a technician
+   * closes for the last time at the end of the day -- so a departure queued in a dead zone on the
+   * drive home had nothing running to drain it until they opened a visit form the following
+   * morning. This is the technician's home screen, so it is the right place to keep the drain
+   * alive. Idempotent: the queue only ever attaches its listeners once.
+   */
+  useEffect(() => {
+    initOfflineSync();
+  }, []);
+
+  /**
+   * `departedAt` is the moment the decision was made on the device, and is sent in the body.
+   *
+   * It has to be, because this now goes through the offline queue: a departure detected in a dead
+   * zone is replayed on reconnect, which could be an hour later and halfway home, and letting the
+   * server stamp its own receipt time would write that hour into a customer's report. Before
+   * 2026-11-24 this was a bare fetch that DELETED the marker on a network failure and relied on a
+   * later fix retrying -- so a departure detected out of coverage was simply lost if coverage did
+   * not come back while the watcher was still running, which for the last stop of the day it
+   * never was.
+   *
+   * Still no position in the body, only the time. See the route's own comment.
+   */
+  async function stampDeparture(visitId: string, departedAt: Date) {
     departedRef.current.add(visitId);
-    try {
-      // No body: the server records the moment, not the place. See the route's own comment.
-      const res = await fetch(`/api/visits/${visitId}/departure`, { method: "PATCH" });
-      if (!res.ok) {
-        // 409 means the stop stopped being in progress between the decision and the request --
-        // completed, most likely. Nothing to retry, and nothing worth telling the technician:
-        // this fires from a background watcher and is not something they asked for.
-        return;
-      }
-    } catch {
-      // Offline. Drop the marker so the next fix can try again -- departure is detected from a
-      // continuous run of away-fixes, and the run has not ended just because a request failed.
-      departedRef.current.delete(visitId);
+    const result = await queuedSubmitJson({
+      url: `/api/visits/${visitId}/departure`,
+      method: "PATCH",
+      label: "Departure",
+      visitId,
+      body: { departedAt: departedAt.toISOString() },
+    });
+    if (result.status === "failed") {
+      // The server answered and refused -- 409 because the stop stopped being coherent between
+      // the decision and the request, most likely. Nothing to retry, and nothing worth telling
+      // the technician: this fires from a background watcher, not from anything they asked for.
+      // The marker stays set so the watcher does not re-fire on every subsequent fix.
+      return;
     }
+    // Sent, or durably queued. Either way it is settled as far as this day is concerned, so
+    // reflect it locally -- isDayFullyDone reads this to decide it can finally stand down.
+    setItems((prev) =>
+      prev.map((v) => (v.kind === "visit" && v.id === visitId ? { ...v, departedAt: departedAt.toISOString() } : v)),
+    );
   }
 
   async function stampArrival(visitId: string) {
@@ -492,7 +524,26 @@ export function RouteDayView({
     // after their last stop.
     function isDayFullyDone() {
       const visitItems = itemsRef.current.filter((i): i is DayItem & { kind: "visit" } => i.kind === "visit");
-      return visitItems.every((v) => v.status === "COMPLETED" || v.status === "CANCELLED");
+      const now = new Date();
+      // NOT simply "every stop is COMPLETED or CANCELLED", which is what this was until
+      // 2026-11-24 and which tore the watcher down the moment the last stop was completed --
+      // while the technician was still standing at the pool, minutes before the departure it
+      // was supposed to catch. A closed-out stop whose departure has not settled yet still
+      // needs fixes; lib/departure-detection.ts owns that rule and the grace window bounding it.
+      return !dayNeedsLocationWatch(
+        visitItems.map((v) => ({
+          status: v.status,
+          startedAt: v.startedAt ? new Date(v.startedAt) : null,
+          completedAt: v.completedAt ? new Date(v.completedAt) : null,
+          // departedRef stands in for the server echo, which `items` does not carry until a
+          // refresh -- and for a departure that only reached the offline queue, which is just as
+          // settled from this component's point of view. Only its null-ness is read.
+          departedAt: departedRef.current.has(v.id) ? now : v.departedAt ? new Date(v.departedAt) : null,
+          latitude: v.latitude,
+          longitude: v.longitude,
+        })),
+        now,
+      );
     }
 
     // Shared by both the native and web watch below -- given a fresh fix, clear any
@@ -576,7 +627,7 @@ export function RouteDayView({
         );
         if (decision.depart) {
           awaySinceRef.current.delete(v.id);
-          void stampDeparture(v.id);
+          void stampDeparture(v.id, now);
         }
       }
 

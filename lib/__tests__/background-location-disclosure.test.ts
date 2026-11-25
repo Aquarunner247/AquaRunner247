@@ -9,6 +9,7 @@ import {
   recordBackgroundLocationProven,
   type DisclosureStorage,
 } from "@/lib/background-location-disclosure";
+import { DEPARTURE_WATCH_GRACE_MS } from "@/lib/departure-detection";
 
 /**
  * The wording here is a Play policy artefact, not copy. Each assertion below maps to something a
@@ -46,6 +47,24 @@ describe("the disclosure text", () => {
     // before a customer finds the difference.
     expect(all).toContain("no position attached");
     expect(all.toLowerCase()).toContain("discarded");
+  });
+
+  it("no longer claims tracking stops the moment the day's stops are done", () => {
+    // It said exactly that until 2026-11-24, and it was untrue in the worse direction: the
+    // watcher really did stop at the final Complete, which is why the last stop of the day never
+    // recorded a departure. The fix keeps it running into a grace window, so the promise of an
+    // immediate stop had to go -- a prominent disclosure that overstates how little an app does
+    // is still an inaccurate disclosure.
+    expect(all).not.toContain("once the day's stops are done");
+    expect(all.toLowerCase()).toContain("after you finish the last one");
+  });
+
+  it("states a bound that matches the one the code actually enforces", () => {
+    // The copy says "within half an hour". That is DEPARTURE_WATCH_GRACE_MS, and the two must not
+    // drift: changing the constant without changing this sentence turns the Play disclosure, the
+    // Privacy Policy and the EULA into three documents that all misstate the app's behaviour.
+    expect(DEPARTURE_WATCH_GRACE_MS).toBe(30 * 60 * 1000);
+    expect(all).toContain("half an hour");
   });
 });
 

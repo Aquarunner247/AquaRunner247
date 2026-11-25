@@ -142,3 +142,69 @@ export function isAwayFix(params: {
 }): boolean {
   return params.distanceMeters > params.radiusMeters + params.accuracyBufferMeters + DEPARTURE_MARGIN_METERS;
 }
+
+/**
+ * How long after a stop is finished the location watcher stays up waiting for the departure.
+ *
+ * Exists to bound the battery cost of the fix below. Thirty minutes covers loading the van,
+ * paperwork, or eating lunch in the shade before driving off; past that, a technician still
+ * inside the geofence is not meaningfully "departing" that stop any more, and keeping GPS and
+ * Android's foreground-service notification alive until midnight is its own bug.
+ */
+export const DEPARTURE_WATCH_GRACE_MS = 30 * 60 * 1000;
+
+export type WatchCandidate = {
+  /** ServiceVisit.status. Only CANCELLED is special here. */
+  status: string;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  departedAt: Date | null;
+  /** The venue pin. Null means departure can never be concluded, so it must not hold the watcher. */
+  latitude: number | null;
+  longitude: number | null;
+};
+
+/**
+ * Whether this stop still has a departure that the watcher could plausibly observe.
+ *
+ * Every false branch is a reason the watcher would otherwise run forever for nothing.
+ */
+export function awaitsDeparture(visit: WatchCandidate, now: Date): boolean {
+  // A skipped or moved stop never had presence worth reporting -- same exclusion the watcher
+  // itself applies, for the same reason.
+  if (visit.status === "CANCELLED") return false;
+  // Nothing to leave, and nothing to measure from.
+  if (visit.startedAt == null) return false;
+  if (visit.departedAt != null) return false;
+  // An unpinned venue has no boundary, so departureDecision returns "no-pin" on every fix for
+  // the rest of the day. Holding the watcher open for it would drain the phone to no purpose.
+  if (visit.latitude == null || visit.longitude == null) return false;
+
+  // Unfinished: the day is not over anyway, so no bound is needed or wanted -- a long stop must
+  // not stop being watched just because it ran past the grace window.
+  if (visit.status !== "COMPLETED" && visit.completedAt == null) return true;
+
+  // Finished. Bound the wait. Falls back to arrival for the defensive case of a COMPLETED row
+  // with no completedAt, so there is no path through here that is unbounded.
+  const finishedAt = visit.completedAt ?? visit.startedAt;
+  return now.getTime() - finishedAt.getTime() < DEPARTURE_WATCH_GRACE_MS;
+}
+
+/**
+ * Whether the device should still be watching location for this day's stops.
+ *
+ * The negation of the old `isDayFullyDone()` in route-day-view.tsx, and the fix for the bug it
+ * carried: that check asked only whether every stop was COMPLETED or CANCELLED, which goes true
+ * the instant the technician taps Complete on the last stop -- while they are still standing at
+ * the pool. The watcher was torn down there, so no further fixes were ever delivered, so the
+ * three-minute dwell in departureDecision could never elapse and the last stop of the day could
+ * never record a departure. It read like the OS killing a backgrounded app; it was us, minutes
+ * earlier, with the app open in their hand.
+ *
+ * So there are two reasons to keep watching, not one: a stop still to arrive at, or a stop
+ * already arrived at whose departure has not been settled yet.
+ */
+export function dayNeedsLocationWatch(visits: WatchCandidate[], now: Date): boolean {
+  const workable = visits.some((v) => v.status !== "COMPLETED" && v.status !== "CANCELLED");
+  return workable || visits.some((v) => awaitsDeparture(v, now));
+}
