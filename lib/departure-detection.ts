@@ -208,3 +208,24 @@ export function dayNeedsLocationWatch(visits: WatchCandidate[], now: Date): bool
   const workable = visits.some((v) => v.status !== "COMPLETED" && v.status !== "CANCELLED");
   return workable || visits.some((v) => awaitsDeparture(v, now));
 }
+
+/**
+ * When the departure actually happened, given the start of the away-run that proved it.
+ *
+ * The dwell completes a fixed DEPARTURE_SUSTAINED_MS after the first away-fix, so that is the
+ * moment to record -- not the moment the deciding fix happened to be delivered, which is what
+ * this was until 2026-11-24 and which is wrong in two ways. On a phone with poor signal,
+ * delivering fixes every couple of minutes rather than every second, it padded the visit by
+ * however long the gap was. And it could not express a departure concluded on a RESUMED dwell at
+ * all (lib/departure-watch-state.ts): the app comes back after the process died, finds the run
+ * already long enough, and the honest answer is the time the dwell elapsed -- which may be
+ * minutes before the app was even running again.
+ *
+ * Deliberately NOT `awaySince` itself, which is arguably the truer moment they left. Moving to it
+ * would shorten every recorded visit by three minutes, changing durations in customers' reports
+ * for reasons that have nothing to do with fixing this bug. That is a product decision, separate
+ * from this one.
+ */
+export function departureTimeFor(awaySince: Date): Date {
+  return new Date(awaySince.getTime() + DEPARTURE_SUSTAINED_MS);
+}

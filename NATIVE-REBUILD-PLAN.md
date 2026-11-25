@@ -1,6 +1,7 @@
 # Native rebuild plan
 
-Status: **Phase 0a and 0b are built and tested. Everything from Phase 0c on is plan only.**
+Status: **Phase 0a, 0b and the Capacitor half of 0c are built and tested. The OS-geofence half
+of 0c and everything from Phase 1 on is plan only.**
 Written 2026-11-24.
 
 Supersedes the sizing done 2026-11-17, which deferred this work. Two of that assessment's
@@ -152,7 +153,7 @@ accurate as a live one — it has to be sent with its own `departedAt` rather th
 server stamp receipt time, which is a small change to
 `app/api/visits/[id]/departure/route.ts` (it currently records the moment it is called).
 
-### 0c. TODO — the dwell needs our JS alive for three minutes, and this one is genuinely native
+### 0c. PART DONE — the dwell needs our JS alive for three minutes
 
 The away-marker lives in a `useRef`. If the WebView process goes away during those three minutes
 — the technician swipes the app off, taps **Cancel** on the "Tracking your route" notification
@@ -160,20 +161,40 @@ The away-marker lives in a `useRef`. If the WebView process goes away during tho
 is lost and the dwell restarts from nothing on relaunch. The foreground service makes this
 *unlikely*, not impossible, and it is the residual cause after 0a and 0b.
 
-Two levels of fix:
+Two levels of fix. The first is done; the second needs native code this app does not have yet.
 
-- **In Capacitor, partial:** persist the away-markers (and the arrival state) to IndexedDB on
-  every fix instead of holding them only in refs, so a relaunched app resumes a dwell in progress
-  rather than forgetting it. Cheap, and worth doing regardless.
-- **Native, actual fix:** register the stops as **OS geofences** instead of computing distance
-  ourselves. Android's `GeofencingClient` supports an EXIT transition with a loitering delay —
-  which is precisely our 30m margin plus 3-minute dwell, implemented by the platform — and
-  delivers it to a `PendingIntent` that **starts the app process even after it has been
-  killed**. iOS region monitoring relaunches a terminated app the same way. The fence is held by
-  the OS, so there is nothing of ours that has to stay alive. The cost is coarser geometry
-  (~100m minimum radius is the documented guidance, and transitions are rate-limited), so this
-  likely coexists with the fix-based logic rather than replacing it: geofences catch the
-  app-is-dead case, the watcher keeps the precision while the app lives.
+**DONE — persist the dwell (`lib/departure-watch-state.ts`).** The away-markers are mirrored to
+localStorage whenever a run starts or resets, and a relaunched app resumes a dwell in progress
+instead of forgetting it. Two details carry most of the value:
+
+- **A resumed departure records when the dwell *elapsed*, not when the app came back.** That is
+  `departureTimeFor(awaySince)` in `lib/departure-detection.ts`. Recording "now" would pad the
+  visit by the whole outage — exactly the class of defect that put 18-, 20- and 126-hour
+  durations in customers' reports once before. This also fixed the live path, which was padding
+  by however long the gap between fixes happened to be on a phone with poor signal.
+- **A live fix always beats the mirror.** If the technician walked back to the pool during the
+  outage, the first in-radius fix after relaunch clears the marker through the ordinary
+  `nextAwaySince` reset, so a stale marker cannot conclude a departure for somebody standing
+  there. Resuming only concludes anything when they were away before the gap *and* are still away
+  after it.
+
+Every doubtful input yields nothing: a different day, a marker past the resume window
+(`DEPARTURE_SUSTAINED_MS` + 5 min), a timestamp in the future, corrupt JSON, or storage that
+throws. The asymmetry is deliberate — failing to resume costs a departure, which is the bug we
+already had; resuming wrongly writes a false duration into a customer's report.
+
+**Still to do, and the honest native argument: register the stops as OS geofences** instead of
+computing distance ourselves. Android's `GeofencingClient` supports an EXIT transition with a
+loitering delay — precisely our 30m margin plus 3-minute dwell, implemented by the platform — and
+delivers it to a `PendingIntent` that **starts the app process even after it has been killed**.
+iOS region monitoring relaunches a terminated app the same way. The fence is held by the OS, so
+there is nothing of ours that has to stay alive, which is the one thing persistence cannot buy:
+if the process stays dead, nothing of ours runs to resume anything.
+
+The cost is coarser geometry (~100m minimum radius is the documented guidance, and transitions
+are rate-limited), so this coexists with the fix-based logic rather than replacing it — geofences
+catch the app-is-dead case, the watcher keeps the precision while the app lives. It belongs in
+Phase 2's plugin work and needs no screen ported.
 
 **This is the one honest location argument for going native** — and it is narrower than "native
 makes background location work". Worth noting it needs no screen ported: it belongs in Phase 2's

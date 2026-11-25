@@ -26,7 +26,8 @@ import { sameEndpoint } from "@/lib/route-endpoints";
 import { toggleAdHocStop, deleteAdHocStop } from "@/app/dashboard/actions";
 import { isPushedVisit } from "@/lib/visit-pushed";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
-import { dayNeedsLocationWatch, departureDecision, isAwayFix, nextAwaySince } from "@/lib/departure-detection";
+import { dayNeedsLocationWatch, departureDecision, departureTimeFor, isAwayFix, nextAwaySince } from "@/lib/departure-detection";
+import { loadAwaySince, saveAwaySince } from "@/lib/departure-watch-state";
 import { initOfflineSync, queuedSubmitJson } from "@/lib/client/offline-queue";
 
 export type RouteStop = {
@@ -182,6 +183,22 @@ function matchesStatusFilter(item: DayItem, filter: NonNullable<Props["statusFil
 // No JS entrypoint ships from @capacitor-community/background-geolocation (it's types-only
 // -- see its package.json) -- this is the documented way to obtain the plugin.
 const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
+
+/**
+ * localStorage for the departure-dwell mirror, or null when it cannot be had.
+ *
+ * Merely touching `window.localStorage` throws in a WebView with site data blocked, so this is
+ * guarded rather than assumed -- the mirror is an optimisation and must never be able to stop the
+ * location watcher from starting.
+ */
+function watchStateStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 /// Leaflet popups take an HTML string, so anything user-entered has to be escaped before it
 /// goes in one. Property names, body-of-water names and extra-stop descriptions are all typed
@@ -593,6 +610,7 @@ export function RouteDayView({
        * the fixes and keeps the per-stop timer.
        */
       const now = new Date();
+      let markersChanged = false;
       for (const v of visitItems) {
         // Watch until they LEAVE, not until they finish. Completing a stop is a button press;
         // departure is the thing being measured, and on a normal visit the press comes first.
@@ -610,7 +628,11 @@ export function RouteDayView({
         const distanceMeters = haversineMeters(here, v);
         const away = isAwayFix({ distanceMeters, accuracyBufferMeters: buffer, radiusMeters });
 
-        const updated = nextAwaySince(awaySinceRef.current.get(v.id) ?? null, away, now);
+        const previous = awaySinceRef.current.get(v.id) ?? null;
+        const updated = nextAwaySince(previous, away, now);
+        // Only when a run starts or resets, not on every fix -- nextAwaySince returns the marker
+        // unchanged while the technician stays away, so this is rare rather than once a second.
+        if (previous?.getTime() !== updated?.getTime()) markersChanged = true;
         if (updated == null) awaySinceRef.current.delete(v.id);
         else awaySinceRef.current.set(v.id, updated);
 
@@ -627,8 +649,18 @@ export function RouteDayView({
         );
         if (decision.depart) {
           awaySinceRef.current.delete(v.id);
-          void stampDeparture(v.id, now);
+          markersChanged = true;
+          // `updated` is non-null here: departureDecision cannot return depart on a null awaySince.
+          // The recorded time is when the dwell elapsed, not when this fix arrived -- which is what
+          // makes a departure concluded on a RESUMED dwell honest rather than backdated to now.
+          void stampDeparture(v.id, updated ? departureTimeFor(updated) : now);
         }
+      }
+
+      if (markersChanged) {
+        // Mirrored so the dwell survives the WebView process dying mid-run. See
+        // lib/departure-watch-state.ts for why that is a real case and only a partial fix.
+        saveAwaySince(watchStateStorage(), awaySinceRef.current, now);
       }
 
       return isDayFullyDone();
@@ -640,6 +672,19 @@ export function RouteDayView({
     function handleFailureMessage(message: string | undefined) {
       const lower = (message ?? "").toLowerCase();
       setLocationState(lower.includes("deni") || lower.includes("permission") ? "denied" : "unavailable");
+    }
+
+    /**
+     * Pick up any dwell that was in progress when this screen last stopped running.
+     *
+     * Without this the marker lived only in awaySinceRef, so a technician whose phone killed the
+     * WebView ninety seconds into the three-minute dwell started again from zero on relaunch --
+     * and if they were already driving, there was no further boundary crossing to restart it
+     * from. Bounded and day-scoped inside loadAwaySince; an untrusted or stale mirror simply
+     * yields nothing and the dwell begins again, which is the old behaviour.
+     */
+    for (const [visitId, at] of loadAwaySince(watchStateStorage(), new Date())) {
+      if (!awaySinceRef.current.has(visitId)) awaySinceRef.current.set(visitId, at);
     }
 
     if (Capacitor.isNativePlatform()) {
