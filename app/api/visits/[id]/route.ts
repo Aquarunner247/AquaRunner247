@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAppUser } from "@/lib/auth/current-app-user";
 import { visitDeletionRefusal, DELETION_REFUSAL_MESSAGE } from "@/lib/visit-deletable";
 import { getVisitFormData } from "@/lib/visit-form-data";
+import type { VisitWire } from "@/lib/field-wire";
 
 /**
  * Delete a stop somebody added by hand and immediately regretted.
@@ -133,7 +134,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
    * access details for the person standing at the gate. Sending the rest would put fields on the
    * wire that nothing reads, which is how a payload quietly becomes an API contract.
    */
-  return NextResponse.json({
+  /**
+   * Annotated, not inferred. VisitWire derives `form` from the two form components' own prop
+   * types, so this assignment is what proves the payload is exactly what a client can render --
+   * if a form gains a required prop and assemble() does not supply it, this fails to compile
+   * rather than failing in the field.
+   */
+  const body: VisitWire = {
     visit: {
       id: visit.id,
       status: visit.status,
@@ -165,5 +172,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     isResidential,
     timeZone,
     form,
-  });
+  };
+
+  return NextResponse.json(body);
 }

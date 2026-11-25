@@ -165,6 +165,27 @@ type Props = {
   /// so leaving it null is unchanged behavior. Resolved by lib/route-endpoints.ts, which walks
   /// the route-override -> technician-default chain; this component never derives it.
   endPoint?: { latitude: number; longitude: number; label?: string | null } | null;
+  /// Where this view's own links should point. Omitted = the dashboard's screens, which is every
+  /// existing caller and is unchanged.
+  ///
+  /// The offline field shell (app/field/) passes its own, because those screens are server-rendered
+  /// and public/sw.js deliberately caches nothing under /dashboard -- tapping a stop there with no
+  /// signal would be a dead end. See NATIVE-REBUILD-PLAN.md, Phase 1d.
+  links?: DayViewLinks;
+};
+
+export type DayViewLinks = {
+  /// One stop's own screen.
+  visit: (visitId: string) => string;
+  /// The combined photo-capture screen for a property with several bodies of water. Null hides
+  /// that prompt entirely, for a surface where the screen does not exist.
+  propertyCapture: ((propertyId: string, params: URLSearchParams) => string) | null;
+};
+
+/** The dashboard's own screens. `from=schedule` tells the stop page where "back" goes. */
+export const DASHBOARD_DAY_VIEW_LINKS: DayViewLinks = {
+  visit: (visitId) => `/dashboard/visits/${visitId}?from=schedule`,
+  propertyCapture: (propertyId, params) => `/dashboard/stops/${propertyId}?${params.toString()}`,
 };
 
 /// An ad-hoc item has no "in progress" state -- it never matches that filter. "completed"/
@@ -370,6 +391,7 @@ function StatusBadge({
 }
 
 export function RouteDayView({
+  links = DASHBOARD_DAY_VIEW_LINKS,
   items: initialItems,
   readOnly = false,
   isToday = false,
@@ -961,7 +983,7 @@ export function RouteDayView({
       const actions: string[] = [];
       if (item.kind === "visit") {
         actions.push(
-          `<a href="/dashboard/visits/${escapeHtml(item.id)}?from=schedule" class="app-btn-ghost-sm" style="min-height:44px">Open stop</a>`,
+          `<a href="${escapeHtml(links.visit(item.id))}" class="app-btn-ghost-sm" style="min-height:44px">Open stop</a>`,
         );
       }
       const href = directionsUrl(item);
@@ -1874,7 +1896,7 @@ export function RouteDayView({
                               ) : null}
                               <span className="w-5 shrink-0 text-center text-xs font-semibold text-brand-ink">{mIdx + 1}</span>
                               <Link
-                                href={`/dashboard/visits/${m.id}?from=schedule`}
+                                href={links.visit(m.id)}
                                 className="min-w-0 flex-1 truncate text-sm text-brand-ink underline"
                               >
                                 {m.bodyName}
@@ -1892,12 +1914,14 @@ export function RouteDayView({
                         })}
                       </ul>
 
-                      <Link
-                        href={`/dashboard/stops/${v.propertyId}?${captureParams.toString()}`}
-                        className="mt-2 inline-block text-xs font-medium text-brand-cta underline"
-                      >
-                        Take each stop&rsquo;s photo ({fullMemberIds.length} needed)
-                      </Link>
+                      {links.propertyCapture ? (
+                        <Link
+                          href={links.propertyCapture(v.propertyId, captureParams)}
+                          className="mt-2 inline-block text-xs font-medium text-brand-cta underline"
+                        >
+                          Take each stop&rsquo;s photo ({fullMemberIds.length} needed)
+                        </Link>
+                      ) : null}
                     </li>
                   </Fragment>
                 );
@@ -1954,7 +1978,7 @@ export function RouteDayView({
                           2026-10-11. The address below still truncates; which body of water this is
                           matters, the street number does not. */}
                       <Link
-                        href={`/dashboard/visits/${v.id}?from=schedule`}
+                        href={links.visit(v.id)}
                         className={`block break-words text-sm font-medium underline ${isMoved ? "text-brand-muted" : "text-brand-ink"}`}
                       >
                         {v.propertyName} — {v.bodyName}
@@ -1976,9 +2000,10 @@ export function RouteDayView({
                             const params = new URLSearchParams();
                             if (dateYmd) params.set("date", dateYmd);
                             params.set("visits", groupVisitIds.join(","));
+                            if (!links.propertyCapture) return null;
                             return (
                               <Link
-                                href={`/dashboard/stops/${v.propertyId}?${params.toString()}`}
+                                href={links.propertyCapture(v.propertyId, params)}
                                 className="mt-1 inline-block text-xs font-medium text-brand-cta underline"
                               >
                                 Take each stop&rsquo;s photo ({count} needed)

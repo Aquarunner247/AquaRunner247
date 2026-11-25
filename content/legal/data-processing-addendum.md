@@ -1,8 +1,8 @@
 # Data Processing Agreement
 
-**Version:** 1.3  
+**Version:** 1.4  
 **Effective Date:** November 10, 2026  
-**Last Updated:** November 12, 2026
+**Last Updated:** November 25, 2026
 
 This Data Processing Agreement (“**DPA**”) forms part of, and is incorporated into, the Terms of Service or other written agreement governing the use of the AquaRunner247 services (the “**Agreement**”) between **AquaRunner247 LLC**, with its address at **732 S 6th St, Ste N, Las Vegas, NV 89101** (“**AquaRunner247**”), and the customer identified in the Agreement (“**Customer**”). This DPA applies when AquaRunner247 Processes Personal Data on Customer’s behalf.
 
@@ -310,7 +310,7 @@ AquaRunner247 Processes Customer Personal Data as needed to provide, maintain, s
 - record and display arrival, departure, and visit information, including the geolocation fix captured at the moment of logged arrival at a service visit, timestamps, and photos taken during service visits. While a technician has an unfinished route open in the mobile app, the app reads device location continuously — including in the background, with background location permission — in order to detect arrival at a stop and departure from a stop that was not finished; only the fix that records an arrival is transmitted to AquaRunner247 and stored, a departure is transmitted as a time with no position attached, and the intervening positions are evaluated on the device and discarded;
 - record water chemistry readings, dosage information, inspection checklists, and compliance records;
 - display records through the customer portal for End Customers, inspector portals, reports, and pump room QR codes as configured or directed by Customer;
-- provide route optimization and mobile app functionality, including offline data queuing and synchronization;
+- provide route optimization and mobile app functionality, including offline data queuing, offline access to an Authorized User’s assigned day, and synchronization;
 - extract structured equipment and inspection information from uploaded inspection reports;
 - handle, record, and transcribe inbound calls to a Customer’s configured phone number and process call transcripts into structured service requests using the subprocessors listed in Annex 3;
 - provide customer support, troubleshoot, and secure the Services; and
@@ -394,9 +394,11 @@ AquaRunner247 does not currently maintain an in-application audit trail of end-u
 - Apply reasonable controls to preserve the integrity of records as captured or synchronized through the Services.
 - Use blur detection or similar functionality where available to flag potentially unclear photos; such functionality does not guarantee that a photo is accurate, complete, or acceptable for regulatory purposes.
 
-## 6. Offline Queue Protections
+## 6. Offline Protections on a Device
 
 - Use reasonable safeguards for Personal Data temporarily queued on a device while offline, including protections available through the mobile operating system and application.
+- Use the same safeguards for Personal Data stored on a device so that an Authorized User can read and complete their assigned work without connectivity. Such Personal Data is limited to that Authorized User’s own assigned day, is held in the application’s own storage, is removed automatically once more than three days old, and is removed on sign-out or uninstall.
+- Confine Personal Data stored on a device to the Authorized User whose work it is, and do not present it to a different account signed in on the same device.
 - Synchronize queued records when connectivity returns, subject to normal technical limitations.
 - Customer will instruct its users to protect devices, enable appropriate device security, and report lost or compromised devices promptly.
 
@@ -522,6 +524,7 @@ Date:  __________________________________
 | 1.0 | October 22, 2026 | Initial draft. Re-dated effective October 25, 2026, with no change to its terms, so that every document in the accepted bundle carried one effective date. |
 | 1.1 | November 10, 2026 | Added Section 6.5 (Data Subject requests reaching retained compliance records) and Sections 9.6–9.7. Rewrote Section 9.5 to minimize the retained set, list field by field what is erased on termination, and strengthen Customer’s documented instruction. Completed the open SCC and UK Addendum selections in Annex 3 and recorded that no Restricted Transfers are currently made. Replaced the remaining bracketed fill-in fields in Section 12.2 and the signature block with blank form lines, so no part of the published DPA reads as an unfinished draft. Added Section 5.2.1, which states that the three public mapping services in Annex 3 operate under published usage policies rather than a negotiated agreement, rather than leaving Section 5.2 to imply a contract that does not exist. |
 | 1.2 | November 11, 2026 | Non-substantive correction, with no change to the Effective Date or to any right or obligation: filled the data protection contact field in Section 12.1, which had been left as a placeholder. |
+| 1.4 | November 25, 2026 | Extended Section 6 (renamed from “Offline Queue Protections” to “Offline Protections on a Device”) to cover Personal Data stored on a device so an Authorized User can read and complete their assigned work without connectivity, not only records queued awaiting sync. Commits to the same safeguards, to a three-day limit and removal on sign-out or uninstall, and to confining such data to the Authorized User whose work it is rather than presenting it to a different account signed in on the same device. Section 3 (Nature and Purpose of Processing) now names offline access among the processing purposes. No new Personal Data is Processed, no sub-processor is added, and no change to the Effective Date. |
 | 1.3 | November 12, 2026 | No change to the Annex 3 sub-processor list after all: Google (Analytics) was added and removed on the same date, because the analytics tag it covered was removed from the Services. Recorded rather than deleted so the list's history matches the Privacy Policy's. No change to the Effective Date or to any right or obligation. |
 
 *This document is for informational purposes only and should be reviewed by a licensed attorney before execution.*

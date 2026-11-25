@@ -119,6 +119,13 @@ export async function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  /**
+   * The path, for app/layout.tsx. A layout cannot see which route it is wrapping, and the root
+   * layout has to know one thing about it: whether it is the offline field shell, which must be
+   * rendered WITHOUT the signed-in user's name and organization so the service worker can cache
+   * the document. See lib/service-worker-policy.ts for why that matters.
+   */
+  requestHeaders.set("x-aq-pathname", request.nextUrl.pathname);
   // Next.js reads the nonce out of the CSP on the REQUEST to stamp the scripts it generates.
   // It was working without this while app/layout.tsx read x-nonce itself; that read is gone, so
   // set it explicitly rather than depend on a mechanism nothing in this repo states.

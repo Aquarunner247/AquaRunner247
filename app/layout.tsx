@@ -8,7 +8,9 @@ import { SideNav } from "./components/side-nav";
 import { OnboardingCallBanner } from "./components/onboarding-call-banner";
 import { ServiceWorkerRegister } from "./components/service-worker-register";
 import { AndroidBackButton } from "./components/android-back-button";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { isFieldShellPath } from "@/lib/service-worker-policy";
 import { getAppUserForAuthUser } from "@/lib/auth/prisma-user";
 import { prisma } from "@/lib/prisma";
 import { BRAND_INK } from "@/app/lib/chart-colors";
@@ -107,10 +109,23 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  /**
+   * THE FIELD SHELL IS RENDERED WITHOUT AN IDENTITY, DELIBERATELY.
+   *
+   * Everything below this -- the user's name, their organization's name, their role's nav links --
+   * is baked into the HTML of every document this layout produces. That is exactly why no document
+   * of this app could previously be cached: replaying one to whoever opens a shared phone next
+   * would show them the previous technician's name and company. /field exists to be the one
+   * cacheable document (Phase 1d of NATIVE-REBUILD-PLAN.md, and public/sw.js caches nothing else),
+   * so it must contain none of that. It resolves who the viewer is on the client instead, from the
+   * session already on the device, which is also the only thing that can work with no network.
+   *
+   * The path comes from middleware.ts, since a layout is not told which route it is wrapping.
+   */
+  const isFieldShell = isFieldShellPath((await headers()).get("x-aq-pathname") ?? "");
+
+  const supabase = isFieldShell ? null : await createClient();
+  const user = supabase ? (await supabase.auth.getUser()).data.user : null;
   const appUser = user ? await getAppUserForAuthUser(user) : null;
   const organization = appUser
     ? await prisma.organization.findUnique({
@@ -131,16 +146,25 @@ export default async function RootLayout({
       <body className="min-h-screen bg-brand-foam font-[family-name:var(--font-body)] antialiased">
         <ServiceWorkerRegister />
         <AndroidBackButton />
-        <OnboardingCallBanner show={showOnboardingCallBanner} />
-        <div className="md:flex">
-          <SideNav
-            isLoggedIn={Boolean(appUser)}
-            role={appUser?.role ?? null}
-            userName={appUser?.name ?? appUser?.email ?? null}
-            orgName={organization?.name ?? null}
-          />
-          <div className="min-w-0 flex-1">{children}</div>
-        </div>
+        {isFieldShell ? (
+          // No chrome at all: the nav names the user and their company, and the banner is an
+          // offer aimed at a specific account. Both would put identity into the one document
+          // public/sw.js keeps. The shell draws its own way back to the dashboard.
+          children
+        ) : (
+          <>
+            <OnboardingCallBanner show={showOnboardingCallBanner} />
+            <div className="md:flex">
+              <SideNav
+                isLoggedIn={Boolean(appUser)}
+                role={appUser?.role ?? null}
+                userName={appUser?.name ?? appUser?.email ?? null}
+                orgName={organization?.name ?? null}
+              />
+              <div className="min-w-0 flex-1">{children}</div>
+            </div>
+          </>
+        )}
         <Analytics />
         <SpeedInsights />
       </body>

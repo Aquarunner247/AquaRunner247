@@ -1,8 +1,9 @@
 # Native rebuild plan
 
 Status: **Phase 0a, 0b, the Capacitor half of 0c, and Phase 1a/1b/1c are built and tested.**
-Outstanding: the OS-geofence half of 0c, the new **Phase 1d** below (which Phase 1's own
-"done when" turns out to depend on), and Phases 2-4.
+Outstanding: the OS-geofence half of 0c, and Phases 2-4. **Phase 1d is done (2026-11-25)** --
+Phase 1's own "done when" turned out to depend on it, and the app now opens and works a stop with
+no network at all.
 Written 2026-11-24.
 
 Supersedes the sizing done 2026-11-17, which deferred this work. Two of that assessment's
@@ -339,12 +340,65 @@ silently, because the two options differ by an order of magnitude:
 - **Client-rendered technician shell.** The day view and stop detail become client components
   that read the mirror and treat the network as refresh — which is what 1c's own description
   assumed ("read from the store with the network as refresh rather than as the source of
-  truth"). Correct by construction and no staleness ambiguity, but `route-day-view.tsx` is 2,067
-  lines and `visit-form.tsx` 1,542, and converting them is Phase 3's work pulled forward.
+  truth"). Correct by construction and no staleness ambiguity. ~~But `route-day-view.tsx` is 2,067
+  lines and `visit-form.tsx` 1,542, and converting them is Phase 3's work pulled forward.~~
+  **WRONG, and this was the sentence that made the cheap option look reasonable.** Both files are
+  already `"use client"` — they have always run in the browser, and the server pages beneath them
+  only query and pass props. Nothing needed converting. The actual work was a prop-assembly shell,
+  which is what was built.
 
-The second is the real answer and the first is the cheap one. Worth deciding against a measured
-need rather than in the abstract — which is also the honest reading of the open question at the
-bottom of this document.
+The second is the real answer and the first is the cheap one.
+
+### Done, 2026-11-25
+
+The client-rendered shell, at `/field`. Verified in a real browser against the built app, not by
+reading: offline, `/field` loads from the service worker (status 200, `fromServiceWorker: true`)
+while `/dashboard` fails with `ERR_INTERNET_DISCONNECTED` — which is the control case proving the
+worker is not caching documents it must not.
+
+**The thing that makes any of it safe.** `app/layout.tsx` renders the signed-in user's name and
+their organization's name into *every* document, so no document of this app could be cached
+without replaying one person's identity to whoever picks up a shared handset next. `/field` is
+rendered through an `isFieldShell` branch that skips the user lookup and the nav entirely, and
+`lib/service-worker-policy.ts` allows exactly that one document plus content-hashed
+`/_next/static` — everything else, by default, is network-only and uncached. Checked by fetching
+the built document and grepping it: no name, no org, no nav, no email.
+
+**Identity is resolved on the client instead**, from the session already on the device, and
+`lib/field-pointer.ts` records which Supabase account the mirror belongs to. Offline that
+comparison is the only thing between one technician and another's customer list, so it was
+tested as such: with the pointer rewritten to another account, the shell shows "Saved for a
+different account" and the mirrored day stays hidden.
+
+**One real defect, found by measuring rather than assuming.** A service worker does not control
+the page that registers it, so the first visit to `/field` cached one file and only the *second*
+cached all thirty-four — useless for a technician who opens field mode once at the depot and
+drives off. `public/sw.js` now precaches on install, reading the chunk URLs out of the shell's own
+HTML (they are content-hashed, so a static file in `public/` cannot know them ahead of time). One
+visit now caches the document and all 33 assets.
+
+**Also verified, closing the gap left open after Phase 1:** `/api/technician/day` and
+`/api/technician/reference` both returned 200 against real Supabase Auth with a real session.
+Phase 1 shipped without that check.
+
+**Deliberately not in it.** Ad-hoc stops, because `technicianDay()` queries service visits only —
+an office addition to the day's plan does not exist in the mirror. Reordering, because the write
+persists 0..N-1 for the whole day and a mirror is not the authority on the plan; the list is
+read-only. The multi-body photo screen, because it is server-rendered and not mirrored, so the
+prompt is hidden rather than offered as a dead end. Arrival, departure, readings, doses, checklist
+and photos all work, through the queue that already existed.
+
+**The stop is selected with the URL hash** (`/field#stop=<id>`), not a query string or a route
+segment. A hash never reaches the server and never asks Next's router for a payload, so one cached
+document answers every stop and there is no URL a technician can reach that the cache has not
+seen. For the same reason the entry point in `app/dashboard/more/page.tsx` is a plain `<a>`: a
+`<Link>` is a client-side swap that fetches an RSC payload, and the worker only caches on a request
+whose mode is `navigate`, so a `<Link>` would have left the cache empty.
+
+Legal documents updated, per the standing order: Privacy Policy 1.7 (Section 9 and the Section 13
+retention table), EULA 1.2 (Sections 2.3 and 7.5), DPA 1.4 (Section 6, renamed, and Section 3).
+No new collection and nothing additional transmitted — the change is that customer records now
+rest on a device for up to three days.
 
 ---
 

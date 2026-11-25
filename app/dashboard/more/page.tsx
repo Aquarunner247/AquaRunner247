@@ -45,6 +45,23 @@ export default async function MorePage() {
         </span>
       </Link>
 
+      {/* The offline screen (NATIVE-REBUILD-PLAN.md, Phase 1d).
+
+          A PLAIN <a>, NOT A <Link>, AND THAT IS LOAD-BEARING. public/sw.js only caches the shell
+          on a request whose mode is "navigate" -- a real document load. A <Link> is a client-side
+          swap that fetches an RSC payload instead, so the document would never enter the cache and
+          the screen would still be unavailable offline despite all of this. It also wants a fresh
+          document anyway, since /field is rendered without the signed-in chrome around this page. */}
+      <a
+        href="/field"
+        className="mt-4 block rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm"
+      >
+        Field mode
+        <span className="mt-0.5 block text-xs font-normal text-brand-muted">
+          Save today&rsquo;s route to this phone and work it with no signal
+        </span>
+      </a>
+
       <Link
         href="/dashboard/safety-data-sheets"
         className="mt-4 block rounded-lg border border-brand-border bg-white px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-sm"

@@ -1,8 +1,8 @@
 # AquaRunner247 Privacy Policy
 
-**Version:** 1.6  
+**Version:** 1.7  
 **Effective Date:** November 10, 2026  
-**Last Updated:** November 14, 2026
+**Last Updated:** November 25, 2026
 
 ## Contents
 
@@ -160,6 +160,8 @@ Our website and Services may use cookies, pixels, local storage, software develo
 
 Today we use only strictly necessary cookies: the authentication cookies that keep you signed in. Our website analytics are cookieless and do not set or read an identifier on your device. Because we do not use cookies for advertising, analytics profiling, or any non-essential purpose, we do not operate a cookie consent banner or preference centre. You may still manage or block cookies through your browser or device settings, though blocking the authentication cookies will prevent you from signing in.
 
+**Records stored on a technician’s device for offline use.** So that a technician can open and complete a stop where there is no mobile signal, the mobile app stores a copy of that technician’s own working day on the device: the stops on the route and, for each one, the property name and address, the body of water, the access notes and owner contact details needed to get in and report a problem, the water readings and checklist for the visit, and the previous visit’s readings. This copy is held in the device’s own app storage, is the technician’s own assigned work only, and is never sent anywhere other than back to us as the service records the technician enters. It is replaced each time the day is loaded and is automatically removed once it is more than three days old. The app also stores a copy of the screen itself — the application files, which contain no information about any person — so that the screen can open without a connection. Signing out, clearing the app’s storage through device settings, or uninstalling the app removes these copies.
+
 We will update this Policy and our preference tools if we use cookies or similar technologies for targeted advertising, cross-context behavioral advertising, or other purposes that require additional notice or consent.
 
 ## 10. How We Share Information
@@ -236,6 +238,7 @@ We retain Personal Information for as long as reasonably necessary for the purpo
 | Call recordings and transcripts | Retained with the service request they generated, and deleted 30 days after the subscription ends |
 | Device, diagnostic, and usage information | Error reports, server logs, and performance traces are held by our monitoring providers under a rolling retention window that we configure to 90 days or less |
 | Support communications | Three years from the last message in the conversation |
+| Copies held on a technician’s device for offline use | Removed automatically once more than three days old, and replaced each time the day is loaded. Also removed when the Authorized User signs out, clears the app’s storage, or uninstalls the app. These are copies of records that also live in the Organization’s account and follow the rows above wherever we hold them; see Section 9 |
 | Backups and disaster-recovery copies | Deleted or overwritten on a rolling cycle that does not exceed 90 days after the date the underlying record was deleted |
 
 At the end of a subscription, Customer Data remains available for export for **30 days**, after which it is deleted or de-identified, except as described in the next paragraph or to the extent retention is required or permitted by law or is necessary for security, backup, or dispute-resolution purposes.
@@ -406,6 +409,7 @@ An organization’s recorded acceptance names the version it agreed to, so each 
 | 1.3 | November 11, 2026 | Non-substantive corrections, with no change to the Effective Date or to any right or obligation: filled the privacy contact field in Sections 2, 18, and 23, which had been left as a placeholder; removed the sentences in Sections 16 and 17 that said our categories and sale practices were to be confirmed before publication, which read as unfinished drafting in a published policy; and stated in Section 8 that the public compliance log is published only for commercially regulated water, matching Section 2 of the Terms of Service. |
 | 1.4 | November 12, 2026 | Removed Google Analytics from the Services. The tag had run on every page since August 23, 2026 and set a persistent `_ga` identifier, which contradicted the statement in Section 9 that our analytics are cookieless and set no identifier on the device — the statement that is also the stated reason this site runs no cookie consent banner. Section 9 is accurate as written now that the tag is gone. Remaining analytics are Vercel Analytics and Speed Insights, which set no cookie and no device identifier. No change to the Effective Date or to any right or obligation. |
 | 1.5 | November 12, 2026 | Named the analytics function in the Vercel subprocessor row. Section 9 and the 1.4 note already disclosed that the remaining analytics are Vercel Analytics and Speed Insights, but the subprocessor table described Vercel only as hosting, storage, and edge infrastructure, while Section 10 says that table names every vendor supporting analytics. The row now says so, and names the page-view and page-performance data involved. Prompted by declaring App activity → App interactions on the Google Play Data safety form for the same collection. No change to the Effective Date, to what is collected, or to any right or obligation. |
+| 1.7 | November 25, 2026 | Disclosed, in Section 9 and the Section 13 retention table, that the mobile app now stores a copy of the technician’s own working day on the device so that a stop can be opened and completed with no mobile signal. Previously the app stored only records a technician had entered and not yet sent; it now also keeps the route and stop records needed to read them, including property addresses, access notes, and owner contact details, for no more than three days. No new information is collected by us, nothing additional is transmitted to us or to anyone else, and no right or obligation changes. No change to the Effective Date. |
 | 1.6 | November 14, 2026 | Corrected one phrase in Section 13: the deletion list said “technician pay rates,” and a pay rate is no longer recorded against a technician. A rate is now held against the body of water it is paid for, the same amount whichever technician services it, so a pay-rate record no longer contains a reference to a member of staff at all. The records themselves are unchanged in kind and are still deleted on the same 30-day schedule. No change to the Effective Date, to what is collected, to how long anything is kept, or to any right or obligation. |
 
 ## 24. Attorney Review Notice
