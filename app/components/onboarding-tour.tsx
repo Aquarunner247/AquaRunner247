@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ABOVE_MAP_Z_INDEX } from "@/lib/client/overlay-z-index";
+import { tourScrollDecision } from "@/lib/onboarding-tour-scroll";
 
 export type TourStep = {
   /** Value of a `data-tour="..."` attribute on the element this step points at. */
@@ -175,6 +176,51 @@ export function OnboardingTour({ steps, onFinish, markSeenAction, replayLocation
       setStepIndex(stepIndex + 1);
     }
   }, [stepIndex, resolvedSteps, finish]);
+
+  /**
+   * Bring this step's target on screen before the callout is read beside it.
+   *
+   * Separate from the rect tracking below, and deliberately so: this must fire ONCE per step,
+   * while updateRect fires on every scroll event -- including the ones this scroll itself
+   * produces, which together would be a loop that never settles.
+   *
+   * Declared BEFORE that effect so the reduced-motion path works in one pass: `behavior: "auto"`
+   * moves the page synchronously, so the updateRect() call in the next effect then measures the
+   * position the element actually ended up at rather than the one it was leaving.
+   *
+   * Nothing is awaited, because scrollIntoView reports nothing when it finishes. It does not need
+   * to: the scroll listener below keeps `rect` in step with the page, so the spotlight and bubble
+   * ride along with the element for the whole animation instead of being placed once at a
+   * position the animation immediately invalidates.
+   */
+  useEffect(() => {
+    if (!step) return;
+    const el = queryStep(step);
+    if (!el) return;
+    const decision = tourScrollDecision({
+      target: el.getBoundingClientRect(),
+      viewportHeight: window.innerHeight,
+    });
+    if (!decision.scroll) return;
+    // Honour the OS setting rather than animating regardless: a tour is a sequence of jumps
+    // nobody asked for, which is the case the preference exists for.
+    //
+    // Both values below agree with app/globals.css rather than fighting it, and which one is
+    // passed matters because of how the two interact: an explicit "smooth" OVERRIDES the
+    // `scroll-behavior` property, while "auto" defers to it. `html` there declares
+    // `scroll-behavior: smooth`, and the prefers-reduced-motion block forces it back to `auto`
+    // with !important -- so "smooth" matches the page's normal behaviour, and "auto" lets that
+    // override take effect instead of overriding the override.
+    const reduceMotion =
+      typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: decision.block,
+      // Vertical only. A step inside a horizontally scrolling table -- the Week view on
+      // /dashboard/routes -- must not have its column dragged sideways under the reader.
+      inline: "nearest",
+    });
+  }, [step]);
 
   // Track the current (already-confirmed-present) step's target position through resize/scroll.
   useEffect(() => {
