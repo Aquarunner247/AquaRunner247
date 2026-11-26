@@ -17,5 +17,14 @@
     "paths": { "@/*": ["./*"] }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // native/ is its own TypeScript project with its own tsconfig -- the React Native shell.
+    // Excluded rather than merged because React Native's types REDEFINE DOM globals: with
+    // native/node_modules in scope, its FormData shadows the DOM's and lib/api/request-body.ts
+    // and lib/twilio-verify.ts stop compiling against the FormData they actually receive. The
+    // shared modules the shell imports (lib/native-bridge-*.ts) are still checked here, by the
+    // web app's own compilation, which is where they belong.
+    "native"
+  ]
 }

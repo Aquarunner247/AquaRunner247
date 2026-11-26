@@ -5,8 +5,6 @@ import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
-import { Capacitor, registerPlugin } from "@capacitor/core";
-import type { BackgroundGeolocationPlugin } from "@capacitor-community/background-geolocation";
 import { BackgroundLocationDisclosure } from "@/app/components/background-location-disclosure";
 import {
   needsBackgroundLocationDisclosure,
@@ -15,7 +13,14 @@ import {
   recordBackgroundLocationProven,
   BACKGROUND_LOCATION_ALWAYS_HINT,
 } from "@/lib/background-location-disclosure";
-import { PushNotifications } from "@capacitor/push-notifications";
+import {
+  isNativeApp,
+  nativePlatform,
+  openAppSettings,
+  requestNotificationPermission,
+  startBackgroundLocationWatch,
+  type BackgroundWatchHandle,
+} from "@/lib/client/native-host";
 import { getTechnicianInitial, UNASSIGNED_TECHNICIAN_COLOR } from "@/lib/technician-colors";
 import { BRAND_ANCHOR, BRAND_PRIMARY } from "@/app/lib/chart-colors";
 import { formatSequenceRange, groupNearbyStops } from "@/lib/stop-grouping";
@@ -200,10 +205,6 @@ function matchesStatusFilter(item: DayItem, filter: NonNullable<Props["statusFil
   if (filter === "in_progress") return item.status === "IN_PROGRESS";
   return item.status === "SCHEDULED"; // "pending"
 }
-
-// No JS entrypoint ships from @capacitor-community/background-geolocation (it's types-only
-// -- see its package.json) -- this is the documented way to obtain the plugin.
-const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
 
 /**
  * localStorage for the departure-dwell mirror, or null when it cannot be had.
@@ -453,7 +454,7 @@ export function RouteDayView({
    */
   useEffect(() => {
     if (!allowGpsAutoArrival || !isToday) return;
-    if (Capacitor.getPlatform() !== "android") return;
+    if (nativePlatform() !== "android") return;
     if (needsAlwaysAllowHint(typeof window === "undefined" ? null : window.localStorage)) {
       setShowAlwaysHint(true);
     }
@@ -709,28 +710,25 @@ export function RouteDayView({
       if (!awaySinceRef.current.has(visitId)) awaySinceRef.current.set(visitId, at);
     }
 
-    if (Capacitor.isNativePlatform()) {
+    if (isNativeApp()) {
       if (isDayFullyDone()) return;
 
-      // @capacitor-community/background-geolocation, not @capacitor/geolocation's
-      // watchPosition -- the latter stops delivering fixes once the app is backgrounded
-      // (no background-location entitlement wired to it), which is exactly the gap that
-      // made auto-arrival unreliable for a tech who backgrounds the app to use Maps, or
-      // just locks their phone between stops. Setting `backgroundMessage` is what tells
-      // this plugin to keep delivering fixes in the background -- on Android that means a
-      // persistent "Tracking your route" notification and a foreground service (both
-      // required by the OS, not optional); on iOS it escalates the location permission
-      // from "While Using" to "Always" and turns on the blue background-location pill.
-      let watcherId: string | null = null;
+      // A BACKGROUND watcher, not the one-shot/foreground geolocation API -- the latter stops
+      // delivering fixes once the app is backgrounded, which is exactly the gap that made
+      // auto-arrival unreliable for a tech who backgrounds the app to use Maps, or just locks
+      // their phone between stops. Keeping fixes coming in the background is what forces the
+      // notification text below: on Android it means a persistent notification and a foreground
+      // service (both required by the OS, not optional); on iOS it escalates the location
+      // permission from "While Using" to "Always" and turns on the blue background-location pill.
+      // Which shell provides it is lib/client/native-host.ts's problem.
+      let watcher: BackgroundWatchHandle | null = null;
       let torndown = false;
 
       function teardown() {
         torndown = true;
-        if (watcherId) {
-          const id = watcherId;
-          watcherId = null;
-          void BackgroundGeolocation.removeWatcher({ id });
-        }
+        const handle = watcher;
+        watcher = null;
+        handle?.stop();
       }
 
       // THE DISCLOSURE GATE. Nothing below may request a permission until this has been
@@ -749,50 +747,38 @@ export function RouteDayView({
         // purely for its permission prompt (no push registration happens); deliberately
         // Android-only, since iOS has no equivalent and this would otherwise trigger an
         // unrelated "Would Like to Send You Notifications" prompt for no reason.
-        if (Capacitor.getPlatform() === "android") {
-          try {
-            await PushNotifications.requestPermissions();
-          } catch {
-            // Best-effort -- addWatcher below still runs; Android may just fail to show
-            // the notification (and so may stop delivering background updates) without it.
-          }
+        try {
+          // A no-op anywhere but Android; see requestNotificationPermission.
+          await requestNotificationPermission();
+        } catch {
+          // Best-effort -- the watcher below still starts; Android may just fail to show
+          // the notification (and so may stop delivering background updates) without it.
         }
         if (torndown) return;
         setLocationState("watching");
         try {
-          const id = await BackgroundGeolocation.addWatcher(
+          const handle = await startBackgroundLocationWatch(
             {
-              backgroundTitle: "Tracking your route",
-              backgroundMessage: "Logs your arrival at each stop automatically. Cancel to stop tracking for today.",
-              requestPermissions: true,
-              stale: false,
-              // 0, not a battery-saving distance, deliberately -- distanceFilter suppresses a
-              // fix until the device has moved that many meters from the LAST one delivered.
-              // A tech who parks and walks the final stretch to the pool/pump room, then
-              // stands there working, stops generating qualifying movement once inside the
-              // radius -- so with a nonzero filter, no fix ever lands while he's actually
-              // there, and the first one that does is often when he moves again to leave.
-              // That's exactly why arrival was only getting logged "at the end of the stop."
-              // The plugin's own Android LocationRequest still caps delivery at 1/second
-              // (see BackgroundGeolocationService.java), so this doesn't increase raw GPS
-              // polling -- it only stops good, in-radius fixes from being silently dropped.
-              distanceFilter: 0,
+              title: "Tracking your route",
+              message: "Logs your arrival at each stop automatically. Cancel to stop tracking for today.",
             },
-            (location, error) => {
+            (fix) => {
               if (torndown) return;
-              if (error) {
-                handleFailureMessage(error.code === "NOT_AUTHORIZED" ? "denied" : error.message);
-                return;
-              }
-              if (!location) return;
-              if (handleFix(location.latitude, location.longitude, location.accuracy)) {
+              if (handleFix(fix.latitude, fix.longitude, fix.accuracyMeters)) {
                 setLocationState("idle");
                 teardown();
               }
             },
+            (failure) => {
+              if (torndown) return;
+              handleFailureMessage(failure.denied ? "denied" : failure.message);
+            },
           );
-          if (torndown) void BackgroundGeolocation.removeWatcher({ id });
-          else watcherId = id;
+          // The screen can unmount while the watcher is still starting, so the race is settled
+          // here rather than assumed away: a handle that arrives after teardown is stopped at
+          // once, and one that arrives before it is what teardown will later stop.
+          if (torndown) handle.stop();
+          else watcher = handle;
         } catch (err) {
           handleFailureMessage(err instanceof Error ? err.message : String(err));
         }
@@ -1537,7 +1523,7 @@ export function RouteDayView({
             setShowLocationDisclosure(false);
             // iOS escalates to Always through its own prompt, so this is Android's problem alone.
             if (
-              Capacitor.getPlatform() === "android" &&
+              nativePlatform() === "android" &&
               needsAlwaysAllowHint(typeof window === "undefined" ? null : window.localStorage)
             ) {
               setShowAlwaysHint(true);
@@ -1561,14 +1547,14 @@ export function RouteDayView({
       {/* Shown after the disclosure is accepted, and whenever location is reported as denied --
           on a phone the fix is the same screen either way, and "check your browser settings" is
           advice nobody in the native app can act on. */}
-      {showAlwaysHint || (locationState === "denied" && Capacitor.isNativePlatform()) ? (
+      {showAlwaysHint || (locationState === "denied" && isNativeApp()) ? (
         <div className="app-card-inset mb-2">
           <p className="text-sm font-medium text-brand-ink">{BACKGROUND_LOCATION_ALWAYS_HINT.title}</p>
           <p className="mt-1 text-sm text-brand-ink">{BACKGROUND_LOCATION_ALWAYS_HINT.body}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => void BackgroundGeolocation.openSettings()}
+              onClick={() => void openAppSettings()}
               className="app-btn-primary-sm min-h-11 px-4"
             >
               {BACKGROUND_LOCATION_ALWAYS_HINT.action}
@@ -1576,7 +1562,7 @@ export function RouteDayView({
           </div>
         </div>
       ) : null}
-      {locationState === "denied" && !Capacitor.isNativePlatform() ? (
+      {locationState === "denied" && !isNativeApp() ? (
         <p className="mb-2 text-xs text-brand-warn">
           Location access is off, so arrival times won&rsquo;t log automatically — enable location for this site in your browser
           settings to turn it back on.

@@ -1,9 +1,10 @@
 # Native rebuild plan
 
-Status: **Phase 0a, 0b, the Capacitor half of 0c, and Phase 1a/1b/1c are built and tested.**
-Outstanding: the OS-geofence half of 0c, and Phases 2-4. **Phase 1d is done (2026-11-25)** --
+Status: **Phase 0a, 0b, the Capacitor half of 0c, Phase 1a-1d and Phase 2 are built and tested.**
+Outstanding: the OS-geofence half of 0c, and Phases 3-4. **Phase 1d is done (2026-11-25)** --
 Phase 1's own "done when" turned out to depend on it, and the app now opens and works a stop with
-no network at all.
+no network at all. **Phase 2 is done (2026-11-25)** -- a React Native shell builds, runs and
+round-trips the bridge on Android, with the hardware half still to be measured on a real phone.
 Written 2026-11-24.
 
 Supersedes the sizing done 2026-11-17, which deferred this work. Two of that assessment's
@@ -415,6 +416,94 @@ camera, push, splash, status bar.
 to internal testing only. The point of this phase is to prove the shell and the plugins before
 any screen depends on them.
 
+### What this plan missed, found on 2026-11-25
+
+**The plugin surface is not a list of plugins to reimplement. It is a seam that did not exist.**
+
+Capacitor injects `window.Capacitor` into its WebView and the page talks to its plugins through
+it. React Native injects no such thing. So on the day the shell changes, every
+`Capacitor.isNativePlatform()` in `app/` goes false and **the app silently degrades to browser
+behaviour** -- no background location watcher, no OS camera, no hardware back. Nothing throws and
+nothing logs. The app looks fine and the thing it exists to do is off.
+
+That is not a prediction. The first build of this shell loaded the live site and the hardware back
+button did nothing at all, because production was still serving the old page code.
+
+So Phase 2 starts in the WEB app, not in `native/`, and the first part of it is worth having
+whether or not the rest ever ships.
+
+### Done, 2026-11-25
+
+**2a. One seam, four files rewired.** `lib/client/native-host.ts` is now the only file in the app
+that imports `@capacitor/*`. `route-day-view.tsx`, `camera-capture.tsx`, `android-back-button.tsx`
+and `get-geolocation.ts` ask for a capability instead of asking who is listening. Capacitor is one
+implementation of three -- Capacitor, React Native, plain browser -- and deleting it in Phase 4 is
+a change to that one file.
+
+A fourth host kind exists on purpose: `react-native-incompatible`, for a shell whose bridge
+version the page does not speak. It reports as a native app, not a browser, because an installed
+binary can be months older than the site it loads and reporting "browser" there would resurrect
+the exact silent degradation above. Capabilities refuse out loud instead.
+
+**2b. The bridge, with the decidable half under test.** `lib/native-bridge-protocol.ts` (closed
+capability list, envelopes, parsers, origin trust), `lib/native-bridge-client.ts` (the page:
+correlation, timeouts, watcher routing) and `lib/native-bridge-host.ts` (the shell: who may ask,
+what a failure looks like). All three in `lib/`, imported by both sides through Metro, so the two
+halves cannot drift -- the same single-source rule this plan sets for the dosing maths. 94 new
+tests across six files (plus five added to the open-source-notices guard), including a round-trip
+suite that runs the real client against the real host over one string channel.
+
+Everything inbound is untrusted in both directions. The shell process holds the camera, GPS and
+notification permissions, and the WebView renders remote content and follows links, so a call is
+acted on only when it parses completely AND the page is on a trusted origin -- re-checked per
+message, because the technician navigates. Vercel previews are deliberately not trusted: a preview
+URL is world-reachable and its content is whatever was last pushed to a branch.
+
+**2c. The shell.** `native/`, Expo SDK 58, RN 0.88, with the native projects NOT committed --
+`android/` and `ios/` regenerate from `app.config.ts`, because the repo root already has an
+`android/` and two committed native directories is how somebody signs a release from the wrong one.
+
+Verified on an Android 37 emulator with a release APK:
+
+- Builds, installs, launches, renders the live production site with correct safe-area insets.
+- **The bridge round-trips.** A hardware back press reaches the shell, is emitted to the page, the
+  page decides the screen is a home screen, calls `app.minimize`, and the shell backgrounds the app
+  with the process still alive. One press exercises the injected bootstrap, host detection, event
+  delivery, a page-to-shell call, origin trust and a capability.
+- **No new permissions.** This one nearly went wrong: a plain `expo prebuild` added six the app has
+  never asked for -- microphone, both external-storage permissions, boot-completed,
+  display-over-other-apps, vibrate -- purely from what the Expo plugins declare. Play shows that
+  list to users and a new entry is a visible change plus a Data safety update; "a library we added
+  wanted it" is not an answer to give a technician who reads it. `blockedPermissions` removes them,
+  and `lib/__tests__/native-shell-config.test.ts` pins the result against the shipping bundle's
+  merged manifest.
+- The release manifest in fact asks for **two fewer** than today: `ACCESS_NETWORK_STATE` and
+  `WAKE_LOCK`, which the Capacitor build only carries because `@capacitor/push-notifications`
+  drags in Firebase for a permission prompt it never registers with.
+- `minimizeApp` needs no custom native module: an `expo-intent-launcher` HOME intent backgrounds
+  the Activity with its state intact, which is what the Capacitor plugin's `minimizeApp()` did and
+  what "matches pressing Home" in the back-button comment already described.
+
+Also added, because the emulator showed it: a failed load used to leave the technician on
+react-native-webview's own "Error loading page / net::ERR_CONNECTION_REFUSED" screen with nothing
+to tap. It now falls back to `/field` once, and if that fails too shows the app's own screen with
+a Try again button, in palette, read from `lib/design-tokens.ts`.
+
+**What is NOT verified, and cannot be from here:** the camera, the one-shot position and the
+background watcher (an emulator has no camera and a synthetic GPS); whether background fixes keep
+arriving with the screen off; the offline recovery to `/field`; and iOS, which is configured and
+never built. See `native/README.md` for why each needs a device or a real HTTPS deployment.
+
+**The one to measure first** is background delivery with the screen off. Both shells declare
+`foregroundServiceType="location"` and neither holds a wake lock, so there is no reason to expect
+a difference -- but unreliable departure detection is what started this whole project, and that
+makes it the wrong thing to assume.
+
+**Legal:** `content/legal/open-source-notices.md` gained a "The mobile app shell" section. Those
+14 packages ship inside the binaries, so the MIT attribution travels with them; the existing drift
+test now covers both manifests separately, because both install `react` at different versions and
+one merged list would silently drop one of them.
+
 ## Phase 3 — Port the technician screens, one at a time
 
 In dependency order, each shipping independently, each falling back to the WebView until it
@@ -461,7 +550,11 @@ credentials do not change.
 
 - Does Phase 1 alone satisfy the need? If technicians stop hitting dead zones once the day is
   readable offline, Phases 2–4 may never earn their keep. **Decide after Phase 1 ships, with
-  real usage, not now.**
+  real usage, not now.** Still open on 2026-11-25: Phase 2 was built the same day Phase 1d
+  shipped, before any real usage of it. That order was a choice, and the cost of being wrong is
+  bounded -- Phase 2a (the host seam) is a strict improvement to the web app whatever happens to
+  the shell, and `native/` ships to nobody until somebody uploads it. Phase 3 is the one that
+  should wait for the answer.
 - Push notifications: currently unused by the technician flow. Native makes them cheap. Worth a
   product conversation separately, not a reason to go native.
 - Does OFFICE ever need the native app? They have no tour and no field work. Assumed WebView.

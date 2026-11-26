@@ -2,8 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { Capacitor } from "@capacitor/core";
-import { App } from "@capacitor/app";
+import { listenForHardwareBack, minimizeApp } from "@/lib/client/native-host";
 
 /**
  * The three screens a back press should minimize from rather than try to navigate past: the
@@ -18,11 +17,13 @@ const HOME_PATHS = new Set(["/", "/dashboard", "/portal"]);
  *
  * MainActivity is a bare `BridgeActivity` with no `onBackPressed` override, so without this,
  * every back press -- on any screen, regardless of the "Back to ..." links some pages have --
- * finishes the Activity and the app just quits. @capacitor/app installs an
+ * finishes the Activity and the app just quits. The Capacitor shell installs an
  * `OnBackPressedCallback` that intercepts the press, but only acts on its own (calling the
  * WebView's native goBack()) when nothing is listening for the `backButton` event; once a
  * listener is registered, as here, it's on that listener to decide what happens, and doing
  * nothing would make back a dead button at the end of history instead of a working one.
+ *
+ * Which shell is underneath is lib/client/native-host.ts's problem, not this component's.
  *
  * `window.history.back()` rather than reaching for the WebView's native history directly: Next's
  * router pushes to the same `history` the WebView tracks, so this mirrors what tapping a browser
@@ -37,9 +38,9 @@ const HOME_PATHS = new Set(["/", "/dashboard", "/portal"]);
  * (`HOME_PATHS`) regardless of what `canGoBack` claims, since there's never a meaningful
  * in-app "back" from one of these anyway.
  *
- * `minimizeApp()` rather than `exitApp()`: a technician can easily be mid-visit with an unsaved
- * reading, and `exitApp()` tears the Activity down, forcing a full reload next launch.
- * Minimizing matches pressing Home and keeps that state alive in the background.
+ * Minimising rather than exiting: a technician can easily be mid-visit with an unsaved reading,
+ * and exiting tears the Activity down, forcing a full reload next launch. Minimizing matches
+ * pressing Home and keeps that state alive in the background.
  */
 export function AndroidBackButton() {
   const pathname = usePathname();
@@ -47,19 +48,16 @@ export function AndroidBackButton() {
   pathnameRef.current = pathname;
 
   useEffect(() => {
-    if (Capacitor.getPlatform() !== "android") return;
-
-    const listenerPromise = App.addListener("backButton", ({ canGoBack }) => {
-      if (canGoBack && !HOME_PATHS.has(pathnameRef.current)) {
-        window.history.back();
-      } else {
-        App.minimizeApp();
-      }
-    });
-
-    return () => {
-      listenerPromise.then((listener) => listener.remove());
-    };
+    // Null when there is no hardware back to listen to -- a browser, or iOS.
+    return (
+      listenForHardwareBack(({ canGoBack }) => {
+        if (canGoBack && !HOME_PATHS.has(pathnameRef.current)) {
+          window.history.back();
+        } else {
+          void minimizeApp();
+        }
+      }) ?? undefined
+    );
   }, []);
 
   return null;

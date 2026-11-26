@@ -4,7 +4,8 @@ AquaRunner 24/7 Pro is built on open-source software. This page is the notice re
 Section 9 of our [End User License Agreement](/eula).
 
 The components below are the direct production dependencies of the service, with the licence
-each is distributed under. Each component remains subject to its own licence terms, which
+each is distributed under. The iOS and Android apps carry a further set of their own, listed
+separately in the section "The mobile app shell" at the end of this page. Each component remains subject to its own licence terms, which
 govern that component to the extent they conflict with our End User License Agreement. Full
 licence text and copyright notices ship inside each package and are available from its
 publisher.
@@ -14,7 +15,7 @@ Map data and imagery carry their own attribution, shown on the map itself: stree
 &copy; Esri and its imagery partners. Driving routes and travel times are calculated by Project
 OSRM, and address geocoding by Nominatim, both operated by the OpenStreetMap community.
 
-**Last updated:** November 10, 2026
+**Last updated:** November 25, 2026
 
 ## Components
 
@@ -101,6 +102,30 @@ The following component is distributed without a license field in its package me
 Its terms are those published by its author with the package itself.
 
 - `botid` 1.5.11
+
+## The mobile app shell
+
+The iOS and Android apps are a React Native shell around the same service rather than a separate
+product, so they ship their own copies of the components below. All are used under the MIT License
+set out above, each copyright its respective authors.
+
+Where a name also appears in the list above, the two are on different versions and each is stated
+separately rather than merged.
+
+- `expo` 58.0.26
+- `expo-build-properties` 58.0.12
+- `expo-constants` 58.0.16
+- `expo-image-picker` 58.0.10
+- `expo-intent-launcher` 58.0.3
+- `expo-location` 58.0.22
+- `expo-splash-screen` 58.0.14
+- `expo-status-bar` 58.0.5
+- `expo-system-ui` 58.0.7
+- `expo-task-manager` 58.0.14
+- `react` 19.3.0
+- `react-native` 0.88.1
+- `react-native-safe-area-context` 5.11.1
+- `react-native-webview` 14.0.1
 
 ## Requesting a copy
 

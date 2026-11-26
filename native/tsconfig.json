@@ -1,0 +1,15 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      // Resolves to the repo root, so this app imports lib/native-bridge-* directly rather than
+      // keeping a second copy of the protocol. Mirrored in metro.config.js, which is what
+      // actually bundles it -- tsconfig only satisfies the editor and the typecheck.
+      "@/*": ["../*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", "../lib/native-bridge-protocol.ts", "../lib/native-bridge-host.ts"],
+  "exclude": ["node_modules", "android", "ios"]
+}

@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Capacitor } from "@capacitor/core";
-import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { isNativeApp, takeNativePhoto } from "@/lib/client/native-host";
 
 type Props = {
   onCapture: (file: File) => void | Promise<void>;
@@ -90,12 +89,11 @@ function computeBlurScore(source: HTMLCanvasElement): number | null {
  * Requires a secure context (HTTPS, or localhost in dev) -- same requirement production
  * already meets on Vercel.
  *
- * Inside the native app shell (Capacitor.isNativePlatform()), this bypasses getUserMedia
- * entirely and calls the native Camera plugin with source: CameraSource.Camera instead --
- * that source opens the OS's own camera capture UI directly, with no "choose from library"
- * option ever presented, same no-gallery guarantee as above but backed by the platform
- * rather than a web API. saveToGallery is left false so a compliance photo doesn't also
- * land in the user's personal camera roll. The returned image is fed through the same
+ * Inside a native app shell (isNativeApp()), this bypasses getUserMedia entirely and asks
+ * lib/client/native-host.ts for an OS camera capture instead -- that opens the platform's
+ * own camera UI directly, with no "choose from library" option ever presented, the same
+ * no-gallery guarantee as above but backed by the platform rather than a web API, and
+ * without saving to the user's personal camera roll. The returned image is fed through the same
  * blur-check/review/retake UI as the web path (see loadImageIntoCanvas) rather than being
  * submitted straight through, so the experience is identical either way.
  */
@@ -178,24 +176,16 @@ export function CameraCapture({ onCapture, disabled, subject }: Props) {
    * again rather than reusing anything. */
   async function captureNative() {
     try {
-      const photo = await Camera.getPhoto({
-        source: CameraSource.Camera,
-        resultType: CameraResultType.DataUrl,
-        quality: 90,
-        saveToGallery: false,
-        correctOrientation: true,
-        allowEditing: false,
-      });
-      if (!photo.dataUrl) throw new Error("No image data returned from camera");
-      await loadImageIntoCanvas(photo.dataUrl);
-    } catch (err) {
-      // The plugin rejects with a "User cancelled photos app" message when someone backs
-      // out of the native camera UI -- that's a normal exit, not an error state.
-      const message = err instanceof Error ? err.message : String(err);
-      if (/cancel/i.test(message)) {
+      // Null means the technician backed out of the OS camera UI -- a normal exit, not an
+      // error state, so the sheet closes silently rather than accusing them of denying
+      // permission. Telling those two apart is native-host.ts's job now.
+      const dataUrl = await takeNativePhoto({ quality: 90 });
+      if (!dataUrl) {
         closeCamera();
         return;
       }
+      await loadImageIntoCanvas(dataUrl);
+    } catch {
       setError("Camera access was denied or is unavailable. Enable camera permission for this app and try again.");
     }
   }
@@ -205,7 +195,7 @@ export function CameraCapture({ onCapture, disabled, subject }: Props) {
     setPreview(null);
     setOpen(true);
 
-    if (Capacitor.isNativePlatform()) {
+    if (isNativeApp()) {
       await captureNative();
       return;
     }
@@ -258,7 +248,7 @@ export function CameraCapture({ onCapture, disabled, subject }: Props) {
     setPreview(null);
     // No live stream to fall back to on native -- get a fresh frame the same way the
     // initial capture did.
-    if (Capacitor.isNativePlatform()) {
+    if (isNativeApp()) {
       void captureNative();
     }
   }
@@ -319,7 +309,7 @@ export function CameraCapture({ onCapture, disabled, subject }: Props) {
                 ) : preview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={preview.dataUrl} alt="Captured preview" className="h-full w-full object-cover" />
-                ) : Capacitor.isNativePlatform() ? (
+                ) : isNativeApp() ? (
                   // The native camera is a separate OS-level screen presented on top of
                   // this WebView -- there's nothing of ours to show underneath it while
                   // it's open, just a placeholder for the brief moment before/after.
@@ -367,7 +357,7 @@ export function CameraCapture({ onCapture, disabled, subject }: Props) {
                       {preview.isLikelyBlurry ? "Use anyway" : "Use photo"}
                     </button>
                   </>
-                ) : Capacitor.isNativePlatform() ? null : (
+                ) : isNativeApp() ? null : (
                   <button
                     type="button"
                     onClick={capture}

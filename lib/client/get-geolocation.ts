@@ -1,7 +1,6 @@
 "use client";
 
-import { Capacitor } from "@capacitor/core";
-import { Geolocation } from "@capacitor/geolocation";
+import { getNativeCurrentPosition, isNativeApp } from "@/lib/client/native-host";
 
 export type BestEffortLocation = { latitude: number; longitude: number; accuracyMeters: number };
 
@@ -10,24 +9,15 @@ export type BestEffortLocation = { latitude: number; longitude: number; accuracy
  * action it's attached to). Shared by photo capture and visit-arrival logging so both grab
  * location the same way.
  *
- * Inside the native app shell, uses the native Geolocation plugin instead of the web
- * `navigator.geolocation` API -- not just for parity with the camera wiring, but because a
- * bare Capacitor WebView doesn't reliably bridge the web geolocation permission prompt to
- * the OS on its own (a known Capacitor gap, not a hypothetical one), so the plain web API
- * can silently hang or fail to prompt at all in the native app without this.
+ * Inside a native app shell, goes through lib/client/native-host.ts to the OS instead of the
+ * web `navigator.geolocation` API -- not just for parity with the camera wiring, but because a
+ * bare WebView doesn't reliably bridge the web geolocation permission prompt to the OS on its
+ * own (a known gap, not a hypothetical one), so the plain web API can silently hang or fail to
+ * prompt at all in the native app without this.
  */
 export async function getBestEffortLocation(): Promise<BestEffortLocation | null> {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 7000 });
-      return {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracyMeters: position.coords.accuracy,
-      };
-    } catch {
-      return null;
-    }
+  if (isNativeApp()) {
+    return getNativeCurrentPosition(7000);
   }
 
   if (typeof navigator === "undefined" || !navigator.geolocation) {

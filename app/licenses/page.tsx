@@ -13,9 +13,12 @@ export const metadata: Metadata = {
 
 // Routed 2026-10-22, because EULA Section 9 cites this URL for open-source notices.
 //
-// content/legal/open-source-notices.md is GENERATED from the direct production dependencies
-// in package.json -- regenerate it when dependencies change rather than hand-editing, or the
-// notice drifts from what actually ships. Read verbatim here.
+// content/legal/open-source-notices.md lists the direct production dependencies of TWO
+// manifests -- package.json (the service) and native/package.json (the React Native app shell,
+// whose packages ship inside the iOS and Android binaries). It is maintained by hand and kept
+// honest by lib/__tests__/open-source-notices.test.ts, which compares every bullet against what
+// npm actually installed in each tree. Add a dependency and that test fails until the page says
+// so. Read verbatim here; `marked` emits no heading ids, so do not write intra-page anchors.
 const CONTENT_PATH = path.join(process.cwd(), "content", "legal", "open-source-notices.md");
 
 export default function LicensesPage() {
