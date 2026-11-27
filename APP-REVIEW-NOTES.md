@@ -184,6 +184,16 @@ in the repo. Listed here because each one is invisible until a build is already 
   Set to `false`: the app's only cryptography is HTTPS to our own origin plus Apple's keychain
   and TLS, which is the standard exemption.
 
+- **`CODE_SIGN_IDENTITY` was `"iPhone Developer"`** on both project-level configurations,
+  Release included. That is the legacy name for a *development* signing identity, so automatic
+  signing went looking for an iOS App **Development** provisioning profile when archiving rather
+  than a distribution one -- and Apple will not issue a development profile to a team with no
+  registered devices. The archive failed with "Your team has no devices from which to generate a
+  provisioning profile", which reads like an account problem and is not one. Both lines are now
+  gone; with `CODE_SIGN_STYLE = Automatic` and no identity override, Xcode picks Apple
+  Development to run and Apple Distribution to archive, which is what it should have done all
+  along. Another Cordova-era template default, same species as `armv7`.
+
 Still to do on the Mac, and only there: open `ios/App/App.xcodeproj`, set the signing team
 (`CODE_SIGN_STYLE` is `Automatic` and no `DEVELOPMENT_TEAM` is committed, deliberately — it is
 account-specific), then Product → Archive. `MARKETING_VERSION` is `1.0` and
