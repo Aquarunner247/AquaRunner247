@@ -47,20 +47,16 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<!-- arm64, not the template's armv7: armv7 is 32-bit, and every device running an iOS
+	     version Capacitor 8 supports dropped 32-bit execution entirely. Left as armv7 this
+	     declares a REQUIRED capability no shipping iPhone has. -->
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
@@ -72,6 +68,12 @@
 	<string>AquaRunner uses your location to automatically log when you arrive at each stop on your route and when you leave one you haven’t finished.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>AquaRunner logs when you arrive at each stop and when you leave automatically, even while the app is in the background — for example while you're using Maps to drive there. Leaving is worked out on this device and recorded as a time only; no position is sent for it. Location is only used while you have an active route for the day.</string>
+	<!-- The app's only cryptography is HTTPS to our own origin plus Apple's own keychain and
+	     TLS, which is exempt under the standard "limited to authentication and HTTPS" case. With
+	     this absent, App Store Connect asks the export-compliance question again on every single
+	     upload and holds the build until it is answered by hand. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

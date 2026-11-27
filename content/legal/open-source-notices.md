@@ -4,7 +4,8 @@ AquaRunner 24/7 Pro is built on open-source software. This page is the notice re
 Section 9 of our [End User License Agreement](/eula).
 
 The components below are the direct production dependencies of the service, with the licence
-each is distributed under. The iOS and Android apps carry a further set of their own, listed
+each is distributed under, and they include the components the iOS and Android apps are built
+from. A second, replacement shell for those apps carries a further set of its own, listed
 separately in the section "The mobile app shell" at the end of this page. Each component remains subject to its own licence terms, which
 govern that component to the extent they conflict with our End User License Agreement. Full
 licence text and copyright notices ship inside each package and are available from its
@@ -15,7 +16,7 @@ Map data and imagery carry their own attribution, shown on the map itself: stree
 &copy; Esri and its imagery partners. Driving routes and travel times are calculated by Project
 OSRM, and address geocoding by Nominatim, both operated by the OpenStreetMap community.
 
-**Last updated:** November 25, 2026
+**Last updated:** November 27, 2026
 
 ## Components
 
@@ -105,9 +106,12 @@ Its terms are those published by its author with the package itself.
 
 ## The mobile app shell
 
-The iOS and Android apps are a React Native shell around the same service rather than a separate
-product, so they ship their own copies of the components below. All are used under the MIT License
-set out above, each copyright its respective authors.
+The iOS and Android apps are a shell around the same service rather than a separate product.
+The apps distributed today through the App Store and Google Play are built with Capacitor, and
+the components they ship are listed above. A replacement shell built with React Native is in
+development; it ships its own copies of the components below, which are listed here so that this
+notice is complete for any build that reaches a device. All are used under the MIT License set
+out above, each copyright its respective authors.
 
 Where a name also appears in the list above, the two are on different versions and each is stated
 separately rather than merged.

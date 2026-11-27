@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { COLOR } from "@/lib/design-tokens";
 import { NATIVE_SHELL_UA_TOKEN } from "@/lib/native-shell";
 
@@ -59,6 +59,49 @@ describe("the React Native shell's native config", () => {
     // checks the Capacitor config, the only other place it is written out.
     expect(CAPACITOR_CONFIG).toContain(`appendUserAgent: "${NATIVE_SHELL_UA_TOKEN}"`);
     expect(readFileSync("native/src/App.tsx", "utf8")).toContain("applicationNameForUserAgent={NATIVE_SHELL_UA_TOKEN}");
+  });
+
+  it("is reflected in whichever per-platform files `cap copy` has generated", () => {
+    // The checks above read capacitor.config.ts, which is the source of truth for a HUMAN.
+    // Neither binary ever sees it: `cap copy` renders it down to a capacitor.config.json under
+    // each platform, and THAT is what the shell loads at runtime.
+    //
+    // Those two generated files are gitignored (Capacitor's own .gitignore), so a clean
+    // checkout has neither and this test has nothing to compare -- hence existsSync rather
+    // than readFileSync. What it catches is the state of a BUILD MACHINE: archiving in Xcode
+    // does not run `cap copy`, so a stale generated file sitting beside the project is what
+    // ships, silently.
+    //
+    // That is not hypothetical. On 2026-11-26 the iOS copy on the development machine predated
+    // appendUserAgent entirely. Archiving from it would have produced a build that did not
+    // identify itself to the server, so isNativeShellUserAgent() would have returned false and
+    // /portal/subscribe would have offered Stripe checkout inside the app -- a consumer
+    // single-user purchase, precisely what Guideline 3.1.3(c)'s enterprise exemption does not
+    // cover. The same file was also missing AppPlugin from packageClassList, which on iOS means
+    // @capacitor/app never registers and its app-state listeners fail.
+    //
+    // The fix is still to run `npx cap sync ios` before archiving. This only makes forgetting
+    // it loud instead of silent, on any machine that has built once.
+    const source = {
+      appId: CAPACITOR_CONFIG.match(/appId:\s*"([^"]+)"/)?.[1],
+      appName: CAPACITOR_CONFIG.match(/appName:\s*"([^"]+)"/)?.[1],
+      appendUserAgent: CAPACITOR_CONFIG.match(/appendUserAgent:\s*"([^"]+)"/)?.[1],
+      serverUrl: CAPACITOR_CONFIG.match(/url:\s*"([^"]+)"/)?.[1],
+    };
+    expect(source.appendUserAgent).toBe(NATIVE_SHELL_UA_TOKEN);
+
+    for (const generated of [
+      "ios/App/App/capacitor.config.json",
+      "android/app/src/main/assets/capacitor.config.json",
+    ]) {
+      if (!existsSync(generated)) continue;
+      const copy = JSON.parse(readFileSync(generated, "utf8"));
+      const stale = `${generated} is out of date -- run \`npx cap sync\` before building`;
+      expect(copy.appId, stale).toBe(source.appId);
+      expect(copy.appName, stale).toBe(source.appName);
+      expect(copy.appendUserAgent, stale).toBe(source.appendUserAgent);
+      expect(copy.server?.url, stale).toBe(source.serverUrl);
+    }
   });
 
   it("declares no permission the shipping Capacitor build does not", () => {

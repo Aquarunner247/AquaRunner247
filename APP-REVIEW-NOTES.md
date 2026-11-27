@@ -144,13 +144,51 @@ than being a one-time fix.
       App Store Connect rejects a collision when you register it, which is the real test; Play
       is the same. It is permanent on both once either has seen it
 - [ ] App Store Connect privacy answers match `ios/App/App/PrivacyInfo.xcprivacy` — all linked,
-      none used for tracking. **The manifest is known incomplete as of 2026-11-11:** it declares
-      nothing for the Google Analytics 4 tag that `app/layout.tsx` loads on every route, so
-      product-interaction data and a browser identifier go undeclared. Settle that first
+      none used for tracking. **The 2026-11-11 gap is closed, rechecked 2026-11-26:** the Google
+      Analytics 4 tag it referred to is no longer loaded anywhere (nothing in `app/` or `lib/`
+      references gtag, googletagmanager or a measurement id), and the only client analytics left
+      are `@vercel/analytics` and `@vercel/speed-insights` in the root layout, which the manifest
+      covers as `ProductInteraction` and `PerformanceData`. Nothing to settle before submitting
 - [ ] Google Play Data Safety form — answer it from the table in `GOOGLE-PLAY-SUBMISSION.md`,
       **not** by mirroring the iOS types. The two are supposed to differ in one direction (Play
       asks about sharing, and an address collected in the app reaches Nominatim, which is not a
       service provider) and to agree everywhere else
+
+## iOS build settings, settled 2026-11-26
+
+Four things in the Xcode project were wrong or missing for a first submission and are now fixed
+in the repo. Listed here because each one is invisible until a build is already uploaded.
+
+- **Run `npx cap sync ios` before you archive.** This is the one that would have shipped a
+  rejection. `ios/App/App/capacitor.config.json` is what the binary actually loads;
+  `capacitor.config.ts` is only the source a human edits, and it is `cap copy` that renders one
+  into the other. The generated file is gitignored, so a clean checkout has none and makes a
+  correct one — but **archiving in Xcode does not run `cap copy`**, so whatever stale copy is
+  sitting on the build machine is what ships. On this machine, on 2026-11-26, that copy predated
+  `appendUserAgent` entirely: a build from it would not have identified itself to the server,
+  `isNativeShellUserAgent()` would have returned false, and `/portal/subscribe` would have
+  offered Stripe checkout inside the app — a consumer single-user purchase, precisely what
+  3.1.3(c)'s enterprise exemption does not cover. It was also missing `AppPlugin` from
+  `packageClassList`, which on iOS means `@capacitor/app` never registers and its app-state
+  listeners fail. `lib/__tests__/native-shell-config.test.ts` now compares whichever generated
+  copies exist against the source, so on a machine that has built once, forgetting the sync is
+  loud instead of silent.
+- **`TARGETED_DEVICE_FAMILY` was `"1,2"`** — iPhone and iPad. Now `"1"`. iPad would have
+  required a second full set of screenshots and put the app in front of a reviewer on a form
+  factor no technician uses. It can be added later without a new listing.
+- **`UIRequiredDeviceCapabilities` was `armv7`**, the Cordova-era template default. armv7 is
+  32-bit and every device running an iOS version Capacitor 8 supports dropped 32-bit execution,
+  so as a *required* capability it described hardware no shipping iPhone has. Now `arm64`.
+- **`ITSAppUsesNonExemptEncryption` was absent.** Without it App Store Connect asks the
+  export-compliance question on every upload and holds the build until it is answered by hand.
+  Set to `false`: the app's only cryptography is HTTPS to our own origin plus Apple's keychain
+  and TLS, which is the standard exemption.
+
+Still to do on the Mac, and only there: open `ios/App/App.xcodeproj`, set the signing team
+(`CODE_SIGN_STYLE` is `Automatic` and no `DEVELOPMENT_TEAM` is committed, deliberately — it is
+account-specific), then Product → Archive. `MARKETING_VERSION` is `1.0` and
+`CURRENT_PROJECT_VERSION` is `1`; the Play build is at versionCode 5 but the two stores number
+independently, so 1 is correct for a first App Store upload.
 
 ## If it gets rejected anyway
 
